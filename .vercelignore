@@ -1,0 +1,24 @@
+# Large local artifacts not needed for web deploy
+.git
+flutter_sdk
+node_modules
+firebase
+icons
+
+# Flutter build leftovers
+android
+ios
+lib
+test
+web
+assets
+canvaskit
+
+# Workspace clutter / backups
+*.bak
+*.bak2
+*.iml
+.metadata
+
+# Local env files
+.env*

@@ -1,0 +1,100 @@
+[
+  {
+    "id": "bottom_jigging",
+    "name": "حداق قاع",
+    "target_type": "bottom",
+    "best_for": ["deep", "reef"],
+    "notes": "مناسب للهامور والنقرور في القيعان الصخرية"
+  },
+  {
+    "id": "shore_casting",
+    "name": "حداق ساحلي",
+    "target_type": "bottom",
+    "best_for": ["coast"],
+    "notes": "يناسب الشعري والشعم في المد المعتدل"
+  },
+  {
+    "id": "trolling",
+    "name": "تشخيط",
+    "target_type": "surface",
+    "best_for": ["deep"],
+    "notes": "مناسب للكنعد والباراكودا مع سرعات قارب ثابتة"
+  },
+  {
+    "id": "spinning",
+    "name": "غزل",
+    "target_type": "surface",
+    "best_for": ["coast", "reef"],
+    "notes": "فعال وقت الفجر والغروب"
+  },
+  {
+    "id": "reef_drop",
+    "name": "نزول شعاب",
+    "target_type": "bottom",
+    "best_for": ["reef"],
+    "notes": "أفضل مع الطعم الحي والخيط المتوسط"
+  },
+  {
+    "id": "night_bottom",
+    "name": "حداق ليلي",
+    "target_type": "bottom",
+    "best_for": ["deep", "reef"],
+    "notes": "مناسب للسبيطي والأسماك القاعية النشطة ليلاً"
+  },
+  {
+    "id": "redsea_deep_reef",
+    "name": "حداق شعاب عميقة",
+    "target_type": "bottom",
+    "best_for": ["deep", "reef"],
+    "regions": ["red_sea"],
+    "notes": "ممتاز للناجل والطرادي فوق الحواف والشعاب العميقة مع تثبيت القارب واستخدام طعم حي. أفضلية واضحة في شمال البحر الأحمر وينبع/أملج."
+  },
+  {
+    "id": "live_bait_drop",
+    "name": "حداق ييم حي",
+    "target_type": "bottom",
+    "best_for": ["deep", "reef"],
+    "regions": ["red_sea"],
+    "notes": "إنزال الطعم الحي ببطء قرب الشعاب والكسارات. فعال جداً للناجل في المد المتوسط إلى العالي."
+  },
+  {
+    "id": "light_reef_fishing",
+    "name": "حداق خفيف",
+    "target_type": "surface",
+    "best_for": ["coast", "reef"],
+    "regions": ["red_sea"],
+    "notes": "مناسب للسيجان والحريد حول الشعاب الضحلة والمناطق العشبية باستخدام عدة خفيفة وطعم نباتي أو عجائن."
+  },
+  {
+    "id": "shallow_reef_edges",
+    "name": "شعاب ضحلة",
+    "target_type": "surface",
+    "best_for": ["reef", "coast"],
+    "regions": ["red_sea"],
+    "notes": "أفضل في الصباح الباكر حول حواف الشعاب الضحلة. نشاطه يرتفع جنوباً باتجاه جازان للحريد والسيجان."
+  },
+  {
+    "id": "slow_trolling",
+    "name": "تشخيط بطيء",
+    "target_type": "bottom",
+    "best_for": ["deep"],
+    "regions": ["red_sea"],
+    "notes": "جر بطيء أو سحب قريب من القاع للصيد على الحواف العميقة. مفيد للطرادي عندما تكون الرياح معتدلة."
+  },
+  {
+    "id": "sand_reef_bottom",
+    "name": "قرب الشعاب",
+    "target_type": "bottom",
+    "best_for": ["coast", "reef"],
+    "regions": ["red_sea"],
+    "notes": "للشعور قرب التحول من الرمل إلى الشعاب. الربيع هو الأفضل خاصة في المياه الصافية والمد المتوازن."
+  },
+  {
+    "id": "redsea_reef_spin",
+    "name": "حداق شعاب",
+    "target_type": "surface",
+    "best_for": ["reef", "coast"],
+    "regions": ["red_sea"],
+    "notes": "مناسب للحريد في مواسم تجمّعه، خاصة جنوب البحر الأحمر. يحتاج حركة هادئة قرب الشعاب وعدم الإزعاج."
+  }
+]

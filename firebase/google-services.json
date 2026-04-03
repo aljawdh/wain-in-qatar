@@ -1,0 +1,28 @@
+{
+  "project_info": {
+    "project_id": "wain-in-qatar",
+    "project_number": "000000000000",
+    "name": "wain-in-qatar"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "com.example.wain_in_qatar"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUMMY_REPLACE_ME"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

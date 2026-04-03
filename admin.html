@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1c2c">
+<title>NaviDur Admin | لوحة الإدارة</title>
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#081a2b;--bg2:#102c45;--bg3:#0d2235;--txt:#fff;--txt2:#c7d5e4;--txt3:#8ea4ba;--accent:#27b3ff;--red:#ff5252}
+body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(circle at top right,#0e3250,#081a2b 55%);color:var(--txt);min-height:100vh}
+.admin-shell{max-width:1040px;margin:0 auto;padding:20px 14px 24px}
+.admin-topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.admin-title{font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.admin-title i{color:var(--accent)}
+.admin-link{background:var(--bg3);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:9px 12px;text-decoration:none}
+.admin-login-form{max-width:380px;margin:60px auto 0;padding:24px;background:rgba(16,44,69,.95);border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:0 14px 32px rgba(0,0,0,.35)}
+.admin-login-form h3{text-align:center;margin-bottom:16px;color:var(--accent)}
+.admin-login-form input{width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 12px;font-size:.9rem;margin-bottom:10px}
+.al-btn,.admin-export-btn,.admin-refresh{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:10px 14px;font-family:inherit;cursor:pointer}
+.admin-refresh{background:#0f3d60;border:1px solid rgba(255,255,255,.15)}
+.al-err{display:none;color:var(--red);text-align:center;margin-top:8px;font-size:.9rem}
+.admin-content{display:none}
+.admin-content.active{display:block}
+.admin-layout{display:grid;grid-template-columns:180px 1fr;gap:12px}
+.admin-sidebar{background:rgba(16,44,69,.95);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px;display:grid;gap:8px;height:max-content;position:sticky;top:14px}
+.admin-nav{background:var(--bg3);color:#fff;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:right;font-family:inherit}
+.admin-nav.active{background:var(--accent);border-color:transparent}
+.admin-section{background:rgba(16,44,69,.95);border-radius:14px;padding:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.08)}
+.admin-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.as-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
+.as-val{font-size:1.35rem;font-weight:700;color:var(--accent)}
+.as-lbl{font-size:.74rem;color:var(--txt3)}
+.admin-chart-wrap{height:220px;margin:10px 0}
+.admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.admin-table th{background:var(--bg3);padding:8px;text-align:right;color:var(--txt2)}
+.admin-table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px}
+.admin-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.admin-field{display:flex;flex-direction:column;gap:6px}
+.admin-field.full{grid-column:1/-1}
+.admin-field label{font-size:.8rem;color:var(--txt2)}
+.admin-field input,.admin-field textarea{width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 11px;font-size:.88rem;font-family:inherit}
+.admin-field textarea{min-height:130px;resize:vertical;line-height:1.6}
+.admin-switch{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px}
+.admin-switch input{transform:scale(1.2)}
+.settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.settings-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-family:inherit;cursor:pointer}
+.settings-btn.secondary{background:#0f3d60;border:1px solid rgba(255,255,255,.15)}
+.settings-status{margin-top:10px;font-size:.82rem;color:#9ad9ff}
+@media(max-width:760px){.admin-layout{grid-template-columns:1fr}.admin-sidebar{position:static;grid-template-columns:repeat(3,1fr)}.admin-nav{text-align:center}.admin-stat{grid-template-columns:1fr}}
+@media(max-width:760px){.admin-form-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <div class="admin-shell">
+    <div class="admin-topbar">
+      <div class="admin-title"><i class="fa-solid fa-chart-pie"></i> لوحة تحليلات NaviDur</div>
+      <a class="admin-link" href="/">العودة للتطبيق</a>
+    </div>
+
+    <div class="admin-login-form" id="adminLoginForm">
+      <h3>دخول الإدارة</h3>
+      <input type="text" id="adminUser" placeholder="اسم المستخدم" autocomplete="off">
+      <input type="password" id="adminPass" placeholder="كلمة المرور" autocomplete="off">
+      <button class="al-btn" id="adminLoginBtn">تسجيل الدخول</button>
+      <div class="al-err" id="adminErr">بيانات الدخول غير صحيحة</div>
+    </div>
+
+    <div class="admin-content" id="adminContent">
+      <div class="toolbar">
+        <button class="admin-refresh" id="adminRefresh"><i class="fa-solid fa-rotate"></i> تحديث</button>
+        <button class="admin-export-btn" id="adminExportBtn">تحميل التقرير</button>
+      </div>
+      <div class="admin-layout">
+        <aside class="admin-sidebar">
+          <button class="admin-nav active" data-filter="all">الرئيسية</button>
+          <button class="admin-nav" data-filter="users">المستخدمين</button>
+          <button class="admin-nav" data-filter="fishing">الصيد</button>
+          <button class="admin-nav" data-filter="ui">الواجهة</button>
+          <button class="admin-nav" data-filter="ads">الإعلانات</button>
+          <button class="admin-nav" data-filter="features">الميزات</button>
+          <button class="admin-nav" data-filter="footer">إعدادات الحقوق والتواصل</button>
+          <button class="admin-nav" data-filter="fish-settings">بيانات الأسماك</button>
+        </aside>
+        <div class="admin-main">
+          <div class="admin-section admin-block" data-section="users">
+            <h4><i class="fa-solid fa-users"></i> إحصائيات الزوار</h4>
+            <div class="admin-stat">
+              <div class="as-card"><div class="as-val" id="aVisitToday">0</div><div class="as-lbl">المستخدمين اليوم</div></div>
+              <div class="as-card"><div class="as-val" id="aVisitWeek">0</div><div class="as-lbl">الأسبوع</div></div>
+              <div class="as-card"><div class="as-val" id="aVisitTotal">0</div><div class="as-lbl">الإجمالي</div></div>
+            </div>
+            <div class="admin-chart-wrap"><canvas id="aVisitChart"></canvas></div>
+          </div>
+
+          <div class="admin-section admin-block" data-section="users">
+            <h4><i class="fa-solid fa-earth-americas"></i> المستخدمين حسب المدن</h4>
+            <table class="admin-table">
+              <thead><tr><th>المدينة</th><th>الزيارات</th><th>النسبة</th></tr></thead>
+              <tbody id="aGeoBody"></tbody>
+            </table>
+          </div>
+
+          <div class="admin-section admin-block" data-section="fishing">
+            <h4><i class="fa-solid fa-fish-fins"></i> أكثر 10 أسماك نقراً</h4>
+            <table class="admin-table">
+              <thead><tr><th>#</th><th>السمكة</th><th>النقرات</th></tr></thead>
+              <tbody id="aFishBody"></tbody>
+            </table>
+          </div>
+
+          <div class="admin-section admin-block" data-section="fishing">
+            <h4><i class="fa-solid fa-bolt"></i> Top Features</h4>
+            <table class="admin-table">
+              <thead><tr><th>#</th><th>الميزة</th><th>الاستخدام</th></tr></thead>
+              <tbody id="aFeatureBody"></tbody>
+            </table>
+          </div>
+
+          <div class="admin-section admin-block" data-section="ui">
+            <h4><i class="fa-solid fa-pen-ruler"></i> إعدادات الواجهة</h4>
+            <div class="admin-form-grid">
+              <div class="admin-field full">
+                <label for="headerTextInput">نص الهيدر</label>
+                <input type="text" id="headerTextInput" placeholder="مثال: نافي دور - النسخة المباشرة">
+              </div>
+              <div class="admin-field">
+                <label for="headerColorInput">لون الهيدر/التمييز</label>
+                <input type="text" id="headerColorInput" placeholder="#27b3ff">
+              </div>
+            </div>
+
+            <div class="admin-form-grid" style="margin-top:12px">
+              <div class="admin-field full">
+                <h5 style="font-size:.9rem;color:var(--txt2);margin-bottom:4px">التقويم الهجري</h5>
+                <label for="hijriOffsetInput">تعديل التاريخ (مثلاً +1 أو -1)</label>
+                <input type="number" id="hijriOffsetInput" placeholder="0">
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-section admin-block" data-section="ads">
+            <h4><i class="fa-solid fa-rectangle-ad"></i> إعدادات الإعلانات</h4>
+            <div class="admin-form-grid">
+              <div class="admin-field full">
+                <div class="admin-switch">
+                  <input type="checkbox" id="adBannerEnabled">
+                  <label for="adBannerEnabled">تفعيل بانر الإعلان</label>
+                </div>
+              </div>
+              <div class="admin-field full">
+                <label for="adBannerImageInput">رابط صورة الإعلان</label>
+                <input type="text" id="adBannerImageInput" placeholder="https://example.com/banner.jpg">
+              </div>
+              <div class="admin-field full">
+                <label for="adBannerLinkInput">رابط الوجهة عند الضغط</label>
+                <input type="text" id="adBannerLinkInput" placeholder="https://example.com">
+              </div>
+              <div class="admin-field full">
+                <label for="adsJsonInput">Ads JSON (اختياري متقدم)</label>
+                <textarea id="adsJsonInput" placeholder='{"adBanner":{"enabled":true,"imageUrl":"","linkUrl":""}}'></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-section admin-block" data-section="features">
+            <h4><i class="fa-solid fa-sliders"></i> إعدادات الميزات</h4>
+            <div class="admin-form-grid">
+              <div class="admin-field full">
+                <div class="admin-switch">
+                  <input type="checkbox" id="featurePredictionToggle" checked>
+                  <label for="featurePredictionToggle">تفعيل قسم التوقعات</label>
+                </div>
+              </div>
+              <div class="admin-field full">
+                <label for="featuresJsonInput">Features JSON (اختياري متقدم)</label>
+                <textarea id="featuresJsonInput" placeholder='{"featurePrediction":true}'></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-section admin-block" data-section="footer">
+            <h4><i class="fa-solid fa-address-card"></i> إعدادات الحقوق والتواصل</h4>
+            <div class="admin-form-grid">
+              <div class="admin-field">
+                <label for="footerNameInput">الاسم</label>
+                <input type="text" id="footerNameInput" placeholder="محمد الحضري">
+              </div>
+              <div class="admin-field">
+                <label for="footerPhoneInput">الهاتف</label>
+                <input type="text" id="footerPhoneInput" placeholder="+974xxxx">
+              </div>
+              <div class="admin-field full">
+                <label for="footerEmailInput">البريد الإلكتروني</label>
+                <input type="text" id="footerEmailInput" placeholder="info@navidur.app">
+              </div>
+              <div class="admin-field full">
+                <label for="footerSponsorInput">اسم الراعي / نص تحت رعاية</label>
+                <input type="text" id="footerSponsorInput" placeholder="تحت رعاية ...">
+              </div>
+              <div class="admin-field full">
+                <label for="footerSponsorLinkInput">رابط الراعي</label>
+                <input type="text" id="footerSponsorLinkInput" placeholder="https://example.com">
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-section admin-block" data-section="fish-settings">
+            <h4><i class="fa-solid fa-fish"></i> بيانات الأسماك</h4>
+            <div class="admin-form-grid">
+              <div class="admin-field full">
+                <label for="fishDataInput">Fish Data JSON</label>
+                <textarea id="fishDataInput" placeholder='{"featured":[]}'></textarea>
+              </div>
+            </div>
+
+            <div class="settings-actions">
+              <button class="settings-btn secondary" id="reloadSettingsBtn">إعادة تحميل</button>
+              <button class="settings-btn" id="saveSettingsBtn">حفظ الإعدادات</button>
+            </div>
+            <div class="settings-status" id="settingsStatus">جاهز للمزامنة مع Redis.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
