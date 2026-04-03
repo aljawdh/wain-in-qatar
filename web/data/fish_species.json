@@ -1,0 +1,80 @@
+[
+  {
+    "id": "shaam",
+    "name_ar": "شعم",
+    "name_en": "Emperor Fish",
+    "type": "bottom",
+    "regions": ["gulf", "red_sea"],
+    "seasons": {
+      "peak": ["Jan","Feb","Mar","Sep","Oct"],
+      "good": ["Apr","Nov"],
+      "weak": ["Jun","Jul","Aug"]
+    },
+    "durur": ["العقارب","الحميم","سهيل","الوسم"],
+    "best_time": "moving tide (قبل المد واثناءه)",
+    "rig": "Medium Heavy 20-40lb / 4000-6000 / 30-50lb",
+    "bait": ["روبيان","حبار","سمك حي"],
+    "methods": ["bottom","casting"]
+  },
+  {
+    "id": "sobaity",
+    "name_ar": "سبيطي",
+    "name_en": "Sobaity Bream",
+    "type": "shore",
+    "regions": ["gulf"],
+    "seasons": {
+      "peak": ["Dec","Jan","Feb","Mar"],
+      "good": ["Nov","Apr"],
+      "weak": ["May","Jun","Jul","Aug"]
+    },
+    "durur": ["المربعانية","العقارب","الوسم"],
+    "best_time": "incoming tide",
+    "rig": "Light Medium 10-25lb / 3000-4000 / 15-25lb",
+    "bait": ["روبيان","دود"],
+    "methods": ["shore casting"]
+  },
+  {
+    "id": "hamour",
+    "name_ar": "هامور",
+    "type": "bottom",
+    "regions": ["gulf","red_sea"],
+    "seasons": {
+      "peak": ["Oct","Nov","Dec","Jan","Feb","Mar","Apr"],
+      "weak": ["Jun","Jul","Aug"]
+    },
+    "durur": ["الوسم","المربعانية","العقارب"],
+    "best_time": "low current",
+    "rig": "Heavy 40-80lb",
+    "bait": ["حبار","سمك حي"],
+    "methods": ["bottom"]
+  },
+  {
+    "id": "kanaad",
+    "name_ar": "كنعد",
+    "type": "pelagic",
+    "regions": ["gulf","red_sea"],
+    "seasons": {
+      "peak": ["Apr","May","Jun"],
+      "good": ["Mar","Jul"]
+    },
+    "durur": ["الحميم","الثريا"],
+    "best_time": "high activity tide",
+    "rig": "Spinning 5000-8000",
+    "bait": ["لور","سردين"],
+    "methods": ["trolling","casting"]
+  },
+  {
+    "id": "shaari",
+    "name_ar": "شعري",
+    "type": "bottom",
+    "regions": ["gulf","red_sea"],
+    "seasons": {
+      "peak": ["Dec","Jan","Feb","Mar"]
+    },
+    "durur": ["المربعانية","العقارب"],
+    "best_time": "feeding tide",
+    "rig": "Medium 20-40lb",
+    "bait": ["روبيان"],
+    "methods": ["bottom"]
+  }
+]

@@ -1,12 +1,9 @@
 {
   "version": 2,
-  "installCommand": "./flutter_sdk/flutter/bin/flutter pub get",
-  "buildCommand": "./flutter_sdk/flutter/bin/flutter clean && ./flutter_sdk/flutter/bin/flutter build web --release",
-  "outputDirectory": "build/web",
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/navidur_lab_v2",
+      "destination": "/web/navidur_lab_v2.html"
     }
   ]
 }

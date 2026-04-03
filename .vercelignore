@@ -10,7 +10,9 @@ android
 ios
 lib
 test
-web
+web/*
+!web/
+!web/navidur_lab_v2.html
 assets
 canvaskit
 

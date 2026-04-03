@@ -1,0 +1,14 @@
+{
+  "bottom": {
+    "rig": "sinker + hook",
+    "bait": ["حبار","روبيان"]
+  },
+  "pelagic": {
+    "rig": "spinning / trolling",
+    "bait": ["لور","سردين"]
+  },
+  "shore": {
+    "rig": "casting",
+    "bait": ["روبيان","خبز"]
+  }
+}

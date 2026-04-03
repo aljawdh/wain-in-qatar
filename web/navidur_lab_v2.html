@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071722">
+  <title>NAVIDUR LAB v4.0</title>
+  <style>
+    :root { --bg:#071722; --card:#0f2b3d; --muted:#86a9bf; --txt:#e7f7ff; --warn:#ffd57f; --bad:#ff8d8d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Tajawal", "Noto Sans Arabic", sans-serif; background: radial-gradient(circle at 80% -20%, #174766 0%, transparent 45%), linear-gradient(160deg, #071722, #091f30 45%, #0d3045); color: var(--txt); }
+    .app { max-width: 1040px; margin: 0 auto; padding: 16px; }
+    .head { display: grid; gap: 10px; margin-bottom: 12px; }
+    .title { font-size: 32px; font-weight: 900; letter-spacing: -.5px; }
+    .subtitle { color: var(--muted); font-size: 13px; }
+    .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    select, button { border: 1px solid rgba(255,255,255,.1); background: #0a2233; color: var(--txt); border-radius: 12px; padding: 10px; font-family: inherit; font-size: 15px; font-weight: 700; }
+    .mode button.active { background: linear-gradient(135deg,#26b8ff,#0e78bd); }
+    .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .card { background: linear-gradient(160deg, #12344a, #0d293b); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 12px; }
+    .label { color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+    .value { font-size: 20px; font-weight: 900; }
+    .moon-icon { font-size: 24px; display: block; margin-bottom: 2px; }
+    .sea-state-banner { margin-bottom: 6px; border-radius: 14px; border: 1px solid rgba(255,255,255,.12); background: linear-gradient(150deg, #102f44, #0a2537); padding: 10px 12px; }
+    .sea-nawkhada-advice { margin-top: 8px; border-radius: 10px; border: 1px solid rgba(255, 196, 74, .5); background: rgba(255, 196, 74, .14); color: #ffe08a; font-size: 13px; font-weight: 900; line-height: 1.65; padding: 8px 10px; }
+    .forecast-strip { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 10px; padding-top: 2px; }
+    .forecast-day { min-width: 110px; padding: 10px; border-radius: 14px; background: #0b2435; border: 1px solid rgba(255,255,255,.1); cursor: pointer; }
+    .forecast-day.active { border-color: #6fdcff; box-shadow: 0 0 0 1px rgba(111,220,255,.45) inset; }
+    .forecast-title { font-size: 13px; font-weight: 800; }
+    .forecast-meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .hero { margin-bottom: 10px; display: grid; gap: 10px; }
+    .meta { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+    .countdown { background: #071a29; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 9px 12px; min-width: 90px; text-align: center; }
+    .countdown strong { color: #ffe082; font-size: 22px; display: block; }
+    .warn { margin-top: 6px; padding: 7px 9px; border-radius: 10px; font-size: 12px; background: rgba(255, 192, 74, .12); border: 1px solid rgba(255, 192, 74, .35); color: var(--warn); display: none; }
+    .manual-warn { margin-top: 8px; padding: 8px 10px; border-radius: 10px; font-size: 12px; background: rgba(255, 110, 110, .12); border: 1px solid rgba(255, 110, 110, .34); color: var(--bad); display: none; }
+    .n-tip { margin-top: 8px; font-size: 13px; color: #d6ebf8; line-height: 1.6; }
+    .compass-wrap { display: grid; gap: 12px; margin-bottom: 10px; }
+    .compass { width: 220px; height: 220px; margin: 0 auto; border-radius: 50%; border: 2px solid rgba(255,255,255,.2); position: relative; background: radial-gradient(circle at 50% 45%, #10314a, #081a2a); }
+    .needle { width: 4px; height: 94px; background: linear-gradient(to top,#4ecaff,#c8f5ff); position: absolute; left: 50%; top: 50%; transform-origin: 50% 90%; transform: translate(-50%, -90%) rotate(0deg); border-radius: 6px; }
+    .center { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background:#03111c; border:1px solid rgba(255,255,255,.2); width:74px; height:74px; border-radius:50%; display:grid; place-items:center; font-weight:900; }
+    .compass-label { position: absolute; font-size: 11px; color: #d3edf9; transform: translate(-50%, -50%); text-shadow: 0 1px 2px rgba(0,0,0,.45); }
+    .timeline { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .hour { min-width: 88px; background: #0b2435; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 7px; cursor: pointer; }
+    .hour.active { border-color: #5cd2ff; box-shadow: 0 0 0 1px rgba(92,210,255,.4) inset; }
+    .hour-time { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .hour-arrow { font-size: 20px; display:block; text-align:center; margin-bottom: 4px; }
+    .hour-val { font-size: 12px; text-align: center; }
+    .sea-status-wrap { display: grid; gap: 8px; margin-bottom: 10px; }
+    .sea-current { font-size: 14px; font-weight: 800; color: #8ce6ff; }
+    .sea-state-tag { font-size: 22px; font-weight: 900; letter-spacing: -.2px; }
+    .sea-state-hamal { color: #ff5a2a; }
+    .sea-state-fasad { color: #1f9dff; }
+    .sea-status-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .sea-hour { min-width: 94px; background: #0b2435; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 7px; text-align: center; }
+    .sea-time { font-size: 12px; color: var(--muted); }
+    .sea-height { font-size: 16px; font-weight: 900; margin-top: 5px; }
+    .sea-trend { font-size: 12px; margin-top: 3px; }
+    .fish-title { font-weight: 900; margin: 4px 0 8px; }
+    .fish-list { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .fish-item { border-right: 4px solid #26c57f; background: linear-gradient(140deg,#10293a,#0b2131); border-radius: 14px; padding: 10px; }
+    .fish-row { display:flex; justify-content: space-between; gap:10px; align-items: center; }
+    .fish-name { font-size: 18px; font-weight: 900; }
+    .fish-meta { font-size: 12px; color: var(--muted); }
+    .score { font-size: 22px; font-weight: 900; color: #3bff95; }
+    .bar { margin-top: 6px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; }
+    .bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#ff6767,#ffd447,#3bff95); }
+    .foot { margin-top: 14px; text-align: center; color: #6a8ba0; font-size: 11px; }
+    @media (max-width: 860px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .toolbar { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div>
+      <div class="title">NAVIDUR LAB <span style="font-size:12px;color:#72d7ff">v4.0</span></div>
+      <div class="subtitle" id="dateLine"></div>
+    </div>
+      <!-- Fish Details Modal -->
+      <div id="fishModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:9999;overflow-y:auto;padding:16px;direction:rtl">
+        <div style="max-width:500px;margin:20px auto;background:#0f2b3d;border-radius:16px;border:1px solid rgba(255,255,255,.12);padding:20px;color:#e7f7ff">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div id="modalFishName" style="font-size:24px;font-weight:900">---</div>
+            <button onclick="closeModal()" style="background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;width:32px;height:32px;font-size:18px;cursor:pointer">✕</button>
+          </div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #26b8ff"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">الاسم الإنجليزي</div><div id="modalFishNameEn" style="font-size:16px;font-weight:700">---</div></div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #ffd447"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">نوع السمكة</div><div id="modalFishType" style="font-size:16px;font-weight:700">---</div></div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #3bff95"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">أفضل وقت للصيد</div><div id="modalFishBestTime" style="font-size:16px;font-weight:700">---</div></div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #ff6767"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">العدة والخيط</div><div id="modalFishRig" style="font-size:14px;font-weight:700;line-height:1.6">---</div></div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #6fdcff"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">الطعم</div><div id="modalFishBait" style="font-size:14px;font-weight:700">---</div></div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #d7a3ff"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">طريقة الصيد</div><div id="modalFishMethods" style="font-size:14px;font-weight:700">---</div></div>
+          <div style="margin-bottom:12px;padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #ffa366"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">الدرور الأفضل</div><div id="modalFishDurur" style="font-size:14px;font-weight:700">---</div></div>
+          <div style="padding:10px;background:#10314a;border-radius:12px;border-left:4px solid #72d7ff"><div style="font-size:12px;color:#8db2c8;margin-bottom:4px">المناطق</div><div id="modalFishRegions" style="font-size:14px;font-weight:700">---</div></div>
+        </div>
+      </div>
+    <div class="toolbar">
+      <select id="stationSel"></select>
+      <div class="mode" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button id="coastalBtn">ساحلي</button>
+        <button id="deepBtn">غزير</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="label">الحرارة</div><div class="value" id="tempVal">---</div></div>
+    <div class="card"><div class="label">الريح</div><div class="value" id="windVal">---</div></div>
+    <div class="card"><div class="label">ارتفاع الماء</div><div class="value" id="tideHeightVal">---</div></div>
+    <div class="card"><div class="label">حالة القمر</div><div class="moon-icon" id="moonIcon">🌕</div><div class="value" id="moonVal">---</div></div>
+  </div>
+
+  <div class="sea-state-banner">
+    <div class="sea-state-tag" id="seaStateText">حالة البحر: ---</div>
+    <div class="sea-nawkhada-advice" id="seaNawkhadaAdvice">---</div>
+  </div>
+
+  <div class="forecast-strip" id="forecastStrip"></div>
+
+  <div class="hero card">
+    <div class="meta">
+      <div>
+        <div class="label">الدر الحالي</div>
+        <div class="value" id="dorahName">---</div>
+        <div id="dorahDetail" class="subtitle"></div>
+        <div id="dorahCountdownLine" class="subtitle"></div>
+        <div id="dorahWarning" class="warn"></div>
+        <div id="nawkhadaAdvice" class="n-tip"></div>
+        <div id="manualOverrideWarning" class="manual-warn"></div>
+      </div>
+      <div class="countdown"><strong id="countdownDays">--</strong><span style="font-size:11px;color:#8db2c8">يوم للتالي</span></div>
+    </div>
+  </div>
+
+  <div class="card compass-wrap">
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
+      <div>
+        <div class="label">بوصلة الرياح - 12 ساعة</div>
+        <div id="selectedHourText" style="font-size:14px;color:#9dc6de"></div>
+        <div id="windDirLabel" style="font-size:12px;color:#c3dff1"></div>
+      </div>
+      <div id="strategyHint" style="font-size:12px;color:#b9d5e7"></div>
+    </div>
+    <div class="compass">
+      <div class="needle" id="windNeedle"></div>
+      <div class="center" id="compassCenter">--</div>
+      <span class="compass-label" style="left:50%;top:12%">شمال</span>
+      <span class="compass-label" style="left:76%;top:23%">شمال شرق</span>
+      <span class="compass-label" style="left:88%;top:50%">شرق</span>
+      <span class="compass-label" style="left:76%;top:77%">جنوب شرق</span>
+      <span class="compass-label" style="left:50%;top:88%">جنوب</span>
+      <span class="compass-label" style="left:24%;top:77%">جنوب غرب</span>
+      <span class="compass-label" style="left:12%;top:50%">غرب</span>
+      <span class="compass-label" style="left:24%;top:23%">شمال غرب</span>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <div class="card sea-status-wrap">
+    <div class="label">حالة البحر</div>
+    <div class="sea-current" id="currentWaterHeight">الارتفاع الحالي: ---</div>
+    <div class="sea-status-strip" id="seaStatusStrip"></div>
+  </div>
+
+  <div class="card">
+    <div class="fish-title">قائمة الأسماك - عمود واحد</div>
+    <div class="fish-list" id="fishList"></div>
+  </div>
+
+  <div class="foot">MASTER NAWKHA v4.0 • 4-Day Forecast • Moon Phase</div>
+</div>
+
+<script>
+const SG_KEY = 'e663aa2aebmshff90f3814f76f50p1f39adjsnc7454c633095';
+const COUNTRY_TIMEZONES = {'قطر':'Asia/Qatar','الكويت':'Asia/Kuwait','السعودية':'Asia/Riyadh','البحرين':'Asia/Bahrain','الإمارات':'Asia/Dubai','عُمان':'Asia/Muscat','إيران':'Asia/Tehran'};
+const STATIONS = [
+  {name:'الدوحة',country:'قطر',lat:25.2854,lng:51.5310,flag:'🇶🇦'},{name:'الخور',country:'قطر',lat:25.6804,lng:51.4968,flag:'🇶🇦'},{name:'الوكرة',country:'قطر',lat:25.1659,lng:51.6030,flag:'🇶🇦'},{name:'الرويس',country:'قطر',lat:26.1331,lng:51.2147,flag:'🇶🇦'},
+  {name:'الكويت',country:'الكويت',lat:29.3759,lng:47.9774,flag:'🇰🇼'},{name:'الجهراء',country:'الكويت',lat:29.3375,lng:47.6581,flag:'🇰🇼'},
+  {name:'الخبر',country:'السعودية',lat:26.2825,lng:50.2085,flag:'🇸🇦'},{name:'الجبيل',country:'السعودية',lat:27.0046,lng:49.6225,flag:'🇸🇦'},{name:'الدمام',country:'السعودية',lat:26.4207,lng:50.0888,flag:'🇸🇦'},{name:'العقير',country:'السعودية',lat:25.6457,lng:50.2118,flag:'🇸🇦'},
+  {name:'حقل',country:'السعودية',lat:29.2869,lng:34.9395,flag:'🇸🇦'},{name:'ضبا',country:'السعودية',lat:27.3513,lng:35.6970,flag:'🇸🇦'},{name:'الوجه',country:'السعودية',lat:26.2455,lng:36.4525,flag:'🇸🇦'},{name:'أملج',country:'السعودية',lat:25.0213,lng:37.2685,flag:'🇸🇦'},{name:'ينبع',country:'السعودية',lat:24.0891,lng:38.0618,flag:'🇸🇦'},{name:'رابغ',country:'السعودية',lat:22.7986,lng:39.0349,flag:'🇸🇦'},{name:'جدة',country:'السعودية',lat:21.5433,lng:39.1728,flag:'🇸🇦'},{name:'الليث',country:'السعودية',lat:20.1274,lng:40.2661,flag:'🇸🇦'},{name:'القنفذة',country:'السعودية',lat:19.1269,lng:41.0789,flag:'🇸🇦'},{name:'جازان',country:'السعودية',lat:16.8892,lng:42.5511,flag:'🇸🇦'},
+  {name:'المنامة',country:'البحرين',lat:26.2285,lng:50.5860,flag:'🇧🇭'},
+  {name:'دبي',country:'الإمارات',lat:25.2048,lng:55.2708,flag:'🇦🇪'},{name:'أبوظبي',country:'الإمارات',lat:24.4539,lng:54.3773,flag:'🇦🇪'},{name:'الشارقة',country:'الإمارات',lat:25.3463,lng:55.4209,flag:'🇦🇪'},{name:'رأس الخيمة',country:'الإمارات',lat:25.7895,lng:55.9432,flag:'🇦🇪'},{name:'أم القيوين',country:'الإمارات',lat:25.5647,lng:55.5532,flag:'🇦🇪'},{name:'الفجيرة',country:'الإمارات',lat:25.1288,lng:56.3264,flag:'🇦🇪'},
+  {name:'مسقط',country:'عُمان',lat:23.5880,lng:58.3829,flag:'🇴🇲'},{name:'صحار',country:'عُمان',lat:24.3615,lng:56.7308,flag:'🇴🇲'},{name:'مسندم (خصب)',country:'عُمان',lat:26.1735,lng:56.2415,flag:'🇴🇲'},{name:'الدقم',country:'عُمان',lat:19.6714,lng:57.6534,flag:'🇴🇲'},
+  {name:'بوشهر',country:'إيران',lat:28.9234,lng:50.8203,flag:'🇮🇷'}
+];
+const ARABIAN_SEA_STATIONS = ['الدقم', 'صلالة'];
+const RED_SEA_STATIONS = ['حقل', 'ضبا', 'الوجه', 'أملج', 'ينبع', 'رابغ', 'جدة', 'الليث', 'القنفذة', 'جازان'];
+const OMAN_SEA_STATIONS = ['مسندم (خصب)', 'الفجيرة', 'مسقط', 'صحار'];
+const DORAH_TRADITIONAL_CYCLE = [
+  'الشولة','النعائم','البلدة','سعد الذابح','سعد بلع','سعد السعود','الأخبية','المقدم','المؤخر','الرشاء',
+  'الشرطين','البطين','الثريا','الدبران','الهقعة','الهنعة','الذراع','النثرة','الطرف','الجبهة',
+  'الزبرة','الصرفة','العواء','السماك','الغفر','الزبانا','الإكليل','القلب'
+];
+const DORAH_NAME_ANCHOR_INDEX = 7;
+const REGIONAL_FISH_DATABASE = [
+  {name:'هامور',regions:['gulf','red_sea','oman_sea'],type:'deep',activity:{الربيع:'ممتاز',الخريف:'ممتاز',الشتاء:'جيد',الصيف:'متوسط'},bait:'خثاق/ربيان'},
+  {name:'شعري',regions:['gulf','red_sea','oman_sea'],type:'coastal',activity:{الربيع:'ممتاز',الخريف:'ممتاز',الشتاء:'جيد',الصيف:'متوسط'},bait:'ربيان/صلاخة'},
+  {name:'كنعد',regions:['gulf','oman_sea','arabian_sea'],type:'deep',activity:{الربيع:'جيد',الخريف:'جيد',الشتاء:'ضعيف',الصيف:'ممتاز'},bait:'محاياة/لور'},
+  {name:'صافي',regions:['gulf'],type:'coastal',activity:{الربيع:'ممتاز',الخريف:'جيد',الشتاء:'متوسط',الصيف:'جيد'},bait:'عجينة/طحالب'},
+  {name:'سبيطي',regions:['gulf'],type:'coastal',activity:{الربيع:'جيد',الخريف:'ممتاز',الشتاء:'ممتاز',الصيف:'متوسط'},bait:'زوري/خثاق'},
+  {name:'جيذر',regions:['oman_sea','arabian_sea'],type:'deep',activity:{الربيع:'ممتاز',الخريف:'جيد',الشتاء:'متوسط',الصيف:'جيد'},bait:'سردين/ييم'},
+  {name:'باراكودا',regions:['red_sea','oman_sea','arabian_sea'],type:'deep',activity:{الربيع:'جيد',الخريف:'جيد',الشتاء:'متوسط',الصيف:'ممتاز'},bait:'لور/حي'},
+  {name:'ناجل',regions:['red_sea'],type:'deep',activity:{الربيع:'ممتاز',الخريف:'ممتاز',الشتاء:'جيد',الصيف:'متوسط'},bait:'ييم حي'},
+  {name:'حريد',regions:['red_sea'],type:'coastal',activity:{الربيع:'ممتاز',الخريف:'متوسط',الشتاء:'ضعيف',الصيف:'جيد'},bait:'طحالب'}
+];
+
+let appTimezone = 'Asia/Qatar';
+let selectedStation = STATIONS[0];
+let selectedForecastDay = 0;
+let selectedHourIndex = 0;
+let manualMode = null;
+let weatherByDay = [[], [], [], []];
+
+let FISH_SPECIES_DATABASE = [];
+let DURUR_MAPPING = {};
+let FISHING_CALENDAR = {};
+function getAppDateParts(date) {
+  const d = new Date(date || Date.now());
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: appTimezone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(d);
+  const map = {}; parts.forEach(p => map[p.type] = p.value);
+  return {year:+map.year, month:+map.month, day:+map.day, hour:+map.hour, minute:+map.minute};
+}
+function formatDateArabic(date) {
+    return new Intl.DateTimeFormat('ar-QA-u-ca-gregory', { day:'numeric', month:'long', year:'numeric' }).format(date);
+  }
+  function getMonthCode(month) { const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return m[month - 1] || ''; }
+  function getDurorSeason(dorahName) { for (const [durur, months] of Object.entries(DURUR_MAPPING)) { if (dorahName.includes(durur)) return durur; } return null; }
+  function getFishForDoror(durur) { if (!durur) return FISH_SPECIES_DATABASE; const topFishIds = Object.entries(FISHING_CALENDAR).filter(([month, fishes]) => DURUR_MAPPING[durur]?.includes(month)).flatMap(([_, fishes]) => fishes); const uniqueIds = [...new Set(topFishIds)]; return FISH_SPECIES_DATABASE.filter(f => uniqueIds.includes(f.id) || uniqueIds.length === 0); }
+  function formatRegions(regions) { const regionNames = {'gulf':'الخليج الفارسي','red_sea':'البحر الأحمر','oman_sea':'بحر عمان','arabian_sea':'البحر العربي'}; return regions.map(r => regionNames[r] || r).join(' • '); }
+  function showFishModal(fish) { document.getElementById('modalFishName').textContent = fish.name_ar; document.getElementById('modalFishNameEn').textContent = fish.name_en || '---'; document.getElementById('modalFishType').textContent = fish.type === 'bottom' ? 'قاع' : fish.type === 'pelagic' ? 'سطح' : 'ساحلي'; document.getElementById('modalFishBestTime').textContent = fish.best_time || '---'; document.getElementById('modalFishRig').textContent = fish.rig || '---'; document.getElementById('modalFishBait').textContent = (fish.bait || []).join(' • ') || '---'; document.getElementById('modalFishMethods').textContent = (fish.methods || []).join(' • ') || '---'; document.getElementById('modalFishDurur').textContent = (fish.durur || []).join(' • ') || '---'; document.getElementById('modalFishRegions').textContent = formatRegions(fish.regions || []); document.getElementById('fishModal').style.display = 'block'; }
+  function closeModal() { document.getElementById('fishModal').style.display = 'none'; }
+  async function loadFishDatabase() { try { const [speciesRes, durorRes, calendarRes] = await Promise.all([fetch('data/fish_species.json'), fetch('data/durur_mapping.json'), fetch('data/fishing_calendar.json')]); if (!speciesRes.ok || !durorRes.ok || !calendarRes.ok) throw new Error('Failed to load data'); FISH_SPECIES_DATABASE = await speciesRes.json(); DURUR_MAPPING = await durorRes.json(); FISHING_CALENDAR = await calendarRes.json(); console.log('Fish database loaded:', FISH_SPECIES_DATABASE.length, 'species'); } catch (e) { console.error('Error loading fish database:', e); } }
+}
+function getMarineRegion(stationName) {
+  if (ARABIAN_SEA_STATIONS.some(s => stationName.includes(s))) return 'arabian_sea';
+  if (RED_SEA_STATIONS.some(s => stationName.includes(s))) return 'red_sea';
+  if (OMAN_SEA_STATIONS.some(s => stationName.includes(s))) return 'oman_sea';
+  return 'gulf';
+}
+function getStationDorahOffsetDays(lat, lng) {
+  const dLat = lat - 25.2854;
+  const dLng = lng - 51.5310;
+  return Math.max(-5, Math.min(5, Math.round((dLng / 1.2) + (dLat / 2.8))));
+}
+function getForecastBaseDate(dayOffset) {
+  const now = new Date();
+  const d = new Date(now.getTime());
+  d.setUTCDate(d.getUTCDate() + dayOffset);
+  return d;
+}
+function getCurrentDar(date, lat, lng) {
+  const baseDate = Date.UTC(2026, 3, 3);
+  const now = new Date(date || new Date());
+  const shifted = new Date(now.getTime());
+  shifted.setUTCDate(shifted.getUTCDate() + getStationDorahOffsetDays(lat, lng));
+  const utcDay = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  const diffDays = Math.floor((utcDay - baseDate) / 86400000);
+  const cycle = Math.floor(diffDays / 10);
+  const dayInDar = ((diffDays % 10) + 10) % 10 + 1;
+  const darValue = ((70 + (cycle * 10)) % 360 + 360) % 360 || 360;
+  const nextDar = darValue === 360 ? 10 : darValue + 10;
+  const cycLen = DORAH_TRADITIONAL_CYCLE.length;
+  const nameIndex = ((DORAH_NAME_ANCHOR_INDEX + cycle) % cycLen + cycLen) % cycLen;
+  const nextNameIndex = ((nameIndex + 1) % cycLen + cycLen) % cycLen;
+  const darTraditionalName = DORAH_TRADITIONAL_CYCLE[nameIndex] || 'غير مسمى';
+  const nextDarTraditionalName = DORAH_TRADITIONAL_CYCLE[nextNameIndex] || 'غير مسمى';
+  const daysLeft = 10 - dayInDar;
+  const darLabel = 'در الـ ' + darValue + ' - ' + darTraditionalName;
+  const nextDarLabel = 'در الـ ' + nextDar + ' - ' + nextDarTraditionalName;
+  return {
+    dar: darValue,
+    darName: darLabel,
+    nextDarLabel,
+    dayInDar,
+    daysLeft,
+    warning: 'موسم السرايات: انتبه من ضربات الرياح المفاجئة'
+  };
+}
+function getLunarDay(date) {
+  const value = parseInt(new Intl.DateTimeFormat('en-u-ca-islamic', { timeZone: appTimezone, day:'numeric' }).format(date || new Date()), 10);
+  return isNaN(value) ? 15 : value;
+}
+function getMoonPhase(date) {
+  const lunarDay = getLunarDay(date);
+  if (lunarDay === 15) return { icon:'🌕', label:'بدر' };
+  if (lunarDay >= 12 && lunarDay <= 17) return { icon:'🌔', label:'أحدب متزايد' };
+  if (lunarDay >= 8 && lunarDay <= 11) return { icon:'🌓', label:'تربيع أول' };
+  if (lunarDay >= 4 && lunarDay <= 7) return { icon:'🌒', label:'هلال متزايد' };
+  if (lunarDay >= 1 && lunarDay <= 3) return { icon:'🌙', label:'هلال' };
+  if (lunarDay >= 23 && lunarDay <= 27) return { icon:'🌘', label:'هلال متناقص' };
+  if (lunarDay >= 18 && lunarDay <= 22) return { icon:'🌖', label:'أحدب متناقص' };
+  return { icon:'🌑', label:'محاق' };
+}
+function getHamalFasadStatus(date) {
+  const lunarDay = getLunarDay(date);
+  const hamal = lunarDay === 15 || (lunarDay >= 13 && lunarDay <= 16) || lunarDay >= 27 || lunarDay <= 2;
+  return { name: hamal ? 'حمل' : 'فساد', lunarDay };
+}
+function windDirText8(deg) {
+  const d = ['شمال','شمال شرق','شرق','جنوب شرق','جنوب','جنوب غرب','غرب','شمال غرب'];
+  return d[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
+function windDirText16(deg) {
+  const labels = ['شمال','شمال شمال شرق','شمال شرق','شرق شمال شرق','شرق','شرق جنوب شرق','جنوب شرق','جنوب جنوب شرق','جنوب','جنوب جنوب غرب','جنوب غرب','غرب جنوب غرب','غرب','غرب شمال غرب','شمال غرب','شمال شمال غرب'];
+  return labels[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+}
+function mpsToKmh(v) { return typeof v === 'number' ? +(v * 3.6).toFixed(1) : null; }
+function formatHourArabic(dateValue) {
+  const p = getAppDateParts(new Date(dateValue));
+  const suffix = p.hour >= 12 ? 'م' : 'ص';
+  const hr12 = ((p.hour + 11) % 12) + 1;
+  return hr12 + ' ' + suffix;
+}
+function trendLabel(prev, cur, next) {
+  if (prev == null || cur == null || next == null) return 'ثابت';
+  const diff = next - prev;
+  if (diff > 0.06) return 'سقي';
+  if (diff < -0.06) return 'ثبر';
+  return 'ثابت';
+}
+function generateFallbackHours(lat, lng, dayOffset) {
+  const list = [];
+  const base = getForecastBaseDate(dayOffset);
+  const seed = ((lat || 25) % 10) + ((lng || 51) % 10) + dayOffset * 0.8;
+  for (let i = 0; i < 24; i++) {
+    const t = new Date(base.getTime());
+    t.setUTCHours(t.getUTCHours() + i);
+    list.push({
+      time: t.toISOString(),
+      windSpeed: { sg: +(2.5 + Math.sin(i / 4 + seed) * 2.2 + (dayOffset * 0.3)).toFixed(1) },
+      windDirection: { sg: Math.round(210 + Math.sin(i / 5 + seed) * 70) },
+      seaLevel: { sg: +(0.35 + Math.sin(i / 3 + seed) * 0.28 + (dayOffset * 0.01)).toFixed(2) },
+      waterTemperature: { sg: +(24 + Math.sin(i / 8 + dayOffset) * 1.8).toFixed(1) }
+    });
+  }
+  return list;
+}
+async function fetchWeatherData(lat, lng) {
+  const params = 'windSpeed,windDirection,precipitation,seaLevel,waterTemperature';
+  const url = 'https://stormglass-forecast-weather.p.rapidapi.com/v2/weather/point?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng) + '&params=' + encodeURIComponent(params);
+  try {
+    const res = await fetch(url, { method: 'GET', headers: { 'x-rapidapi-key': SG_KEY, 'x-rapidapi-host': 'stormglass-forecast-weather.p.rapidapi.com' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.hours || !data.hours.length) throw new Error('No hours');
+    const baseHours = data.hours;
+    weatherByDay = [0, 1, 2, 3].map(dayOffset => {
+      const start = dayOffset * 24;
+      const chunk = baseHours.slice(start, start + 24);
+      return chunk.length ? chunk : generateFallbackHours(lat, lng, dayOffset);
+    });
+  } catch (e) {
+    weatherByDay = [0, 1, 2, 3].map(dayOffset => generateFallbackHours(lat, lng, dayOffset));
+  }
+  selectedHourIndex = 0;
+  renderAll();
+}
+function getActiveHours() {
+  return weatherByDay[selectedForecastDay] || [];
+}
+function getActiveMode(date) {
+  const autoMode = getHamalFasadStatus(date).name === 'حمل' ? 'deep' : 'coastal';
+  return manualMode || autoMode;
+}
+function getFishForStation(date) {
+  const region = getMarineRegion(selectedStation.name);
+  const season = 'الربيع';
+  return REGIONAL_FISH_DATABASE.filter(f => f.regions.includes(region)).map(f => ({ ...f, act: (f.activity && f.activity[season]) || 'متوسط' }));
+}
+  function getFishForStation(date) {
+    const dar = getCurrentDar(date, selectedStation.lat, selectedStation.lng);
+    const durur = getDurorSeason(dar.darName);
+    const allFish = getFishForDoror(durur);
+    return allFish;
+  }
+function scoreFish(fish, hr, date) {
+  const activeMode = getActiveMode(date);
+  const ws = mpsToKmh(hr.windSpeed?.sg ?? 0) || 0;
+  const sea = hr.seaLevel?.sg ?? 0.4;
+  const hf = getHamalFasadStatus(date);
+  const baseSeason = { 'ممتاز': 88, 'جيد': 72, 'متوسط': 56, 'ضعيف': 34 }[fish.act] || 56;
+  const windAdj = activeMode === 'deep' ? (ws <= 20 ? 8 : ws <= 30 ? -8 : -24) : (ws <= 14 ? 10 : ws <= 24 ? -4 : -18);
+  const seaAdj = sea >= 0.4 && sea <= 0.75 ? 8 : -6;
+  const strategyAdj = activeMode === fish.type ? 10 : -6;
+  const hamalAdj = hf.name === 'حمل' ? (activeMode === 'deep' ? 10 : -10) : (activeMode === 'coastal' ? 10 : -8);
+  let total = baseSeason + windAdj + seaAdj + strategyAdj + hamalAdj;
+  if (manualMode === 'coastal' && hf.name === 'حمل') total -= 26;
+  return Math.max(1, Math.min(100, Math.round(total)));
+  }
+  const activeMode = getActiveMode(date);
+  const darInfo = getCurrentDar(date, selectedStation.lat, selectedStation.lng);
+  const durur = getDurorSeason(darInfo.darName);
+  const durorMatch = (fish.durur || []).includes(durur) ? 10 : -5;
+  const ws = mpsToKmh(hr.windSpeed?.sg ?? 0) || 0;
+  const sea = hr.seaLevel?.sg ?? 0.4;
+  const hf = getHamalFasadStatus(date);
+  const peakMonths = fish.seasons?.peak || [];
+  const goodMonths = fish.seasons?.good || [];
+  const weakMonths = fish.seasons?.weak || [];
+  const p = getAppDateParts(date);
+  const monthCode = getMonthCode(p.month);
+  let seasonScore = 56;
+  if (peakMonths.includes(monthCode)) seasonScore = 88;
+  else if (goodMonths.includes(monthCode)) seasonScore = 72;
+  else if (weakMonths.includes(monthCode)) seasonScore = 34;
+  const baseSeason = seasonScore;
+  const windAdj = activeMode === 'deep' ? (ws <= 20 ? 8 : ws <= 30 ? -8 : -24) : (ws <= 14 ? 10 : ws <= 24 ? -4 : -18);
+  const seaAdj = sea >= 0.4 && sea <= 0.75 ? 8 : -6;
+  const strategyAdj = activeMode === fish.type || (activeMode === 'deep' && fish.type === 'bottom') || (activeMode === 'coastal' && fish.type === 'shore') ? 10 : -6;
+  const hamalAdj = hf.name === 'حمل' ? (activeMode === 'deep' ? 10 : -10) : (activeMode === 'coastal' ? 10 : -8);
+  let total = baseSeason + windAdj + seaAdj + strategyAdj + hamalAdj + durorMatch;
+  if (manualMode === 'coastal' && hf.name === 'حمل') total -= 26;
+  return Math.max(1, Math.min(100, Math.round(total)));
+}
+function renderStations() {
+  const sel = document.getElementById('stationSel');
+  sel.innerHTML = '';
+  STATIONS.forEach((st, i) => {
+    const op = document.createElement('option');
+    op.value = String(i);
+    op.textContent = st.flag + ' ' + st.name + ' - ' + st.country;
+    sel.appendChild(op);
+  });
+  sel.value = '0';
+}
+function renderForecastStrip() {
+  const root = document.getElementById('forecastStrip');
+  root.innerHTML = '';
+  [0, 1, 2, 3].forEach(dayOffset => {
+    const date = getForecastBaseDate(dayOffset);
+    const dar = getCurrentDar(date, selectedStation.lat, selectedStation.lng);
+    const weekday = new Intl.DateTimeFormat('ar-QA-u-ca-gregory', { weekday: 'long' }).format(date);
+    const card = document.createElement('div');
+    card.className = 'forecast-day' + (dayOffset === selectedForecastDay ? ' active' : '');
+    card.innerHTML = '<div class="forecast-title">' + weekday + '</div><div class="forecast-meta">' + formatDateArabic(date) + '</div><div class="forecast-meta">' + dar.darName + '</div>';
+    card.addEventListener('click', () => { selectedForecastDay = dayOffset; selectedHourIndex = 0; manualMode = null; renderAll(); });
+    root.appendChild(card);
+  });
+}
+function renderTimeline() {
+  const line = document.getElementById('timeline');
+  line.innerHTML = '';
+  getActiveHours().slice(0, 12).forEach((h, i) => {
+    const ws = mpsToKmh(h.windSpeed?.sg ?? null);
+    const wd = h.windDirection?.sg ?? 0;
+    const card = document.createElement('div');
+    card.className = 'hour' + (i === selectedHourIndex ? ' active' : '');
+    card.innerHTML = '<div class="hour-time">' + formatHourArabic(h.time) + '</div><span class="hour-arrow" style="transform:rotate(' + wd + 'deg)">↑</span><div class="hour-val">' + (ws != null ? ws + ' كم/س' : '---') + '</div>';
+    card.addEventListener('click', () => { selectedHourIndex = i; renderAll(); });
+    line.appendChild(card);
+  });
+}
+function renderCompass(date) {
+  const hr = getActiveHours()[selectedHourIndex] || {};
+  const wd = hr.windDirection?.sg ?? 0;
+  const ws = mpsToKmh(hr.windSpeed?.sg ?? 0);
+  document.getElementById('windNeedle').style.transform = 'translate(-50%, -90%) rotate(' + wd + 'deg)';
+  document.getElementById('compassCenter').textContent = ws != null ? Math.round(ws) : '--';
+  document.getElementById('selectedHourText').textContent = 'الساعة: ' + (hr.time ? formatHourArabic(hr.time) : '---') + ' • اتجاه: ' + windDirText8(wd);
+  document.getElementById('windDirLabel').textContent = windDirText16(wd) + ' • ' + Math.round(wd || 0) + '°';
+  document.getElementById('strategyHint').textContent = getActiveMode(date) === 'deep' ? 'الغزير مفعّل' : 'الساحلي مفعّل';
+}
+function renderSeaStatusStrip() {
+  const strip = document.getElementById('seaStatusStrip');
+  strip.innerHTML = '';
+  const slice = getActiveHours().slice(0, 12);
+  if (!slice.length) {
+    strip.innerHTML = '<div class="subtitle">لا توجد بيانات حالة البحر حالياً</div>';
+    return;
+  }
+  slice.forEach((h, i) => {
+    const cur = h.seaLevel?.sg ?? null;
+    const prev = i > 0 ? (slice[i - 1].seaLevel?.sg ?? null) : cur;
+    const next = i < slice.length - 1 ? (slice[i + 1].seaLevel?.sg ?? null) : cur;
+    const tr = trendLabel(prev, cur, next);
+    const badge = tr === 'سقي' ? '🟢' : tr === 'ثبر' ? '🔴' : '🟡';
+    const box = document.createElement('div');
+    box.className = 'sea-hour';
+    box.innerHTML = '<div class="sea-time">' + formatHourArabic(h.time) + '</div><div class="sea-height">' + (cur != null ? cur.toFixed(2) + 'م' : '---') + '</div><div class="sea-trend">' + badge + ' ' + tr + '</div>';
+    strip.appendChild(box);
+  });
+}
+function renderFish(date) {
+  const hr = getActiveHours()[selectedHourIndex] || {};
+  const fish = getFishForStation(date).map(f => ({ ...f, score: scoreFish(f, hr, date) })).sort((a, b) => b.score - a.score);
+  const root = document.getElementById('fishList');
+  root.innerHTML = '';
+  fish.forEach(f => {
+    const el = document.createElement('div');
+    el.className = 'fish-item';
+    el.innerHTML = '<div class="fish-row"><div><div class="fish-name">' + f.name_ar + '</div><div class="fish-meta">' + (f.bait ? f.bait.join(' • ') : '---') + '</div></div><div class="score">' + f.score + '%</div></div><div class="bar"><span style="width:' + f.score + '%"></span></div>';
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => showFishModal(f));
+    root.appendChild(el);
+  });
+}
+function renderHero(date) {
+  const dar = getCurrentDar(date, selectedStation.lat, selectedStation.lng);
+  const moon = getMoonPhase(date);
+  const hf = getHamalFasadStatus(date);
+  const activeMode = getActiveMode(date);
+  const hr = getActiveHours()[selectedHourIndex] || {};
+  const ws = mpsToKmh(hr.windSpeed?.sg ?? null);
+  const sea = hr.seaLevel?.sg ?? null;
+  const wt = hr.waterTemperature?.sg ?? null;
+  document.getElementById('dateLine').textContent = formatDateArabic(date) + ' • ' + selectedStation.name;
+  document.getElementById('moonIcon').textContent = moon.icon;
+  document.getElementById('moonVal').textContent = moon.label;
+  document.getElementById('tempVal').textContent = wt != null ? wt.toFixed(1) + '°' : '---';
+  document.getElementById('windVal').textContent = ws != null ? ws + ' كم/س' : '---';
+  document.getElementById('tideHeightVal').textContent = sea != null ? sea.toFixed(2) + ' م' : '---';
+  document.getElementById('currentWaterHeight').textContent = 'الارتفاع الحالي: ' + (sea != null ? sea.toFixed(2) + ' م' : '---');
+  const seaStateEl = document.getElementById('seaStateText');
+  const seaAdviceEl = document.getElementById('seaNawkhadaAdvice');
+  seaStateEl.textContent = 'حالة البحر: ' + hf.name;
+  seaStateEl.className = 'sea-state-tag ' + (hf.name === 'فساد' ? 'sea-state-fasad' : 'sea-state-hamal');
+  seaAdviceEl.textContent = hf.name === 'حمل'
+    ? 'نصيحة النوخذة: الصيد داخل البحر (الغزير) أفضل حالياً، لا تعب روحك تروح الساحل على الفاضي'
+    : 'نصيحة النوخذة: وضع فساد يميل للساحلي، لكن راقب حركة الماء (سقي/ثبر) قبل اتخاذ القرار.';
+  document.getElementById('dorahName').textContent = dar.darName;
+  document.getElementById('dorahDetail').textContent = 'تقويم الدرة التقليدي | يوم ' + dar.dayInDar + ' من 10';
+  document.getElementById('dorahCountdownLine').textContent = 'باقي ' + dar.daysLeft + ' يوم على ' + dar.nextDarLabel;
+  document.getElementById('countdownDays').textContent = String(dar.daysLeft);
+  const warningEl = document.getElementById('dorahWarning');
+  warningEl.style.display = 'block';
+  warningEl.textContent = dar.warning;
+  document.getElementById('coastalBtn').classList.toggle('active', activeMode === 'coastal');
+  document.getElementById('deepBtn').classList.toggle('active', activeMode === 'deep');
+  const adviceEl = document.getElementById('nawkhadaAdvice');
+  adviceEl.textContent = hf.name === 'حمل'
+    ? 'حمل: تيارات قوية، الغزير أفضل للحداق في هذا التوقيت.'
+    : 'فساد: تيارات هادئة، الساحلي أفضل لمعظم الساعات القريبة.';
+  const manualWarn = document.getElementById('manualOverrideWarning');
+  if (manualMode === 'coastal' && hf.name === 'فساد') {
+    manualWarn.style.display = 'block';
+    manualWarn.textContent = 'تحذير: الماية فساد ميتة، الصيد الساحلي غير مجدي حالياً';
+  } else {
+    manualWarn.style.display = 'none';
+    manualWarn.textContent = '';
+  }
+}
+function renderAll() {
+  const date = getForecastBaseDate(selectedForecastDay);
+  renderForecastStrip();
+  renderHero(date);
+  renderTimeline();
+  renderCompass(date);
+  renderSeaStatusStrip();
+  renderFish(date);
+}
+function onStationChange(idx) {
+  selectedStation = STATIONS[idx] || STATIONS[0];
+  appTimezone = COUNTRY_TIMEZONES[selectedStation.country] || 'Asia/Qatar';
+  manualMode = null;
+  fetchWeatherData(selectedStation.lat, selectedStation.lng);
+}
+
+document.getElementById('stationSel').addEventListener('change', e => onStationChange(parseInt(e.target.value, 10)));
+document.getElementById('coastalBtn').addEventListener('click', () => { manualMode = 'coastal'; renderAll(); });
+document.getElementById('deepBtn').addEventListener('click', () => { manualMode = 'deep'; renderAll(); });
+
+renderStations();
+onStationChange(0);
+</script>
+</body>
+</html>
