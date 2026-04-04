@@ -223,7 +223,8 @@
     .hour { min-width: 88px; background: #0b2435; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 7px; cursor: pointer; }
     .hour.active { border-color: #5cd2ff; box-shadow: 0 0 0 1px rgba(92,210,255,0.4) inset; }
     .hour-time { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .hour-arrow { font-size: 20px; display: block; text-align: center; margin-bottom: 4px; }
+    .hour-arrow { font-size: 20px; display: block; text-align: center; margin-bottom: 2px; }
+    .hour-dir { font-size: 10px; color: #9dc8e0; text-align: center; margin-bottom: 2px; }
     .hour-val { font-size: 12px; text-align: center; }
 
     .sea-status-wrap { display: grid; gap: 8px; margin-bottom: 14px; }
@@ -510,14 +511,14 @@
         <div class="needle" id="windNeedle"></div>
         <div class="center" id="compassCenter">--</div>
 
-        <span class="compass-label" style="left:50%;top:6%">N</span>
-        <span class="compass-label" style="left:83%;top:18%">NE</span>
-        <span class="compass-label" style="left:94%;top:50%">E</span>
-        <span class="compass-label" style="left:83%;top:82%">SE</span>
-        <span class="compass-label" style="left:50%;top:94%">S</span>
-        <span class="compass-label" style="left:17%;top:82%">SW</span>
-        <span class="compass-label" style="left:6%;top:50%">W</span>
-        <span class="compass-label" style="left:17%;top:18%">NW</span>
+        <span class="compass-label" style="left:50%;top:6%">N<br><small style="font-size:9px;opacity:.75">شمال</small></span>
+        <span class="compass-label" style="left:83%;top:18%">NE<br><small style="font-size:9px;opacity:.75">ش.شر</small></span>
+        <span class="compass-label" style="left:94%;top:50%">E<br><small style="font-size:9px;opacity:.75">شرق</small></span>
+        <span class="compass-label" style="left:83%;top:82%">SE<br><small style="font-size:9px;opacity:.75">ج.شر</small></span>
+        <span class="compass-label" style="left:50%;top:94%">S<br><small style="font-size:9px;opacity:.75">جنوب</small></span>
+        <span class="compass-label" style="left:17%;top:82%">SW<br><small style="font-size:9px;opacity:.75">ج.غر</small></span>
+        <span class="compass-label" style="left:6%;top:50%">W<br><small style="font-size:9px;opacity:.75">غرب</small></span>
+        <span class="compass-label" style="left:17%;top:18%">NW<br><small style="font-size:9px;opacity:.75">ش.غر</small></span>
       </div>
       <div class="timeline" id="timeline"></div>
     </div>
@@ -598,11 +599,36 @@
     };
 
     const STATION_SPECIES_PRIORITY = {
-      'العقير': ['safi', 'kanaad', 'sobaity', 'shaam', 'hamour'],
-      'الوكرة': ['shaari_bagha', 'hamour', 'janaad_qabab', 'sobaity', 'shaam'],
-      'الدوحة': ['sobaity', 'shaam', 'safi', 'hamour', 'kanaad'],
+      // الخليج العربي - الساحل السعودي الشرقي
+      'العقير': ['safi', 'kanaad', 'sobaity', 'shaam', 'badah', 'shaari_bagha'],
+      'الخبر': ['sobaity', 'shaam', 'kanaad', 'balool', 'badah', 'shaari_bagha'],
+      'الدمام': ['sobaity', 'shaam', 'balool', 'kanaad', 'badah'],
       'الجبيل': ['hamour', 'shaari_kibar', 'kanaad', 'sooli', 'andaq'],
-      'جدة': ['najel', 'tarradi', 'hareed', 'shaam', 'sobaity_rs']
+      'الكويت': ['sobaity', 'shaam', 'hamour', 'kanaad', 'balool'],
+      'الجهراء': ['sobaity', 'balool', 'shaam', 'kanaad'],
+      // قطر
+      'الدوحة': ['sobaity', 'shaam', 'safi', 'hamour', 'kanaad', 'badah'],
+      'الوكرة': ['shaari_bagha', 'hamour', 'janaad_qabab', 'sobaity', 'shaam'],
+      'الخور': ['sobaity', 'safi', 'shaam', 'balool', 'badah'],
+      'الرويس': ['safi', 'sobaity', 'shaam', 'badah'],
+      // البحرين
+      'المنامة': ['sobaity', 'shaam', 'hamour', 'kanaad', 'safi'],
+      // الإمارات - الخليج
+      'دبي': ['safi', 'badah', 'niser', 'kanaad', 'shaam'],
+      'أبوظبي': ['safi', 'sobaity', 'badah', 'shaam', 'hamour'],
+      'الشارقة': ['safi', 'badah', 'shaam', 'sobaity'],
+      'رأس الخيمة': ['safi', 'niser', 'badah', 'kanaad', 'andaq'],
+      'أم القيوين': ['safi', 'badah', 'shaam', 'sobaity'],
+      // عمان وبحر عمان
+      'مسندم (خصب)': ['andaq', 'sooli', 'faskar', 'kanaad', 'niser'],
+      'الفجيرة': ['andaq', 'faskar', 'janaad_qabab', 'kanaad', 'sooli'],
+      'مسقط': ['andaq', 'sooli', 'janaad_qabab', 'faskar', 'kofar'],
+      'صحار': ['andaq', 'sooli', 'shaam', 'hamour'],
+      'الدقم': ['andaq', 'faskar', 'janaad_qabab', 'kofar', 'dhalia'],
+      // البحر الأحمر
+      'جدة': ['najel', 'tarradi', 'hareed', 'shaam', 'sobaity_rs'],
+      'ينبع': ['najel', 'tarradi', 'hareed', 'sobaity_rs'],
+      'جازان': ['hareed', 'sobaity_rs', 'najel', 'tarradi']
     };
 
     const COUNTRY_UTC_OFFSET_HOURS = {
@@ -847,14 +873,14 @@
 
     const DORAH_INFO = {
       'المقدم': 'معلومات الدر: بداية الحميم، اعتدال الجو، وبداية نشاط الكنعد والشعم. الماية تبدأ تدفأ والسمك يقرب من الساحل.',
-      'المؤخر': 'معلومات الدر: المؤخر يقوي حركة القاع، مناسب للهامور والشعري مع ريح مستقرة.',
+      'المؤخر': 'معلومات الدر: المؤخر من أفضل درور الكنعد والبالول والشعري سولي. نشاط سطحي مكثف مع ريح هادئة.',
       'الرشاء': 'معلومات الدر: الرشاء يدعم صيد الرق، خصوصًا الساعات الأولى من المد.',
       'الشرطين': 'معلومات الدر: الشرطين موسم انتقال، ركز على نقاط كسر التيار عند الساحل.',
       'البطين': 'معلومات الدر: البطين ممتاز للشعري والشعم عند القوع المتوسط.',
       'الثريا': 'معلومات الدر: الثريا تقوي التيار السطحي، الكنعد يتحسن على الحواف.',
       'الدبران': 'معلومات الدر: الدبران مناسب للصيد المختلط ساحلي/غزير مع مراقبة الريح.',
       'الهقعة': 'معلومات الدر: الهقعة غالبًا تعطي نشاطًا للقاعي وقت الفجر.',
-      'الهنعة': 'معلومات الدر: الهنعة تدعم صيد الهامور في القيعان الصخرية.',
+      'الهنعة': 'معلومات الدر: الهنعة تعطي نشاطاً جيداً للصافي والسبيطي عند الشعاب الضحلة، وسولي عميق في القيعان الصخرية.',
       'الذراع': 'معلومات الدر: الذراع أفضل مع ماء متحرك معتدل ووقفة دقيقة على القاع.',
       'النثرة': 'معلومات الدر: النثرة مناسبة للحداق الخفيف قرب الساحل.',
       'الطرف': 'معلومات الدر: الطرف يعطي فرصًا جيدة للأسماك الساحلية في أول المد.',
@@ -865,13 +891,13 @@
       'السماك': 'معلومات الدر: السماك مناسب لصيد السطح والقاع بحسب سرعة الريح.',
       'الغفر': 'معلومات الدر: الغفر يعزز صيد الغزير خصوصًا عند القاع الطيني.',
       'الزبانا': 'معلومات الدر: الزبانا مرحلة نشطة، جرب مواقع الشعاب العميقة.',
-      'الإكليل': 'معلومات الدر: الإكليل جيد للهامور والشعري مع تيار مائل للثبات.',
+      'الإكليل': 'معلومات الدر: الإكليل في وسط الوسم، ينشط الكنعد على السطح والشعم يقترب من الساحل، والسولي مناسب في الغزير مع تيار مائل للثبات.',
       'القلب': 'معلومات الدر: القلب يساعد صيد الفجر، وحركة الماء تكون حساسة.',
       'الشولة': 'معلومات الدر: الشولة مناسبة للصيد العميق وتحتاج تجهيزًا أقوى.',
       'النعائم': 'معلومات الدر: النعائم تعطي نوافذ ممتازة للكنعد على السطح.',
       'البلدة': 'معلومات الدر: البلدة تميل للهدوء النسبي، أفضلها عند تغيّر المد.',
       'سعد الذابح': 'معلومات الدر: سعد الذابح يدعم صيد القاعي الثقيل في الغزير.',
-      'سعد بلع': 'معلومات الدر: سعد بلع ممتاز للبحث عن الهامور في الحواف الصخرية.',
+      'سعد بلع': 'معلومات الدر: سعد بلع في شتاء الخليج، ينشط فيه الصافي والسبيطي عند الشعاب، والشعري باغة في المياه الضحلة.',
       'سعد السعود': 'معلومات الدر: سعد السعود يعطي نشاطًا متنوعًا للأسماك الساحلية.',
       'الأخبية': 'معلومات الدر: الأخبية نهاية مرحلة قبل المقدم، راقب التحول القادم بدقة.'
     };
@@ -1131,6 +1157,18 @@
       return POPULAR_SEASONS_LAYOUT[idx];
     }
 
+    // Returns the correct Gulf season name based on actual calendar date using DURUR_MAPPING.
+    // This avoids the phase-shift drift that caused all stations to show 'سهيل' year-round.
+    function getSeasonNameByDate(date) {
+      const d = new Date(date || new Date());
+      const p = getAppDateParts(d);
+      const monthCode = getMonthCode(p.month);
+      for (var season in DURUR_MAPPING) {
+        if (DURUR_MAPPING[season].includes(monthCode)) return season;
+      }
+      return 'غير محدد';
+    }
+
     function getCurrentDar(date, stationOverride) {
       const now = new Date(date || new Date());
       const station = stationOverride || selectedStation || navidurEngine.getStationByIndex(0);
@@ -1147,7 +1185,7 @@
       const canonicalDayInCycle = normalizeCycleDay(alignedDayInCycle + CANONICAL_DORAH_DAY_SHIFT);
       const canonicalDarDay = (Math.floor((canonicalDayInCycle - 1) / 10) + 1) * 10;
       const nextCanonicalDarDay = canonicalDarDay === 360 ? 10 : canonicalDarDay + 10;
-      const seasonName = getPopularSeasonByCycleDay(canonicalDayInCycle);
+      const seasonName = getSeasonNameByDate(now);
 
       const darTraditionalName = getDarahNameByCanonicalDay(canonicalDarDay);
       const nextDarTraditionalName = getDarahNameByCanonicalDay(nextCanonicalDarDay);
@@ -1276,7 +1314,7 @@
     }
 
     function windDirText8(deg) {
-      const d = ['N','NE','E','SE','S','SW','W','NW'];
+      const d = ['شمال','شمال شرقي','شرق','جنوب شرقي','جنوب','جنوب غربي','غرب','شمال غربي'];
       return d[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
     }
 
@@ -1879,7 +1917,7 @@
         const wd = h.windDirection && h.windDirection.sg != null ? h.windDirection.sg : 0;
         const card = document.createElement('div');
         card.className = 'hour' + (entry.dayIndex === selectedForecastDay && entry.hourIndex === selectedHourIndex ? ' active' : '');
-        card.innerHTML = '<div class="hour-time">' + formatHourArabic(h.time) + '</div><span class="hour-arrow" style="transform:rotate(' + wd + 'deg)">↑</span><div class="hour-val">' + (ws != null ? ws + ' كم/س' : '---') + '</div>';
+        card.innerHTML = '<div class="hour-time">' + formatHourArabic(h.time) + '</div><span class="hour-arrow" style="transform:rotate(' + wd + 'deg)">↑</span><div class="hour-dir">' + windDirText8(wd) + '</div><div class="hour-val">' + (ws != null ? ws + ' كم/س' : '---') + '</div>';
         card.addEventListener('click', function () {
           selectedForecastDay = entry.dayIndex;
           selectedHourIndex = entry.hourIndex;
@@ -2043,6 +2081,51 @@
       }
     }
 
+    // Returns season-aware fish advice split into hamal (coastal/active) and fasad (deep/passive),
+    // taking into account the current month's FISHING_CALENDAR and the station's region & bathymetry.
+    function getSeasonalFishAdvice(date, station) {
+      const p = getAppDateParts(date);
+      const monthCode = getMonthCode(p.month);
+      const region = getMarineRegion(station);
+      const bathymetry = (station && station.bathymetry) || 'mid';
+      const seasonalIds = FISHING_CALENDAR[monthCode] || [];
+
+      // Get the current dar to flag dar-peak fish
+      const dar = getCurrentDar(date, station);
+      const pool = FISH_SPECIES_DATABASE.filter(function(f) {
+        return f.regions.includes(region) && seasonalIds.includes(f.id);
+      });
+
+      // Prioritise dar-peak fish within each group
+      function sortByDarPeak(list) {
+        return list.sort(function(a, b) {
+          const aPeak = dar && a.durur && a.durur.includes(dar.darName.split(' - ')[1]) ? 1 : 0;
+          const bPeak = dar && b.durur && b.durur.includes(dar.darName.split(' - ')[1]) ? 1 : 0;
+          return bPeak - aPeak;
+        });
+      }
+
+      var hamalPool = pool.filter(function(f) { return !f.prefer_fasad; });
+      var fasadPool = pool.filter(function(f) { return f.prefer_fasad; });
+
+      // For shallow stations, prefer ساحلي types in hamal
+      if (bathymetry === 'shallow') {
+        hamalPool = pool.filter(function(f) { return f.type === '\u0633\u0627\u062d\u0644\u064a'; });
+      }
+      // For deep stations, prefer قاعي/سطحي in fasad
+      if (bathymetry === 'deep') {
+        fasadPool = pool.filter(function(f) { return f.type === '\u0642\u0627\u0639\u064a' || f.type === '\u0633\u0637\u062d\u064a'; });
+      }
+
+      sortByDarPeak(hamalPool);
+      sortByDarPeak(fasadPool);
+
+      return {
+        hamal: hamalPool.slice(0, 4).map(function(f) { return f.name_ar; }).join('\u060c ') || '\u0635\u0627\u0641\u064a\u060c \u0634\u0639\u0645\u060c \u0628\u062f\u062d',
+        fasad: fasadPool.slice(0, 4).map(function(f) { return f.name_ar; }).join('\u060c ') || '\u0647\u0627\u0645\u0648\u0631\u060c \u0633\u0648\u0644\u064a\u060c \u0639\u0646\u062f\u0642'
+      };
+    }
+
     function renderNawkhadaBox(date) {
       const dar = getCurrentDar(date);
       const darLabel = (dar.darName.split(' - ')[1] || dar.darName);
@@ -2071,10 +2154,9 @@
       const isRedSea = region === 'red_sea';
 
       var hamalFish, fasadFish;
-      if (isRedSea) { hamalFish = 'حريد، سبيتي'; fasadFish = 'ناجل، طرادي'; }
-      else if (isDubaiMusandam) { hamalFish = 'صافي، بدح، نيسر'; fasadFish = 'عندق، سولي، هامور، فسكر'; }
-      else if (isUqairSharqiyah) { hamalFish = 'صافي، شعم، بالول، بدح'; fasadFish = 'هامور، سولي، شعري كبار'; }
-      else { hamalFish = 'البالول، الشعم، الصافي، البدح'; fasadFish = 'السولي، العندق، الهامور، الفسكر'; }
+      const seasonalAdvice = getSeasonalFishAdvice(date, selectedStation);
+      hamalFish = seasonalAdvice.hamal;
+      fasadFish = seasonalAdvice.fasad;
 
       if (sourceEl) sourceEl.textContent = getSourceBrandingText();
 
