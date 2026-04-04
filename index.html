@@ -1796,13 +1796,17 @@
     function renderTimeline() {
       const line = document.getElementById('timeline');
       line.innerHTML = '';
-      getActiveHours().slice(0, 12).forEach((h, i) => {
+      const allHours = getActiveHours();
+      const startIdx = selectedHourIndex;
+      const slice = allHours.slice(startIdx, startIdx + 12);
+      slice.forEach(function (h, i) {
         const ws = getDisplayedWindKmh(h);
         const wd = h.windDirection && h.windDirection.sg != null ? h.windDirection.sg : 0;
         const card = document.createElement('div');
-        card.className = 'hour' + (i === selectedHourIndex ? ' active' : '');
+        card.className = 'hour' + (i === 0 ? ' active' : '');
         card.innerHTML = '<div class="hour-time">' + formatHourArabic(h.time) + '</div><span class="hour-arrow" style="transform:rotate(' + wd + 'deg)">↑</span><div class="hour-val">' + (ws != null ? ws + ' كم/س' : '---') + '</div>';
-        card.addEventListener('click', function () { selectedHourIndex = i; renderAll(); });
+        const actualIdx = startIdx + i;
+        card.addEventListener('click', function () { selectedHourIndex = actualIdx; renderAll(); });
         line.appendChild(card);
       });
     }
@@ -1923,10 +1927,13 @@
       document.getElementById('currentWaterHeight').innerHTML = '≈ اتجاه الماء الحالي: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> • الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : '---') + ' • FDI: ' + fdi + '/100';
 
       const dorahLabel = (dar.darName.split(' - ')[1] || dar.darName);
-      document.getElementById('dorahName').textContent = 'ذروة الدر: ' + dorahLabel;
-      document.getElementById('dorahDetail').textContent = 'تقويم الدرة التقليدي | الموسم الشعبي: ' + dar.seasonName + ' | اليوم ' + dar.canonicalDarDay + ' | يوم ' + dar.dayInDar + ' من 10';
-      document.getElementById('dorahCountdownLine').textContent = 'باقي ' + dar.daysLeft + ' يوم على ' + dar.nextDarLabel;
-      document.getElementById('dorahInfoBox').textContent = getDorahInfoText(dorahLabel);
+      const nextDarName = dar.nextDarLabel.split(' - ')[1] || dar.nextDarLabel;
+      const fishInfo = getDorahInfoText(dorahLabel).replace('معلومات الدر: ', '');
+      const nextFishHint = getDorahInfoText(nextDarName).replace('معلومات الدر: ', '').split('.')[0];
+      document.getElementById('dorahName').textContent = '🌟 ' + dorahLabel;
+      document.getElementById('dorahDetail').textContent = 'اليوم ' + dar.dayInDar + ' من 10  •  رقم الدر: ' + dar.canonicalDarDay + '  •  باقي ' + dar.daysLeft + ' يوم';
+      document.getElementById('dorahCountdownLine').textContent = 'الدر القادم: ' + nextDarName + ' — ' + nextFishHint;
+      document.getElementById('dorahInfoBox').textContent = fishInfo;
       document.getElementById('countdownDays').textContent = String(dar.daysLeft);
       const sourceLabel = currentStationLiveMeta && currentStationLiveMeta.sourceLabel ? currentStationLiveMeta.sourceLabel : 'Radar Marine Pending';
       document.getElementById('dorahWarning').textContent = dar.warning + ' | المصدر: ' + sourceLabel;
@@ -1965,24 +1972,11 @@
       const activeHour = getActiveHours()[selectedHourIndex] || {};
       const windKmh = activeHour.windSpeed && activeHour.windSpeed.sg != null ? mpsToKmh(activeHour.windSpeed.sg) : null;
       const gustKmh = activeHour.windGust && activeHour.windGust.sg != null ? mpsToKmh(activeHour.windGust.sg) : null;
-      if (windKmh != null && windKmh > 20) {
-        adviceEl.className = 'nawkhada-advice-danger';
-        adviceEl.innerHTML =
-          '⛔ <strong>شايش - غير مناسب</strong> • سرعة الرياح: <strong>' + windKmh + ' كم/س</strong>' +
-          (gustKmh != null ? ' • هبّات: <strong>' + gustKmh + ' كم/س</strong>' : '') + '<br>' +
-          '<span style="opacity:.85;font-size:12px">الرياح قوية جداً والموج مرتفع. ينصح بتأجيل الطلعة حتى تهدأ الأحوال.</span>';
-        kanaadEl.style.display = 'none';
-        return;
-      }
-      if (windKmh != null && windKmh >= 15) {
-        adviceEl.className = 'nawkhada-advice-caution';
-        adviceEl.innerHTML =
-          '⚠️ <strong>حذر - موج عالي</strong> • سرعة الرياح: <strong>' + windKmh + ' كم/س</strong>' +
-          (gustKmh != null ? ' • هبّات: <strong>' + gustKmh + ' كم/س</strong>' : '') + '<br>' +
-          '<span style="opacity:.85;font-size:12px">الرياح متوسطة إلى نشطة. الأفضل تقليل المخاطرة وتجنب العمق في هذه الساعة.</span>';
-        kanaadEl.style.display = 'none';
-        return;
-      }
+      const windDirDeg = activeHour.windDirection && activeHour.windDirection.sg != null ? activeHour.windDirection.sg : null;
+      const windDirStr = windDirDeg != null ? windDirText8(windDirDeg) : '';
+      const windDesc = windKmh != null
+        ? (windKmh + ' كم/س' + (windDirStr ? ' من ' + windDirStr : '') + (gustKmh != null ? ' • هبّات: ' + gustKmh + ' كم/س' : ''))
+        : 'هادئة';
 
       const stName = selectedStation ? selectedStation.name : '';
       const region = getMarineRegion(selectedStation);
@@ -1996,32 +1990,40 @@
       const isRedSea = region === 'red_sea';
 
       var hamalFish, fasadFish;
-      if (isRedSea) {
-        hamalFish = 'حريد، سبيتي';
-        fasadFish = 'ناجل، طرادي';
-      } else if (isDubaiMusandam) {
-        hamalFish = 'صافي، بدح، نيسر';
-        fasadFish = 'عندق، سولي، هامور، فسكر';
-      } else if (isUqairSharqiyah) {
-        hamalFish = 'صافي، شعم، بالول، بدح';
-        fasadFish = 'هامور، سولي، شعري كبار';
-      } else {
-        hamalFish = 'البالول، الشعم، الصافي، البدح';
-        fasadFish = 'السولي، العندق، الهامور، الفسكر';
+      if (isRedSea) { hamalFish = 'حريد، سبيتي'; fasadFish = 'ناجل، طرادي'; }
+      else if (isDubaiMusandam) { hamalFish = 'صافي، بدح، نيسر'; fasadFish = 'عندق، سولي، هامور، فسكر'; }
+      else if (isUqairSharqiyah) { hamalFish = 'صافي، شعم، بالول، بدح'; fasadFish = 'هامور، سولي، شعري كبار'; }
+      else { hamalFish = 'البالول، الشعم، الصافي، البدح'; fasadFish = 'السولي، العندق، الهامور، الفسكر'; }
+
+      if (windKmh != null && windKmh > 20) {
+        adviceEl.className = 'nawkhada-advice-danger';
+        adviceEl.innerHTML =
+          '⛔ <strong>شايش - غير مناسب</strong> • الريح: <strong>' + windDesc + '</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">دُر <strong>' + darLabel + '</strong> — الرياح قوية جداً. ينصح بتأجيل الطلعة حتى تهدأ الأحوال.</span>';
+        kanaadEl.style.display = 'none';
+        return;
+      }
+      if (windKmh != null && windKmh >= 15) {
+        adviceEl.className = 'nawkhada-advice-caution';
+        adviceEl.innerHTML =
+          '⚠️ <strong>حذر - رياح نشطة</strong> • الريح: <strong>' + windDesc + '</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">دُر <strong>' + darLabel + '</strong> • ' + waterState + ' — رياح متوسطة إلى نشطة. الأفضل تقليل المخاطرة وتجنب العمق.</span>';
+        kanaadEl.style.display = 'none';
+        return;
       }
 
       if (waterState === 'حمل') {
         adviceEl.className = 'nawkhada-advice-hamal';
         adviceEl.innerHTML =
-          '🟢 <strong>ديسجن إنجن: ' + waterState + '</strong> • معامل المد: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
-          'الوضع التلقائي: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • الأفضل صيد: <strong>' + hamalFish + '</strong> (' + selectedStation.getBathymetryLabel() + ').<br>' +
-          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'السمك الآن يرعى في القوع بسبب قوة الحمل.') + '</span>';
+          '🟢 دُر <strong>' + darLabel + '</strong> • <strong>' + waterState + '</strong> • معامل: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
+          'الريح: ' + windDesc + ' • الوضع: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • أفضل سمك: <strong>' + hamalFish + '</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'السمك يرعى في القوع بسبب قوة الحمل — اختر الغزير للعمق.') + '</span>';
       } else {
         adviceEl.className = 'nawkhada-advice-fasad';
         adviceEl.innerHTML =
-          '🔴 <strong>ديسجن إنجن: ' + waterState + '</strong> • معامل المد: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
-          'الوضع التلقائي: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • الأفضل صيد: <strong>' + fasadFish + '</strong> (' + selectedStation.getBathymetryLabel() + ').<br>' +
-          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'الماية هادئة والسمك أقرب للساحل في هذه الساعة.') + '</span>';
+          '🔴 دُر <strong>' + darLabel + '</strong> • <strong>' + waterState + '</strong> • معامل: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
+          'الريح: ' + windDesc + ' • الوضع: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • أفضل سمك: <strong>' + fasadFish + '</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'الماية هادئة والسمك أقرب للساحل — ركز على الضحل.') + '</span>';
       }
 
       const isKanaadDar = darLabel === 'المقدم' || darLabel === 'المؤخر';
