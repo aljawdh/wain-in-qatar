@@ -420,6 +420,13 @@
       padding: 10px 14px;
       text-align: center;
     }
+    .nawkhada-source-line {
+      margin-top: 8px;
+      color: #8fc4de;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
     .wind-official-status {
       margin-top: 8px;
       border-radius: 10px;
@@ -461,6 +468,7 @@
     <div class="nawkhada-box" id="nawkhadaBox">
       <div class="nawkhada-box-title">💡 نصيحة NAVIDUR اليوم</div>
       <div id="nawkhadaBoxAdvice" class="nawkhada-advice-hamal">جاري التحليل…</div>
+      <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار نافيدور الذكي (ICON-Seamless)</div>
       <div id="kanaadAlert" class="kanaad-alert" style="display:none">⚡ تنبيه الكنعد: موسم ذروة الكنعد (المقدم / المؤخر). جهّز عدتك الثقيلة واللورات — هذا أفضل وقت في السنة!</div>
     </div>
 
@@ -989,8 +997,19 @@
     let weatherByDay = [[], [], [], []];
     let weekDates = [];
     let stationStates = {};
-    let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'Radar Marine Pending', isLive: false };
+    let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار نافيدور الذكي', weatherModelProfile: 'icon_seamless', isLive: false };
     let windRefreshTimer = null;
+    const NAVIDUR_SOURCE_PREFIX = 'مصدر البيانات: رادار نافيدور الذكي';
+
+    function formatWeatherModelProfile(profile) {
+      if (!profile || profile === 'icon_seamless') return 'ICON-Seamless';
+      return String(profile).replace(/_/g, '-');
+    }
+
+    function getSourceBrandingText() {
+      const modelLabel = formatWeatherModelProfile(currentStationLiveMeta && currentStationLiveMeta.weatherModelProfile);
+      return NAVIDUR_SOURCE_PREFIX + ' (' + modelLabel + ')';
+    }
 
     function getAppDateParts(date) {
       const d = new Date(date || Date.now());
@@ -1300,19 +1319,19 @@
     const LIVE_PROVIDERS = {
       qatar_ports: {
         key: 'qatar_ports',
-        label: 'Official Qatar Wind',
+        label: 'رادار نافيدور الذكي',
         marineBase: 'https://marine-api.open-meteo.com/v1/marine',
         weatherBase: 'https://api.open-meteo.com/v1/forecast'
       },
       saudi_ports: {
         key: 'saudi_ports',
-        label: 'Official Saudi Wind',
+        label: 'رادار نافيدور الذكي',
         marineBase: 'https://marine-api.open-meteo.com/v1/marine',
         weatherBase: 'https://api.open-meteo.com/v1/forecast'
       },
       global_precise: {
         key: 'global_precise',
-        label: 'Official Global Wind',
+        label: 'رادار نافيدور الذكي',
         marineBase: 'https://marine-api.open-meteo.com/v1/marine',
         weatherBase: 'https://api.open-meteo.com/v1/forecast'
       }
@@ -1476,10 +1495,11 @@
           }),
           meta: {
             source: 'official-wind-pending',
-            sourceLabel: 'Radar Marine Pending',
+            sourceLabel: 'رادار نافيدور الذكي',
             stationId: station.id,
             stationName: station.name,
             tideSource: station.tideSource,
+            weatherModelProfile: 'icon_seamless',
             isLive: false,
             error: liveErr && liveErr.message ? liveErr.message : 'unknown-live-error',
             updatedAt: new Date().toISOString()
@@ -1513,6 +1533,53 @@
 
     function getActiveHours() {
       return weatherByDay[selectedForecastDay] || [];
+    }
+
+    function getSafeHourIndex(dayIndex, hourIndex) {
+      const hours = weatherByDay[dayIndex] || [];
+      if (!hours.length) return 0;
+      const baseIndex = typeof hourIndex === 'number' ? hourIndex : 0;
+      return Math.max(0, Math.min(baseIndex, hours.length - 1));
+    }
+
+    function syncSelectedHourSelection() {
+      const maxDayIndex = Math.max(0, weatherByDay.length - 1);
+      selectedForecastDay = Math.max(0, Math.min(selectedForecastDay, maxDayIndex));
+      selectedHourIndex = getSafeHourIndex(selectedForecastDay, selectedHourIndex);
+    }
+
+    function getSelectedHourEntry() {
+      syncSelectedHourSelection();
+      const hours = getActiveHours();
+      return {
+        dayIndex: selectedForecastDay,
+        hourIndex: selectedHourIndex,
+        hour: hours[selectedHourIndex] || {}
+      };
+    }
+
+    function getTimelineEntries(count) {
+      syncSelectedHourSelection();
+      const entries = [];
+      for (let dayIdx = selectedForecastDay; dayIdx < weatherByDay.length && entries.length < count; dayIdx++) {
+        const dayHours = weatherByDay[dayIdx] || [];
+        if (!dayHours.length) continue;
+        const startAt = dayIdx === selectedForecastDay ? getSafeHourIndex(dayIdx, selectedHourIndex) : 0;
+        for (let hourIdx = startAt; hourIdx < dayHours.length && entries.length < count; hourIdx++) {
+          entries.push({ dayIndex: dayIdx, hourIndex: hourIdx, hour: dayHours[hourIdx] || {} });
+        }
+      }
+      return entries;
+    }
+
+    function getDefaultHourIndex(dayIndex) {
+      const hours = weatherByDay[dayIndex] || [];
+      if (!hours.length) return 0;
+      const forecastDate = getForecastDateByIndex(dayIndex);
+      const todayKey = getAppIsoDay(new Date());
+      const isToday = forecastDate && getAppIsoDay(forecastDate) === todayKey;
+      const targetHour = isToday ? getAppDateParts(new Date()).hour : 0;
+      return Math.max(0, Math.min(targetHour, hours.length - 1));
     }
 
     function getCurrentTideMetrics() {
@@ -1788,7 +1855,12 @@
         const card = document.createElement('div');
         card.className = 'forecast-day' + (dayOffset === selectedForecastDay ? ' active' : '');
         card.innerHTML = '<div class="forecast-title">' + weekday + '</div><div class="forecast-status ' + dailyLabel.mode + '">' + dailyLabel.text + '</div>';
-        card.addEventListener('click', function () { selectedForecastDay = dayOffset; selectedHourIndex = 0; manualMode = null; renderAll(); });
+        card.addEventListener('click', function () {
+          selectedForecastDay = dayOffset;
+          selectedHourIndex = getDefaultHourIndex(dayOffset);
+          manualMode = null;
+          renderAll();
+        });
         root.appendChild(card);
       });
     }
@@ -1796,23 +1868,29 @@
     function renderTimeline() {
       const line = document.getElementById('timeline');
       line.innerHTML = '';
-      const allHours = getActiveHours();
-      const startIdx = selectedHourIndex;
-      const slice = allHours.slice(startIdx, startIdx + 12);
-      slice.forEach(function (h, i) {
+      const entries = getTimelineEntries(12);
+      if (!entries.length) {
+        line.innerHTML = '<div class="subtitle">لا توجد بيانات ساعات كافية حالياً</div>';
+        return;
+      }
+      entries.forEach(function (entry) {
+        const h = entry.hour || {};
         const ws = getDisplayedWindKmh(h);
         const wd = h.windDirection && h.windDirection.sg != null ? h.windDirection.sg : 0;
         const card = document.createElement('div');
-        card.className = 'hour' + (i === 0 ? ' active' : '');
+        card.className = 'hour' + (entry.dayIndex === selectedForecastDay && entry.hourIndex === selectedHourIndex ? ' active' : '');
         card.innerHTML = '<div class="hour-time">' + formatHourArabic(h.time) + '</div><span class="hour-arrow" style="transform:rotate(' + wd + 'deg)">↑</span><div class="hour-val">' + (ws != null ? ws + ' كم/س' : '---') + '</div>';
-        const actualIdx = startIdx + i;
-        card.addEventListener('click', function () { selectedHourIndex = actualIdx; renderAll(); });
+        card.addEventListener('click', function () {
+          selectedForecastDay = entry.dayIndex;
+          selectedHourIndex = entry.hourIndex;
+          renderAll();
+        });
         line.appendChild(card);
       });
     }
 
     function renderCompass(date) {
-      const hr = getActiveHours()[selectedHourIndex] || {};
+      const hr = getSelectedHourEntry().hour || {};
       const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
       const wd = hasLiveWind ? hr.windDirection.sg : 0;
       const ws = hasLiveWind ? getDisplayedWindKmh(hr) : null;
@@ -1831,15 +1909,18 @@
     function renderSeaStatusStrip() {
       const strip = document.getElementById('seaStatusStrip');
       strip.innerHTML = '';
-      const slice = getActiveHours().slice(0, 12);
+      const slice = getTimelineEntries(12);
       if (!slice.length) {
         strip.innerHTML = '<div class="subtitle">لا توجد بيانات حالة البحر حالياً</div>';
         return;
       }
-      slice.forEach((h, i) => {
+      slice.forEach((entry, i) => {
+        const h = entry.hour || {};
         const cur = h.seaLevel && h.seaLevel.sg != null ? h.seaLevel.sg : null;
-        const prev = i > 0 ? (slice[i - 1].seaLevel && slice[i - 1].seaLevel.sg != null ? slice[i - 1].seaLevel.sg : cur) : cur;
-        const next = i < slice.length - 1 ? (slice[i + 1].seaLevel && slice[i + 1].seaLevel.sg != null ? slice[i + 1].seaLevel.sg : cur) : cur;
+        const prevHour = i > 0 ? (slice[i - 1].hour || {}) : {};
+        const nextHour = i < slice.length - 1 ? (slice[i + 1].hour || {}) : {};
+        const prev = i > 0 ? (prevHour.seaLevel && prevHour.seaLevel.sg != null ? prevHour.seaLevel.sg : cur) : cur;
+        const next = i < slice.length - 1 ? (nextHour.seaLevel && nextHour.seaLevel.sg != null ? nextHour.seaLevel.sg : cur) : cur;
         const tideState = getTideState(prev, cur, next);
         const box = document.createElement('div');
         box.className = 'sea-hour';
@@ -1890,7 +1971,7 @@
       const moon = getMoonPhase(date);
       const hf = getHamalFasadStatus(date);
       const activeMode = getActiveMode(date);
-      const hr = getActiveHours()[selectedHourIndex] || {};
+      const hr = getSelectedHourEntry().hour || {};
       const ws = getDisplayedWindKmh(hr);
       const sea = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
       const wt = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null;
@@ -1935,8 +2016,7 @@
       document.getElementById('dorahCountdownLine').textContent = 'الدر القادم: ' + nextDarName + ' — ' + nextFishHint;
       document.getElementById('dorahInfoBox').textContent = fishInfo;
       document.getElementById('countdownDays').textContent = String(dar.daysLeft);
-      const sourceLabel = currentStationLiveMeta && currentStationLiveMeta.sourceLabel ? currentStationLiveMeta.sourceLabel : 'Radar Marine Pending';
-      document.getElementById('dorahWarning').textContent = dar.warning + ' | المصدر: ' + sourceLabel;
+      document.getElementById('dorahWarning').textContent = dar.warning;
       const statusEl = document.getElementById('windOfficialStatus');
       if (statusEl) {
         if (!hasLiveWind) {
@@ -1967,9 +2047,10 @@
       const dar = getCurrentDar(date);
       const darLabel = (dar.darName.split(' - ')[1] || dar.darName);
       const adviceEl = document.getElementById('nawkhadaBoxAdvice');
+      const sourceEl = document.getElementById('nawkhadaDataSource');
       const kanaadEl = document.getElementById('kanaadAlert');
 
-      const activeHour = getActiveHours()[selectedHourIndex] || {};
+      const activeHour = getSelectedHourEntry().hour || {};
       const windKmh = activeHour.windSpeed && activeHour.windSpeed.sg != null ? mpsToKmh(activeHour.windSpeed.sg) : null;
       const gustKmh = activeHour.windGust && activeHour.windGust.sg != null ? mpsToKmh(activeHour.windGust.sg) : null;
       const windDirDeg = activeHour.windDirection && activeHour.windDirection.sg != null ? activeHour.windDirection.sg : null;
@@ -1994,6 +2075,8 @@
       else if (isDubaiMusandam) { hamalFish = 'صافي، بدح، نيسر'; fasadFish = 'عندق، سولي، هامور، فسكر'; }
       else if (isUqairSharqiyah) { hamalFish = 'صافي، شعم، بالول، بدح'; fasadFish = 'هامور، سولي، شعري كبار'; }
       else { hamalFish = 'البالول، الشعم، الصافي، البدح'; fasadFish = 'السولي، العندق، الهامور، الفسكر'; }
+
+      if (sourceEl) sourceEl.textContent = getSourceBrandingText();
 
       if (windKmh != null && windKmh > 20) {
         adviceEl.className = 'nawkhada-advice-danger';
@@ -2031,6 +2114,7 @@
     }
 
     function renderAll() {
+      syncSelectedHourSelection();
       const date = getForecastDateByIndex(selectedForecastDay);
       updateAllStationStates(date);
       renderForecastStrip();
@@ -2054,9 +2138,7 @@
       weatherByDay = liveBundle.hoursByDay;
       currentStationLiveMeta = liveBundle.meta;
 
-      const nowParts = getAppDateParts(new Date());
-      const maxHourIndex = Math.max(0, Math.min(23, (weatherByDay[selectedForecastDay] || []).length - 1));
-      selectedHourIndex = Math.min(nowParts.hour, maxHourIndex);
+      selectedHourIndex = getDefaultHourIndex(selectedForecastDay);
       updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
       renderAll();
     }
