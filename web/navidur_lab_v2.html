@@ -469,7 +469,7 @@
     <div class="nawkhada-box" id="nawkhadaBox">
       <div class="nawkhada-box-title">💡 نصيحة NAVIDUR اليوم</div>
       <div id="nawkhadaBoxAdvice" class="nawkhada-advice-hamal">جاري التحليل…</div>
-      <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار نافيدور الذكي (ICON-Seamless)</div>
+      <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار NAVIDUR (ICON-Seamless)</div>
       <div id="kanaadAlert" class="kanaad-alert" style="display:none">⚡ تنبيه الكنعد: موسم ذروة الكنعد (المقدم / المؤخر). جهّز عدتك الثقيلة واللورات — هذا أفضل وقت في السنة!</div>
     </div>
 
@@ -1023,9 +1023,9 @@
     let weatherByDay = [[], [], [], []];
     let weekDates = [];
     let stationStates = {};
-    let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار نافيدور الذكي', weatherModelProfile: 'icon_seamless', isLive: false };
+    let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار NAVIDUR', weatherModelProfile: 'icon_seamless', isLive: false };
     let windRefreshTimer = null;
-    const NAVIDUR_SOURCE_PREFIX = 'مصدر البيانات: رادار نافيدور الذكي';
+    const NAVIDUR_SOURCE_PREFIX = 'مصدر البيانات: رادار NAVIDUR';
 
     function formatWeatherModelProfile(profile) {
       if (!profile || profile === 'icon_seamless') return 'ICON-Seamless';
@@ -1356,19 +1356,19 @@
     const LIVE_PROVIDERS = {
       qatar_ports: {
         key: 'qatar_ports',
-        label: 'رادار نافيدور الذكي',
+        label: 'رادار NAVIDUR',
         marineBase: 'https://marine-api.open-meteo.com/v1/marine',
         weatherBase: 'https://api.open-meteo.com/v1/forecast'
       },
       saudi_ports: {
         key: 'saudi_ports',
-        label: 'رادار نافيدور الذكي',
+        label: 'رادار NAVIDUR',
         marineBase: 'https://marine-api.open-meteo.com/v1/marine',
         weatherBase: 'https://api.open-meteo.com/v1/forecast'
       },
       global_precise: {
         key: 'global_precise',
-        label: 'رادار نافيدور الذكي',
+        label: 'رادار NAVIDUR',
         marineBase: 'https://marine-api.open-meteo.com/v1/marine',
         weatherBase: 'https://api.open-meteo.com/v1/forecast'
       }
@@ -1532,7 +1532,7 @@
           }),
           meta: {
             source: 'official-wind-pending',
-            sourceLabel: 'رادار نافيدور الذكي',
+            sourceLabel: 'رادار NAVIDUR',
             stationId: station.id,
             stationName: station.name,
             tideSource: station.tideSource,
