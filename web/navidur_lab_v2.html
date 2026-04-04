@@ -1025,6 +1025,9 @@
     let stationStates = {};
     let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار NAVIDUR', weatherModelProfile: 'icon_seamless', isLive: false };
     let windRefreshTimer = null;
+    let dayChangeSyncTimer = null;
+    let dayRefreshInFlight = null;
+    let lastKnownAppIsoDay = getAppIsoDay(new Date());
     const NAVIDUR_SOURCE_PREFIX = 'مصدر البيانات: رادار NAVIDUR';
 
     function formatWeatherModelProfile(profile) {
@@ -1096,6 +1099,14 @@
         out.push(d);
       }
       return out;
+    }
+
+    function getVisibleWeekDatesFromToday(baseDate) {
+      const allDays = getWeekDatesSaturdayToFriday(baseDate);
+      const todayKey = getAppIsoDay(new Date());
+      return allDays.filter(function (d) {
+        return getAppIsoDay(d) >= todayKey;
+      });
     }
 
     function getForecastDateByIndex(index) {
@@ -1391,13 +1402,14 @@
 
     function groupHoursByWeekDates(hours, targetWeekDates, station) {
       const map = {};
+      const todayKey = getAppIsoDay(new Date());
       targetWeekDates.forEach(function (d) {
         map[getAppIsoDay(d)] = [];
       });
 
       (hours || []).forEach(function (h) {
         const key = typeof h.time === 'string' && h.time.length >= 10 ? h.time.slice(0, 10) : getAppIsoDay(new Date(h.time));
-        if (!map[key]) return;
+        if (key < todayKey || !map[key]) return;
         map[key].push(h);
       });
 
@@ -1449,7 +1461,7 @@
     }
 
     async function fetchProviderHours(provider, station, targetWeekDates) {
-      const startDate = getAppIsoDay(targetWeekDates[0]);
+      const startDate = getAppIsoDay(new Date());
       const endAnchor = new Date(targetWeekDates[targetWeekDates.length - 1].getTime());
       endAnchor.setDate(endAnchor.getDate() + 1);
       const endDate = getAppIsoDay(endAnchor);
@@ -2199,9 +2211,8 @@
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
       manualMode = null;
-      weekDates = getWeekDatesSaturdayToFriday(new Date());
-      const todayKey = getAppIsoDay(new Date());
-      selectedForecastDay = Math.max(0, weekDates.findIndex(function (d) { return getAppIsoDay(d) === todayKey; }));
+      weekDates = getVisibleWeekDatesFromToday(new Date());
+      selectedForecastDay = 0;
 
       const liveBundle = await loadLiveOrFallbackWeather(selectedStation, weekDates);
       weatherByDay = liveBundle.hoursByDay;
@@ -2215,6 +2226,39 @@
     async function refreshSelectedStationLiveWind() {
       const idx = selectedStation && typeof selectedStation.index === 'number' ? selectedStation.index : 0;
       await onStationChange(idx);
+    }
+
+    async function refreshIfDayChanged(force) {
+      const todayKey = getAppIsoDay(new Date());
+      if (!force && todayKey === lastKnownAppIsoDay) return;
+      lastKnownAppIsoDay = todayKey;
+      selectedForecastDay = 0;
+      selectedHourIndex = 0;
+      if (dayRefreshInFlight) return dayRefreshInFlight;
+      const idx = selectedStation && typeof selectedStation.index === 'number' ? selectedStation.index : 0;
+      dayRefreshInFlight = onStationChange(idx).finally(function () {
+        dayRefreshInFlight = null;
+      });
+      return dayRefreshInFlight;
+    }
+
+    function setupDayChangeSync() {
+      if (dayChangeSyncTimer) {
+        clearInterval(dayChangeSyncTimer);
+      }
+      dayChangeSyncTimer = setInterval(function () {
+        refreshIfDayChanged(false);
+      }, 60 * 1000);
+
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) refreshIfDayChanged(false);
+      });
+
+      const interactionRefresh = function () {
+        refreshIfDayChanged(false);
+      };
+      window.addEventListener('pointerdown', interactionRefresh, { passive: true });
+      window.addEventListener('keydown', interactionRefresh);
     }
 
     function autoSteerMode() {
@@ -2231,6 +2275,7 @@
       renderStations();
       await onStationChange(0);
       startLiveClock();
+      lastKnownAppIsoDay = getAppIsoDay(new Date());
 
       if (windRefreshTimer) {
         clearInterval(windRefreshTimer);
@@ -2238,6 +2283,7 @@
       windRefreshTimer = setInterval(function () {
         refreshSelectedStationLiveWind();
       }, UPDATE_FREQUENCY_MINUTES * 60 * 1000);
+      setupDayChangeSync();
 
       document.getElementById('stationSel').addEventListener('change', async function (e) {
         await onStationChange(parseInt(e.target.value, 10));
