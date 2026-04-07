@@ -1345,6 +1345,7 @@
         this.utcOffset = COUNTRY_UTC_OFFSET_HOURS[base.country] || 3;
         const mappedBathymetry = STATION_BATHYMETRY[base.name] || null;
         const resolvedMode = String(base.fishing_mode || '').toLowerCase() === 'deep' ? 'deep' : (String(base.fishing_mode || '').toLowerCase() === 'coastal' ? 'coastal' : (mappedBathymetry === 'deep' ? 'deep' : 'coastal'));
+        this.fishing_mode = resolvedMode;
         this.fishingMode = resolvedMode;
         this.bathymetry = mappedBathymetry || (resolvedMode === 'deep' ? 'deep' : 'shallow');
         this.tideSource = 'tide://' + encodeURIComponent(base.country) + '/' + encodeURIComponent(base.name);
@@ -1603,10 +1604,16 @@
     }
 
     function normalizeFishingModeValue(station) {
+      if (station && station.fishing_mode === 'deep') return 'deep';
+      if (station && station.fishing_mode === 'coastal') return 'coastal';
       if (station && station.fishingMode === 'deep') return 'deep';
       if (station && station.fishingMode === 'coastal') return 'coastal';
       if (station && station.bathymetry === 'deep') return 'deep';
       return 'coastal';
+    }
+
+    function getSelectedStationMode() {
+      return normalizeFishingModeValue(selectedStation);
     }
 
     function buildCountryOptions() {
@@ -2458,7 +2465,7 @@
     }
 
     function getActiveMode(date) {
-      return getAutomaticModeFromLiveData(date, selectedStation);
+      return getSelectedStationMode();
     }
 
     function updateAllStationStates(date) {
@@ -3007,10 +3014,7 @@
       document.getElementById('deepBtn').classList.toggle('active', activeMode === 'deep');
 
       const manualWarn = document.getElementById('manualOverrideWarning');
-      if (manualMode === 'coastal' && hf.name === 'حمل') {
-        manualWarn.style.display = 'block';
-        manualWarn.textContent = 'تحذير: اخترت الساحلي مع حمل، راقب السرعة واتجاه الرياح.';
-      } else {
+      if (manualWarn) {
         manualWarn.style.display = 'none';
         manualWarn.textContent = '';
       }
@@ -3299,10 +3303,6 @@
     function autoSteerMode() {
       const date = getForecastDateByIndex(selectedForecastDay);
       const hf = getHamalFasadStatus(date);
-      const label = getDailyFishingLabel(date, selectedStation);
-      if (manualMode == null) {
-        manualMode = label.mode;
-      }
       return hf;
     }
 
@@ -3364,19 +3364,15 @@
       });
 
       document.getElementById('coastalBtn').addEventListener('click', function () {
-        manualMode = null;
-        const msg = 'الوضع الآن تلقائي بالكامل حسب معامل المد والجزر لكل محطة.';
+        const msg = 'هذا المؤشر للعرض فقط ويعكس نوع الصيد من بيانات المحطة المختارة.';
         document.getElementById('manualOverrideWarning').style.display = 'block';
         document.getElementById('manualOverrideWarning').textContent = msg;
-        renderAll();
       });
 
       document.getElementById('deepBtn').addEventListener('click', function () {
-        manualMode = null;
-        const msg = 'الوضع الآن تلقائي بالكامل حسب معامل المد والجزر لكل محطة.';
+        const msg = 'هذا المؤشر للعرض فقط ويعكس نوع الصيد من بيانات المحطة المختارة.';
         document.getElementById('manualOverrideWarning').style.display = 'block';
         document.getElementById('manualOverrideWarning').textContent = msg;
-        renderAll();
       });
 
       document.getElementById('modalClose').addEventListener('click', closeModal);
