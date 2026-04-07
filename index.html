@@ -2727,6 +2727,13 @@
         const marker = L.circleMarker([st.lat, st.lng], getMarkerStyle(st));
         marker.bindPopup('<strong>' + st.name + '</strong><br>' + st.country);
         marker.on('click', function () {
+          var cSel = document.getElementById('countrySelect');
+          var mSel = document.getElementById('fishingModeSelect');
+          if (cSel) cSel.value = st.country || '';
+          if (mSel) { mSel.disabled = false; mSel.value = normalizeFishingModeValue(st) || ''; }
+          renderFlowStations();
+          var sSel = document.getElementById('stationFlowSelect');
+          if (sSel) sSel.value = String(st.id);
           onStationChange(st.index, { source: 'map', silentPopup: true });
         });
         marker.addTo(stationMarkerLayer);
@@ -3348,6 +3355,7 @@
 
     async function onStationChange(idx, opts) {
       const options = opts || {};
+      const source = options.source === 'map' ? 'map' : 'list';
       setAnalysisLoading(true);
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
@@ -3374,7 +3382,7 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
-        trackOnce('analysis_complete', { event_type: 'analysis_complete', source: options.source || 'list', country: selectionTracking.country || (selectedStation ? selectedStation.country : null), fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
+        trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
         document.getElementById('hotspotScore').textContent = '--';
@@ -3388,7 +3396,7 @@
 
       trackOnce('station_select', {
         event_type: 'station_select',
-        source: options.source || 'list',
+        source: source,
         country: selectionTracking.country || (selectedStation ? selectedStation.country : null),
         fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null),
         station_id: selectionTracking.station_id || (selectedStation ? selectedStation.id : null),
@@ -3412,7 +3420,10 @@
     async function refreshIfDayChanged(force) {
       const todayKey = getAppIsoDay(new Date());
       if (!force && todayKey === lastKnownAppIsoDay) return;
-      if (dayRefreshInFlight) return dayRefreshInFlight;
+      if (dayRefreshInFlight) {
+        lastKnownAppIsoDay = todayKey;
+        return dayRefreshInFlight;
+      }
       lastKnownAppIsoDay = todayKey;
       selectedForecastDay = 0;
       selectedHourIndex = 0;
