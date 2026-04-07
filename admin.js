@@ -22,7 +22,9 @@
   var stationsAdminMap = null;
   var stationAdminMarker = null;
   var stationReverseRequestId = 0;
-  var waterCheckState = { isWater: null, lat: null, lon: null, checking: false };
+  var waterCheckState = { isWater: null, lat: null, lon: null, checking: false, result: 'unknown', fallback: false };
+  // result values: 'unknown' | 'confirmed_water' | 'confirmed_land' | 'uncertain'
+  // fallback: true means the result was produced by the lightweight fallback, not strict Overpass check
   var _waterCheckTimer = null;
 
   function getEl(id) {
@@ -582,21 +584,62 @@
 
   function classifyIsInElements(elements) {
     var WATER_NATURAL = ['sea', 'bay', 'water', 'strait', 'ocean'];
+    // Harbours, marinas, docks, basins are water-context even though tagged under landuse/leisure
+    var WATER_LANDUSE = ['basin', 'reservoir', 'harbour', 'port'];
     var LAND_LANDUSE = ['residential', 'commercial', 'industrial', 'retail', 'construction', 'farmland', 'farmyard', 'allotments'];
     var LAND_PLACE = ['city', 'town', 'village', 'suburb', 'neighbourhood', 'quarter'];
     var LAND_HIGHWAY = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service', 'footway', 'path', 'cycleway', 'living_street'];
     var waterScore = 0, landScore = 0;
     (elements || []).forEach(function (el) {
       var tags = el.tags || {};
+      // Water indicators
       if (WATER_NATURAL.indexOf(tags.natural) !== -1) waterScore += 3;
       if (tags.place === 'sea' || tags.place === 'ocean') waterScore += 3;
       if (tags.waterway && tags.waterway !== 'riverbank') waterScore += 2;
+      if (tags.waterway === 'dock') waterScore += 2;
+      if (WATER_LANDUSE.indexOf(tags.landuse) !== -1) waterScore += 2;
+      if (tags.leisure === 'marina') waterScore += 3;
+      if (tags.seamark) waterScore += 3;
+      // Land indicators
       if (LAND_LANDUSE.indexOf(tags.landuse) !== -1) landScore += 3;
       if (LAND_PLACE.indexOf(tags.place) !== -1) landScore += 2;
       if (tags.building) landScore += 4;
       if (LAND_HIGHWAY.indexOf(tags.highway) !== -1) landScore += 2;
     });
     return { waterScore: waterScore, landScore: landScore };
+  }
+
+  // Classify into one of three deterministic states:
+  //   confirmed_water — water clearly dominates, no strong nearby land, point not hugging coastline
+  //   confirmed_land  — land score (including nearby features) exceeds water by a clear margin
+  //   uncertain       — scores tied/close, or very near coastline, or conflicting signals
+  //
+  // Parameters:
+  //   scores          — { waterScore, landScore } from classifyIsInElements (is_in areas)
+  //   hasCoastlineNearby — any coastline way found within 300 m
+  //   coastlineDist   — metres to nearest coastline segment, or null if none found
+  //   nearbyLandScore — score from classifyNearbyLandFeatures (buildings/roads within 80 m)
+  function classifyWaterResult(scores, hasCoastlineNearby, coastlineDist, nearbyLandScore) {
+    var W = scores.waterScore;
+    var L = scores.landScore;
+    var NL = nearbyLandScore || 0;
+    var effectiveL = L + NL;
+
+    // No OSM features of any kind — if no coastline nearby, assume deep/open sea
+    if (W === 0 && effectiveL === 0) {
+      return hasCoastlineNearby ? 'uncertain' : 'confirmed_water';
+    }
+
+    // Point is very close to a mapped coastline (< 60 m): require clear water dominance
+    if (coastlineDist !== null && coastlineDist < 60) {
+      if (W > effectiveL + 2) return 'confirmed_water';
+      if (effectiveL > W + 2) return 'confirmed_land';
+      return 'uncertain';
+    }
+
+    if (W > effectiveL) return 'confirmed_water';      // water wins (strict greater-than)
+    if (effectiveL >= W + 2) return 'confirmed_land';  // land wins by clear margin
+    return 'uncertain';                                  // close scores — coastal fringe
   }
 
   // Offset a lat/lon point by `meters` in direction (normLat, normLon)
@@ -636,69 +679,254 @@
     return offsetLatLon(lat, lon, -dLon, dLat, 50);
   }
 
+  // Compute minimum distance in metres from (lat, lon) to any mid-point of coastline segments.
+  // Returns null when no coastline ways are supplied.
+  function minDistToCoastline(lat, lon, coastlineWays) {
+    var EARTH_R = 6371000;
+    var cosLat = Math.cos(lat * Math.PI / 180);
+    var minDist = Infinity;
+    (coastlineWays || []).forEach(function (way) {
+      var nodes = way.geometry || [];
+      for (var i = 0; i < nodes.length - 1; i++) {
+        var midLat = (nodes[i].lat + nodes[i + 1].lat) / 2;
+        var midLon = (nodes[i].lon + nodes[i + 1].lon) / 2;
+        var dy = (midLat - lat) * EARTH_R * (Math.PI / 180);
+        var dx = (midLon - lon) * EARTH_R * (Math.PI / 180) * cosLat;
+        var dist = Math.sqrt(dy * dy + dx * dx);
+        if (dist < minDist) minDist = dist;
+      }
+    });
+    return minDist === Infinity ? null : minDist;
+  }
+
+  // Score nearby land features (buildings, roads) returned by around-radius Overpass queries.
+  // These elements are NOT from is_in; they are physically near the point.
+  function classifyNearbyLandFeatures(elements) {
+    var LAND_HIGHWAY = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'service'];
+    var score = 0;
+    (elements || []).forEach(function (el) {
+      var tags = el.tags || {};
+      if (tags.building) score += 4;
+      if (LAND_HIGHWAY.indexOf(tags.highway) !== -1) score += 2;
+    });
+    return score;
+  }
+
+  // ── Lightweight fallback when Overpass is unavailable ──────────────────────
+  // Scores three independent signals:
+  //   1. Reverse-geocode display name contains a water keyword
+  //   2. No nearby buildings or highways detected (nearbyLandScore === 0, or unknown if null)
+  //   3. Point is > 100 m from nearest coastline segment (or coastline unknown)
+  //
+  // Returns one of:
+  //   'confirmed_water' — strong enough hint to treat as water (score >= 2)
+  //   'uncertain'       — weak hints, cannot upgrade
+  //   'confirmed_land'  — NEVER returned; fallback cannot confirm land
+  //
+  // RULE: this function is only ever called when Overpass fails or returns empty.
+  //       It MUST NOT override a prior confirmed_land result.
+  function applyFallbackWaterHint(displayName, nearbyLandScore, coastlineDist) {
+    var WATER_KEYWORDS = ['sea', 'bay', 'gulf', 'water', 'ocean', 'strait', 'بحر', 'خليج', 'مياه', 'بحيرة'];
+    var score = 0;
+
+    // Signal 1 — reverse-geocode name contains a water keyword (+2, strongest signal)
+    var lowerName = String(displayName || '').toLowerCase();
+    var hasWaterKeyword = WATER_KEYWORDS.some(function (kw) { return lowerName.indexOf(kw) !== -1; });
+    if (hasWaterKeyword) score += 2;
+
+    // Signal 2 — no nearby buildings or roads detected (nearbyLandScore known = 0)
+    // If nearbyLandScore is null it means no data was available; skip this signal
+    if (nearbyLandScore !== null && nearbyLandScore === 0) score += 1;
+
+    // Signal 3 — point is > 100 m away from any mapped coastline (or coastline unknown)
+    if (coastlineDist === null || coastlineDist > 100) score += 1;
+
+    return score >= 2 ? 'confirmed_water' : 'uncertain';
+  }
+
   async function detectAndAutoOffsetWater(lat, lon) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
     waterCheckState.checking = true;
     waterCheckState.lat = lat;
     waterCheckState.lon = lon;
     waterCheckState.isWater = null;
+    waterCheckState.result = 'unknown';
+    waterCheckState.fallback = false;
     setWaterStatus('checking', '⏳ جاري فحص الموقع...');
     try {
-      // Single Overpass call: is_in + nearby coastline ways (for offset geometry)
-      var query = '[out:json][timeout:9];(' +
-        'is_in(' + lat.toFixed(6) + ',' + lon.toFixed(6) + ');' +
-        'way[natural=coastline](around:250,' + lat.toFixed(6) + ',' + lon.toFixed(6) + ');' +
-        ');out geom;';
-      var data = await callOverpass(query, 11000);
+      var lat6 = lat.toFixed(6);
+      var lon6 = lon.toFixed(6);
+      // Combined query:
+      //   is_in     — all OSM areas containing the point (water/land polygons)
+      //   coastline — ways within 300 m for offset geometry and distance measurement
+      //   buildings — ways/nodes within 80 m (strong land-presence signal)
+      //   highways  — major roads within 60 m (land-presence confirmation)
+      var query = '[out:json][timeout:15];(' +
+        'is_in(' + lat6 + ',' + lon6 + ');' +
+        'way[natural=coastline](around:300,' + lat6 + ',' + lon6 + ');' +
+        'way[building](around:80,' + lat6 + ',' + lon6 + ');' +
+        'node[building](around:80,' + lat6 + ',' + lon6 + ');' +
+        'way[highway~"^(motorway|trunk|primary|secondary|tertiary|residential|unclassified|service)$"](around:60,' + lat6 + ',' + lon6 + ');' +
+        ');out tags geom;';
+      var data = await callOverpass(query, 16000);
       var elements = data.elements || [];
-      var isInEls = elements.filter(function (el) {
-        return !(el.type === 'way' && el.tags && el.tags.natural === 'coastline');
-      });
+
+      // ── Empty-response guard: Overpass returned no data at all ──────────────
+      // This can happen on partial failure or if the point is in deep open sea
+      // with no OSM features mapped within the query radius.
+      // Run the fallback before classifying so sea points are not left 'unknown'.
+      if (elements.length === 0) {
+        var emptyNominatimData = null;
+        try {
+          var emptyRevUrl = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=ar,en&lat=' +
+            encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+          var emptyRevRes = await fetch(emptyRevUrl, { headers: { 'Accept': 'application/json' } });
+          if (emptyRevRes.ok) emptyNominatimData = await emptyRevRes.json();
+        } catch (_fe) { /* ignore — fallback works without geocode name too */ }
+        var emptyDisplayName = emptyNominatimData && emptyNominatimData.display_name ? emptyNominatimData.display_name : '';
+        var emptyFallbackResult = applyFallbackWaterHint(emptyDisplayName, 0, null);
+        waterCheckState.checking = false;
+        waterCheckState.fallback = true;
+        if (emptyFallbackResult === 'confirmed_water') {
+          waterCheckState.isWater = true;
+          waterCheckState.result = 'confirmed_water';
+          setWaterStatus('water', '🌊 في الماء — تم التحقق (دقة عالية)');
+          reverseGeocodeStation(lat, lon);
+        } else {
+          waterCheckState.isWater = null;
+          waterCheckState.result = 'uncertain';
+          setWaterStatus('unknown', '⚠️ الموقع غير مؤكد — انقل النقطة إلى البحر');
+          reverseGeocodeStation(lat, lon);
+        }
+        return;
+      }
+
+      // Separate elements by source:
+      //   coastline ways — natural=coastline (tagged way)
+      //   nearby land    — have building or highway tag (from around queries)
+      //   is_in areas    — everything else (containing polygon features)
       var coastlineWays = elements.filter(function (el) {
         return el.type === 'way' && el.tags && el.tags.natural === 'coastline';
       });
+      var nearbyLandEls = elements.filter(function (el) {
+        var tags = el.tags || {};
+        return !!tags.building || !!tags.highway;
+      });
+      var isInEls = elements.filter(function (el) {
+        var tags = el.tags || {};
+        return !(el.type === 'way' && tags.natural === 'coastline') && !tags.building && !tags.highway;
+      });
+
       var scores = classifyIsInElements(isInEls);
-      var isLand = scores.landScore > scores.waterScore;
-      if (!isLand) {
+      var coastlineDist = minDistToCoastline(lat, lon, coastlineWays);
+      var nearbyLandScore = classifyNearbyLandFeatures(nearbyLandEls);
+      var checkResult = classifyWaterResult(scores, coastlineWays.length > 0, coastlineDist, nearbyLandScore);
+
+      if (checkResult === 'confirmed_water') {
         waterCheckState.isWater = true;
+        waterCheckState.result = 'confirmed_water';
         waterCheckState.checking = false;
-        setWaterStatus('water', '🌊 في الماء — الموضع صحيح');
+        waterCheckState.fallback = false;
+        setWaterStatus('water', '🌊 في الماء — تحقق دقيق');
         reverseGeocodeStation(lat, lon);
         return;
       }
-      // On land — attempt auto coastal offset toward sea
+
+      if (checkResult === 'uncertain') {
+        // Coastal fringe — not a confirmed marine point; block save with warning
+        waterCheckState.isWater = null;
+        waterCheckState.result = 'uncertain';
+        waterCheckState.checking = false;
+        setWaterStatus('unknown', '⚠️ الموقع غير مؤكد — انقل النقطة إلى البحر');
+        reverseGeocodeStation(lat, lon);
+        return;
+      }
+
+      // confirmed_land — attempt auto coastal offset toward sea
       if (coastlineWays.length > 0) {
         var offsetPt = computeSeaOffsetFromCoastline(lat, lon, coastlineWays);
         if (offsetPt) {
-          var verifyQuery = '[out:json][timeout:6];is_in(' +
-            offsetPt.lat.toFixed(6) + ',' + offsetPt.lon.toFixed(6) + ');out tags;';
+          var verifyQuery = '[out:json][timeout:8];(' +
+            'is_in(' + offsetPt.lat.toFixed(6) + ',' + offsetPt.lon.toFixed(6) + ');' +
+            'way[natural=coastline](around:300,' + offsetPt.lat.toFixed(6) + ',' + offsetPt.lon.toFixed(6) + ');' +
+            ');out tags geom;';
           try {
-            var verifyData = await callOverpass(verifyQuery, 8000);
-            var vs = classifyIsInElements(verifyData.elements || []);
-            if (vs.landScore <= vs.waterScore) {
-              // Offset point is in water — apply it silently
-              waterCheckState.checking = false;
-              applyStationPointFromMap(offsetPt.lat, offsetPt.lon, true, true, true);
+            var verifyData = await callOverpass(verifyQuery, 10000);
+            var ve = verifyData.elements || [];
+            var vCoastlines = ve.filter(function (el) {
+              return el.type === 'way' && el.tags && el.tags.natural === 'coastline';
+            });
+            var vIsIn = ve.filter(function (el) {
+              var tags = el.tags || {};
+              return !(el.type === 'way' && tags.natural === 'coastline');
+            });
+            var vs = classifyIsInElements(vIsIn);
+            var vDist = minDistToCoastline(offsetPt.lat, offsetPt.lon, vCoastlines);
+            var verifyResult = classifyWaterResult(vs, vCoastlines.length > 0, vDist, 0);
+            if (verifyResult === 'confirmed_water') {
+              // Set state BEFORE calling applyStationPointFromMap so that
+              // the immediate reverseGeocodeStation call sees the correct water state.
               waterCheckState.isWater = true;
+              waterCheckState.result = 'confirmed_water';
               waterCheckState.lat = offsetPt.lat;
               waterCheckState.lon = offsetPt.lon;
-              setWaterStatus('water', '🌊 تم تعديل الموضع تلقائياً نحو البحر (±50م)');
+              waterCheckState.checking = false;
+              setWaterStatus('water', '🌊 في الماء — تحقق دقيق');
+              applyStationPointFromMap(offsetPt.lat, offsetPt.lon, true, true, true);
+              return;
+            }
+            if (verifyResult === 'uncertain') {
+              // Offset is coastal fringe — not confirmed water; warn and surface the shifted point
+              waterCheckState.isWater = null;
+              waterCheckState.result = 'uncertain';
+              waterCheckState.lat = offsetPt.lat;
+              waterCheckState.lon = offsetPt.lon;
+              waterCheckState.checking = false;
+              setWaterStatus('unknown', '⚠️ الموقع غير مؤكد — انقل النقطة إلى البحر');
+              applyStationPointFromMap(offsetPt.lat, offsetPt.lon, true, true, true);
               return;
             }
           } catch (_e) { /* verification fetch failed — fall through */ }
         }
       }
-      // Still on land with no valid offset
+      // Still confirmed land with no valid offset
       waterCheckState.isWater = false;
+      waterCheckState.result = 'confirmed_land';
+      waterCheckState.fallback = false;
       waterCheckState.checking = false;
-      setWaterStatus('land', '⛔ على اليابسة — يرجى وضع المحطة داخل البحر');
+      setWaterStatus('land', '⛔ الموقع على اليابسة — لا يمكن الحفظ');
     } catch (e) {
+      // ── Overpass failure path: attempt lightweight fallback ──────────────────
+      // This catches timeouts (AbortError), HTTP errors, and network failures.
+      // We never produce confirmed_land here — only confirmed_water (with fallback
+      // flag) or uncertain/unknown so the admin can decide.
       waterCheckState.checking = false;
-      waterCheckState.isWater = null;
-      var isTimeout = e && (e.name === 'AbortError' || String(e.message || '').indexOf('timeout') !== -1);
-      setWaterStatus('unknown', isTimeout
-        ? '⚠️ انتهت مهلة فحص الموقع — يمكنك الحفظ بحذر'
-        : '⚠️ تعذر فحص الموقع — يمكنك الحفظ بحذر');
+      waterCheckState.fallback = true;
+
+      var fallbackDisplayName = '';
+      var fallbackNearbyLandScore = null; // unknown — Overpass did not respond
+      var fallbackCoastlineDist = null;   // unknown
+      try {
+        var fbRevUrl = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=ar,en&lat=' +
+          encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+        var fbRevRes = await fetch(fbRevUrl, { headers: { 'Accept': 'application/json' } });
+        if (fbRevRes.ok) {
+          var fbRevData = await fbRevRes.json();
+          fallbackDisplayName = fbRevData && fbRevData.display_name ? fbRevData.display_name : '';
+        }
+      } catch (_fe) { /* ignore reverse-geocode failure; fallback still runs */ }
+
+      var fallbackResult = applyFallbackWaterHint(fallbackDisplayName, fallbackNearbyLandScore, fallbackCoastlineDist);
+      if (fallbackResult === 'confirmed_water') {
+        waterCheckState.isWater = true;
+        waterCheckState.result = 'confirmed_water';
+        setWaterStatus('water', '🌊 في الماء — تم التحقق (دقة عالية)');
+        reverseGeocodeStation(lat, lon);
+      } else {
+        waterCheckState.isWater = null;
+        waterCheckState.result = 'uncertain';
+        setWaterStatus('unknown', '⚠️ الموقع غير مؤكد — انقل النقطة إلى البحر');
+      }
     }
   }
 
@@ -754,12 +982,22 @@
       if ((!regionValue || (isNewDraft && regionValue === 'gulf')) && suggestedRegion) getEl('stRegion').value = suggestedRegion;
       if (suggestedCountry) getEl('stCountry').value = suggestedCountry;
 
-      var pointLooksMarine = waterCheckState && waterCheckState.isWater === true &&
-        Math.abs(Number(waterCheckState.lat || 0) - Number(lat || 0)) < 1e-5 &&
-        Math.abs(Number(waterCheckState.lon || 0) - Number(lon || 0)) < 1e-5;
-      var placeText = pointLooksMarine
-        ? formatMarinePlaceSuggestion(addr)
-        : (data && data.display_name ? data.display_name : [suggestedRegion, suggestedCountry].filter(Boolean).join(' - '));
+      // Use loose coordinate tolerance (1e-4 ≈ 11 m) to accommodate auto-offset shift
+      var coordsMatchWaterCheck = waterCheckState &&
+        Math.abs(Number(waterCheckState.lat || 0) - Number(lat || 0)) < 1e-4 &&
+        Math.abs(Number(waterCheckState.lon || 0) - Number(lon || 0)) < 1e-4;
+      var pointIsConfirmedWater = coordsMatchWaterCheck &&
+        (waterCheckState.result === 'confirmed_water' || waterCheckState.isWater === true);
+      // For confirmed_water: always use marine wording — Nominatim often returns coastal roads.
+      // For uncertain / unknown: show the raw Nominatim label so the admin sees real context.
+      var placeText;
+      if (pointIsConfirmedWater) {
+        placeText = formatMarinePlaceSuggestion(addr);
+      } else {
+        placeText = (data && data.display_name)
+          ? data.display_name
+          : [suggestedRegion, suggestedCountry].filter(Boolean).join(' - ');
+      }
       setStationPlaceSuggestion('الموقع المختار: ' + (placeText || '--'));
     } catch (_e) {
       setStationPlaceSuggestion('الموقع المختار: تعذّر جلب العنوان التقديري، يمكنك إدخاله يدويًا.');
@@ -863,6 +1101,7 @@
     waterCheckState.lat = null;
     waterCheckState.lon = null;
     waterCheckState.checking = false;
+    waterCheckState.result = 'unknown';
     if (_waterCheckTimer) { clearTimeout(_waterCheckTimer); _waterCheckTimer = null; }
     setWaterStatus('unknown', '');
   }
@@ -946,8 +1185,13 @@
         await detectAndAutoOffsetWater(payload.lat, payload.lon);
         payload = readStationForm(); // re-read in case pin was auto-shifted
       }
-      if (waterCheckState.isWater === false) {
-        status.textContent = 'يرجى وضع المحطة داخل البحر وليس على اليابسة';
+      if (waterCheckState.result === 'confirmed_land' || waterCheckState.isWater === false) {
+        status.textContent = '⛔ يرجى وضع المحطة داخل البحر وليس على اليابسة';
+        return;
+      }
+      if (waterCheckState.result === 'uncertain') {
+        // Uncertain (waterfront / harbour fringe) — not a confirmed marine point; block save
+        status.textContent = '⚠️ الموقع غير مؤكد (منطقة ساحلية / ميناء) — انقل نقطة المحطة إلى البحر المفتوح وأعد الفحص';
         return;
       }
       // ── End water validation ────────────────────────────────────────────────
