@@ -22,6 +22,8 @@
   var stationsAdminMap = null;
   var stationAdminMarker = null;
   var stationReverseRequestId = 0;
+  var waterCheckState = { isWater: null, lat: null, lon: null, checking: false };
+  var _waterCheckTimer = null;
 
   function getEl(id) {
     return document.getElementById(id);
@@ -537,6 +539,165 @@
     el.textContent = text || 'الموقع المختار: --';
   }
 
+  // ── Water placement validation ──────────────────────────────────────────────
+
+  function setWaterStatus(state, msg) {
+    var el = getEl('stWaterStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.className = 'st-water-status st-water-' + (state || 'unknown');
+    el.style.display = msg ? '' : 'none';
+  }
+
+  async function callOverpass(query, timeoutMs) {
+    var ctrl = new AbortController();
+    var tid = setTimeout(function () { ctrl.abort(); }, timeoutMs || 10000);
+    try {
+      var url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+      var res = await fetch(url, { signal: ctrl.signal, headers: { 'Accept': 'application/json' } });
+      clearTimeout(tid);
+      if (!res.ok) throw new Error('overpass_http_' + res.status);
+      return await res.json();
+    } catch (e) {
+      clearTimeout(tid);
+      throw e;
+    }
+  }
+
+  function classifyIsInElements(elements) {
+    var WATER_NATURAL = ['sea', 'bay', 'water', 'strait', 'ocean'];
+    var LAND_LANDUSE = ['residential', 'commercial', 'industrial', 'retail', 'construction', 'farmland', 'farmyard', 'allotments'];
+    var LAND_PLACE = ['city', 'town', 'village', 'suburb', 'neighbourhood', 'quarter'];
+    var LAND_HIGHWAY = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service', 'footway', 'path', 'cycleway', 'living_street'];
+    var waterScore = 0, landScore = 0;
+    (elements || []).forEach(function (el) {
+      var tags = el.tags || {};
+      if (WATER_NATURAL.indexOf(tags.natural) !== -1) waterScore += 3;
+      if (tags.place === 'sea' || tags.place === 'ocean') waterScore += 3;
+      if (tags.waterway && tags.waterway !== 'riverbank') waterScore += 2;
+      if (LAND_LANDUSE.indexOf(tags.landuse) !== -1) landScore += 3;
+      if (LAND_PLACE.indexOf(tags.place) !== -1) landScore += 2;
+      if (tags.building) landScore += 4;
+      if (LAND_HIGHWAY.indexOf(tags.highway) !== -1) landScore += 2;
+    });
+    return { waterScore: waterScore, landScore: landScore };
+  }
+
+  // Offset a lat/lon point by `meters` in direction (normLat, normLon)
+  function offsetLatLon(lat, lon, normLat, normLon, meters) {
+    var EARTH_R = 6371000;
+    var mag = Math.sqrt(normLat * normLat + normLon * normLon);
+    if (mag < 1e-9) return null;
+    var uLat = normLat / mag;
+    var uLon = normLon / mag;
+    var latOffset = (meters * uLat) / EARTH_R * (180 / Math.PI);
+    var lonOffset = (meters * uLon) / (EARTH_R * Math.cos(lat * Math.PI / 180)) * (180 / Math.PI);
+    return { lat: lat + latOffset, lon: lon + lonOffset };
+  }
+
+  // In OSM, natural=coastline runs CCW around land: land=LEFT, sea=RIGHT.
+  // The right-hand normal in (lon=x, lat=y) space: rotate CW → normLat=-dLon, normLon=dLat
+  function computeSeaOffsetFromCoastline(lat, lon, coastlineWays) {
+    var nearestDist = Infinity;
+    var nearestSegment = null;
+    coastlineWays.forEach(function (way) {
+      var nodes = way.geometry || [];
+      for (var i = 0; i < nodes.length - 1; i++) {
+        var midLat = (nodes[i].lat + nodes[i + 1].lat) / 2;
+        var midLon = (nodes[i].lon + nodes[i + 1].lon) / 2;
+        var cosLat = Math.cos(lat * Math.PI / 180);
+        var dist = Math.sqrt(Math.pow(midLat - lat, 2) + Math.pow((midLon - lon) * cosLat, 2));
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestSegment = [nodes[i], nodes[i + 1]];
+        }
+      }
+    });
+    if (!nearestSegment) return null;
+    var dLat = nearestSegment[1].lat - nearestSegment[0].lat;
+    var dLon = nearestSegment[1].lon - nearestSegment[0].lon;
+    // right-hand normal → sea side: normLat = -dLon, normLon = dLat
+    return offsetLatLon(lat, lon, -dLon, dLat, 50);
+  }
+
+  async function detectAndAutoOffsetWater(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    waterCheckState.checking = true;
+    waterCheckState.lat = lat;
+    waterCheckState.lon = lon;
+    waterCheckState.isWater = null;
+    setWaterStatus('checking', '⏳ جاري فحص الموقع...');
+    try {
+      // Single Overpass call: is_in + nearby coastline ways (for offset geometry)
+      var query = '[out:json][timeout:9];(' +
+        'is_in(' + lat.toFixed(6) + ',' + lon.toFixed(6) + ');' +
+        'way[natural=coastline](around:250,' + lat.toFixed(6) + ',' + lon.toFixed(6) + ');' +
+        ');out geom;';
+      var data = await callOverpass(query, 11000);
+      var elements = data.elements || [];
+      var isInEls = elements.filter(function (el) {
+        return !(el.type === 'way' && el.tags && el.tags.natural === 'coastline');
+      });
+      var coastlineWays = elements.filter(function (el) {
+        return el.type === 'way' && el.tags && el.tags.natural === 'coastline';
+      });
+      var scores = classifyIsInElements(isInEls);
+      var isLand = scores.landScore > scores.waterScore;
+      if (!isLand) {
+        waterCheckState.isWater = true;
+        waterCheckState.checking = false;
+        setWaterStatus('water', '🌊 في الماء — الموضع صحيح');
+        return;
+      }
+      // On land — attempt auto coastal offset toward sea
+      if (coastlineWays.length > 0) {
+        var offsetPt = computeSeaOffsetFromCoastline(lat, lon, coastlineWays);
+        if (offsetPt) {
+          var verifyQuery = '[out:json][timeout:6];is_in(' +
+            offsetPt.lat.toFixed(6) + ',' + offsetPt.lon.toFixed(6) + ');out tags;';
+          try {
+            var verifyData = await callOverpass(verifyQuery, 8000);
+            var vs = classifyIsInElements(verifyData.elements || []);
+            if (vs.landScore <= vs.waterScore) {
+              // Offset point is in water — apply it silently
+              waterCheckState.checking = false;
+              applyStationPointFromMap(offsetPt.lat, offsetPt.lon, true, true, true);
+              waterCheckState.isWater = true;
+              waterCheckState.lat = offsetPt.lat;
+              waterCheckState.lon = offsetPt.lon;
+              setWaterStatus('water', '🌊 تم تعديل الموضع تلقائياً نحو البحر (±50م)');
+              return;
+            }
+          } catch (_e) { /* verification fetch failed — fall through */ }
+        }
+      }
+      // Still on land with no valid offset
+      waterCheckState.isWater = false;
+      waterCheckState.checking = false;
+      setWaterStatus('land', '⛔ على اليابسة — يرجى وضع المحطة داخل البحر');
+    } catch (e) {
+      waterCheckState.checking = false;
+      waterCheckState.isWater = null;
+      var isTimeout = e && (e.name === 'AbortError' || String(e.message || '').indexOf('timeout') !== -1);
+      setWaterStatus('unknown', isTimeout
+        ? '⚠️ انتهت مهلة فحص الموقع — يمكنك الحفظ بحذر'
+        : '⚠️ تعذر فحص الموقع — يمكنك الحفظ بحذر');
+    }
+  }
+
+  function scheduleWaterCheck(lat, lon) {
+    if (_waterCheckTimer) clearTimeout(_waterCheckTimer);
+    waterCheckState.isWater = null;
+    waterCheckState.checking = false;
+    setWaterStatus('checking', '⏳ جاري فحص الموقع...');
+    _waterCheckTimer = setTimeout(function () {
+      _waterCheckTimer = null;
+      detectAndAutoOffsetWater(lat, lon);
+    }, 800);
+  }
+
+  // ── End water placement validation ─────────────────────────────────────────
+
   function setStationMarker(lat, lon, shouldCenter) {
     if (!stationsAdminMap || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
     if (!stationAdminMarker) {
@@ -584,7 +745,7 @@
     }
   }
 
-  function applyStationPointFromMap(lat, lon, shouldCenter, runReverse) {
+  function applyStationPointFromMap(lat, lon, shouldCenter, runReverse, skipWaterCheck) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       updateStationCoordPreview(NaN, NaN);
       return;
@@ -594,6 +755,7 @@
     updateStationCoordPreview(lat, lon);
     setStationMarker(lat, lon, shouldCenter);
     if (runReverse) reverseGeocodeStation(lat, lon);
+    if (!skipWaterCheck) scheduleWaterCheck(lat, lon);
   }
 
   function syncStationMapFromInputs(shouldCenter) {
@@ -676,6 +838,12 @@
     }
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
+    waterCheckState.isWater = null;
+    waterCheckState.lat = null;
+    waterCheckState.lon = null;
+    waterCheckState.checking = false;
+    if (_waterCheckTimer) { clearTimeout(_waterCheckTimer); _waterCheckTimer = null; }
+    setWaterStatus('unknown', '');
   }
 
   async function loadStations() {
@@ -739,6 +907,30 @@
     var status = getEl('stationsStatus');
     try {
       var payload = readStationForm();
+
+      if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lon)) {
+        status.textContent = 'يرجى تحديد موقع المحطة على الخريطة أولاً';
+        return;
+      }
+
+      // ── Water placement validation ──────────────────────────────────────────
+      if (waterCheckState.checking) {
+        status.textContent = 'جاري التحقق من موقع المحطة، يرجى الانتظار...';
+        return;
+      }
+      var latMatch = Math.abs((waterCheckState.lat || 0) - payload.lat) < 1e-5;
+      var lonMatch = Math.abs((waterCheckState.lon || 0) - payload.lon) < 1e-5;
+      if (!latMatch || !lonMatch || waterCheckState.isWater === null) {
+        status.textContent = 'جاري التحقق من موقع المحطة...';
+        await detectAndAutoOffsetWater(payload.lat, payload.lon);
+        payload = readStationForm(); // re-read in case pin was auto-shifted
+      }
+      if (waterCheckState.isWater === false) {
+        status.textContent = 'يرجى وضع المحطة داخل البحر وليس على اليابسة';
+        return;
+      }
+      // ── End water validation ────────────────────────────────────────────────
+
       status.textContent = 'جاري الحفظ...';
       var method = payload.id ? 'PUT' : 'POST';
       var url = payload.id ? ('/api/admin/stations/' + encodeURIComponent(payload.id)) : STATIONS_ENDPOINT;

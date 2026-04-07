@@ -70,6 +70,11 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 #stationsAdminMap{height:300px;border-radius:10px;border:1px solid rgba(255,255,255,.14);overflow:hidden}
 .station-map-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.78rem;color:#b7d7ea}
 .station-place-suggestion{font-size:.8rem;color:#ffe7aa;line-height:1.6;background:rgba(255,214,127,.08);border:1px solid rgba(255,214,127,.24);border-radius:10px;padding:8px 10px}
+.st-water-status{font-size:.82rem;border-radius:10px;padding:8px 10px;margin-top:6px;line-height:1.5}
+.st-water-water{background:rgba(38,194,129,.12);border:1px solid rgba(38,194,129,.4);color:#8bf2ca}
+.st-water-land{background:rgba(255,82,82,.14);border:1px solid rgba(255,82,82,.5);color:#ffb3b3;font-weight:600}
+.st-water-checking{background:rgba(39,179,255,.1);border:1px solid rgba(39,179,255,.3);color:#9ad9ff}
+.st-water-unknown{background:rgba(255,214,127,.08);border:1px solid rgba(255,214,127,.24);color:#ffe7aa}
 .admin-switch{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px}
 .admin-switch input{transform:scale(1.2)}
 .settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
@@ -224,6 +229,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <span id="stCoordPreview">الإحداثيات الحالية: -- , --</span>
               </div>
               <div id="stPlaceSuggestion" class="station-place-suggestion">الموقع المختار: --</div>
+              <div id="stWaterStatus" class="st-water-status" style="display:none"></div>
             </div>
             <div class="settings-actions">
               <button class="settings-btn" id="saveStationBtn">حفظ محطة</button>
