@@ -1991,6 +1991,29 @@
       });
     }
 
+    function getTodayKey() {
+      return getAppIsoDay(new Date());
+    }
+
+    function rebuildDays() {
+      const base = normalizeUtcDate(new Date());
+      const days = [];
+      for (var i = 0; i < 5; i++) {
+        var d = new Date(base.getTime());
+        d.setUTCDate(d.getUTCDate() + i);
+        days.push(d);
+      }
+      weekDates = days;
+    }
+
+    async function refreshAllData() {
+      rebuildDays();
+      selectedForecastDay = 0;
+      selectedHourIndex = 0;
+      const idx = selectedStation && typeof selectedStation.index === 'number' ? selectedStation.index : 0;
+      await onStationChange(idx);
+    }
+
     function getForecastDateByIndex(index) {
       if (weekDates && weekDates[index]) return weekDates[index];
       return getForecastBaseDate(index);
@@ -3363,7 +3386,7 @@
       selectionTracking.fishing_mode = normalizeFishingModeValue(selectedStation);
       selectionTracking.station_id = selectedStation.id;
       manualMode = null;
-      weekDates = getVisibleWeekDatesFromToday(new Date());
+      rebuildDays();
       selectedForecastDay = 0;
 
       const liveBundle = await loadLiveOrFallbackWeather(selectedStation, weekDates);
@@ -3418,18 +3441,14 @@
     }
 
     async function refreshIfDayChanged(force) {
-      const todayKey = getAppIsoDay(new Date());
+      const todayKey = getTodayKey();
       if (!force && todayKey === lastKnownAppIsoDay) return;
       if (dayRefreshInFlight) {
         lastKnownAppIsoDay = todayKey;
         return dayRefreshInFlight;
       }
       lastKnownAppIsoDay = todayKey;
-      selectedForecastDay = 0;
-      selectedHourIndex = 0;
-      weekDates = getVisibleWeekDatesFromToday(new Date());
-      const idx = selectedStation && typeof selectedStation.index === 'number' ? selectedStation.index : 0;
-      dayRefreshInFlight = onStationChange(idx).finally(function () {
+      dayRefreshInFlight = refreshAllData().finally(function () {
         dayRefreshInFlight = null;
       });
       return dayRefreshInFlight;
