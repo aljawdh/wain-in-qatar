@@ -240,5 +240,71 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  if (root === 'analytics-summary') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const tracking = await readJsonFile('tracking', []);
+    return res.status(200).json(buildAnalyticsSummary(tracking));
+  }
+
   return res.status(404).json({ error: 'admin_route_not_found' });
 };
+
+// ---- Analytics snapshot builder ----
+const ANALYTICS_THRESHOLDS = { sessions_per_day: 20, analyses_per_day: 10, conversion_pct: 60 };
+
+function buildAnalyticsSummary(tracking) {
+  function todayCutoff() {
+    const d = new Date();
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).getTime();
+  }
+  function dayKey(ts) {
+    const d = new Date(ts || '');
+    if (Number.isNaN(d.getTime())) return null;
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+  }
+  const sessions = new Set(), stationMap = {}, countryMap = {}, modeMap = {};
+  let totalAnalyses = 0, totalStationSelects = 0;
+  const dailySessions = {}, dailyAnalyses = {}, dailyStationSelect = {};
+  tracking.forEach(function (r) {
+    if (r.session_id) sessions.add(r.session_id);
+    if (r.event_type === 'analysis_complete') {
+      totalAnalyses++;
+      const name = String(r.station || '').trim() || String(r.station_id || '').trim() || null;
+      if (name) stationMap[name] = (stationMap[name] || 0) + 1;
+    }
+    if (r.event_type === 'station_select') totalStationSelects++;
+    if (r.country) countryMap[r.country] = (countryMap[r.country] || 0) + 1;
+    if (r.fishing_mode === 'coastal' || r.fishing_mode === 'deep') modeMap[r.fishing_mode] = (modeMap[r.fishing_mode] || 0) + 1;
+    const k = dayKey(r.timestamp);
+    if (!k) return;
+    if (r.session_id) { if (!dailySessions[k]) dailySessions[k] = new Set(); dailySessions[k].add(r.session_id); }
+    if (r.event_type === 'analysis_complete') dailyAnalyses[k] = (dailyAnalyses[k] || 0) + 1;
+    if (r.event_type === 'station_select') dailyStationSelect[k] = (dailyStationSelect[k] || 0) + 1;
+  });
+  const todayMs = todayCutoff();
+  const dailyLog = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(todayMs - i * 86400000);
+    const k = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+    const daySess = dailySessions[k] ? dailySessions[k].size : 0;
+    const dayAn = dailyAnalyses[k] || 0;
+    const daySS = dailyStationSelect[k] || 0;
+    const conv = daySS > 0 ? Number(((dayAn / (daySS + dayAn)) * 100).toFixed(1)) : (dayAn > 0 ? 100 : null);
+    dailyLog.push({ date: k, sessions: daySess, analysis_complete: dayAn, conversion_pct: conv, meets_sessions_target: daySess >= ANALYTICS_THRESHOLDS.sessions_per_day, meets_analyses_target: dayAn >= ANALYTICS_THRESHOLDS.analyses_per_day, meets_conversion_target: conv !== null ? conv >= ANALYTICS_THRESHOLDS.conversion_pct : null });
+  }
+  const cTotal = Object.values(countryMap).reduce((a, b) => a + b, 0);
+  const mTotal = Object.values(modeMap).reduce((a, b) => a + b, 0);
+  const overallConv = (totalStationSelects + totalAnalyses) > 0 ? Number(((totalAnalyses / (totalStationSelects + totalAnalyses)) * 100).toFixed(1)) : null;
+  return {
+    ok: true, generated_at: new Date().toISOString(),
+    totals: { sessions: sessions.size, analysis_complete: totalAnalyses, conversion_pct: overallConv },
+    success_thresholds: ANALYTICS_THRESHOLDS,
+    top_5_stations: Object.entries(stationMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(p => ({ station: p[0], count: p[1], share_pct: totalAnalyses > 0 ? Number(((p[1] / totalAnalyses) * 100).toFixed(1)) : 0 })),
+    country_distribution: Object.entries(countryMap).sort((a, b) => b[1] - a[1]).map(p => ({ country: p[0], count: p[1], share_pct: cTotal > 0 ? Number(((p[1] / cTotal) * 100).toFixed(1)) : 0 })),
+    fishing_mode_split: Object.entries(modeMap).sort((a, b) => b[1] - a[1]).map(p => ({ mode: p[0], count: p[1], share_pct: mTotal > 0 ? Number(((p[1] / mTotal) * 100).toFixed(1)) : 0 })),
+    daily_log: dailyLog
+  };
+}
