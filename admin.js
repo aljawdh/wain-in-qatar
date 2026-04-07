@@ -523,6 +523,10 @@
     return String(text || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
   }
 
+  function getFishingModeLabel(mode) {
+    return mode === 'deep' ? 'غزير' : 'ساحلي';
+  }
+
   function updateStationCoordPreview(lat, lon) {
     var preview = getEl('stCoordPreview');
     if (!preview) return;
@@ -537,6 +541,18 @@
     var el = getEl('stPlaceSuggestion');
     if (!el) return;
     el.textContent = text || 'الموقع المختار: --';
+  }
+
+  function formatMarinePlaceSuggestion(address) {
+    var addr = address && typeof address === 'object' ? address : {};
+    var country = String(addr.country || '').trim();
+    var locality = String(
+      addr.city || addr.town || addr.municipality || addr.state_district || addr.county || addr.state || ''
+    ).trim();
+    if (locality && country) return 'نقطة بحرية قرب ' + locality + '، ' + country;
+    if (country) return 'موقع بحري داخل المياه ' + country;
+    if (locality) return 'مياه ' + locality;
+    return 'موقع بحري داخل المياه الإقليمية';
   }
 
   // ── Water placement validation ──────────────────────────────────────────────
@@ -647,6 +663,7 @@
         waterCheckState.isWater = true;
         waterCheckState.checking = false;
         setWaterStatus('water', '🌊 في الماء — الموضع صحيح');
+        reverseGeocodeStation(lat, lon);
         return;
       }
       // On land — attempt auto coastal offset toward sea
@@ -729,7 +746,6 @@
       if (currentRequestId !== stationReverseRequestId) return;
 
       var addr = data && data.address ? data.address : {};
-      var suggestedName = data && data.name ? data.name : (addr.suburb || addr.neighbourhood || addr.road || addr.village || addr.town || addr.city || '');
       var suggestedRegion = addr.state || addr.region || addr.county || '';
       var suggestedCountry = addr.country || '';
       var regionValue = getEl('stRegion').value.trim();
@@ -738,7 +754,12 @@
       if ((!regionValue || (isNewDraft && regionValue === 'gulf')) && suggestedRegion) getEl('stRegion').value = suggestedRegion;
       if (suggestedCountry) getEl('stCountry').value = suggestedCountry;
 
-      var placeText = data && data.display_name ? data.display_name : [suggestedName, suggestedRegion, suggestedCountry].filter(Boolean).join(' - ');
+      var pointLooksMarine = waterCheckState && waterCheckState.isWater === true &&
+        Math.abs(Number(waterCheckState.lat || 0) - Number(lat || 0)) < 1e-5 &&
+        Math.abs(Number(waterCheckState.lon || 0) - Number(lon || 0)) < 1e-5;
+      var placeText = pointLooksMarine
+        ? formatMarinePlaceSuggestion(addr)
+        : (data && data.display_name ? data.display_name : [suggestedRegion, suggestedCountry].filter(Boolean).join(' - '));
       setStationPlaceSuggestion('الموقع المختار: ' + (placeText || '--'));
     } catch (_e) {
       setStationPlaceSuggestion('الموقع المختار: تعذّر جلب العنوان التقديري، يمكنك إدخاله يدويًا.');
@@ -860,7 +881,7 @@
         '<td><strong>' + st.name + '</strong><br><span style="font-size:12px;color:#8ea4ba">' + st.id + '</span></td>' +
         '<td>' + stationStatusBadge(st.status) + '</td>' +
         '<td>' + (st.country || '--') + '</td>' +
-        '<td>' + (st.fishing_mode === 'deep' ? 'deep' : 'coastal') + '</td>' +
+        '<td>' + getFishingModeLabel(st.fishing_mode) + '</td>' +
         '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
         '<td>' +
           '<div class="inline-actions">' +
