@@ -2807,11 +2807,23 @@
       saveFunnelSession({ country_selected: false, mode_selected: false, station_selected: false, analysis_completed: false });
     }
 
+    const REQUIRED_FIELDS = {
+      country_select:    ['event_type', 'country'],
+      mode_select:       ['event_type', 'country', 'fishing_mode'],
+      station_select:    ['event_type', 'country', 'fishing_mode', 'station_id', 'station'],
+      analysis_complete: ['event_type', 'country', 'fishing_mode', 'station_id', 'station']
+    };
+
     function trackOnce(eventType, record) {
       const s = getFunnelSession();
       const flagMap = { country_select: 'country_selected', mode_select: 'mode_selected', station_select: 'station_selected', analysis_complete: 'analysis_completed' };
       const flag = flagMap[eventType];
       if (!flag || s[flag]) return; // already sent this session
+      // Validate required fields — drop incomplete events
+      const required = REQUIRED_FIELDS[eventType] || [];
+      for (const f of required) {
+        if (!record[f]) return; // missing required field — silently drop
+      }
       s[flag] = true;
       saveFunnelSession(s);
       pushTrackingRecord(record);
@@ -3359,7 +3371,7 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
-        trackOnce('analysis_complete', { event_type: 'analysis_complete', station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
+        trackOnce('analysis_complete', { event_type: 'analysis_complete', country: selectionTracking.country || (selectedStation ? selectedStation.country : null), fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
         document.getElementById('hotspotScore').textContent = '--';
