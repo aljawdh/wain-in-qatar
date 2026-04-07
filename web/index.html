@@ -221,6 +221,11 @@
       color: #c6e9ff;
       font-size: 12px;
       font-weight: 900;
+      display: flex;
+      align-items: center;
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+      gap: 5px;
     }
     .station-flow-select {
       width: 100%;
@@ -746,6 +751,89 @@
       .map-card { min-height: 360px; }
       #stationMap { height: 300px; }
     }
+
+    /* ── Public Homepage UX Refinements ──────────────────────── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 900;
+      color: #4a8fa8;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      margin: 18px 0 10px;
+      padding-right: 9px;
+      border-right: 3px solid rgba(111,220,255,0.28);
+      display: block;
+    }
+    .station-selector-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #6fdcff;
+      margin-bottom: 10px;
+      letter-spacing: 0.2px;
+    }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      background: rgba(111,220,255,0.13);
+      border: 1px solid rgba(111,220,255,0.32);
+      color: #6fdcff;
+      font-size: 10px;
+      font-weight: 900;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+    .station-flow-select[disabled] {
+      opacity: 0.38;
+      cursor: not-allowed;
+    }
+    .station-flow-select:not([disabled]) {
+      border-color: rgba(111,220,255,0.4);
+      background: #0b2840;
+    }
+    .station-selector-wrap { padding: 14px; }
+    .nawkhada-box { margin-top: 16px; }
+    .map-card { margin-top: 16px; margin-bottom: 16px; }
+    #stationMap { height: 440px; }
+    .hotspot-panel { padding: 16px; gap: 10px; }
+    .hot-score { font-size: 32px !important; }
+    .hotspot-score-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 2px;
+    }
+    .hotspot-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .hotspot-detail-grid > div {
+      background: rgba(10,36,54,0.55);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #c4e0f5;
+      line-height: 1.5;
+    }
+    @media (max-width: 860px) {
+      .app { padding: 12px 10px 24px; }
+      .section-label { margin: 14px 0 8px; }
+      .hotspot-detail-grid { grid-template-columns: 1fr; }
+      #stationMap { height: 280px; }
+      .map-card { min-height: 320px; }
+      .hotspot-panel { padding: 12px; }
+      .hot-score { font-size: 26px !important; }
+      .card { padding: 10px; }
+      .cards { gap: 6px; }
+      .forecast-day { min-width: 100px; }
+    }
   </style>
 </head>
 <body>
@@ -770,6 +858,7 @@
         <div id="maintenanceMessageText">الموقع تحت الصيانة حالياً.</div>
       </div>
       <div class="station-selector-wrap">
+        <div class="station-selector-title">📍 اختر محطتك</div>
         <div class="station-list-header">
           <div class="location-tools">
             <button id="locationRequestBtn" type="button" class="location-btn" style="display:none">تفعيل الموقع للفرز</button>
@@ -779,11 +868,11 @@
         <div id="stationFlowWrap" class="station-flow-wrap">
           <div class="station-flow-row">
             <div class="station-flow-field">
-              <label for="countrySelect">الخطوة 1: اختر الدولة</label>
+              <label for="countrySelect"><span class="step-num">1</span> الدولة</label>
               <select id="countrySelect" class="station-flow-select"></select>
             </div>
             <div class="station-flow-field">
-              <label for="fishingModeSelect">الخطوة 2: نوع الصيد</label>
+              <label for="fishingModeSelect"><span class="step-num">2</span> نوع الصيد</label>
               <select id="fishingModeSelect" class="station-flow-select" disabled>
                 <option value="">اختر النوع</option>
                 <option value="coastal">ساحلي</option>
@@ -791,7 +880,7 @@
               </select>
             </div>
             <div class="station-flow-field">
-              <label for="stationFlowSelect">الخطوة 3: المحطة</label>
+              <label for="stationFlowSelect"><span class="step-num">3</span> المحطة</label>
               <select id="stationFlowSelect" class="station-flow-select" disabled></select>
             </div>
           </div>
@@ -804,6 +893,40 @@
         <div id="nawkhadaBoxAdvice" class="nawkhada-advice-hamal">جاري التحليل…</div>
         <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار NAVIDUR (ICON-Seamless)</div>
         <div id="kanaadAlert" class="kanaad-alert" style="display:none">⚡ تنبيه الكنعد: موسم ذروة الكنعد (المقدم / المؤخر). جهّز عدتك الثقيلة واللورات — هذا أفضل وقت في السنة!</div>
+      </div>
+    </div>
+
+    <div class="card map-card">
+      <div class="map-head">
+        <span>خريطة المحطات والتحليل</span>
+        <span id="mapMetaText">نطاق التحليل: 0.02</span>
+      </div>
+      <div id="stationMap"></div>
+    </div>
+
+    <div id="hotspotPanel" class="hotspot-panel">
+      <div class="hotspot-title-row">
+        <div class="label">نتيجة التحليل</div>
+        <div id="analysisLoadingHint" class="analysis-loading-hint">جاري التحليل</div>
+      </div>
+      <div class="hotspot-score-row">
+        <div class="hot-score" id="hotspotScore">--</div>
+        <div id="confidenceBadge" class="confidence-pill low">Confidence: Low</div>
+      </div>
+      <div class="hotspot-detail-grid">
+        <div id="hotspotBest">أفضل نقطة: ---</div>
+        <div id="hotspotZone">المنطقة: ---</div>
+        <div id="hotspotCurrent">التيار: ---</div>
+        <div id="hotspotPoints">النقاط المحللة: ---</div>
+      </div>
+      <button id="whyToggleBtn" class="why-toggle" type="button">تفاصيل التوقع ▾</button>
+      <div id="whySpotBox" class="why-box"></div>
+      <div class="feedback-row">
+        <span style="font-size:12px;color:#d9efff;font-weight:800">هل التوقع مناسب؟</span>
+        <button id="feedbackYes" type="button" class="feedback-btn yes">YES</button>
+        <button id="feedbackNo" type="button" class="feedback-btn no">NO</button>
+        <span id="feedbackGateNote" class="feedback-gate-note">سجّل كعضو اختبار لإرسال YES / NO.</span>
+        <span id="feedbackStatus" class="feedback-status"></span>
       </div>
     </div>
 
@@ -822,35 +945,7 @@
       </div>
     </div>
 
-    <div class="card map-card">
-      <div class="map-head">
-        <span>خريطة المحطات والتحليل</span>
-        <span id="mapMetaText">نطاق التحليل: 0.02</span>
-      </div>
-      <div id="stationMap"></div>
-    </div>
-
-    <div id="hotspotPanel" class="hotspot-panel">
-      <div class="hotspot-title-row">
-        <div class="label">نتيجة hotspot للمحطة المختارة</div>
-        <div id="analysisLoadingHint" class="analysis-loading-hint">جاري التحليل</div>
-      </div>
-      <div class="hot-score" id="hotspotScore">--</div>
-      <div id="confidenceBadge" class="confidence-pill low">Confidence: Low</div>
-      <div id="hotspotZone">المنطقة: ---</div>
-      <div id="hotspotBest">أفضل نقطة: ---</div>
-      <div id="hotspotCurrent">التيار: ---</div>
-      <div id="hotspotPoints">النقاط المحللة: ---</div>
-      <button id="whyToggleBtn" class="why-toggle" type="button">Why this spot?</button>
-      <div id="whySpotBox" class="why-box"></div>
-      <div class="feedback-row">
-        <span style="font-size:12px;color:#d9efff;font-weight:800">هل التوقع مناسب؟</span>
-        <button id="feedbackYes" type="button" class="feedback-btn yes">YES</button>
-        <button id="feedbackNo" type="button" class="feedback-btn no">NO</button>
-        <span id="feedbackGateNote" class="feedback-gate-note">سجّل كعضو اختبار لإرسال YES / NO.</span>
-        <span id="feedbackStatus" class="feedback-status"></span>
-      </div>
-    </div>
+    <div class="section-label">بيانات العوامل البحرية</div>
 
     <div class="forecast-strip" id="forecastStrip"></div>
 
