@@ -104,9 +104,24 @@ module.exports = async function handler(req, res) {
         try {
           const body = parseBody(req);
           const rows = await readJsonFile('stations', []);
+          const requestedId = cleanString(body.id, 80);
+          const existingIdx = requestedId ? rows.findIndex((s) => s.id === requestedId) : -1;
+
+          // Upsert by id on the root endpoint to avoid route mismatch issues on some deployments.
+          if (existingIdx >= 0) {
+            const station = normalizeStationInput({ ...rows[existingIdx], ...body, id: requestedId }, rows[existingIdx]);
+            if (hasDuplicateStation(rows, station, requestedId)) {
+              return res.status(409).json({ error: 'duplicate_station_name_coordinates' });
+            }
+            rows[existingIdx] = station;
+            await writeJsonFile('stations', rows);
+            await writeAudit('station_updated', actor, { station_id: station.id, station_name: station.name });
+            return res.status(200).json({ ok: true, station });
+          }
+
           const station = normalizeStationInput({
             ...body,
-            id: body.id || createId('st'),
+            id: requestedId || createId('st'),
             sort_order: body.sort_order != null ? body.sort_order : (rows.length + 1),
             status: body.status || 'active'
           });

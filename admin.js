@@ -953,10 +953,8 @@
       // ── End water validation ────────────────────────────────────────────────
 
       status.textContent = 'جاري الحفظ...';
-      var method = payload.id ? 'PUT' : 'POST';
-      var url = payload.id ? ('/api/admin/stations/' + encodeURIComponent(payload.id)) : STATIONS_ENDPOINT;
-      var res = await apiFetch(url, {
-        method: method,
+      var res = await apiFetch(STATIONS_ENDPOINT, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
