@@ -19,6 +19,7 @@
   var usersCache = [];
   var latestSummaryCache = null;
   var latestFeedbackCache = [];
+  var currentPeriod = 'all';
   var stationsAdminMap = null;
   var stationAdminMarker = null;
   var stationReverseRequestId = 0;
@@ -189,7 +190,8 @@
   }
 
   async function fetchSummary() {
-    var res = await apiFetch(SUMMARY_ENDPOINT, { method: 'GET' });
+    var period = currentPeriod || 'all';
+    var res = await apiFetch(SUMMARY_ENDPOINT + '?period=' + encodeURIComponent(period), { method: 'GET' });
     if (!res.ok) throw new Error('summary fetch failed');
     return res.json();
   }
@@ -452,6 +454,91 @@
     btn.textContent = refreshInFlight ? 'جاري التحديث...' : 'تحديث';
   }
 
+  function renderOpsBlock(s) {
+    var stations = s.station_selection_counts || [];
+    var countries = s.country_usage || [];
+    var modes = s.fishing_mode_distribution || [];
+    var topStation = stations[0] ? stations[0].station_name : '---';
+    var topCountry = countries[0] ? countries[0].country : '---';
+    var topMode = modes[0] ? (modes[0].mode === 'deep' ? 'غزير' : 'ساحلي') : '---';
+    var totalAnalyses = Number(s.total_analyses || 0);
+    var biggestDropOff = '---';
+    var dropOff = (s.funnel && s.funnel.drop_off) || [];
+    var maxDrop = -1;
+    dropOff.forEach(function (d) {
+      if (d.drop_off_pct !== null && d.drop_off_pct > maxDrop) {
+        maxDrop = d.drop_off_pct;
+        biggestDropOff = (d.from || '') + ' ← ' + (d.to || '') + ' (' + d.drop_off_pct + '%)';
+      }
+    });
+    getEl('opsTopStation').textContent = topStation;
+    getEl('opsTopCountry').textContent = topCountry;
+    getEl('opsTopMode').textContent = topMode;
+    getEl('opsTotalAnalyses').textContent = String(totalAnalyses);
+    getEl('opsBiggestDropOff').textContent = biggestDropOff;
+  }
+
+  function renderFunnelHealth(funnel) {
+    var panel = getEl('funnelHealthPanel');
+    if (!panel) return;
+    var steps = (funnel && funnel.steps) || [];
+    if (!steps.length) {
+      panel.innerHTML = '<div style="color:var(--txt3);font-size:.82rem">لا توجد بيانات قمع بعد.</div>';
+      return;
+    }
+    var entry = steps[0].count || 1;
+    var maxCount = Math.max.apply(null, steps.map(function (s) { return s.count || 0; })) || 1;
+    panel.innerHTML = steps.map(function (step, i) {
+      var retentionPct = i === 0 ? 100 : Math.round((step.count / entry) * 100);
+      var barPct = Math.round(((step.count || 0) / maxCount) * 100);
+      var cls = retentionPct >= 70 ? 'green' : (retentionPct >= 40 ? 'yellow' : 'red');
+      var barColor = cls === 'green' ? '#26c281' : (cls === 'yellow' ? '#f0c040' : '#ff5252');
+      return '<div class="funnel-health-row">' +
+        '<div class="funnel-health-label">' + (step.label || step.step) + '</div>' +
+        '<div class="funnel-health-bar-wrap"><div class="funnel-health-bar" style="width:' + barPct + '%;background:' + barColor + '"></div></div>' +
+        '<div class="funnel-health-count">' + Number(step.count || 0) + '</div>' +
+        '<div class="funnel-health-pct ' + cls + '">' + retentionPct + '%</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function generateInsights(s) {
+    var container = getEl('opsInsights');
+    if (!container) return;
+    var insights = [];
+    var stations = s.station_selection_counts || [];
+    var countries = s.country_usage || [];
+    var modes = s.fishing_mode_distribution || [];
+    var dropOff = (s.funnel && s.funnel.drop_off) || [];
+    if (stations[0]) {
+      insights.push({ icon: '📍', text: 'المحطة الأكثر طلباً هي <strong>' + stations[0].station_name + '</strong> بـ ' + stations[0].count + ' اختيار.' });
+    }
+    if (countries[0]) {
+      insights.push({ icon: '🌍', text: 'معظم الاستخدام قادم من <strong>' + countries[0].country + '</strong>.' });
+    }
+    if (modes[0]) {
+      insights.push({ icon: '⚓', text: 'نوع الصيد السائد هو <strong>' + (modes[0].mode === 'deep' ? 'غزير' : 'ساحلي') + '</strong>.' });
+    }
+    var worstDrop = null;
+    var worstPct = -1;
+    dropOff.forEach(function (d) {
+      if (d.drop_off_pct !== null && d.drop_off_pct > worstPct) {
+        worstPct = d.drop_off_pct;
+        worstDrop = d;
+      }
+    });
+    if (worstDrop && worstPct > 30) {
+      insights.push({ icon: '⚠️', text: 'أكبر تسرب بين <strong>' + (worstDrop.from || '') + '</strong> و<strong>' + (worstDrop.to || '') + '</strong> بنسبة ' + worstPct + '% — يستحق المراجعة.' });
+    }
+    if (!insights.length) {
+      container.innerHTML = '<div style="color:var(--txt3);font-size:.82rem">لا توجد بيانات كافية لتوليد توصيات بعد.</div>';
+      return;
+    }
+    container.innerHTML = insights.map(function (ins) {
+      return '<div class="insight-card"><span class="insight-icon">' + ins.icon + '</span><span>' + ins.text + '</span></div>';
+    }).join('');
+  }
+
   async function renderSummarySection() {
     try {
       var s = await fetchSummary();
@@ -461,15 +548,22 @@
       getEl('sumAcc').textContent = String(s.accuracy || 0) + '%';
       getEl('sumScoreAcc').textContent = String(s.score_accuracy || 0) + '%';
       renderTopTable('summaryTopStationsBody', s.best_stations || []);
+      renderOpsBlock(s);
+      var stTotal = (s.station_selection_counts || []).reduce(function (acc, x) { return acc + Number(x.count || 0); }, 0);
       renderKeyValueRows('selectionStationsBody', (s.station_selection_counts || []).map(function (x, i) {
-        return '<td>' + (i + 1) + '</td><td><strong>' + (x.station_name || '--') + '</strong></td><td>' + Number(x.count || 0) + '</td>';
-      }), 'لا توجد اختيارات مسجلة بعد', 3);
+        var share = stTotal > 0 ? ((Number(x.count || 0) / stTotal) * 100).toFixed(1) + '%' : '--';
+        return '<td>' + (i + 1) + '</td><td><strong>' + (x.station_name || '--') + '</strong></td><td>' + (x.country || '--') + '</td><td>' + Number(x.count || 0) + '</td><td>' + share + '</td>';
+      }), 'لا توجد اختيارات مسجلة بعد', 5);
+      var modeTotal = (s.fishing_mode_distribution || []).reduce(function (acc, x) { return acc + Number(x.count || 0); }, 0);
       renderKeyValueRows('selectionModeBody', (s.fishing_mode_distribution || []).map(function (x) {
-        return '<td>' + (x.mode === 'deep' ? 'غزير' : 'ساحلي') + '</td><td>' + Number(x.count || 0) + '</td>';
-      }), 'لا توجد بيانات', 2);
+        var share = modeTotal > 0 ? ((Number(x.count || 0) / modeTotal) * 100).toFixed(1) + '%' : '--';
+        return '<td>' + (x.mode === 'deep' ? 'غزير' : 'ساحلي') + '</td><td>' + Number(x.count || 0) + '</td><td>' + share + '</td>';
+      }), 'لا توجد بيانات', 3);
+      var cTotal = (s.country_usage || []).reduce(function (acc, x) { return acc + Number(x.count || 0); }, 0);
       renderKeyValueRows('selectionCountryBody', (s.country_usage || []).map(function (x) {
-        return '<td>' + (x.country || '--') + '</td><td>' + Number(x.count || 0) + '</td>';
-      }), 'لا توجد بيانات', 2);
+        var share = cTotal > 0 ? ((Number(x.count || 0) / cTotal) * 100).toFixed(1) + '%' : '--';
+        return '<td>' + (x.country || '--') + '</td><td>' + Number(x.count || 0) + '</td><td>' + share + '</td>';
+      }), 'لا توجد بيانات', 3);
       var insightsRows = [];
       (s.selection_insights && s.selection_insights.top_performing || []).forEach(function (x) {
         insightsRows.push('<td>Top</td><td>' + (x.station_name || '--') + '</td><td>' + Number(x.count || 0) + '</td>');
@@ -481,6 +575,8 @@
 
       // Funnel
       var funnel = s.funnel || { steps: [], drop_off: [] };
+      renderFunnelHealth(funnel);
+      generateInsights(s);
       renderKeyValueRows('funnelStepsBody', (funnel.steps || []).map(function (x) {
         return '<td>' + (x.label || x.step) + '</td><td><strong>' + Number(x.count || 0) + '</strong></td>';
       }), 'لا توجد بيانات funnel بعد — تبدأ بأول اختيار محطة', 2);
@@ -497,12 +593,16 @@
       getEl('sumAcc').textContent = '0%';
       getEl('sumScoreAcc').textContent = '0%';
       renderTopTable('summaryTopStationsBody', []);
-      renderKeyValueRows('selectionStationsBody', [], 'لا توجد اختيارات مسجلة بعد', 3);
-      renderKeyValueRows('selectionModeBody', [], 'لا توجد بيانات', 2);
-      renderKeyValueRows('selectionCountryBody', [], 'لا توجد بيانات', 2);
+      renderKeyValueRows('selectionStationsBody', [], 'لا توجد اختيارات مسجلة بعد', 5);
+      renderKeyValueRows('selectionModeBody', [], 'لا توجد بيانات', 3);
+      renderKeyValueRows('selectionCountryBody', [], 'لا توجد بيانات', 3);
       renderKeyValueRows('selectionInsightsBody', [], 'لا توجد بيانات كافية لاستخراج insights', 3);
       renderKeyValueRows('funnelStepsBody', [], 'لا توجد بيانات funnel بعد', 2);
       renderKeyValueRows('funnelDropOffBody', [], 'لا توجد بيانات', 4);
+      var fhPanel = getEl('funnelHealthPanel');
+      if (fhPanel) fhPanel.innerHTML = '';
+      var oi = getEl('opsInsights');
+      if (oi) oi.innerHTML = '';
       updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
     }
   }
@@ -1473,6 +1573,16 @@
     document.querySelectorAll('.admin-nav').forEach(function (btn) {
       btn.addEventListener('click', function () {
         setAdminDataFilter(btn.getAttribute('data-filter'));
+      });
+    });
+
+    document.querySelectorAll('.time-filter-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (currentPeriod === btn.getAttribute('data-period')) return;
+        currentPeriod = btn.getAttribute('data-period');
+        document.querySelectorAll('.time-filter-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        renderSummarySection();
       });
     });
 

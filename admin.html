@@ -92,6 +92,30 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
 @media(max-width:980px){.admin-layout{grid-template-columns:1fr}.admin-sidebar{position:static;grid-template-columns:repeat(4,1fr)}.admin-nav{text-align:center}.admin-stat{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.admin-form-grid{grid-template-columns:1fr}.admin-sidebar{grid-template-columns:repeat(2,1fr)}}
+/* ── Ops Dashboard ─────────────────────────────────────── */
+.time-filter-bar{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.time-filter-lbl{font-size:.78rem;color:var(--txt3)}
+.time-filter-btn{background:var(--bg3);border:1px solid rgba(255,255,255,.12);color:var(--txt2);border-radius:8px;padding:5px 13px;font-size:.8rem;cursor:pointer;font-family:inherit}
+.time-filter-btn.active{background:var(--accent);border-color:transparent;color:#fff;font-weight:700}
+.ops-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.ops-card{background:linear-gradient(160deg,#0b1f30,#0a1a27);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px 8px;text-align:center}
+.ops-icon{font-size:1.1rem;margin-bottom:3px}
+.ops-val{font-size:1rem;font-weight:800;color:#6fdcff;word-break:break-word;line-height:1.3;min-height:22px}
+.ops-lbl{font-size:.7rem;color:var(--txt3);margin-top:3px}
+.funnel-health-panel{display:grid;gap:6px;margin-bottom:10px}
+.funnel-health-row{display:grid;grid-template-columns:130px 1fr 52px 52px;gap:8px;align-items:center;background:rgba(10,33,50,.5);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:8px 10px}
+.funnel-health-label{font-size:.8rem;color:var(--txt2);font-weight:600}
+.funnel-health-bar-wrap{height:7px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden}
+.funnel-health-bar{height:100%;border-radius:99px}
+.funnel-health-count{font-size:.78rem;color:var(--txt2);text-align:center}
+.funnel-health-pct{font-size:.75rem;font-weight:800;text-align:center;border-radius:5px;padding:2px 4px}
+.funnel-health-pct.green{background:rgba(38,194,129,.16);color:#8bf2ca}
+.funnel-health-pct.yellow{background:rgba(255,214,127,.12);color:#ffe7aa}
+.funnel-health-pct.red{background:rgba(255,82,82,.14);color:#ffb3b3}
+.ops-insights-list{display:grid;gap:7px}
+.insight-card{display:flex;align-items:flex-start;gap:9px;background:rgba(10,33,50,.6);border:1px solid rgba(111,220,255,.16);border-radius:10px;padding:9px 12px;font-size:.82rem;color:#d8ecfc;line-height:1.6}
+.insight-icon{font-size:1rem;flex-shrink:0;margin-top:1px}
+@media(max-width:760px){.ops-summary{grid-template-columns:repeat(2,1fr)}.funnel-health-row{grid-template-columns:90px 1fr 40px}}
 </style>
 </head>
 <body>
@@ -126,8 +150,28 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
 
         <div class="admin-main">
           <div class="admin-section admin-block" data-section="analytics">
-            <h4><i class="fa-solid fa-chart-line"></i> ملخص الأداء</h4>
-            <div class="section-subtitle">نظرة سريعة على حالة YES/NO والدقة العامة للمتابعة اليومية.</div>
+            <h4><i class="fa-solid fa-chart-line"></i> لوحة التحليلات التشغيلية</h4>
+            <div class="section-subtitle">متابعة يومية للطلب على المحطات وسلوك المستخدمين.</div>
+
+            <div class="time-filter-bar">
+              <span class="time-filter-lbl">الفترة:</span>
+              <button class="time-filter-btn active" data-period="all">كل الوقت</button>
+              <button class="time-filter-btn" data-period="30d">30 يوم</button>
+              <button class="time-filter-btn" data-period="7d">7 أيام</button>
+              <button class="time-filter-btn" data-period="today">اليوم</button>
+            </div>
+
+            <div class="ops-summary" id="opsSummary">
+              <div class="ops-card"><div class="ops-icon">📍</div><div class="ops-val" id="opsTopStation">---</div><div class="ops-lbl">المحطة الأعلى</div></div>
+              <div class="ops-card"><div class="ops-icon">🌍</div><div class="ops-val" id="opsTopCountry">---</div><div class="ops-lbl">الدولة الأعلى</div></div>
+              <div class="ops-card"><div class="ops-icon">⚓</div><div class="ops-val" id="opsTopMode">---</div><div class="ops-lbl">نوع الصيد</div></div>
+              <div class="ops-card"><div class="ops-icon">✅</div><div class="ops-val" id="opsTotalAnalyses">0</div><div class="ops-lbl">تحليلات مكتملة</div></div>
+              <div class="ops-card"><div class="ops-icon">⚠️</div><div class="ops-val" id="opsBiggestDropOff">---</div><div class="ops-lbl">أكبر تسرب</div></div>
+            </div>
+
+            <hr class="sep">
+            <h4><i class="fa-solid fa-thumbs-up"></i> أداء YES / NO</h4>
+            <div class="section-subtitle">دقة التوقعات من تقييمات المستخدمين.</div>
             <div class="admin-stat">
               <div class="as-card"><div class="as-val" id="sumYes">0</div><div class="as-lbl">YES</div></div>
               <div class="as-card"><div class="as-val" id="sumNo">0</div><div class="as-lbl">NO</div></div>
@@ -140,29 +184,30 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <tbody id="summaryTopStationsBody"></tbody>
               </table>
             </div>
+
             <hr class="sep">
-            <h4><i class="fa-solid fa-location-crosshairs"></i> أكثر المحطات اختياراً</h4>
+            <h4><i class="fa-solid fa-location-crosshairs"></i> ترتيب المحطات حسب الطلب</h4>
             <div class="table-wrap">
               <table class="admin-table">
-                <thead><tr><th>#</th><th>المحطة</th><th>عدد الاختيارات</th></tr></thead>
+                <thead><tr><th>#</th><th>المحطة</th><th>الدولة</th><th>العدد</th><th>الحصة %</th></tr></thead>
                 <tbody id="selectionStationsBody"></tbody>
               </table>
             </div>
             <div class="admin-form-grid" style="margin-top:10px">
               <div class="table-wrap">
                 <table class="admin-table">
-                  <thead><tr><th>نوع الصيد</th><th>العدد</th></tr></thead>
+                  <thead><tr><th>نوع الصيد</th><th>العدد</th><th>%</th></tr></thead>
                   <tbody id="selectionModeBody"></tbody>
                 </table>
               </div>
               <div class="table-wrap">
                 <table class="admin-table">
-                  <thead><tr><th>الدولة</th><th>العدد</th></tr></thead>
+                  <thead><tr><th>الدولة</th><th>العدد</th><th>%</th></tr></thead>
                   <tbody id="selectionCountryBody"></tbody>
                 </table>
               </div>
             </div>
-            <div class="table-wrap" style="margin-top:10px">
+            <div class="table-wrap" style="margin-top:10px;display:none">
               <table class="admin-table">
                 <thead><tr><th>النوع</th><th>المحطة</th><th>عدد الاختيارات</th></tr></thead>
                 <tbody id="selectionInsightsBody"></tbody>
@@ -170,9 +215,10 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </div>
 
             <hr class="sep">
-            <h4><i class="fa-solid fa-filter"></i> قمع الاستخدام (Funnel)</h4>
-            <div class="section-subtitle">كم مستخدم وصل لكل خطوة — ومعدل التخلي بين الخطوات.</div>
-            <div class="table-wrap">
+            <h4><i class="fa-solid fa-filter"></i> صحة قمع الاستخدام</h4>
+            <div class="section-subtitle">تتبع وصول المستخدمين لكل خطوة ومعدل التخلي بينهم.</div>
+            <div class="funnel-health-panel" id="funnelHealthPanel"></div>
+            <div class="table-wrap" style="margin-top:8px">
               <table class="admin-table">
                 <thead><tr><th>الخطوة</th><th>العدد</th></tr></thead>
                 <tbody id="funnelStepsBody"></tbody>
@@ -184,6 +230,11 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <tbody id="funnelDropOffBody"></tbody>
               </table>
             </div>
+
+            <hr class="sep">
+            <h4><i class="fa-solid fa-lightbulb"></i> توصيات تشغيلية</h4>
+            <div id="opsInsights" class="ops-insights-list" style="margin-bottom:12px"></div>
+
             <div class="field-checklist">
               <h5>Field Testing Checklist</h5>
               <div class="field-checklist-list">

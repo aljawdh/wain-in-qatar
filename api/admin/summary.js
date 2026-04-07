@@ -58,7 +58,10 @@ function buildSelectionAnalytics(trackingRows, stations) {
       : (stationName || null);
 
     if (resolvedStationName) {
-      stationCounts.set(resolvedStationName, (stationCounts.get(resolvedStationName) || 0) + 1);
+      const existing = stationCounts.get(resolvedStationName) || { count: 0, country: '' };
+      existing.count += 1;
+      if (!existing.country && country) existing.country = country;
+      stationCounts.set(resolvedStationName, existing);
     }
 
     if (mode === 'deep' || mode === 'coastal') {
@@ -70,7 +73,9 @@ function buildSelectionAnalytics(trackingRows, stations) {
     }
   });
 
-  const stationSelectionCounts = toSortedCountArray(stationCounts, 'station_name');
+  const stationSelectionCounts = Array.from(stationCounts.entries())
+    .map(([name, val]) => ({ station_name: name, count: val.count, country: val.country || '' }))
+    .sort((a, b) => b.count - a.count);
   const fishingModeDistribution = toSortedCountArray(modeCounts, 'mode');
   const countryUsage = toSortedCountArray(countryCounts, 'country');
 
@@ -83,6 +88,26 @@ function buildSelectionAnalytics(trackingRows, stations) {
       low_usage: stationSelectionCounts.slice(-3).reverse()
     }
   };
+}
+
+function filterByPeriod(rows, period) {
+  if (!period || period === 'all') return rows;
+  const now = Date.now();
+  let cutoff;
+  if (period === 'today') {
+    const d = new Date();
+    cutoff = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).getTime();
+  } else if (period === '7d') {
+    cutoff = now - 7 * 24 * 60 * 60 * 1000;
+  } else if (period === '30d') {
+    cutoff = now - 30 * 24 * 60 * 60 * 1000;
+  } else {
+    return rows;
+  }
+  return rows.filter(r => {
+    const t = new Date(r.timestamp || '').getTime();
+    return Number.isFinite(t) && t >= cutoff;
+  });
 }
 
 function buildFunnelAnalytics(rows) {
@@ -156,8 +181,11 @@ module.exports = async function handler(req, res) {
     .sort((a, b) => b.accuracy - a.accuracy)
     .slice(0, 10);
 
-  const selectionAnalytics = buildSelectionAnalytics(tracking, stations);
-  const funnelAnalytics = buildFunnelAnalytics(tracking);
+  const period = (req.query && req.query.period) || 'all';
+  const filteredTracking = filterByPeriod(tracking, period);
+  const totalAnalyses = filteredTracking.filter(r => r.event_type === 'analysis_complete').length;
+  const selectionAnalytics = buildSelectionAnalytics(filteredTracking, stations);
+  const funnelAnalytics = buildFunnelAnalytics(filteredTracking);
 
   return res.status(200).json({
     ok: true,
@@ -177,6 +205,7 @@ module.exports = async function handler(req, res) {
     fishing_mode_distribution: selectionAnalytics.fishing_mode_distribution,
     country_usage: selectionAnalytics.country_usage,
     selection_insights: selectionAnalytics.selection_insights,
-    funnel: funnelAnalytics
+    funnel: funnelAnalytics,
+    total_analyses: totalAnalyses
   });
 };
