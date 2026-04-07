@@ -7,12 +7,13 @@
 <title>NaviDur Admin | لوحة الإدارة</title>
 <link rel="icon" href="/favicon.png" type="image/png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#081a2b;--bg2:#102c45;--bg3:#0d2235;--txt:#fff;--txt2:#c7d5e4;--txt3:#8ea4ba;--accent:#27b3ff;--red:#ff5252}
+:root{--bg:#081a2b;--bg2:#102c45;--bg3:#0d2235;--txt:#fff;--txt2:#c7d5e4;--txt3:#8ea4ba;--accent:#27b3ff;--red:#ff5252;--ok:#26c281}
 body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(circle at top right,#0e3250,#081a2b 55%);color:var(--txt);min-height:100vh}
-.admin-shell{max-width:1040px;margin:0 auto;padding:20px 14px 24px}
+.admin-shell{max-width:1240px;margin:0 auto;padding:20px 14px 24px}
 .admin-topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
 .admin-title{font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:8px}
 .admin-title i{color:var(--accent)}
@@ -25,40 +26,73 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .al-err{display:none;color:var(--red);text-align:center;margin-top:8px;font-size:.9rem}
 .admin-content{display:none}
 .admin-content.active{display:block}
-.admin-layout{display:grid;grid-template-columns:180px 1fr;gap:12px}
+.admin-layout{display:grid;grid-template-columns:200px 1fr;gap:12px}
 .admin-sidebar{background:rgba(16,44,69,.95);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px;display:grid;gap:8px;height:max-content;position:sticky;top:14px}
 .admin-nav{background:var(--bg3);color:#fff;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:right;font-family:inherit}
 .admin-nav.active{background:var(--accent);border-color:transparent}
 .admin-section{background:rgba(16,44,69,.95);border-radius:14px;padding:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.08)}
-.admin-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
-.as-card{background:var(--bg3);border-radius:10px;padding:12px;text-align:center}
-.as-val{font-size:1.35rem;font-weight:700;color:var(--accent)}
-.as-lbl{font-size:.74rem;color:var(--txt3)}
+.admin-section h4{display:flex;align-items:center;gap:8px;font-size:1rem;margin-bottom:10px;line-height:1.3}
+.section-subtitle{font-size:.8rem;color:#9fc1d7;margin-bottom:10px;line-height:1.6}
+.admin-section[data-section="analytics"]{border-right:4px solid rgba(39,179,255,.8)}
+.admin-section[data-section="users"]{border-right:4px solid rgba(111,220,255,.55)}
+.admin-section[data-section="stations"]{border-right:4px solid rgba(141,232,191,.55)}
+.admin-section[data-section="feedback"]{border-right:4px solid rgba(255,214,127,.6)}
+.admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
+.admin-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.as-card{background:linear-gradient(160deg,#0d2235,#0b1f30);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;text-align:center}
+.as-val{font-size:1.45rem;font-weight:800;color:var(--accent)}
+.as-lbl{font-size:.76rem;color:var(--txt3);margin-top:2px}
+.field-checklist{margin-top:12px;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px}
+.field-checklist h5{font-size:.88rem;margin-bottom:8px;color:#ffe7aa}
+.field-checklist-list{display:grid;gap:8px}
+.field-checklist-item{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--txt2)}
+.field-checklist-item input{accent-color:#26c281}
+.field-checklist-note{margin-top:8px;font-size:.78rem;color:#9ad9ff}
 .admin-chart-wrap{height:220px;margin:10px 0}
-.admin-table{width:100%;border-collapse:collapse;font-size:.85rem}
-.admin-table th{background:var(--bg3);padding:8px;text-align:right;color:var(--txt2)}
-.admin-table td{padding:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.table-wrap{background:rgba(6,20,32,.35);border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:auto;max-height:420px}
+.admin-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.85rem}
+.admin-table th{position:sticky;top:0;z-index:1;background:linear-gradient(180deg,#102c45,#0d2235);padding:9px 8px;text-align:right;color:var(--txt2);white-space:nowrap}
+.admin-table td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top}
+.admin-table tbody tr:nth-child(odd){background:rgba(255,255,255,.015)}
+.admin-table tbody tr:hover{background:rgba(111,220,255,.08)}
 .toolbar{display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px}
 .admin-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.filter-box{background:rgba(10,33,50,.7);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px}
 .admin-field{display:flex;flex-direction:column;gap:6px}
 .admin-field.full{grid-column:1/-1}
 .admin-field label{font-size:.8rem;color:var(--txt2)}
-.admin-field input,.admin-field textarea{width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 11px;font-size:.88rem;font-family:inherit}
-.admin-field textarea{min-height:130px;resize:vertical;line-height:1.6}
+.admin-field input,.admin-field textarea,.admin-field select{width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 11px;font-size:.88rem;font-family:inherit}
+.admin-field textarea{min-height:110px;resize:vertical;line-height:1.6}
+.station-map-wrap{margin-top:10px;background:rgba(10,33,50,.72);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;display:grid;gap:8px}
+.station-map-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.station-map-head strong{font-size:.86rem;color:#bfe9ff}
+.station-map-hint{font-size:.76rem;color:#9fc1d7}
+#stationsAdminMap{height:300px;border-radius:10px;border:1px solid rgba(255,255,255,.14);overflow:hidden}
+.station-map-meta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.78rem;color:#b7d7ea}
+.station-place-suggestion{font-size:.8rem;color:#ffe7aa;line-height:1.6;background:rgba(255,214,127,.08);border:1px solid rgba(255,214,127,.24);border-radius:10px;padding:8px 10px}
 .admin-switch{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px}
 .admin-switch input{transform:scale(1.2)}
-.settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 .settings-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-family:inherit;cursor:pointer}
 .settings-btn.secondary{background:#0f3d60;border:1px solid rgba(255,255,255,.15)}
+.settings-btn.danger{background:#852f2f}
 .settings-status{margin-top:10px;font-size:.82rem;color:#9ad9ff}
-@media(max-width:760px){.admin-layout{grid-template-columns:1fr}.admin-sidebar{position:static;grid-template-columns:repeat(3,1fr)}.admin-nav{text-align:center}.admin-stat{grid-template-columns:1fr}}
-@media(max-width:760px){.admin-form-grid{grid-template-columns:1fr}}
+.badge{display:inline-block;border-radius:999px;padding:4px 10px;font-size:12px;background:#0d3a59;border:1px solid rgba(255,255,255,.14)}
+.badge.ok{background:rgba(38,194,129,.16);border-color:rgba(38,194,129,.5);color:#8bf2ca}
+.badge.off{background:rgba(255,82,82,.14);border-color:rgba(255,82,82,.5);color:#ffb3b3}
+.inline-actions{display:flex;gap:6px;flex-wrap:wrap}
+.small-btn{border:1px solid rgba(255,255,255,.18);background:#0f3d60;color:#fff;padding:4px 8px;border-radius:8px;cursor:pointer;font-size:12px}
+.small-btn.warn{background:#7b6021}
+.small-btn.danger{background:#7b2e2e}
+hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
+@media(max-width:980px){.admin-layout{grid-template-columns:1fr}.admin-sidebar{position:static;grid-template-columns:repeat(4,1fr)}.admin-nav{text-align:center}.admin-stat{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.admin-form-grid{grid-template-columns:1fr}.admin-sidebar{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
   <div class="admin-shell">
     <div class="admin-topbar">
-      <div class="admin-title"><i class="fa-solid fa-chart-pie"></i> لوحة تحليلات NaviDur</div>
+      <div class="admin-title"><i class="fa-solid fa-shield-halved"></i> NAVIDUR Full Control</div>
       <a class="admin-link" href="/">العودة للتطبيق</a>
     </div>
 
@@ -79,50 +113,156 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
         <aside class="admin-sidebar">
           <button class="admin-nav active" data-filter="all">الرئيسية</button>
           <button class="admin-nav" data-filter="users">المستخدمين</button>
-          <button class="admin-nav" data-filter="fishing">الصيد</button>
-          <button class="admin-nav" data-filter="ui">الواجهة</button>
-          <button class="admin-nav" data-filter="ads">الإعلانات</button>
-          <button class="admin-nav" data-filter="features">الميزات</button>
-          <button class="admin-nav" data-filter="footer">إعدادات الحقوق والتواصل</button>
-          <button class="admin-nav" data-filter="fish-settings">بيانات الأسماك</button>
+          <button class="admin-nav" data-filter="stations">المحطات</button>
+          <button class="admin-nav" data-filter="feedback">التقييمات</button>
+          <button class="admin-nav" data-filter="analytics">التحليلات</button>
+          <button class="admin-nav" data-filter="settings">الإعدادات</button>
         </aside>
+
         <div class="admin-main">
-          <div class="admin-section admin-block" data-section="users">
-            <h4><i class="fa-solid fa-users"></i> إحصائيات الزوار</h4>
+          <div class="admin-section admin-block" data-section="analytics">
+            <h4><i class="fa-solid fa-chart-line"></i> ملخص الأداء</h4>
+            <div class="section-subtitle">نظرة سريعة على حالة YES/NO والدقة العامة للمتابعة اليومية.</div>
             <div class="admin-stat">
-              <div class="as-card"><div class="as-val" id="aVisitToday">0</div><div class="as-lbl">المستخدمين اليوم</div></div>
-              <div class="as-card"><div class="as-val" id="aVisitWeek">0</div><div class="as-lbl">الأسبوع</div></div>
-              <div class="as-card"><div class="as-val" id="aVisitTotal">0</div><div class="as-lbl">الإجمالي</div></div>
+              <div class="as-card"><div class="as-val" id="sumYes">0</div><div class="as-lbl">YES</div></div>
+              <div class="as-card"><div class="as-val" id="sumNo">0</div><div class="as-lbl">NO</div></div>
+              <div class="as-card"><div class="as-val" id="sumAcc">0%</div><div class="as-lbl">Accuracy</div></div>
+              <div class="as-card"><div class="as-val" id="sumScoreAcc">0%</div><div class="as-lbl">Score Accuracy</div></div>
             </div>
-            <div class="admin-chart-wrap"><canvas id="aVisitChart"></canvas></div>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>#</th><th>المحطة</th><th>المشاركات</th><th>الدقة</th></tr></thead>
+                <tbody id="summaryTopStationsBody"></tbody>
+              </table>
+            </div>
+            <hr class="sep">
+            <h4><i class="fa-solid fa-location-crosshairs"></i> أكثر المحطات اختياراً</h4>
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>#</th><th>المحطة</th><th>عدد الاختيارات</th></tr></thead>
+                <tbody id="selectionStationsBody"></tbody>
+              </table>
+            </div>
+            <div class="admin-form-grid" style="margin-top:10px">
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>نوع الصيد</th><th>العدد</th></tr></thead>
+                  <tbody id="selectionModeBody"></tbody>
+                </table>
+              </div>
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>الدولة</th><th>العدد</th></tr></thead>
+                  <tbody id="selectionCountryBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="table-wrap" style="margin-top:10px">
+              <table class="admin-table">
+                <thead><tr><th>النوع</th><th>المحطة</th><th>عدد الاختيارات</th></tr></thead>
+                <tbody id="selectionInsightsBody"></tbody>
+              </table>
+            </div>
+            <div class="field-checklist">
+              <h5>Field Testing Checklist</h5>
+              <div class="field-checklist-list">
+                <label class="field-checklist-item"><input id="ftCheckYes" type="checkbox" disabled> member submitted YES</label>
+                <label class="field-checklist-item"><input id="ftCheckNo" type="checkbox" disabled> member submitted NO</label>
+                <label class="field-checklist-item"><input id="ftCheckStation" type="checkbox" disabled> station tested</label>
+                <label class="field-checklist-item"><input id="ftCheckSummary" type="checkbox" disabled> summary updated</label>
+              </div>
+              <div class="field-checklist-note" id="fieldChecklistStatus">Checklist ينتظر أول بيانات feedback...</div>
+            </div>
           </div>
 
           <div class="admin-section admin-block" data-section="users">
-            <h4><i class="fa-solid fa-earth-americas"></i> المستخدمين حسب المدن</h4>
-            <table class="admin-table">
-              <thead><tr><th>المدينة</th><th>الزيارات</th><th>النسبة</th></tr></thead>
-              <tbody id="aGeoBody"></tbody>
-            </table>
+            <h4><i class="fa-solid fa-users"></i> إدارة المستخدمين</h4>
+            <div class="section-subtitle">إدارة الحسابات والصلاحيات بسرعة مع وضوح الحالة لكل مستخدم.</div>
+            <div class="admin-form-grid">
+              <div class="admin-field"><label>اسم المستخدم</label><input id="newUserName" type="text" placeholder="member_01"></div>
+              <div class="admin-field"><label>كلمة المرور</label><input id="newUserPass" type="password" placeholder="********"></div>
+              <div class="admin-field"><label>الدور</label><select id="newUserRole"><option value="member">member</option><option value="admin">admin</option><option value="super_admin">super_admin</option><option value="viewer">viewer</option></select></div>
+              <div class="admin-field"><label>المحطات المخصصة (CSV)</label><input id="newUserStations" type="text" placeholder="st_001,st_002"></div>
+            </div>
+            <div class="settings-actions">
+              <button class="settings-btn" id="createUserBtn">إنشاء مستخدم</button>
+            </div>
+            <div class="settings-status" id="usersStatus"></div>
+            <hr class="sep">
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>المستخدم</th><th>الدور</th><th>الحالة</th><th>محطات</th><th>إجراءات</th></tr></thead>
+                <tbody id="usersBody"></tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="admin-section admin-block" data-section="fishing">
-            <h4><i class="fa-solid fa-fish-fins"></i> أكثر 10 أسماك نقراً</h4>
-            <table class="admin-table">
-              <thead><tr><th>#</th><th>السمكة</th><th>النقرات</th></tr></thead>
-              <tbody id="aFishBody"></tbody>
-            </table>
+          <div class="admin-section admin-block" data-section="stations">
+            <h4><i class="fa-solid fa-location-dot"></i> إدارة المحطات</h4>
+            <div class="section-subtitle">إضافة وتعديل المحطات عبر الخريطة مباشرة، مع تحديد الدولة ونوع الصيد لكل محطة.</div>
+            <div class="admin-form-grid">
+              <div class="admin-field"><label>ID (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
+              <div class="admin-field"><label>اسم المحطة (مطلوب)</label><input id="stName" type="text"></div>
+              <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
+              <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
+              <div class="admin-field"><label>Country</label><input id="stCountry" type="text"></div>
+              <div class="admin-field"><label>Region</label><input id="stRegion" type="text" value="gulf"></div>
+              <div class="admin-field"><label>Fishing Mode</label><select id="stFishingMode"><option value="coastal">coastal</option><option value="deep">deep</option></select></div>
+              <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
+              <div class="admin-field"><label>Radius</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
+              <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
+              <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
+              <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stActive" checked><label for="stActive">Active</label></div></div>
+            </div>
+            <div class="station-map-wrap">
+              <div class="station-map-head">
+                <strong>اختيار الموقع من الخريطة</strong>
+                <span class="station-map-hint">اضغط على الخريطة لإضافة/نقل النقطة. يمكنك سحب النقطة بعد وضعها.</span>
+              </div>
+              <div id="stationsAdminMap"></div>
+              <div class="station-map-meta">
+                <span id="stCoordPreview">الإحداثيات الحالية: -- , --</span>
+              </div>
+              <div id="stPlaceSuggestion" class="station-place-suggestion">الموقع المختار: --</div>
+            </div>
+            <div class="settings-actions">
+              <button class="settings-btn" id="saveStationBtn">حفظ محطة</button>
+              <button class="settings-btn secondary" id="clearStationBtn">تفريغ النموذج</button>
+            </div>
+            <div class="settings-status" id="stationsStatus"></div>
+            <hr class="sep">
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>الدولة</th><th>نوع الصيد</th><th>Radius</th><th>إجراءات</th></tr></thead>
+                <tbody id="stationsBody"></tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="admin-section admin-block" data-section="fishing">
-            <h4><i class="fa-solid fa-bolt"></i> Top Features</h4>
-            <table class="admin-table">
-              <thead><tr><th>#</th><th>الميزة</th><th>الاستخدام</th></tr></thead>
-              <tbody id="aFeatureBody"></tbody>
-            </table>
+          <div class="admin-section admin-block" data-section="feedback">
+            <h4><i class="fa-solid fa-comment-dots"></i> Feedback</h4>
+            <div class="section-subtitle">فلترة وتدقيق تقييمات YES/NO اليومية مع عرض أسهل للنتائج.</div>
+            <div class="filter-box">
+            <div class="admin-form-grid" style="margin-top:0">
+              <div class="admin-field"><label>التاريخ</label><input id="fbDateFilter" type="date"></div>
+              <div class="admin-field"><label>المحطة</label><input id="fbStationFilter" type="text" placeholder="الدوحة"></div>
+              <div class="admin-field"><label>المستخدم</label><input id="fbUserFilter" type="text" placeholder="usr_..."></div>
+              <div class="admin-field"><label>&nbsp;</label><button class="settings-btn secondary" id="loadFeedbackBtn">تطبيق الفلاتر</button></div>
+            </div>
+            </div>
+            <div class="settings-status" id="feedbackStatusAdmin"></div>
+            <hr class="sep">
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>الوقت</th><th>المحطة</th><th>الإجابة</th><th>Score</th><th>User</th><th>إجراءات</th></tr></thead>
+                <tbody id="feedbackBody"></tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="admin-section admin-block" data-section="ui">
+          <div class="admin-section admin-block" data-section="settings">
             <h4><i class="fa-solid fa-pen-ruler"></i> إعدادات الواجهة</h4>
+            <div class="section-subtitle">إعدادات العرض والتشغيل في مكان مستقل لسهولة التعديل بدون تشتيت.</div>
             <div class="admin-form-grid">
               <div class="admin-field full">
                 <label for="headerTextInput">نص الهيدر</label>
@@ -132,103 +272,88 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
                 <label for="headerColorInput">لون الهيدر/التمييز</label>
                 <input type="text" id="headerColorInput" placeholder="#27b3ff">
               </div>
-            </div>
-
-            <div class="admin-form-grid" style="margin-top:12px">
-              <div class="admin-field full">
-                <h5 style="font-size:.9rem;color:var(--txt2);margin-bottom:4px">التقويم الهجري</h5>
-                <label for="hijriOffsetInput">تعديل التاريخ (مثلاً +1 أو -1)</label>
+              <div class="admin-field">
+                <label for="hijriOffsetInput">تعديل التاريخ الهجري</label>
                 <input type="number" id="hijriOffsetInput" placeholder="0">
               </div>
-            </div>
-          </div>
+              <div class="admin-field"><label for="footerNameInput">الاسم</label><input type="text" id="footerNameInput"></div>
+              <div class="admin-field"><label for="footerPhoneInput">الهاتف</label><input type="text" id="footerPhoneInput"></div>
+              <div class="admin-field full"><label for="footerEmailInput">البريد</label><input type="text" id="footerEmailInput"></div>
+              <div class="admin-field full"><label for="footerSponsorInput">الراعي</label><input type="text" id="footerSponsorInput"></div>
+              <div class="admin-field full"><label for="footerSponsorLinkInput">رابط الراعي</label><input type="text" id="footerSponsorLinkInput"></div>
 
-          <div class="admin-section admin-block" data-section="ads">
-            <h4><i class="fa-solid fa-rectangle-ad"></i> إعدادات الإعلانات</h4>
-            <div class="admin-form-grid">
               <div class="admin-field full">
                 <div class="admin-switch">
                   <input type="checkbox" id="adBannerEnabled">
                   <label for="adBannerEnabled">تفعيل بانر الإعلان</label>
                 </div>
               </div>
-              <div class="admin-field full">
-                <label for="adBannerImageInput">رابط صورة الإعلان</label>
-                <input type="text" id="adBannerImageInput" placeholder="https://example.com/banner.jpg">
-              </div>
-              <div class="admin-field full">
-                <label for="adBannerLinkInput">رابط الوجهة عند الضغط</label>
-                <input type="text" id="adBannerLinkInput" placeholder="https://example.com">
-              </div>
-              <div class="admin-field full">
-                <label for="adsJsonInput">Ads JSON (اختياري متقدم)</label>
-                <textarea id="adsJsonInput" placeholder='{"adBanner":{"enabled":true,"imageUrl":"","linkUrl":""}}'></textarea>
-              </div>
-            </div>
-          </div>
+              <div class="admin-field full"><label for="adBannerImageInput">رابط صورة الإعلان</label><input type="text" id="adBannerImageInput"></div>
+              <div class="admin-field full"><label for="adBannerLinkInput">رابط الوجهة</label><input type="text" id="adBannerLinkInput"></div>
+              <div class="admin-field full"><label for="adsJsonInput">Ads JSON</label><textarea id="adsJsonInput"></textarea></div>
 
-          <div class="admin-section admin-block" data-section="features">
-            <h4><i class="fa-solid fa-sliders"></i> إعدادات الميزات</h4>
-            <div class="admin-form-grid">
               <div class="admin-field full">
                 <div class="admin-switch">
                   <input type="checkbox" id="featurePredictionToggle" checked>
                   <label for="featurePredictionToggle">تفعيل قسم التوقعات</label>
                 </div>
               </div>
-              <div class="admin-field full">
-                <label for="featuresJsonInput">Features JSON (اختياري متقدم)</label>
-                <textarea id="featuresJsonInput" placeholder='{"featurePrediction":true}'></textarea>
-              </div>
-            </div>
-          </div>
-
-          <div class="admin-section admin-block" data-section="footer">
-            <h4><i class="fa-solid fa-address-card"></i> إعدادات الحقوق والتواصل</h4>
-            <div class="admin-form-grid">
               <div class="admin-field">
-                <label for="footerNameInput">الاسم</label>
-                <input type="text" id="footerNameInput" placeholder="محمد الحضري">
+                <label for="siteModeInput">وضع الموقع</label>
+                <select id="siteModeInput">
+                  <option value="live">live</option>
+                  <option value="maintenance">maintenance</option>
+                  <option value="private_beta">private_beta</option>
+                </select>
               </div>
               <div class="admin-field">
-                <label for="footerPhoneInput">الهاتف</label>
-                <input type="text" id="footerPhoneInput" placeholder="+974xxxx">
+                <label for="stationListModeInput">عرض قائمة المحطات</label>
+                <select id="stationListModeInput">
+                  <option value="chips">chips</option>
+                  <option value="classic">classic</option>
+                  <option value="grouped">grouped</option>
+                </select>
+              </div>
+              <div class="admin-field">
+                <label for="locationModeInput">وضع الموقع</label>
+                <select id="locationModeInput">
+                  <option value="off">off</option>
+                  <option value="ask">ask</option>
+                  <option value="auto">auto</option>
+                </select>
               </div>
               <div class="admin-field full">
-                <label for="footerEmailInput">البريد الإلكتروني</label>
-                <input type="text" id="footerEmailInput" placeholder="info@navidur.app">
+                <label for="maintenanceMessageInput">رسالة الصيانة</label>
+                <textarea id="maintenanceMessageInput" placeholder="الموقع تحت الصيانة حالياً..."></textarea>
               </div>
               <div class="admin-field full">
-                <label for="footerSponsorInput">اسم الراعي / نص تحت رعاية</label>
-                <input type="text" id="footerSponsorInput" placeholder="تحت رعاية ...">
+                <div class="admin-switch">
+                  <input type="checkbox" id="allowAdminBypassInput" checked>
+                  <label for="allowAdminBypassInput">السماح بتجاوز الصيانة للمشرف</label>
+                </div>
               </div>
               <div class="admin-field full">
-                <label for="footerSponsorLinkInput">رابط الراعي</label>
-                <input type="text" id="footerSponsorLinkInput" placeholder="https://example.com">
+                <div class="admin-switch">
+                  <input type="checkbox" id="sortStationsByDistanceInput">
+                  <label for="sortStationsByDistanceInput">ترتيب المحطات حسب الأقرب</label>
+                </div>
               </div>
+              <div class="admin-field full"><label for="featuresJsonInput">Features JSON</label><textarea id="featuresJsonInput"></textarea></div>
+              <div class="admin-field full"><label for="fishDataInput">Fish Data JSON</label><textarea id="fishDataInput"></textarea></div>
             </div>
-          </div>
-
-          <div class="admin-section admin-block" data-section="fish-settings">
-            <h4><i class="fa-solid fa-fish"></i> بيانات الأسماك</h4>
-            <div class="admin-form-grid">
-              <div class="admin-field full">
-                <label for="fishDataInput">Fish Data JSON</label>
-                <textarea id="fishDataInput" placeholder='{"featured":[]}'></textarea>
-              </div>
-            </div>
-
             <div class="settings-actions">
               <button class="settings-btn secondary" id="reloadSettingsBtn">إعادة تحميل</button>
               <button class="settings-btn" id="saveSettingsBtn">حفظ الإعدادات</button>
+              <button class="settings-btn danger" id="logoutBtn">تسجيل الخروج</button>
             </div>
-            <div class="settings-status" id="settingsStatus">جاهز للمزامنة مع Redis.</div>
+            <div class="settings-status" id="settingsStatus">جاهز.</div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="/admin.js"></script>
 </body>
 </html>

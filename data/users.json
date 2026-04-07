@@ -1,0 +1,46 @@
+[
+  {
+    "id": "usr_super_001",
+    "username": "Mohamed_Admin",
+    "hashed_password": "d1f8ba3bbc79760d5ce376a9f46cab538b6fcf670941323629fe474ffde07121",
+    "role": "super_admin",
+    "active_status": true,
+    "assigned_stations": [],
+    "created_at": "2026-04-06T00:00:00.000Z",
+    "last_login": null,
+    "trust_score": null
+  },
+  {
+    "id": "usr_field_admin_001",
+    "username": "field_admin",
+    "hashed_password": "365dfbcfe5837105c1e33564ef13af0aca08bb1835a32a7da267d982151ff671",
+    "role": "admin",
+    "active_status": true,
+    "assigned_stations": [],
+    "created_at": "2026-04-07T00:00:00.000Z",
+    "last_login": null,
+    "trust_score": null
+  },
+  {
+    "id": "usr_field_member_a",
+    "username": "field_member_a",
+    "hashed_password": "2d0cf8196d9461fe7d3ecf4218a00b1bc1f72938aaefa83ea50c6f0171d81d80",
+    "role": "member",
+    "active_status": true,
+    "assigned_stations": [],
+    "created_at": "2026-04-07T00:00:00.000Z",
+    "last_login": null,
+    "trust_score": null
+  },
+  {
+    "id": "usr_field_member_b",
+    "username": "field_member_b",
+    "hashed_password": "71436021eefc3024857082a3648fb0f13e4b19df97e8e301145e7b80204d8889",
+    "role": "member",
+    "active_status": true,
+    "assigned_stations": [],
+    "created_at": "2026-04-07T00:00:00.000Z",
+    "last_login": null,
+    "trust_score": null
+  }
+]

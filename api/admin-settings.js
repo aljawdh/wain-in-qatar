@@ -1,4 +1,5 @@
 const { Redis } = require('@upstash/redis');
+const { requireRole } = require('./_lib/auth');
 
 const SETTINGS_KEY = 'navidur_settings';
 
@@ -51,6 +52,12 @@ function getMemoryStore() {
 
 function defaultSettings() {
   return {
+    site_mode: 'live',
+    maintenance_message: '',
+    allow_admin_bypass: true,
+    station_list_mode: 'grouped',
+    location_mode: 'ask',
+    sort_stations_by_distance: false,
     headerText: '',
     headerColor: '#27b3ff',
     hijriOffset: -1,
@@ -105,6 +112,24 @@ function safeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function normalizeSiteMode(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'maintenance' || v === 'private_beta' || v === 'live') return v;
+  return 'live';
+}
+
+function normalizeStationListMode(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'chips' || v === 'classic' || v === 'grouped') return v;
+  return 'grouped';
+}
+
+function normalizeLocationMode(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'off' || v === 'ask' || v === 'auto') return v;
+  return 'ask';
+}
+
 function normalizeSettings(input) {
   const base = defaultSettings();
   const src = safeObject(input);
@@ -122,6 +147,12 @@ function normalizeSettings(input) {
   const hijriOffset = Number.isNaN(rawHijriOffset) ? -1 : Math.round(Math.max(-5, Math.min(5, rawHijriOffset)));
 
   return {
+    site_mode: normalizeSiteMode(src.site_mode),
+    maintenance_message: String(src.maintenance_message || '').trim().slice(0, 500),
+    allow_admin_bypass: normalizeBoolean(src.allow_admin_bypass, true),
+    station_list_mode: normalizeStationListMode(src.station_list_mode),
+    location_mode: normalizeLocationMode(src.location_mode),
+    sort_stations_by_distance: normalizeBoolean(src.sort_stations_by_distance, false),
     headerText: String(src.headerText || '').trim().slice(0, 120),
     headerColor: normalizeColor(src.headerColor),
     hijriOffset: hijriOffset,
@@ -182,6 +213,11 @@ async function writeSettings(nextSettings) {
 module.exports = async function handler(req, res) {
   if (!isAllowedOrigin(req)) {
     return res.status(403).json({ error: 'Forbidden domain' });
+  }
+
+  if (req.method === 'POST') {
+    const actor = await requireRole('admin')(req, res);
+    if (!actor) return;
   }
 
   if (req.method === 'GET') {

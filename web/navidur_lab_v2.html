@@ -24,9 +24,20 @@
       color: var(--txt);
     }
     .app { max-width: 1040px; margin: 0 auto; padding: 16px; }
+    .app.smart-switch .card,
+    .app.smart-switch .nawkhada-box,
+    .app.smart-switch .sea-current,
+    .app.smart-switch .manual-warn,
+    .app.smart-switch #windOfficialStatus {
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+    }
+    .app.mode-coastal .card { border-color: rgba(56, 173, 169, 0.35); }
+    .app.mode-deep .card { border-color: rgba(111, 220, 255, 0.4); }
     .head { display: grid; gap: 12px; margin-bottom: 16px; }
     .head-main { text-align: center; }
-    .title { font-size: 32px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; }
+    .title { display: none; }
+    .logo-container { width: 180px; margin: 0 auto; display: flex; justify-content: center; }
+    .navidur-logo { display: block; width: 180px; height: auto; opacity: 1; }
     .brand-slogan {
       margin-top: 6px;
       font-size: 12px;
@@ -80,6 +91,9 @@
     .forecast-strip { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-top: 4px; }
     .forecast-day { min-width: 114px; padding: 10px; border-radius: 14px; background: #0b2435; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; text-align: center; }
     .forecast-day.active { border-color: #6fdcff; box-shadow: 0 0 0 1px rgba(111,220,255,0.45) inset; }
+    .forecast-day.today { border-color: #FFD700; box-shadow: 0 0 0 2px rgba(255,215,0,0.35) inset; }
+    .forecast-day.today .forecast-title { color: #FFD700; }
+    .forecast-today-badge { display:inline-block; font-size:10px; background:#FFD700; color:#071722; border-radius:6px; padding:1px 6px; font-weight:800; margin-top:3px; }
     .forecast-title { font-size: 13px; font-weight: 800; }
     .forecast-meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
     .forecast-status {
@@ -171,6 +185,7 @@
       top: 50%;
       transform-origin: 50% 115px;
       transform: translate(-50%, -115px) rotate(0deg);
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
     }
     .needle::before {
@@ -449,10 +464,12 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <div class="app smart-switch" id="appRoot">
     <div class="head">
       <div class="head-main">
-        <div class="title">NAVIDUR</div>
+        <div class="logo-container">
+          <img src="navidur_logo_transparent.png" alt="NAVIDUR Logo" class="navidur-logo">
+        </div>
         <div class="brand-slogan">الصيد مو ضربة حظ.. الصيد علم وفن!</div>
         <div class="hero-date" id="dateLine"></div>
         <div class="hero-time" id="liveClock">الوقت الآن: --:--:--</div>
@@ -494,6 +511,8 @@
       <div class="card"><div class="label">الحرارة</div><div class="value" id="tempVal">🌡️ ---</div></div>
       <div class="card"><div class="label">الريح</div><div class="value" id="windVal">💨 ---</div></div>
       <div class="card"><div class="label">ارتفاع الماء</div><div class="value" id="tideHeightVal">🌊 ---</div></div>
+      <div class="card"><div class="label" id="waveHeightLabel">الموج البحري</div><div class="value" id="waveHeightVal">🌊 ---</div></div>
+      <div class="card"><div class="label" id="oceanCurrentLabel">تيار المياه</div><div class="value" id="oceanCurrentVal">🔄 ---</div></div>
       <div class="card"><div class="label">حالة القمر</div><div class="moon-icon" id="moonIcon">🌕</div><div class="value" id="moonVal">---</div></div>
     </div>
     <div id="windOfficialStatus" class="wind-official-status">جاري جلب بيانات الرادار البحري...</div>
@@ -1024,10 +1043,11 @@
     let weekDates = [];
     let stationStates = {};
     let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار NAVIDUR', weatherModelProfile: 'icon_seamless', isLive: false };
+    let currentMarineLive = null;
     let windRefreshTimer = null;
     let dayChangeSyncTimer = null;
     let dayRefreshInFlight = null;
-    let lastKnownAppIsoDay = getAppIsoDay(new Date());
+    let lastKnownAppIsoDay = getDeviceIsoDay(new Date());
     const NAVIDUR_SOURCE_PREFIX = 'مصدر البيانات: رادار NAVIDUR';
 
     function formatWeatherModelProfile(profile) {
@@ -1056,6 +1076,11 @@
       return String(p.year) + '-' + String(p.month).padStart(2, '0') + '-' + String(p.day).padStart(2, '0');
     }
 
+    function getDeviceIsoDay(date) {
+      const d = new Date(date || Date.now());
+      return String(d.getFullYear()) + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     function formatDateArabic(date) {
       return new Intl.DateTimeFormat('ar-QA-u-ca-gregory', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).format(date);
     }
@@ -1076,8 +1101,8 @@
 
     function getForecastBaseDate(dayOffset) {
       const now = new Date();
-      const d = new Date(now.getTime());
-      d.setUTCDate(d.getUTCDate() + dayOffset);
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      d.setDate(d.getDate() + dayOffset);
       return d;
     }
 
@@ -1102,11 +1127,15 @@
     }
 
     function getVisibleWeekDatesFromToday(baseDate) {
-      const allDays = getWeekDatesSaturdayToFriday(baseDate);
-      const todayKey = getAppIsoDay(new Date());
-      return allDays.filter(function (d) {
-        return getAppIsoDay(d) >= todayKey;
-      });
+      const now = new Date(baseDate || new Date());
+      const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const out = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(todayLocal.getTime());
+        d.setDate(d.getDate() + i);
+        out.push(d);
+      }
+      return out;
     }
 
     function getForecastDateByIndex(index) {
@@ -1209,7 +1238,7 @@
         seasonName,
         dayInDar,
         daysLeft,
-        warning: 'تنبيه: ثبّت قرارك على حركة الماء واتجاه الريح قبل النزول.'
+        warning: 'تنبيه الدر: راقب ملامح الموسم وتبدّل مسارات السمك بين الساحل والقاع.'
       };
     }
 
@@ -1330,12 +1359,111 @@
 
     function mpsToKmh(v) { return typeof v === 'number' ? +(v * 3.6).toFixed(1) : null; }
 
+    function mpsToKnots(v) { return typeof v === 'number' ? +(v * 1.944).toFixed(1) : null; }
+
+    function getSinkerRecommendationByKnots(knots) {
+      const k = typeof knots === 'number' ? knots : null;
+      if (k == null) {
+        return {
+          category: 'غير محسوب',
+          weightRange: '---',
+          gramRef: null,
+          baladNo: '---',
+          urgent: false,
+          note: 'لا توجد قراءة كافية لتيار القاع حالياً.'
+        };
+      }
+      if (k <= 0.3) {
+        return {
+          category: 'خفيف',
+          weightRange: '30g - 50g',
+          gramRef: 40,
+          baladNo: '1',
+          urgent: false,
+          note: 'ارفع الثقل قليلاً مع السحب وأنزله مع الإرخاء لمسح القاع بذكاء.'
+        };
+      }
+      if (k <= 0.7) {
+        return {
+          category: 'متوسط',
+          weightRange: '60g - 100g',
+          gramRef: 80,
+          baladNo: '2',
+          urgent: false,
+          note: 'وازن بين مقاومة السحب وحركة الطعم حتى لا يتجمد على القاع.'
+        };
+      }
+      if (k <= 1.2) {
+        return {
+          category: 'ثقيل',
+          weightRange: '120g - 200g',
+          gramRef: 150,
+          baladNo: '4',
+          urgent: false,
+          note: 'التيار قوي؛ ثبّت البلد ثم ارفع/أنزل تدريجياً للمحافظة على المرعى.'
+        };
+      }
+      return {
+        category: 'جارف',
+        weightRange: '+250g',
+        gramRef: 250,
+        baladNo: '6',
+        urgent: true,
+        note: 'تيار جارف، استخدم ثقال +250g أو انتظر وقفة الماية.'
+      };
+    }
+
+    function getSinkerRecommendationByNavidur(es, tz, mode, measuredKnots) {
+      const esSafe = clampNumber(typeof es === 'number' ? es : 50, 0, 100);
+      const tzSafe = clampNumber(typeof tz === 'number' ? tz : 50, 0, 100);
+      const dragScore = mode === 'deep'
+        ? ((tzSafe * 0.65) + (esSafe * 0.35))
+        : ((tzSafe * 0.45) + (esSafe * 0.55));
+
+      let inferredKnots = measuredKnots;
+      if (typeof inferredKnots !== 'number') {
+        inferredKnots = +(0.15 + (dragScore / 100) * 1.25).toFixed(1);
+      } else {
+        const factor = 0.85 + (dragScore / 100) * 0.5;
+        inferredKnots = +(inferredKnots * factor).toFixed(1);
+      }
+
+      const base = getSinkerRecommendationByKnots(inferredKnots);
+      return Object.assign({}, base, {
+        dragScore: +dragScore.toFixed(1),
+        knotsUsed: inferredKnots
+      });
+    }
+
+    function getFishTargetsForAdvice(mode, darLabel, waterState, waterMotion, navNpHigh) {
+      const coastalTargets = ['القرقفان', 'البونقطة', 'البدح', 'الشعم', 'السبيطي'];
+      const deepTargets = ['الكنعد', 'الهامور', 'الجنعد', 'السكن', 'الشعري'];
+
+      if (navNpHigh && waterState === 'حمل') {
+        return mode === 'deep'
+          ? 'الكنعد، الشعري، والجنعد'
+          : 'السبيطي، الشعم، والبونقطة';
+      }
+
+      if (waterState === 'فساد' && waterMotion === 'واقفة') {
+        return 'الهامور، البدح، والقرقفان';
+      }
+
+      if (darLabel === 'المقدم' || darLabel === 'المؤخر') {
+        return mode === 'deep'
+          ? 'الكنعد، السكن، والشعري'
+          : 'السبيطي، البدح، والشعم';
+      }
+
+      return (mode === 'deep' ? deepTargets : coastalTargets).join('، ');
+    }
+
     function getDisplayedWindKmh(hourData) {
       const gustMs = hourData && hourData.windGust && hourData.windGust.sg != null ? hourData.windGust.sg : null;
       const speedMs = hourData && hourData.windSpeed && hourData.windSpeed.sg != null ? hourData.windSpeed.sg : null;
       const gustKmh = mpsToKmh(gustMs);
       const speedKmh = mpsToKmh(speedMs);
-      if (gustKmh == null) return null;
+      if (gustKmh == null) return speedKmh;
       const isFluctuating = speedKmh != null && Math.abs(gustKmh - speedKmh) >= 8;
       return isFluctuating && gustKmh < 10 ? 10 : gustKmh;
     }
@@ -1385,16 +1513,6 @@
       }
     };
 
-    function makeNoWindDay(station, dayOffset) {
-      return generateHours(station, dayOffset).map(function (h) {
-        return Object.assign({}, h, {
-          windSpeed: { sg: null },
-          windDirection: { sg: null },
-          windGust: { sg: null }
-        });
-      });
-    }
-
     function toIsoDay(date) {
       const d = new Date(date || Date.now());
       return d.toISOString().slice(0, 10);
@@ -1415,11 +1533,10 @@
 
       return targetWeekDates.map(function (d) {
         const key = getAppIsoDay(d);
-        const dayOffset = Math.floor((toUtcDay(d) - toUtcDay(normalizeUtcDate(new Date()))) / 86400000);
         const sorted = (map[key] || []).sort(function (a, b) {
           return new Date(a.time).getTime() - new Date(b.time).getTime();
         });
-        return sorted.length ? sorted.slice(0, 24) : makeNoWindDay(station, dayOffset);
+        return sorted.length ? sorted.slice(0, 24) : [];
       });
     }
 
@@ -1469,7 +1586,9 @@
       const marineUrl = provider.marineBase +
         '?latitude=' + encodeURIComponent(station.marineLat != null ? station.marineLat : station.lat) +
         '&longitude=' + encodeURIComponent(station.marineLng != null ? station.marineLng : station.lng) +
-        '&hourly=' + encodeURIComponent('sea_level_height_msl,wave_height,wave_direction,wave_period') +
+        '&hourly=' + encodeURIComponent('sea_level_height_msl,wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction,sea_surface_temperature') +
+        '&models=best_match' +
+        '&current=' + encodeURIComponent('wave_height,sea_surface_temperature,ocean_current_velocity,ocean_current_direction') +
         '&start_date=' + encodeURIComponent(startDate) +
         '&end_date=' + encodeURIComponent(endDate) +
         '&timezone=auto';
@@ -1480,6 +1599,7 @@
       }
 
       const marinePayload = await marineResponse.json();
+      if (marinePayload && marinePayload.current) { currentMarineLive = marinePayload.current; }
       const marine = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
       const weatherBundle = await fetchWeatherWithIconModels(provider, station, startDate, endDate);
       const weather = weatherBundle.weather;
@@ -1497,8 +1617,11 @@
         const gustMsRaw = weather.wind_gusts_10m && weather.wind_gusts_10m[idx] != null
           ? Number(weather.wind_gusts_10m[idx]) : null;
         const gustMs = gustMsRaw == null || Number.isNaN(gustMsRaw) ? null : gustMsRaw / 3.6;
-        const wtempRaw = weather.sea_surface_temperature && weather.sea_surface_temperature[idx] != null
-          ? Number(weather.sea_surface_temperature[idx]) : null;
+        const marineSSTRaw = marine.sea_surface_temperature && marine.sea_surface_temperature[idx] != null
+          ? Number(marine.sea_surface_temperature[idx]) : null;
+        const wtempRaw = marineSSTRaw != null && !Number.isNaN(marineSSTRaw) ? marineSSTRaw
+          : (weather.sea_surface_temperature && weather.sea_surface_temperature[idx] != null
+            ? Number(weather.sea_surface_temperature[idx]) : null);
         const isDayRaw = weather.is_day && weather.is_day[idx] != null ? Number(weather.is_day[idx]) : null;
         const airTempRaw = weather.temperature_2m && weather.temperature_2m[idx] != null
           ? Number(weather.temperature_2m[idx]) : null;
@@ -1513,6 +1636,8 @@
           airTemperature: airTempRaw != null && !Number.isNaN(airTempRaw) ? +airTempRaw.toFixed(1) : null,
           waveHeight: marine.wave_height && marine.wave_height[idx] != null ? Number(marine.wave_height[idx]) : null,
           wavePeriod: marine.wave_period && marine.wave_period[idx] != null ? Number(marine.wave_period[idx]) : null,
+          oceanCurrentVelocity: marine.ocean_current_velocity && marine.ocean_current_velocity[idx] != null ? Number(marine.ocean_current_velocity[idx]) : null,
+          oceanCurrentDirection: marine.ocean_current_direction && marine.ocean_current_direction[idx] != null ? Number(marine.ocean_current_direction[idx]) : null,
           isDay: isDayRaw
         };
       });
@@ -1538,10 +1663,8 @@
         return await fetchProviderHours(provider, station, targetWeekDates);
       } catch (liveErr) {
         return {
-          hoursByDay: targetWeekDates.map(function (dayDate) {
-            const dayOffset = Math.floor((toUtcDay(dayDate) - toUtcDay(normalizeUtcDate(new Date()))) / 86400000);
-            return makeNoWindDay(station, dayOffset);
-          }),
+          status: 'NO_DATA_AVAILABLE',
+          hoursByDay: targetWeekDates.map(function () { return []; }),
           meta: {
             source: 'official-wind-pending',
             sourceLabel: 'رادار NAVIDUR',
@@ -1555,29 +1678,6 @@
           }
         };
       }
-    }
-
-    function generateHours(station, dayOffset) {
-      const list = [];
-      const base = getForecastBaseDate(dayOffset);
-      const lat = station && station.lat != null ? station.lat : 25;
-      const lng = station && station.lng != null ? station.lng : 51;
-      const bathymetry = station && station.bathymetry ? station.bathymetry : 'mid';
-      const depthFactor = bathymetry === 'deep' ? 1.18 : bathymetry === 'shallow' ? 0.82 : 1;
-      const seed = ((lat || 25) % 10) + ((lng || 51) % 10) + dayOffset * 0.8;
-      for (let i = 0; i < 24; i++) {
-        const t = new Date(base.getTime());
-        t.setUTCHours(t.getUTCHours() + i);
-        list.push({
-          time: t.toISOString(),
-          windSpeed: { sg: null },
-          windDirection: { sg: null },
-          windGust: { sg: null },
-          seaLevel: { sg: +((0.35 + Math.sin(i / 3 + seed) * 0.28 + (dayOffset * 0.01)) * depthFactor).toFixed(2) },
-          waterTemperature: { sg: +(24 + Math.sin(i / 8 + dayOffset) * 1.8).toFixed(1) }
-        });
-      }
-      return list;
     }
 
     function getActiveHours() {
@@ -1688,20 +1788,17 @@
       const tideState = getTideState(prev, cur, next);
       const amplitude = prev == null || next == null ? 0 : Math.abs(next - prev);
 
-      // If live sea-level is missing, keep a deterministic fallback by lunar cycle.
+      // Strict real-data mode: do not infer tide/water state locally when live data is missing.
       if (cur == null || prev == null || next == null) {
-        const hf = getHamalFasadStatus(date);
-        const waterState = hf.name;
-        const mode = waterState === 'حمل' ? 'deep' : 'coastal';
-        const migrationSeason = getCurrentMigrationSeason(date, st);
         return {
-          mode: mode,
-          waterState: waterState,
-          tidalCoefficient: waterState === 'حمل' ? 60 : 40,
+          status: 'INSUFFICIENT_DATA',
+          mode: null,
+          waterState: null,
+          tidalCoefficient: null,
           tideState: tideState,
           amplitude: amplitude,
-          migrationSeason: migrationSeason,
-          migrationAdvice: getMigrationAdviceByState(waterState, mode, migrationSeason)
+          migrationSeason: null,
+          migrationAdvice: null
         };
       }
 
@@ -1724,25 +1821,130 @@
       return getStationDecisionEngine(date, station).mode;
     }
 
-    function computeFDI(date) {
-      const hr = getActiveHours()[selectedHourIndex] || {};
+    function clampNumber(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function normalizeRange(value, min, max) {
+      if (max <= min) return 0;
+      return ((value - min) / (max - min)) * 100;
+    }
+
+    function getStationTopographyFactor(station) {
+      const bath = station && station.bathymetry ? station.bathymetry : 'mid';
+      if (bath === 'shallow') return 1.15;
+      if (bath === 'deep') return 0.92;
+      return 1.0;
+    }
+
+    function getStationNominalDistanceKm(station, mode) {
+      const bath = station && station.bathymetry ? station.bathymetry : 'mid';
+      if (mode === 'deep') {
+        if (bath === 'deep') return 32;
+        if (bath === 'shallow') return 22;
+        return 27;
+      }
+      if (bath === 'deep') return 12;
+      if (bath === 'shallow') return 7;
+      return 9;
+    }
+
+    function getEffectiveCurrentSpeed(station, hr, date) {
+      if (hr.oceanCurrentVelocity != null && hr.oceanCurrentVelocity > 0) {
+        return clampNumber(hr.oceanCurrentVelocity, 0.35, 2.4);
+      }
       const ws = mpsToKmh(hr.windSpeed && hr.windSpeed.sg != null ? hr.windSpeed.sg : 0) || 0;
       const tide = getCurrentTideMetrics();
-      const mode = getAutomaticModeFromLiveData(date, selectedStation);
-      const isSagiStrong = tide.tideState.key === 'sagi' && tide.amplitude >= 0.12;
+      const tideContribution = (tide.tidalCoefficient || 0) / 65;
+      const windContribution = ws / 55;
+      const bathymetryFactor = station && station.bathymetry === 'deep' ? 1.08 : (station && station.bathymetry === 'shallow' ? 0.9 : 1.0);
+      const seasonalFactor = getCurrentDar(date, station).canonicalDarDay >= 220 ? 1.05 : 0.97;
+      return clampNumber((0.38 + tideContribution + windContribution) * bathymetryFactor * seasonalFactor, 0.35, 2.4);
+    }
 
-      let score = 42;
-      score += ws > 26 ? 22 : ws > 18 ? 12 : 4;
-      score += tide.amplitude > 0.2 ? 18 : tide.amplitude > 0.12 ? 10 : 4;
-      if (selectedStation.bathymetry === 'deep') score += 6;
-      if (selectedStation.bathymetry === 'shallow') score -= 4;
-      if (mode === 'deep' && isSagiStrong) score -= 14;
+    function computeDsByStation(date, station) {
+      const dar = getCurrentDar(date, station);
+      const darScore = normalizeRange(dar.canonicalDarDay, 10, 360);
+      const sohailStart = getSohailSeasonDate(date, station);
+      const daySinceSohail = Math.floor((normalizeUtcDate(date).getTime() - normalizeUtcDate(sohailStart).getTime()) / 86400000);
+      const sohailCycle = ((daySinceSohail % 360) + 360) % 360;
+      const sohailWave = 50 + (Math.sin((sohailCycle / 360) * Math.PI * 2) * 50);
+      const lat = station && typeof station.lat === 'number' ? station.lat : 25;
+      const lng = station && typeof station.lng === 'number' ? station.lng : 51;
+      const coordWave = 50 + (Math.cos(lat * 0.17) * 25) + (Math.sin(lng * 0.11) * 25);
+      return clampNumber((darScore * 0.55) + (sohailWave * 0.25) + (coordWave * 0.2), 0, 100);
+    }
 
-      return Math.max(0, Math.min(100, Math.round(score)));
+    function computeGcByStation(station) {
+      const region = getMarineRegion(station);
+      const regionBase = region === 'red_sea' ? 76 : (region === 'arabian_sea' ? 72 : (region === 'oman_sea' ? 74 : 68));
+      const bath = station && station.bathymetry === 'deep' ? 14 : (station && station.bathymetry === 'shallow' ? 6 : 10);
+      const lat = station && typeof station.lat === 'number' ? station.lat : 25;
+      const lng = station && typeof station.lng === 'number' ? station.lng : 51;
+      const coordEnergy = 10 + (Math.abs(Math.sin(lat * 0.09)) * 12) + (Math.abs(Math.cos(lng * 0.07)) * 8);
+      return clampNumber(regionBase + bath + coordEnergy - 12, 0, 100);
+    }
+
+    function computeEsFromLiveData(hr) {
+      const ws = mpsToKmh(hr.windSpeed && hr.windSpeed.sg != null ? hr.windSpeed.sg : 0) || 0;
+      const gust = mpsToKmh(hr.windGust && hr.windGust.sg != null ? hr.windGust.sg : 0) || ws;
+      const seaTemp = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : 27;
+      const seaLevel = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : 0.4;
+      const waveHeight = hr.waveHeight != null ? hr.waveHeight : 0.5;
+      const windStability = clampNumber(100 - (gust * 1.8), 0, 100);
+      const thermalComfort = clampNumber(100 - (Math.abs(seaTemp - 28) * 6), 0, 100);
+      const seaStability = clampNumber(100 - (Math.abs(seaLevel - 0.55) * 120), 0, 100);
+      const waveScore = clampNumber(100 - (waveHeight * 45), 0, 100);
+      const baseWind = clampNumber(100 - (ws * 2), 0, 100);
+      return clampNumber((baseWind * 0.30) + (windStability * 0.20) + (thermalComfort * 0.20) + (seaStability * 0.15) + (waveScore * 0.15), 0, 100);
+    }
+
+    function getNavidurWeights(mode) {
+      if (mode === 'coastal') {
+        return { W1: 0.20, W2: 0.25, W3: 0.15, W4: 0.40 };
+      }
+      if (mode === 'deep') {
+        return { W1: 0.20, W2: 0.35, W3: 0.20, W4: 0.25 };
+      }
+      return { W1: 0.20, W2: 0.25, W3: 0.20, W4: 0.35 };
+    }
+
+    function computeNavidurComponents(date) {
+      const hr = getActiveHours()[selectedHourIndex] || {};
+      const mode = getActiveMode(date);
+      const Ds = computeDsByStation(date, selectedStation);
+      const Gc = computeGcByStation(selectedStation);
+      const Es = computeEsFromLiveData(hr);
+      const Dist = getStationNominalDistanceKm(selectedStation, mode);
+      const V_current = getEffectiveCurrentSpeed(selectedStation, hr, date);
+      const F_topography = getStationTopographyFactor(selectedStation);
+
+      const TzRaw = (Dist / Math.max(0.1, V_current)) * F_topography;
+      const Tz = clampNumber(TzRaw, 0, 100);
+      const w = getNavidurWeights(mode);
+      const Np = (w.W1 * Ds) + (w.W2 * Tz) + (w.W3 * Gc) + (w.W4 * Es);
+      const Min = 0;
+      const Max = 100;
+      const Index = clampNumber(normalizeRange(Np, Min, Max), 0, 100);
+
+      return {
+        mode: mode,
+        Ds: Ds,
+        Tz: Tz,
+        Gc: Gc,
+        Es: Es,
+        Np: Np,
+        Index: Index,
+        weights: w
+      };
+    }
+
+    function computeFDI(date) {
+      return Math.round(computeNavidurComponents(date).Index);
     }
 
     function getActiveMode(date) {
-      return getAutomaticModeFromLiveData(date, selectedStation);
+      return manualMode || getAutomaticModeFromLiveData(date, selectedStation);
     }
 
     function updateAllStationStates(date) {
@@ -1898,16 +2100,25 @@
     function renderForecastStrip() {
       const root = document.getElementById('forecastStrip');
       root.innerHTML = '';
+      const todayKey = getDeviceIsoDay(new Date());
       weekDates.forEach(function (date, dayOffset) {
         const dailyLabel = getDailyFishingLabel(date, selectedStation);
         const weekday = new Intl.DateTimeFormat('ar-QA-u-ca-gregory', { weekday: 'long' }).format(date);
+        const dayNum = date.getUTCDate();
+        const monthNum = date.getUTCMonth() + 1;
+        const isToday = getDeviceIsoDay(date) === todayKey;
         const card = document.createElement('div');
-        card.className = 'forecast-day' + (dayOffset === selectedForecastDay ? ' active' : '');
-        card.innerHTML = '<div class="forecast-title">' + weekday + '</div><div class="forecast-status ' + dailyLabel.mode + '">' + dailyLabel.text + '</div>';
+        const classes = ['forecast-day', isToday ? 'today' : '', dayOffset === selectedForecastDay ? 'active' : ''].filter(Boolean).join(' ');
+        card.className = classes;
+        const todayBadge = isToday ? '<div><span class="forecast-today-badge">اليوم</span></div>' : '';
+        card.innerHTML =
+          '<div class="forecast-title">' + weekday + '</div>' +
+          '<div class="forecast-meta">' + dayNum + ' / ' + monthNum + '</div>' +
+          todayBadge +
+          '<div class="forecast-status ' + dailyLabel.mode + '">' + dailyLabel.text + '</div>';
         card.addEventListener('click', function () {
           selectedForecastDay = dayOffset;
           selectedHourIndex = getDefaultHourIndex(dayOffset);
-          manualMode = null;
           renderAll();
         });
         root.appendChild(card);
@@ -1940,17 +2151,18 @@
 
     function renderCompass(date) {
       const hr = getSelectedHourEntry().hour || {};
-      const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
-      const wd = hasLiveWind ? hr.windDirection.sg : 0;
-      const ws = hasLiveWind ? getDisplayedWindKmh(hr) : null;
+      const hasDir = !!(hr.windDirection && hr.windDirection.sg != null);
+      const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hasDir);
+      const wd = hasDir ? hr.windDirection.sg : 0;
+      const ws = (hr.windSpeed && hr.windSpeed.sg != null) ? getDisplayedWindKmh(hr) : null;
       const activeWind = hasLiveWind && isActiveWind(hr);
       const arrow = document.getElementById('windNeedle');
       arrow.style.transform = 'translate(-50%, -115px) rotate(' + wd + 'deg)';
       document.getElementById('compassCenter').textContent = ws != null ? Math.round(ws) : '--';
-      document.getElementById('selectedHourText').textContent = hasLiveWind
+      document.getElementById('selectedHourText').textContent = hasDir
         ? ('الساعة: ' + (hr.time ? formatHourArabic(hr.time) : '---') + ' • اتجاه: ' + windDirText8(wd) + ' • ' + Math.round(wd || 0) + '°' + (activeWind ? ' • رياح نشطة' : ''))
         : 'جاري جلب بيانات الرادار البحري...';
-      document.getElementById('windDirLabel').textContent = hasLiveWind ? (windDirText8(wd) + ' • ' + Math.round(wd || 0) + '°') : '---';
+      document.getElementById('windDirLabel').textContent = hasDir ? (windDirText8(wd) + ' • ' + Math.round(wd || 0) + '°') : '---';
       const fdi = computeFDI(date);
       document.getElementById('strategyHint').textContent = (getActiveMode(date) === 'deep' ? 'الغزير مفعّل' : 'الساحلي مفعّل') + ' • FDI: ' + fdi + '/100';
     }
@@ -2018,10 +2230,8 @@
     function renderHero(date) {
       const dar = getCurrentDar(date);
       const moon = getMoonPhase(date);
-      const hf = getHamalFasadStatus(date);
       const activeMode = getActiveMode(date);
       const hr = getSelectedHourEntry().hour || {};
-      const ws = getDisplayedWindKmh(hr);
       const sea = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
       const wt = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null;
       const activeHours = getActiveHours();
@@ -2035,12 +2245,14 @@
       const tideState = getTideState(prev, cur, next);
 
       const currentDate = date;
-      const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
+      const hasWindData = !!(hr.windSpeed && hr.windSpeed.sg != null);
+      const hasDir = !!(hr.windDirection && hr.windDirection.sg != null);
+      const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hasDir);
       const activeWind = hasLiveWind && isActiveWind(hr);
       const isDayTime = hr.isDay === 1;
       const dayNightIcon = isDayTime ? '☀️' : '🌙';
-      const speedKmh = hasLiveWind && hr.windSpeed && hr.windSpeed.sg != null ? mpsToKmh(hr.windSpeed.sg) : null;
-      const gustKmh = hasLiveWind && hr.windGust && hr.windGust.sg != null ? mpsToKmh(hr.windGust.sg) : null;
+      const speedKmh = hasWindData ? mpsToKmh(hr.windSpeed.sg) : null;
+      const gustKmh = hasLiveWind ? mpsToKmh(hr.windGust.sg) : null;
       const at = hr.airTemperature != null ? hr.airTemperature : null;
       document.getElementById('dateLine').textContent = dayNightIcon + ' ' + formatDateArabic(currentDate) + ' • ' + selectedStation.name;
       document.getElementById('moonIcon').textContent = moon.icon;
@@ -2048,11 +2260,29 @@
       document.getElementById('tempVal').textContent = at != null
         ? ('🌡️ ' + at.toFixed(1) + '° هواء' + (wt != null ? ' • ' + wt.toFixed(1) + '° بحر' : ''))
         : (wt != null ? ('🌡️ ' + wt.toFixed(1) + '°') : '🌡️ ---');
-      const windDisplay = hasLiveWind && speedKmh != null
-        ? ('💨 ' + speedKmh + ' كم/س' + (gustKmh != null ? ' • هبّات: ' + gustKmh + ' كم/س' : '') + (activeWind ? ' • رياح نشطة' : ''))
+      const windDisplay = hasWindData && speedKmh != null
+        ? (activeMode === 'deep'
+            ? ('💨 ' + speedKmh + ' كم/س' + (gustKmh != null ? ' • هبّات: ' + gustKmh + ' كم/س' : '') + (activeWind ? ' • رياح نشطة' : ''))
+            : ('💨 ' + speedKmh + ' كم/س'))
         : '💨 جاري جلب بيانات الرادار البحري...';
       document.getElementById('windVal').textContent = windDisplay;
       document.getElementById('tideHeightVal').textContent = sea != null ? ('🌊 ' + sea.toFixed(2) + ' م') : '🌊 ---';
+      const waveLabelEl = document.getElementById('waveHeightLabel');
+      const waveEl = document.getElementById('waveHeightVal');
+      const wh = hr.waveHeight != null ? hr.waveHeight : (currentMarineLive && currentMarineLive.wave_height != null ? currentMarineLive.wave_height : null);
+      if (waveLabelEl) waveLabelEl.textContent = activeMode === 'deep' ? 'ارتفاع الموج (الغزير)' : 'موج العمق';
+      if (waveEl) {
+        waveEl.textContent = activeMode === 'deep'
+          ? (wh != null ? ('🌊 ' + wh.toFixed(2) + ' م') : '🌊 ---')
+          : '🌊 غير محوري في الساحلي';
+      }
+      const currentLabelEl = document.getElementById('oceanCurrentLabel');
+      const currentEl = document.getElementById('oceanCurrentVal');
+      if (currentLabelEl) currentLabelEl.textContent = activeMode === 'deep' ? 'سرعة التيار (حياة/موت)' : 'تيار الماي (الساحلي)';
+      if (currentEl) {
+        const oc = hr.oceanCurrentVelocity != null ? hr.oceanCurrentVelocity : (currentMarineLive && currentMarineLive.ocean_current_velocity != null ? currentMarineLive.ocean_current_velocity : null);
+        currentEl.textContent = oc != null ? ('🔄 ' + (oc * 1.944).toFixed(1) + ' عقدة') : '🔄 ---';
+      }
       const fdi = computeFDI(date);
       document.getElementById('currentWaterHeight').innerHTML = '≈ اتجاه الماء الحالي: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> • الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : '---') + ' • FDI: ' + fdi + '/100';
 
@@ -2065,15 +2295,12 @@
       document.getElementById('dorahCountdownLine').textContent = 'الدر القادم: ' + nextDarName + ' — ' + nextFishHint;
       document.getElementById('dorahInfoBox').textContent = fishInfo;
       document.getElementById('countdownDays').textContent = String(dar.daysLeft);
-      document.getElementById('dorahWarning').textContent = dar.warning;
+      document.getElementById('dorahWarning').textContent = '';
       const statusEl = document.getElementById('windOfficialStatus');
       if (statusEl) {
-        if (!hasLiveWind) {
+        if (!hasWindData) {
           statusEl.style.display = 'block';
           statusEl.textContent = 'جاري جلب بيانات الرادار البحري...';
-        } else if (activeWind) {
-          statusEl.style.display = 'block';
-          statusEl.textContent = 'رياح نشطة: تم اعتماد الهبة الفعلية بدلاً من المتوسط';
         } else {
           statusEl.style.display = 'none';
         }
@@ -2083,9 +2310,12 @@
       document.getElementById('deepBtn').classList.toggle('active', activeMode === 'deep');
 
       const manualWarn = document.getElementById('manualOverrideWarning');
-      if (manualMode === 'coastal' && hf.name === 'حمل') {
+      if (manualMode === 'coastal') {
         manualWarn.style.display = 'block';
-        manualWarn.textContent = 'تحذير: اخترت الساحلي مع حمل، راقب السرعة واتجاه الرياح.';
+        manualWarn.textContent = 'وضع ساحلي مفعّل: تُعرض الرياح المستقرة فقط.';
+      } else if (manualMode === 'deep') {
+        manualWarn.style.display = 'block';
+        manualWarn.textContent = 'وضع غزير مفعّل: تُعرض سرعة الرياح والهبّات للسلامة.';
       } else {
         manualWarn.style.display = 'none';
         manualWarn.textContent = '';
@@ -2131,72 +2361,118 @@
       const adviceEl = document.getElementById('nawkhadaBoxAdvice');
       const sourceEl = document.getElementById('nawkhadaDataSource');
       const kanaadEl = document.getElementById('kanaadAlert');
+      const nav = computeNavidurComponents(date);
+      const finalIndex = Math.round(nav.Index);
+      const goldenLine = (finalIndex > 80 || nav.Np > 80) ? 'فرصة ذهبية، السمك في حالة نشاط قصوى مع تيار مثالي' : null;
 
       const activeHour = getSelectedHourEntry().hour || {};
       const windKmh = activeHour.windSpeed && activeHour.windSpeed.sg != null ? mpsToKmh(activeHour.windSpeed.sg) : null;
       const gustKmh = activeHour.windGust && activeHour.windGust.sg != null ? mpsToKmh(activeHour.windGust.sg) : null;
       const windDirDeg = activeHour.windDirection && activeHour.windDirection.sg != null ? activeHour.windDirection.sg : null;
       const windDirStr = windDirDeg != null ? windDirText8(windDirDeg) : '';
-      const windDesc = windKmh != null
-        ? (windKmh + ' كم/س' + (windDirStr ? ' من ' + windDirStr : '') + (gustKmh != null ? ' • هبّات: ' + gustKmh + ' كم/س' : ''))
-        : 'هادئة';
-
-      const stName = selectedStation ? selectedStation.name : '';
-      const region = getMarineRegion(selectedStation);
       const stationState = stationStates[selectedStation.id] || null;
-      const localMode = stationState ? stationState.mode : getDailyFishingLabel(date, selectedStation).mode;
+      const localMode = getActiveMode(date);
+      const windDesc = windKmh != null
+        ? (windKmh + ' كم/س' + (windDirStr ? ' من ' + windDirStr : '') + (localMode === 'deep' && gustKmh != null ? ' • هبّات: ' + gustKmh + ' كم/س' : ''))
+        : 'هادئة';
       const tidalCoef = stationState && typeof stationState.tidalCoefficient === 'number' ? stationState.tidalCoefficient : null;
-      const waterState = stationState && stationState.waterState ? stationState.waterState : (localMode === 'deep' ? 'حمل' : 'فساد');
-      const migrationAdvice = stationState && stationState.migrationAdvice ? stationState.migrationAdvice : '';
-      const isUqairSharqiyah = ['العقير','الخبر','الدمام','الجبيل','الدوحة','الخور','الوكرة','الرويس','المنامة'].some(function(s){ return stName.includes(s); });
-      const isDubaiMusandam = ['دبي','مسندم','رأس الخيمة','الشارقة','أم القيوين','الفجيرة'].some(function(s){ return stName.includes(s); });
-      const isRedSea = region === 'red_sea';
+      const waterState = stationState && stationState.waterState ? stationState.waterState : null;
 
-      var hamalFish, fasadFish;
-      const seasonalAdvice = getSeasonalFishAdvice(date, selectedStation);
-      hamalFish = seasonalAdvice.hamal;
-      fasadFish = seasonalAdvice.fasad;
+      const waterTemp = activeHour.waterTemperature && activeHour.waterTemperature.sg != null
+        ? activeHour.waterTemperature.sg
+        : null;
 
       if (sourceEl) sourceEl.textContent = getSourceBrandingText();
 
-      if (windKmh != null && windKmh > 20) {
-        adviceEl.className = 'nawkhada-advice-danger';
-        adviceEl.innerHTML =
-          '⛔ <strong>شايش - غير مناسب</strong> • الريح: <strong>' + windDesc + '</strong><br>' +
-          '<span style="opacity:.85;font-size:12px">دُر <strong>' + darLabel + '</strong> — الرياح قوية جداً. ينصح بتأجيل الطلعة حتى تهدأ الأحوال.</span>';
-        kanaadEl.style.display = 'none';
-        return;
-      }
-      if (windKmh != null && windKmh >= 15) {
+      if (!waterState || !localMode) {
         adviceEl.className = 'nawkhada-advice-caution';
         adviceEl.innerHTML =
-          '⚠️ <strong>حذر - رياح نشطة</strong> • الريح: <strong>' + windDesc + '</strong><br>' +
-          '<span style="opacity:.85;font-size:12px">دُر <strong>' + darLabel + '</strong> • ' + waterState + ' — رياح متوسطة إلى نشطة. الأفضل تقليل المخاطرة وتجنب العمق.</span>';
+          '📍 <strong>البيانات البحرية غير مكتملة حالياً.</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">تعذّر تحديد حمل/فساد أو نمط الصيد تلقائياً. يرجى انتظار القراءة الرسمية.</span>';
         kanaadEl.style.display = 'none';
         return;
       }
 
-      if (waterState === 'حمل') {
-        adviceEl.className = 'nawkhada-advice-hamal';
+      const severeWeather = (gustKmh != null && gustKmh > 30) || (windKmh != null && windKmh > 30);
+      if (localMode === 'coastal' && severeWeather) {
+        adviceEl.className = 'nawkhada-advice-danger';
         adviceEl.innerHTML =
-          '🟢 دُر <strong>' + darLabel + '</strong> • <strong>' + waterState + '</strong> • معامل: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
-          'الريح: ' + windDesc + ' • الوضع: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • أفضل سمك: <strong>' + hamalFish + '</strong><br>' +
-          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'السمك يرعى في القوع بسبب قوة الحمل — اختر الغزير للعمق.') + '</span>';
-      } else {
-        adviceEl.className = 'nawkhada-advice-fasad';
-        adviceEl.innerHTML =
-          '🔴 دُر <strong>' + darLabel + '</strong> • <strong>' + waterState + '</strong> • معامل: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
-          'الريح: ' + windDesc + ' • الوضع: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • أفضل سمك: <strong>' + fasadFish + '</strong><br>' +
-          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'الماية هادئة والسمك أقرب للساحل — ركز على الضحل.') + '</span>';
+          '⛔ <strong>حتى الساحل غير آمن حالياً، وفر وقتك.</strong> • الريح: <strong>' + windDesc + '</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">قراءات متطرفة تمنع الصيد الساحلي والعمق مؤقتاً.</span>';
+        kanaadEl.style.display = 'none';
+        return;
       }
 
-      const isKanaadDar = darLabel === 'المقدم' || darLabel === 'المؤخر';
-      kanaadEl.style.display = isKanaadDar ? 'block' : 'none';
+      if (localMode === 'coastal') {
+        const tideKey = stationState && stationState.tideState && stationState.tideState.key ? stationState.tideState.key : 'steady';
+        const waterMotion = tideKey === 'steady' ? 'واقفة' : 'خارة';
+        const currentMs = activeHour.oceanCurrentVelocity != null ? activeHour.oceanCurrentVelocity : null;
+        const currentKnots = mpsToKnots(currentMs);
+        // Keep sinker computation active in backend for decision support without showing weights.
+        const sinker = getSinkerRecommendationByNavidur(nav.Es, nav.Tz, localMode, currentKnots);
+        const coastalHard = (windKmh != null && windKmh > 20) || sinker.urgent || (currentMs != null && currentMs > 1.35);
+        const suitability = coastalHard ? 'صعب' : 'مناسب جداً';
+        const reason = currentKnots != null
+          ? ('بسبب قوة التيار (' + sinker.knotsUsed + ' عقدة).')
+          : 'بسبب قوة التيار.';
+        const thermalBand = waterTemp == null ? 'غير واضحة'
+          : (waterTemp >= 24 && waterTemp <= 31 ? 'مثالية' : waterTemp >= 22 && waterTemp <= 33 ? 'جيدة' : 'صعبة');
+        const fishTargets = getFishTargetsForAdvice(localMode, darLabel, waterState, waterMotion, nav.Np > 80);
+
+        adviceEl.className = coastalHard ? 'nawkhada-advice-caution' : 'nawkhada-advice-hamal';
+        adviceEl.innerHTML =
+          (goldenLine ? ('✨ <strong>' + goldenLine + '</strong><br>') : '') +
+          '🧭 <strong>الوضع الحالي ' + waterState + ' - الماية ' + waterMotion + ' - الصيد الساحلي ' + suitability + ' ' + reason + '</strong><br>' +
+          '<span style="opacity:.85;font-size:12px">الحالة البيئية ' + thermalBand + '؛ يتوقع نشاط جيد لأسماك ' + fishTargets +
+          ' قرب السيف، مع فرصة ممتازة لضربة سبيطي عند وقفة الماية. • Es=' + nav.Es.toFixed(1) + ' • Ds=' + nav.Ds.toFixed(1) + '</span>';
+        kanaadEl.style.display = 'none';
+        return;
+      }
+
+      if (localMode === 'deep') {
+        if (gustKmh != null && gustKmh > 20) {
+          adviceEl.className = 'nawkhada-advice-danger';
+          adviceEl.innerHTML =
+            '⚠️ <strong>حذر - رياح نشطة في العمق، الأفضل تجنب الغزير.</strong> • الهبّات: <strong>' + gustKmh + ' كم/س</strong><br>' +
+            '<span style="opacity:.85;font-size:12px">ارتفاع الموج وسرعة التيار في الغزير خط أحمر حالياً.</span>';
+          kanaadEl.style.display = 'none';
+          return;
+        }
+
+        const waveM = activeHour.waveHeight != null ? activeHour.waveHeight : null;
+        const wavePeriodS = activeHour.wavePeriod != null ? activeHour.wavePeriod : null;
+        const currentMs = activeHour.oceanCurrentVelocity != null ? activeHour.oceanCurrentVelocity : null;
+        const currentKnots = mpsToKnots(currentMs);
+        // Keep sinker computation active in backend for decision support without showing weights.
+        const sinker = getSinkerRecommendationByNavidur(nav.Es, nav.Tz, localMode, currentKnots);
+        const drawStrength = currentMs == null ? 'غير واضح'
+          : (currentMs >= 1.4 ? 'قوي جداً' : currentMs >= 1.0 ? 'قوي' : currentMs >= 0.6 ? 'متوسط' : 'خفيف');
+        const fishTargets = getFishTargetsForAdvice(localMode, darLabel, waterState, 'خارة', nav.Np > 80);
+
+        adviceEl.className = sinker.urgent || (currentMs != null && currentMs >= 1.0) ? 'nawkhada-advice-caution' : 'nawkhada-advice-hamal';
+        adviceEl.innerHTML =
+          (goldenLine ? ('✨ <strong>' + goldenLine + '</strong><br>') : '') +
+          '🌊 <strong>الغزير الآن:</strong> موج ' + (waveM != null ? waveM.toFixed(2) + ' م' : '---') +
+          ' • تيار ' + (sinker.knotsUsed != null ? sinker.knotsUsed + ' عقدة' : '---') +
+          ' • سحب القاع ' + drawStrength + '<br>' +
+          '<span style="opacity:.85;font-size:12px">فترة الموج: ' + (wavePeriodS != null ? wavePeriodS.toFixed(1) + ' ث' : '---') +
+          ' • الأسماك المرجحة: ' + fishTargets +
+          ' • Es=' + nav.Es.toFixed(1) + ' • Ds=' + nav.Ds.toFixed(1) + ' • Np=' + nav.Np.toFixed(1) + '</span>';
+        kanaadEl.style.display = 'none';
+        return;
+      }
+      kanaadEl.style.display = 'none';
     }
 
     function renderAll() {
       syncSelectedHourSelection();
       const date = getForecastDateByIndex(selectedForecastDay);
+      const appRoot = document.getElementById('appRoot');
+      const mode = getActiveMode(date);
+      if (appRoot) {
+        appRoot.classList.remove('mode-coastal', 'mode-deep');
+        appRoot.classList.add(mode === 'deep' ? 'mode-deep' : 'mode-coastal');
+      }
       updateAllStationStates(date);
       renderForecastStrip();
       renderNawkhadaBox(date);
@@ -2210,7 +2486,6 @@
     async function onStationChange(idx) {
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
-      manualMode = null;
       weekDates = getVisibleWeekDatesFromToday(new Date());
       selectedForecastDay = 0;
 
@@ -2229,7 +2504,7 @@
     }
 
     async function refreshIfDayChanged(force) {
-      const todayKey = getAppIsoDay(new Date());
+      const todayKey = getDeviceIsoDay(new Date());
       if (!force && todayKey === lastKnownAppIsoDay) return;
       lastKnownAppIsoDay = todayKey;
       selectedForecastDay = 0;
@@ -2264,10 +2539,6 @@
     function autoSteerMode() {
       const date = getForecastDateByIndex(selectedForecastDay);
       const hf = getHamalFasadStatus(date);
-      const label = getDailyFishingLabel(date, selectedStation);
-      if (manualMode == null) {
-        manualMode = label.mode;
-      }
       return hf;
     }
 
@@ -2275,7 +2546,7 @@
       renderStations();
       await onStationChange(0);
       startLiveClock();
-      lastKnownAppIsoDay = getAppIsoDay(new Date());
+      lastKnownAppIsoDay = getDeviceIsoDay(new Date());
 
       if (windRefreshTimer) {
         clearInterval(windRefreshTimer);
@@ -2290,16 +2561,16 @@
       });
 
       document.getElementById('coastalBtn').addEventListener('click', function () {
-        manualMode = null;
-        const msg = 'الوضع الآن تلقائي بالكامل حسب معامل المد والجزر لكل محطة.';
+        manualMode = 'coastal';
+        const msg = 'تم تفعيل وضع الساحلي: التركيز على تيار الماي وحالة الفساد/الحمل.';
         document.getElementById('manualOverrideWarning').style.display = 'block';
         document.getElementById('manualOverrideWarning').textContent = msg;
         renderAll();
       });
 
       document.getElementById('deepBtn').addEventListener('click', function () {
-        manualMode = null;
-        const msg = 'الوضع الآن تلقائي بالكامل حسب معامل المد والجزر لكل محطة.';
+        manualMode = 'deep';
+        const msg = 'تم تفعيل وضع الغزير: ارتفاع الموج وسرعة التيار هما المؤشر الأساسي.';
         document.getElementById('manualOverrideWarning').style.display = 'block';
         document.getElementById('manualOverrideWarning').textContent = msg;
         renderAll();

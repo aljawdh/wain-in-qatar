@@ -1,5 +1,6 @@
 const APP_TIMEZONE = 'Asia/Riyadh';
 const { Redis } = require('@upstash/redis');
+const { requireRole } = require('./_lib/auth');
 
 // Lazy KV REST client — reused across warm invocations in Vercel serverless.
 let _kvClient = null;
@@ -306,6 +307,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    const actor = await requireRole('admin')(req, res);
+    if (!actor) return;
     try {
       const stats = await getStats();
       debugLog('stats_read', {

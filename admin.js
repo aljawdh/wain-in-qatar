@@ -1,13 +1,27 @@
 (function () {
   var API_ENDPOINT = '/api/admin-analytics';
   var SETTINGS_ENDPOINT = '/api/admin-settings';
+  var STATIONS_ENDPOINT = '/api/admin/stations';
+  var USERS_ENDPOINT = '/api/admin/users';
+  var SUMMARY_ENDPOINT = '/api/admin/summary';
+  var FEEDBACK_ENDPOINT = '/api/admin/feedback';
+  var LOGIN_ENDPOINT = '/api/login';
+  var LOGOUT_ENDPOINT = '/api/logout';
+
   var adminAuthenticated = false;
   var adminDataFilter = 'all';
-  var ADMIN_USER = 'Mohamed_Admin';
-  var ADMIN_PASS = 'NaviDur@2026#Stats';
   var refreshInFlight = false;
   var settingsInFlight = false;
   var latestSettings = null;
+  var authToken = localStorage.getItem('navidur_admin_token') || '';
+  var me = null;
+  var stationsCache = [];
+  var usersCache = [];
+  var latestSummaryCache = null;
+  var latestFeedbackCache = [];
+  var stationsAdminMap = null;
+  var stationAdminMarker = null;
+  var stationReverseRequestId = 0;
 
   function getEl(id) {
     return document.getElementById(id);
@@ -20,6 +34,19 @@
     return y + '-' + m + '-' + day;
   }
 
+  function apiFetch(url, options) {
+    var opts = options || {};
+    var headers = Object.assign({}, opts.headers || {});
+    if (authToken) headers.Authorization = 'Bearer ' + authToken;
+    return fetch(url, {
+      method: opts.method || 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: headers,
+      body: opts.body
+    });
+  }
+
   function setAdminDataFilter(filter) {
     adminDataFilter = filter || 'all';
     document.querySelectorAll('.admin-block').forEach(function (block) {
@@ -29,6 +56,13 @@
     document.querySelectorAll('.admin-nav').forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-filter') === adminDataFilter);
     });
+    if (adminDataFilter === 'all' || adminDataFilter === 'stations') {
+      window.setTimeout(function () {
+        if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
+          stationsAdminMap.invalidateSize();
+        }
+      }, 120);
+    }
   }
 
   function renderTopTable(bodyId, items) {
@@ -36,50 +70,27 @@
     if (!body) return;
     body.innerHTML = '';
     if (!items || !items.length) {
-      body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#8ea4ba">لا توجد بيانات بعد</td></tr>';
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ea4ba">لا توجد بيانات بعد</td></tr>';
       return;
     }
     items.forEach(function (item, i) {
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td>' + (i + 1) + '</td><td><strong>' + item[0] + '</strong></td><td>' + item[1] + '</td>';
+      tr.innerHTML = '<td>' + (i + 1) + '</td><td><strong>' + item.station + '</strong></td><td>' + item.total + '</td><td>' + (item.accuracy != null ? (item.accuracy + '%') : '--') + '</td>';
       body.appendChild(tr);
     });
   }
 
-  function showBackendStatus(data) {
-    var suffix = '';
-    if (data && data.source) suffix += ' [' + data.source + ']';
-    if (data && data.noData) {
-      console.log('[admin] ' + (data.message || 'No data yet') + suffix);
-      return;
-    }
-    console.log('[admin] Analytics connected' + suffix);
-  }
-
-  function renderFeatureTable(items) {
-    var labels = {
-      tide_calculation: 'Tide calculation',
-      fish_info: 'Fish Info'
-    };
-    var normalized = (items || []).map(function (item) {
-      return [labels[item[0]] || item[0], item[1]];
-    });
-    renderTopTable('aFeatureBody', normalized);
-  }
-
-  function renderGeoTable(geo) {
-    var body = getEl('aGeoBody');
+  function renderKeyValueRows(bodyId, rows, emptyMessage, colSpan) {
+    var body = getEl(bodyId);
     if (!body) return;
     body.innerHTML = '';
-    if (!geo || !geo.length) {
-      body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#8ea4ba">لا توجد بيانات مدن بعد</td></tr>';
+    if (!rows || !rows.length) {
+      body.innerHTML = '<tr><td colspan="' + String(colSpan || 3) + '" style="text-align:center;color:#8ea4ba">' + (emptyMessage || 'لا توجد بيانات بعد') + '</td></tr>';
       return;
     }
-    var total = geo.reduce(function (sum, row) { return sum + Number(row[1] || 0); }, 0) || 1;
-    geo.forEach(function (row) {
-      var pct = ((Number(row[1] || 0) / total) * 100).toFixed(1);
+    rows.forEach(function (row) {
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td><strong>' + row[0] + '</strong></td><td>' + row[1] + '</td><td><div style="background:#27b3ff;height:6px;border-radius:3px;width:' + pct + '%;min-width:4px"></div> ' + pct + '%</td>';
+      tr.innerHTML = row;
       body.appendChild(tr);
     });
   }
@@ -131,13 +142,51 @@
     });
   }
 
-  async function fetchStats() {
-    var res = await fetch(API_ENDPOINT, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store'
+  function updateFieldTestingChecklist(summary, feedbackList) {
+    var list = Array.isArray(feedbackList) ? feedbackList : [];
+    var yesByMember = list.some(function (row) {
+      var uid = String((row && row.user_id) || '');
+      var ans = String((row && row.answer) || '').toUpperCase();
+      return ans === 'YES' && (uid.indexOf('usr_field_member_') === 0 || uid.indexOf('field_member') !== -1);
     });
+    var noByMember = list.some(function (row) {
+      var uid = String((row && row.user_id) || '');
+      var ans = String((row && row.answer) || '').toUpperCase();
+      return ans === 'NO' && (uid.indexOf('usr_field_member_') === 0 || uid.indexOf('field_member') !== -1);
+    });
+    var stationTested = list.some(function (row) {
+      return String((row && row.station) || '').trim().length > 0;
+    });
+    var sum = summary && typeof summary === 'object' ? summary : null;
+    var summaryUpdated = !!(sum && ((Number(sum.total_yes || 0) + Number(sum.total_no || 0)) > 0));
+
+    var yesEl = getEl('ftCheckYes');
+    var noEl = getEl('ftCheckNo');
+    var stationEl = getEl('ftCheckStation');
+    var summaryEl = getEl('ftCheckSummary');
+    if (yesEl) yesEl.checked = yesByMember;
+    if (noEl) noEl.checked = noByMember;
+    if (stationEl) stationEl.checked = stationTested;
+    if (summaryEl) summaryEl.checked = summaryUpdated;
+
+    var readyCount = [yesByMember, noByMember, stationTested, summaryUpdated].filter(Boolean).length;
+    var noteEl = getEl('fieldChecklistStatus');
+    if (noteEl) {
+      noteEl.textContent = readyCount === 4
+        ? 'جاهز للتشغيل الميداني: جميع عناصر checklist مكتملة.'
+        : 'الحالة الحالية: ' + readyCount + '/4 مكتملة.';
+    }
+  }
+
+  async function fetchStats() {
+    var res = await apiFetch(API_ENDPOINT, { method: 'GET' });
     if (!res.ok) throw new Error('analytics fetch failed');
+    return res.json();
+  }
+
+  async function fetchSummary() {
+    var res = await apiFetch(SUMMARY_ENDPOINT, { method: 'GET' });
+    if (!res.ok) throw new Error('summary fetch failed');
     return res.json();
   }
 
@@ -195,7 +244,22 @@
     if (Number.isNaN(hijriOffset)) hijriOffset = -1;
     hijriOffset = Math.max(-5, Math.min(5, Math.round(hijriOffset)));
 
+    var siteMode = String(src.site_mode || 'live').trim().toLowerCase();
+    if (siteMode !== 'live' && siteMode !== 'maintenance' && siteMode !== 'private_beta') siteMode = 'live';
+
+    var stationListMode = String(src.station_list_mode || 'grouped').trim().toLowerCase();
+    if (stationListMode !== 'chips' && stationListMode !== 'classic' && stationListMode !== 'grouped') stationListMode = 'grouped';
+
+    var locationMode = String(src.location_mode || 'ask').trim().toLowerCase();
+    if (locationMode !== 'off' && locationMode !== 'ask' && locationMode !== 'auto') locationMode = 'ask';
+
     return {
+      site_mode: siteMode,
+      maintenance_message: String(src.maintenance_message || '').trim().slice(0, 500),
+      allow_admin_bypass: !!src.allow_admin_bypass,
+      station_list_mode: stationListMode,
+      location_mode: locationMode,
+      sort_stations_by_distance: !!src.sort_stations_by_distance,
       headerText: String(src.headerText || '').trim().slice(0, 120),
       headerColor: headerColor,
       hijriOffset: hijriOffset,
@@ -221,20 +285,15 @@
   }
 
   async function fetchSettings() {
-    var res = await fetch(SETTINGS_ENDPOINT, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store'
-    });
+    var res = await apiFetch(SETTINGS_ENDPOINT, { method: 'GET' });
     if (!res.ok) throw new Error('settings fetch failed');
     var data = await res.json();
     return normalizeSettingsPayload(data.settings || data);
   }
 
   async function saveSettings(payload) {
-    var res = await fetch(SETTINGS_ENDPOINT, {
+    var res = await apiFetch(SETTINGS_ENDPOINT, {
       method: 'POST',
-      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings: payload })
     });
@@ -249,6 +308,12 @@
 
   function renderSettingsToForm(settings) {
     var s = normalizeSettingsPayload(settings || {});
+    setTextField(['#siteModeInput'], s.site_mode || 'live');
+    setTextField(['#stationListModeInput'], s.station_list_mode || 'grouped');
+    setTextField(['#locationModeInput'], s.location_mode || 'ask');
+    setTextField(['#maintenanceMessageInput'], s.maintenance_message || '');
+    setCheckboxField(['#allowAdminBypassInput'], !!s.allow_admin_bypass);
+    setCheckboxField(['#sortStationsByDistanceInput'], !!s.sort_stations_by_distance);
     setTextField(['#headerTextInput', '#headerText', 'input[name="headerText"]'], s.headerText);
     setTextField(['#headerColorInput', '#headerColor', 'input[name="headerColor"]'], s.headerColor);
     setTextField(['#hijriOffsetInput', 'input[name="hijriOffset"]'], s.hijriOffset);
@@ -294,6 +359,12 @@
     if (Number.isNaN(hijriOffset)) hijriOffset = -1;
 
     var payload = {
+      site_mode: getTextField(['#siteModeInput'], base.site_mode || 'live'),
+      maintenance_message: getTextField(['#maintenanceMessageInput'], base.maintenance_message || ''),
+      allow_admin_bypass: getCheckboxField(['#allowAdminBypassInput'], base.allow_admin_bypass !== false),
+      station_list_mode: getTextField(['#stationListModeInput'], base.station_list_mode || 'grouped'),
+      location_mode: getTextField(['#locationModeInput'], base.location_mode || 'ask'),
+      sort_stations_by_distance: getCheckboxField(['#sortStationsByDistanceInput'], !!base.sort_stations_by_distance),
       headerText: getTextField(['#headerTextInput', '#headerText', 'input[name="headerText"]'], base.headerText || ''),
       headerColor: getTextField(['#headerColorInput', '#headerColor', 'input[name="headerColor"]'], base.headerColor || '#27b3ff'),
       hijriOffset: hijriOffset,
@@ -359,39 +430,12 @@
       var payload = collectSettingsFromForm();
       latestSettings = await saveSettings(payload);
       renderSettingsToForm(latestSettings);
-      showSettingsStatus('تم حفظ الإعدادات في Redis بنجاح.', false);
+      showSettingsStatus('تم حفظ الإعدادات بنجاح.', false);
     } catch (e) {
       console.error('[admin] saveSettingsFromAdmin failed:', e && e.message ? e.message : e);
       showSettingsStatus('فشل حفظ الإعدادات.', true);
     } finally {
       setSettingsBusy(false);
-    }
-  }
-
-  function bindSettingsActions() {
-    var saveBtn = queryFirst([
-      '#saveSettingsBtn',
-      '#adminSaveBtn',
-      '[data-action="save-settings"]',
-      '.save-settings-btn'
-    ]);
-    if (saveBtn) {
-      saveBtn.addEventListener('click', function () {
-        if (settingsInFlight) return;
-        saveSettingsFromAdmin();
-      });
-    }
-
-    var reloadBtn = queryFirst([
-      '#reloadSettingsBtn',
-      '[data-action="reload-settings"]',
-      '.reload-settings-btn'
-    ]);
-    if (reloadBtn) {
-      reloadBtn.addEventListener('click', function () {
-        if (settingsInFlight) return;
-        loadSettingsIntoAdmin();
-      });
     }
   }
 
@@ -404,6 +448,48 @@
     btn.textContent = refreshInFlight ? 'جاري التحديث...' : 'تحديث';
   }
 
+  async function renderSummarySection() {
+    try {
+      var s = await fetchSummary();
+      latestSummaryCache = s;
+      getEl('sumYes').textContent = String(s.total_yes || 0);
+      getEl('sumNo').textContent = String(s.total_no || 0);
+      getEl('sumAcc').textContent = String(s.accuracy || 0) + '%';
+      getEl('sumScoreAcc').textContent = String(s.score_accuracy || 0) + '%';
+      renderTopTable('summaryTopStationsBody', s.best_stations || []);
+      renderKeyValueRows('selectionStationsBody', (s.station_selection_counts || []).map(function (x, i) {
+        return '<td>' + (i + 1) + '</td><td><strong>' + (x.station_name || '--') + '</strong></td><td>' + Number(x.count || 0) + '</td>';
+      }), 'لا توجد اختيارات مسجلة بعد', 3);
+      renderKeyValueRows('selectionModeBody', (s.fishing_mode_distribution || []).map(function (x) {
+        return '<td>' + (x.mode === 'deep' ? 'غزير' : 'ساحلي') + '</td><td>' + Number(x.count || 0) + '</td>';
+      }), 'لا توجد بيانات', 2);
+      renderKeyValueRows('selectionCountryBody', (s.country_usage || []).map(function (x) {
+        return '<td>' + (x.country || '--') + '</td><td>' + Number(x.count || 0) + '</td>';
+      }), 'لا توجد بيانات', 2);
+      var insightsRows = [];
+      (s.selection_insights && s.selection_insights.top_performing || []).forEach(function (x) {
+        insightsRows.push('<td>Top</td><td>' + (x.station_name || '--') + '</td><td>' + Number(x.count || 0) + '</td>');
+      });
+      (s.selection_insights && s.selection_insights.low_usage || []).forEach(function (x) {
+        insightsRows.push('<td>Low</td><td>' + (x.station_name || '--') + '</td><td>' + Number(x.count || 0) + '</td>');
+      });
+      renderKeyValueRows('selectionInsightsBody', insightsRows, 'لا توجد بيانات كافية لاستخراج insights', 3);
+      updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
+    } catch (_e) {
+      latestSummaryCache = { total_yes: 0, total_no: 0 };
+      getEl('sumYes').textContent = '0';
+      getEl('sumNo').textContent = '0';
+      getEl('sumAcc').textContent = '0%';
+      getEl('sumScoreAcc').textContent = '0%';
+      renderTopTable('summaryTopStationsBody', []);
+      renderKeyValueRows('selectionStationsBody', [], 'لا توجد اختيارات مسجلة بعد', 3);
+      renderKeyValueRows('selectionModeBody', [], 'لا توجد بيانات', 2);
+      renderKeyValueRows('selectionCountryBody', [], 'لا توجد بيانات', 2);
+      renderKeyValueRows('selectionInsightsBody', [], 'لا توجد بيانات كافية لاستخراج insights', 3);
+      updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
+    }
+  }
+
   async function renderAdminDashboard() {
     var data;
     setRefreshBusy(true);
@@ -411,46 +497,411 @@
     try {
       data = await fetchStats();
     } catch (e) {
-      data = { visits: { today: 0, week: 0, total: 0, history: [] }, cities: [], fishClicks: [], topFeatures: [] };
+      data = { visits: { today: 0, week: 0, total: 0, history: [] } };
     } finally {
       setRefreshBusy(false);
     }
 
-    showBackendStatus(data);
-
-    getEl('aVisitToday').textContent = Number(data.visits.today || 0);
-    getEl('aVisitWeek').textContent = data.visits.week || 0;
-    getEl('aVisitTotal').textContent = data.visits.total || 0;
-
     renderVisitChart(data.visits.history || []);
-    renderGeoTable(Array.isArray(data.cities) ? data.cities : []);
-    renderTopTable('aFishBody', data.fishClicks || []);
-    renderFeatureTable(data.topFeatures || []);
+    await Promise.all([
+      renderSummarySection(),
+      loadStations(),
+      loadUsers(),
+      loadFeedback()
+    ]);
+  }
+
+  function stationStatusBadge(status) {
+    if (status === 'active') return '<span class="badge ok">active</span>';
+    if (status === 'archived') return '<span class="badge off">archived</span>';
+    return '<span class="badge off">disabled</span>';
+  }
+
+  function splitCsv(text) {
+    return String(text || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+
+  function updateStationCoordPreview(lat, lon) {
+    var preview = getEl('stCoordPreview');
+    if (!preview) return;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      preview.textContent = 'الإحداثيات الحالية: -- , --';
+      return;
+    }
+    preview.textContent = 'الإحداثيات الحالية: ' + lat.toFixed(6) + ' , ' + lon.toFixed(6);
+  }
+
+  function setStationPlaceSuggestion(text) {
+    var el = getEl('stPlaceSuggestion');
+    if (!el) return;
+    el.textContent = text || 'الموقع المختار: --';
+  }
+
+  function setStationMarker(lat, lon, shouldCenter) {
+    if (!stationsAdminMap || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    if (!stationAdminMarker) {
+      stationAdminMarker = L.marker([lat, lon], { draggable: true }).addTo(stationsAdminMap);
+      stationAdminMarker.on('dragend', function () {
+        var p = stationAdminMarker.getLatLng();
+        applyStationPointFromMap(p.lat, p.lng, true, true);
+      });
+    } else {
+      stationAdminMarker.setLatLng([lat, lon]);
+    }
+    if (shouldCenter) {
+      stationsAdminMap.setView([lat, lon], Math.max(stationsAdminMap.getZoom(), 10));
+    }
+  }
+
+  async function reverseGeocodeStation(lat, lon) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    stationReverseRequestId += 1;
+    var currentRequestId = stationReverseRequestId;
+    try {
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=ar,en&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon);
+      var res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) return;
+      var data = await res.json();
+      if (currentRequestId !== stationReverseRequestId) return;
+
+      var addr = data && data.address ? data.address : {};
+      var suggestedName = data && data.name ? data.name : (addr.suburb || addr.neighbourhood || addr.road || addr.village || addr.town || addr.city || '');
+      var suggestedRegion = addr.state || addr.region || addr.county || '';
+      var suggestedCountry = addr.country || '';
+      var regionValue = getEl('stRegion').value.trim();
+      var isNewDraft = !getEl('stId').value.trim();
+
+      if ((!regionValue || (isNewDraft && regionValue === 'gulf')) && suggestedRegion) getEl('stRegion').value = suggestedRegion;
+      if (suggestedCountry) getEl('stCountry').value = suggestedCountry;
+
+      var placeText = data && data.display_name ? data.display_name : [suggestedName, suggestedRegion, suggestedCountry].filter(Boolean).join(' - ');
+      setStationPlaceSuggestion('الموقع المختار: ' + (placeText || '--'));
+    } catch (_e) {
+      setStationPlaceSuggestion('الموقع المختار: تعذّر جلب العنوان التقديري، يمكنك إدخاله يدويًا.');
+    }
+  }
+
+  function applyStationPointFromMap(lat, lon, shouldCenter, runReverse) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      updateStationCoordPreview(NaN, NaN);
+      return;
+    }
+    getEl('stLat').value = lat.toFixed(6);
+    getEl('stLon').value = lon.toFixed(6);
+    updateStationCoordPreview(lat, lon);
+    setStationMarker(lat, lon, shouldCenter);
+    if (runReverse) reverseGeocodeStation(lat, lon);
+  }
+
+  function syncStationMapFromInputs(shouldCenter) {
+    var lat = Number(getEl('stLat').value);
+    var lon = Number(getEl('stLon').value);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      updateStationCoordPreview(NaN, NaN);
+      return;
+    }
+    updateStationCoordPreview(lat, lon);
+    setStationMarker(lat, lon, shouldCenter);
+  }
+
+  function initStationsAdminMap() {
+    var mapEl = getEl('stationsAdminMap');
+    if (!mapEl || typeof L === 'undefined') return;
+    if (stationsAdminMap) return;
+
+    stationsAdminMap = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([25.2854, 51.5310], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(stationsAdminMap);
+
+    stationsAdminMap.on('click', function (e) {
+      applyStationPointFromMap(e.latlng.lat, e.latlng.lng, true, true);
+    });
+
+    getEl('stLat').addEventListener('input', function () { syncStationMapFromInputs(false); });
+    getEl('stLon').addEventListener('input', function () { syncStationMapFromInputs(false); });
+
+    updateStationCoordPreview(NaN, NaN);
+    setStationPlaceSuggestion('الموقع المختار: --');
+  }
+
+  function readStationForm() {
+    var active = !!getEl('stActive').checked;
+    return {
+      id: getEl('stId').value.trim() || undefined,
+      name: getEl('stName').value.trim(),
+      lat: Number(getEl('stLat').value),
+      lon: Number(getEl('stLon').value),
+      country: getEl('stCountry').value.trim(),
+      region: getEl('stRegion').value.trim() || 'gulf',
+      fishing_mode: getEl('stFishingMode').value === 'deep' ? 'deep' : 'coastal',
+      status: active ? 'active' : 'disabled',
+      sort_order: Number(getEl('stSort').value || 0),
+      default_radius: Number(getEl('stRadius').value || 0.02),
+      notes: getEl('stNotes').value.trim(),
+      assigned_members: splitCsv(getEl('stMembers').value)
+    };
+  }
+
+  function fillStationForm(st) {
+    getEl('stId').value = st.id || '';
+    getEl('stName').value = st.name || '';
+    getEl('stLat').value = st.lat != null ? st.lat : '';
+    getEl('stLon').value = st.lon != null ? st.lon : '';
+    getEl('stCountry').value = st.country || '';
+    getEl('stRegion').value = st.region || 'gulf';
+    getEl('stFishingMode').value = st.fishing_mode === 'deep' ? 'deep' : 'coastal';
+    getEl('stActive').checked = st.status !== 'disabled' && st.status !== 'archived';
+    getEl('stSort').value = st.sort_order != null ? st.sort_order : 1;
+    getEl('stRadius').value = st.default_radius != null ? st.default_radius : 0.02;
+    getEl('stNotes').value = st.notes || '';
+    getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
+    syncStationMapFromInputs(true);
+    if (st.lat != null && st.lon != null) {
+      reverseGeocodeStation(Number(st.lat), Number(st.lon));
+    } else {
+      setStationPlaceSuggestion('الموقع المختار: --');
+    }
+  }
+
+  function clearStationForm() {
+    fillStationForm({ id: '', name: '', lat: '', lon: '', country: '', region: 'gulf', fishing_mode: 'coastal', status: 'active', sort_order: 1, default_radius: 0.02, notes: '', assigned_members: [] });
+    if (stationAdminMarker && stationsAdminMap) {
+      stationsAdminMap.removeLayer(stationAdminMarker);
+      stationAdminMarker = null;
+    }
+    updateStationCoordPreview(NaN, NaN);
+    setStationPlaceSuggestion('الموقع المختار: --');
+  }
+
+  async function loadStations() {
+    var res = await apiFetch(STATIONS_ENDPOINT, { method: 'GET' });
+    if (!res.ok) throw new Error('stations_load_failed');
+    var data = await res.json();
+    stationsCache = Array.isArray(data.stations) ? data.stations : [];
+
+    var body = getEl('stationsBody');
+    body.innerHTML = '';
+    stationsCache.forEach(function (st, idx) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
+        '<td><strong>' + st.name + '</strong><br><span style="font-size:12px;color:#8ea4ba">' + st.id + '</span></td>' +
+        '<td>' + stationStatusBadge(st.status) + '</td>' +
+        '<td>' + (st.country || '--') + '</td>' +
+        '<td>' + (st.fishing_mode === 'deep' ? 'deep' : 'coastal') + '</td>' +
+        '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
+        '<td>' +
+          '<div class="inline-actions">' +
+            '<button class="small-btn" data-action="edit" data-id="' + st.id + '">تعديل</button>' +
+            '<button class="small-btn warn" data-action="toggle" data-id="' + st.id + '">' + (st.status === 'disabled' ? 'تفعيل' : 'تعطيل') + '</button>' +
+            '<button class="small-btn danger" data-action="archive" data-id="' + st.id + '">Archive</button>' +
+          '</div>' +
+        '</td>';
+      body.appendChild(tr);
+    });
+
+    body.querySelectorAll('button[data-action]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-id');
+        var action = btn.getAttribute('data-action');
+        var station = stationsCache.find(function (s) { return s.id === id; });
+        if (!station) return;
+
+        if (action === 'edit') {
+          fillStationForm(station);
+          return;
+        }
+
+        if (action === 'toggle') {
+          var nextStatus = station.status === 'disabled' ? 'active' : 'disabled';
+          await apiFetch('/api/admin/stations/' + encodeURIComponent(id) + '/status', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: nextStatus })
+          });
+          await loadStations();
+          return;
+        }
+
+        if (action === 'archive') {
+          await apiFetch('/api/admin/stations/' + encodeURIComponent(id), { method: 'DELETE' });
+          await loadStations();
+        }
+      });
+    });
+  }
+
+  async function saveStationFromForm() {
+    var status = getEl('stationsStatus');
+    try {
+      var payload = readStationForm();
+      status.textContent = 'جاري الحفظ...';
+      var method = payload.id ? 'PUT' : 'POST';
+      var url = payload.id ? ('/api/admin/stations/' + encodeURIComponent(payload.id)) : STATIONS_ENDPOINT;
+      var res = await apiFetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        var err = await res.text();
+        throw new Error(err || 'station_save_failed');
+      }
+      status.textContent = 'تم الحفظ.';
+      clearStationForm();
+      await loadStations();
+    } catch (e) {
+      status.textContent = 'فشل حفظ المحطة: ' + (e && e.message ? e.message : 'error');
+    }
+  }
+
+  function roleBadge(role) {
+    return '<span class="badge">' + role + '</span>';
+  }
+
+  async function loadUsers() {
+    var res = await apiFetch(USERS_ENDPOINT, { method: 'GET' });
+    if (!res.ok) throw new Error('users_load_failed');
+    var data = await res.json();
+    usersCache = Array.isArray(data.users) ? data.users : [];
+
+    var body = getEl('usersBody');
+    body.innerHTML = '';
+    usersCache.forEach(function (u) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td><strong>' + u.username + '</strong><br><span style="font-size:12px;color:#8ea4ba">' + u.id + '</span></td>' +
+        '<td>' + roleBadge(u.role) + '</td>' +
+        '<td>' + (u.active_status ? '<span class="badge ok">active</span>' : '<span class="badge off">disabled</span>') + '</td>' +
+        '<td>' + ((u.assigned_stations || []).join(', ') || '--') + '</td>' +
+        '<td><div class="inline-actions">' +
+          '<button class="small-btn" data-user="' + u.id + '" data-act="toggle">' + (u.active_status ? 'تعطيل' : 'تفعيل') + '</button>' +
+          '<button class="small-btn warn" data-user="' + u.id + '" data-act="reset">Reset Pass</button>' +
+        '</div></td>';
+      body.appendChild(tr);
+    });
+
+    body.querySelectorAll('button[data-act]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-user');
+        var act = btn.getAttribute('data-act');
+        var user = usersCache.find(function (x) { return x.id === id; });
+        if (!user) return;
+
+        if (act === 'toggle') {
+          await apiFetch(USERS_ENDPOINT, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id, active_status: !user.active_status })
+          });
+          await loadUsers();
+          return;
+        }
+
+        if (act === 'reset') {
+          var nextPass = prompt('كلمة المرور الجديدة للمستخدم ' + user.username);
+          if (!nextPass) return;
+          await apiFetch('/api/admin/users/' + encodeURIComponent(id) + '/password', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: nextPass })
+          });
+          var status = getEl('usersStatus');
+          status.textContent = 'تم تحديث كلمة المرور.';
+        }
+      });
+    });
+  }
+
+  async function createUserFromForm() {
+    var status = getEl('usersStatus');
+    try {
+      status.textContent = 'جاري إنشاء المستخدم...';
+      var payload = {
+        username: getEl('newUserName').value.trim(),
+        password: getEl('newUserPass').value.trim(),
+        role: getEl('newUserRole').value,
+        assigned_stations: splitCsv(getEl('newUserStations').value)
+      };
+      var res = await apiFetch(USERS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      status.textContent = 'تم إنشاء المستخدم.';
+      getEl('newUserName').value = '';
+      getEl('newUserPass').value = '';
+      getEl('newUserStations').value = '';
+      await loadUsers();
+    } catch (e) {
+      status.textContent = 'فشل الإنشاء: ' + (e && e.message ? e.message : 'error');
+    }
+  }
+
+  async function loadFeedback() {
+    var params = new URLSearchParams();
+    var d = getEl('fbDateFilter').value;
+    var st = getEl('fbStationFilter').value.trim();
+    var u = getEl('fbUserFilter').value.trim();
+    if (d) params.set('date', d);
+    if (st) params.set('station', st);
+    if (u) params.set('user_id', u);
+
+    var url = FEEDBACK_ENDPOINT + (params.toString() ? ('?' + params.toString()) : '');
+    var res = await apiFetch(url, { method: 'GET' });
+    if (!res.ok) throw new Error('feedback_load_failed');
+    var data = await res.json();
+    var list = Array.isArray(data.feedback) ? data.feedback : [];
+    latestFeedbackCache = list;
+
+    var body = getEl('feedbackBody');
+    body.innerHTML = '';
+    list.forEach(function (f) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + String(f.timestamp || '').replace('T', ' ').slice(0, 19) + '</td>' +
+        '<td>' + (f.station || '--') + '</td>' +
+        '<td>' + (f.answer || '--') + '</td>' +
+        '<td>' + (f.score != null ? f.score : '--') + '</td>' +
+        '<td>' + (f.user_id || 'anonymous') + '</td>' +
+        '<td><button class="small-btn danger" data-fb="' + f.id + '">Archive</button></td>';
+      body.appendChild(tr);
+    });
+
+    body.querySelectorAll('button[data-fb]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var id = btn.getAttribute('data-fb');
+        await apiFetch(FEEDBACK_ENDPOINT, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id, action: 'archive' })
+        });
+        await loadFeedback();
+      });
+    });
+
+    getEl('feedbackStatusAdmin').textContent = 'إجمالي النتائج: ' + list.length;
+    updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
   }
 
   async function exportAdminExcel() {
-    var data;
+    var s;
     try {
-      data = await fetchStats();
+      s = await fetchSummary();
     } catch (e) {
-      data = { visits: { today: 0, week: 0, total: 0 }, cities: [], fishClicks: [], topFeatures: [] };
+      s = { total_yes: 0, total_no: 0, accuracy: 0, score_accuracy: 0, top_locations: [] };
     }
 
     var csv = '\uFEFF';
-    csv += 'إحصائيات الزوار\n';
-    csv += 'اليوم,الأسبوع,الإجمالي\n';
-    csv += (data.visits.today || 0) + ',' + (data.visits.week || 0) + ',' + (data.visits.total || 0) + '\n\n';
-    csv += 'التصنيف الجغرافي\n';
-    csv += 'المدينة,الزيارات\n';
-    (data.cities || []).forEach(function (g) { csv += g[0] + ',' + g[1] + '\n'; });
-    csv += '\n';
-    csv += 'أكثر الأسماك نقراً\n';
-    csv += 'السمكة,النقرات\n';
-    (data.fishClicks || []).forEach(function (f) { csv += f[0] + ',' + f[1] + '\n'; });
-    csv += '\n';
-    csv += 'الميزات الأكثر استخداماً\n';
-    csv += 'الميزة,الاستخدام\n';
-    (data.topFeatures || []).forEach(function (f) { csv += f[0] + ',' + f[1] + '\n'; });
+    csv += 'NAVIDUR Summary\n';
+    csv += 'YES,NO,Accuracy,Score Accuracy\n';
+    csv += (s.total_yes || 0) + ',' + (s.total_no || 0) + ',' + (s.accuracy || 0) + '%,' + (s.score_accuracy || 0) + '%\n\n';
+    csv += 'Top Stations\n';
+    csv += 'Station,Total,YES,NO\n';
+    (s.top_locations || []).forEach(function (x) { csv += x.station + ',' + x.total + ',' + x.yes + ',' + x.no + '\n'; });
 
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var url = URL.createObjectURL(blob);
@@ -463,24 +914,70 @@
     URL.revokeObjectURL(url);
   }
 
-  function onLogin() {
+  async function onLogin() {
     var user = (getEl('adminUser').value || '').trim();
     var pass = getEl('adminPass').value || '';
     var errEl = getEl('adminErr');
 
-    if (user === ADMIN_USER && pass === ADMIN_PASS) {
+    try {
+      var res = await fetch(LOGIN_ENDPOINT, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass })
+      });
+      if (!res.ok) throw new Error('login_failed');
+      var data = await res.json();
+      authToken = data.token || '';
+      me = data.user || null;
+      localStorage.setItem('navidur_admin_token', authToken);
+
+      if (!me || (me.role !== 'admin' && me.role !== 'super_admin')) throw new Error('role_not_allowed');
+
       adminAuthenticated = true;
       errEl.style.display = 'none';
       getEl('adminLoginForm').style.display = 'none';
       getEl('adminContent').classList.add('active');
-      renderAdminDashboard();
+      await renderAdminDashboard();
       setAdminDataFilter('all');
       loadSettingsIntoAdmin();
-      return;
+      clearStationForm();
+    } catch (_err) {
+      errEl.style.display = 'block';
+      getEl('adminPass').value = '';
+    }
+  }
+
+  async function logout() {
+    try {
+      await fetch(LOGOUT_ENDPOINT, { method: 'POST', credentials: 'same-origin' });
+    } catch (_e) {}
+    localStorage.removeItem('navidur_admin_token');
+    authToken = '';
+    adminAuthenticated = false;
+    getEl('adminContent').classList.remove('active');
+    getEl('adminLoginForm').style.display = 'block';
+  }
+
+  function bindSettingsActions() {
+    var saveBtn = getEl('saveSettingsBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
+        if (settingsInFlight) return;
+        saveSettingsFromAdmin();
+      });
     }
 
-    errEl.style.display = 'block';
-    getEl('adminPass').value = '';
+    var reloadBtn = getEl('reloadSettingsBtn');
+    if (reloadBtn) {
+      reloadBtn.addEventListener('click', function () {
+        if (settingsInFlight) return;
+        loadSettingsIntoAdmin();
+      });
+    }
+
+    var logoutBtn = getEl('logoutBtn');
+    if (logoutBtn) logoutBtn.addEventListener('click', logout);
   }
 
   function initAdminPage() {
@@ -490,7 +987,7 @@
     var refreshBtn = getEl('adminRefresh');
     var userInput = getEl('adminUser');
 
-    if (loginBtn) loginBtn.addEventListener('click', onLogin);
+    if (loginBtn) loginBtn.addEventListener('click', function () { onLogin(); });
     if (passInput) {
       passInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') onLogin();
@@ -511,8 +1008,24 @@
       });
     });
 
+    getEl('saveStationBtn').addEventListener('click', saveStationFromForm);
+    getEl('clearStationBtn').addEventListener('click', clearStationForm);
+    getEl('createUserBtn').addEventListener('click', createUserFromForm);
+    getEl('loadFeedbackBtn').addEventListener('click', function () { loadFeedback(); });
+    initStationsAdminMap();
+
     bindSettingsActions();
-    loadSettingsIntoAdmin();
+
+    if (authToken) {
+      getEl('adminLoginForm').style.display = 'none';
+      getEl('adminContent').classList.add('active');
+      adminAuthenticated = true;
+      renderAdminDashboard();
+      loadSettingsIntoAdmin();
+      clearStationForm();
+      setAdminDataFilter('all');
+      return;
+    }
 
     if (userInput) userInput.focus();
   }

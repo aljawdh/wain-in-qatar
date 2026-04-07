@@ -1,9 +1,16 @@
 {
   "version": 2,
-  "rewrites": [
-    {
-      "source": "/navidur_lab_v2",
-      "destination": "/web/navidur_lab_v2.html"
+  "functions": {
+    "api/**/*.js": {
+      "includeFiles": "data/*.json"
     }
+  },
+  "redirects": [
+    { "source": "/web/index.html", "destination": "/index.html", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/admin.html", "destination": "/admin.html" },
+    { "source": "/:path*", "destination": "/:path*" }
   ]
 }

@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#071722" />
   <title>NAVIDUR v32.0</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
   <style>
     :root {
       --bg: #071722;
@@ -23,10 +29,10 @@
         linear-gradient(160deg, #071722, #091f30 45%, #0d3045);
       color: var(--txt);
     }
-    .app { max-width: 1040px; margin: 0 auto; padding: 16px; }
-    .head { display: grid; gap: 12px; margin-bottom: 16px; }
+    .app { max-width: 1220px; margin: 0 auto; padding: 20px 16px 28px; }
+    .head { display: grid; gap: 14px; margin-bottom: 14px; }
     .head-main { text-align: center; }
-    .title { font-size: 32px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; }
+    .title { font-size: 36px; font-weight: 900; letter-spacing: -0.6px; color: #ffffff; }
     .brand-slogan {
       margin-top: 6px;
       font-size: 12px;
@@ -54,6 +60,318 @@
       text-align: center;
     }
     .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .beta-banner {
+      margin-top: 8px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 212, 127, 0.38);
+      background: rgba(255, 212, 127, 0.12);
+      color: #ffe7aa;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .member-auth-card {
+      display: grid;
+      gap: 8px;
+      background: linear-gradient(160deg, #11324a, #0b2335);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .member-auth-title {
+      font-size: 12px;
+      font-weight: 900;
+      color: #ffe7aa;
+    }
+    .member-auth-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .member-auth-form input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: #0a2436;
+      color: #d9f2ff;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+    }
+    .member-auth-btn {
+      border: 1px solid rgba(255,255,255,0.15);
+      background: #10324a;
+      color: #e7f7ff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .member-auth-btn.primary {
+      background: linear-gradient(135deg, #26b8ff, #0e78bd);
+      border-color: #7ae2ff;
+      color: #ffffff;
+    }
+    .member-auth-status {
+      font-size: 12px;
+      color: #9fd1ec;
+      font-weight: 700;
+      min-height: 18px;
+    }
+    .member-auth-status.error { color: #ffb3b3; }
+    .field-test-member-banner {
+      display: none;
+      width: fit-content;
+      margin-top: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(111, 220, 255, 0.55);
+      background: rgba(111, 220, 255, 0.16);
+      color: #dff6ff;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 4px 10px;
+    }
+    .feedback-gate-note {
+      font-size: 12px;
+      color: #ffe7aa;
+      font-weight: 800;
+    }
+    .station-selector-wrap {
+      background: linear-gradient(160deg, #11324a, #0b2335);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px;
+      margin-top: 4px;
+    }
+    .dorah-priority {
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 215, 125, 0.35);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      background: linear-gradient(150deg, #14384f, #0e2c3f);
+    }
+    .maintenance-screen {
+      display: none;
+      border: 1px solid rgba(255, 186, 99, 0.55);
+      background: rgba(255, 186, 99, 0.11);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      color: #ffe9c5;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.8;
+    }
+    .maintenance-screen strong {
+      color: #ffd27f;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    .station-list-header {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .location-tools {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .location-btn {
+      border: 1px solid rgba(255,255,255,0.15);
+      background: #10324a;
+      color: #cceeff;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .location-status {
+      font-size: 11px;
+      color: #9fd1ec;
+      font-weight: 700;
+    }
+    .station-flow-wrap {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .station-flow-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .station-flow-field {
+      display: grid;
+      gap: 5px;
+    }
+    .station-flow-field label {
+      color: #c6e9ff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .station-flow-select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: #0a2436;
+      color: #d9f2ff;
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .station-flow-hint {
+      font-size: 11px;
+      color: #9fd1ec;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+    .map-card {
+      margin-bottom: 12px;
+      padding: 0;
+      overflow: hidden;
+      min-height: 470px;
+    }
+    .map-head {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      color: #b9ddf2;
+      font-weight: 800;
+    }
+    #stationMap {
+      height: 420px;
+      width: 100%;
+      background: #0a1f2f;
+    }
+    .hotspot-panel {
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      background: linear-gradient(160deg, #11324a, #0b2637);
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+      color: #d6eeff;
+      transition: opacity 180ms ease;
+    }
+    .hotspot-panel .hot-score {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff0ad;
+      line-height: 1;
+    }
+    .hotspot-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .analysis-loading-hint {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #bfe7fa;
+      border: 1px solid rgba(191,231,250,0.3);
+      background: rgba(191,231,250,0.12);
+      border-radius: 999px;
+      padding: 4px 9px;
+    }
+    .analysis-loading-hint::before {
+      content: '';
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 2px solid rgba(191,231,250,0.4);
+      border-top-color: #bfe7fa;
+      animation: spin 700ms linear infinite;
+    }
+    .hotspot-panel.is-loading {
+      opacity: 0.72;
+    }
+    .confidence-pill {
+      display: inline-block;
+      width: fit-content;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 900;
+      border: 1px solid rgba(255,255,255,0.2);
+      letter-spacing: 0.2px;
+    }
+    .confidence-pill.high { background: rgba(255, 94, 94, 0.25); color: #ffd2d2; border-color: rgba(255,94,94,0.55); }
+    .confidence-pill.medium { background: rgba(255, 201, 84, 0.24); color: #ffeab6; border-color: rgba(255,201,84,0.5); }
+    .confidence-pill.low { background: rgba(90, 177, 255, 0.24); color: #d8edff; border-color: rgba(90,177,255,0.5); }
+    .why-toggle {
+      border: 1px solid rgba(255,255,255,0.16);
+      background: #10324a;
+      color: #e6f6ff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+      width: fit-content;
+    }
+    .why-box {
+      display: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      background: rgba(10, 36, 54, 0.8);
+      padding: 10px;
+      line-height: 1.7;
+      font-size: 12px;
+      color: #cde7f7;
+    }
+    .why-box.is-open {
+      display: block;
+      animation: fadeInUp 180ms ease;
+    }
+    .feedback-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .feedback-btn {
+      border: 1px solid rgba(255,255,255,0.2);
+      background: #0f3148;
+      color: #e8f7ff;
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .feedback-btn.yes { background: rgba(56, 191, 124, 0.22); border-color: rgba(56,191,124,0.5); }
+    .feedback-btn.no { background: rgba(223, 93, 93, 0.22); border-color: rgba(223,93,93,0.5); }
+    .feedback-status { font-size: 12px; color: #b9ddf2; }
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: #0d2b40;
+      color: #e8f8ff;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
     select, button {
       border: 1px solid rgba(255,255,255,0.1);
       background: #0a2233;
@@ -344,7 +662,6 @@
 
     /* ── NAVIDUR Advice Box ─────────────────────────────── */
     .nawkhada-box {
-      margin-bottom: 14px;
       border-radius: 16px;
       border: 1px solid rgba(111,220,255,0.22);
       background: linear-gradient(150deg, #0c2d43, #081e30);
@@ -411,11 +728,23 @@
       display: none;
     }
 
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     @media (max-width: 860px) {
+      .member-auth-form { grid-template-columns: 1fr; }
       .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .toolbar { grid-template-columns: 1fr; }
+      .station-flow-row { grid-template-columns: 1fr; }
       .compass-label { font-size: 9px; }
       .foot-line3 { gap: 6px; }
+      .map-card { min-height: 360px; }
+      #stationMap { height: 300px; }
     }
   </style>
 </head>
@@ -425,26 +754,60 @@
       <div class="head-main">
         <div class="title">NAVIDUR</div>
         <div class="brand-slogan">الصيد مو ضربة حظ.. الصيد علم وفن!</div>
+        <div id="memberBetaBanner" class="beta-banner">Beta build • controlled testing only</div>
+        <div id="fieldTestMemberBanner" class="field-test-member-banner">Field Testing Mode</div>
         <div class="hero-date" id="dateLine"></div>
         <div class="hero-time" id="liveClock">الوقت الآن: --:--:--</div>
       </div>
       <div class="toolbar">
-        <select id="stationSel"></select>
         <div class="mode" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <button id="coastalBtn">ساحلي</button>
           <button id="deepBtn">غزير</button>
         </div>
       </div>
+      <div id="maintenanceScreen" class="maintenance-screen">
+        <strong>وضع الصيانة</strong>
+        <div id="maintenanceMessageText">الموقع تحت الصيانة حالياً.</div>
+      </div>
+      <div class="station-selector-wrap">
+        <div class="station-list-header">
+          <div class="location-tools">
+            <button id="locationRequestBtn" type="button" class="location-btn" style="display:none">تفعيل الموقع للفرز</button>
+            <span id="locationStatusText" class="location-status"></span>
+          </div>
+        </div>
+        <div id="stationFlowWrap" class="station-flow-wrap">
+          <div class="station-flow-row">
+            <div class="station-flow-field">
+              <label for="countrySelect">الخطوة 1: اختر الدولة</label>
+              <select id="countrySelect" class="station-flow-select"></select>
+            </div>
+            <div class="station-flow-field">
+              <label for="fishingModeSelect">الخطوة 2: نوع الصيد</label>
+              <select id="fishingModeSelect" class="station-flow-select" disabled>
+                <option value="">اختر النوع</option>
+                <option value="coastal">ساحلي</option>
+                <option value="deep">غزير</option>
+              </select>
+            </div>
+            <div class="station-flow-field">
+              <label for="stationFlowSelect">الخطوة 3: المحطة</label>
+              <select id="stationFlowSelect" class="station-flow-select" disabled></select>
+            </div>
+          </div>
+          <div id="stationFlowHint" class="station-flow-hint">اختر الدولة ثم نوع الصيد ثم المحطة لبدء التحليل.</div>
+        </div>
+      </div>
+
+      <div class="nawkhada-box" id="nawkhadaBox">
+        <div class="nawkhada-box-title">💡 نصيحة NAVIDUR اليوم</div>
+        <div id="nawkhadaBoxAdvice" class="nawkhada-advice-hamal">جاري التحليل…</div>
+        <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار NAVIDUR (ICON-Seamless)</div>
+        <div id="kanaadAlert" class="kanaad-alert" style="display:none">⚡ تنبيه الكنعد: موسم ذروة الكنعد (المقدم / المؤخر). جهّز عدتك الثقيلة واللورات — هذا أفضل وقت في السنة!</div>
+      </div>
     </div>
 
-    <div class="nawkhada-box" id="nawkhadaBox">
-      <div class="nawkhada-box-title">💡 نصيحة NAVIDUR اليوم</div>
-      <div id="nawkhadaBoxAdvice" class="nawkhada-advice-hamal">جاري التحليل…</div>
-      <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار NAVIDUR (ICON-Seamless)</div>
-      <div id="kanaadAlert" class="kanaad-alert" style="display:none">⚡ تنبيه الكنعد: موسم ذروة الكنعد (المقدم / المؤخر). جهّز عدتك الثقيلة واللورات — هذا أفضل وقت في السنة!</div>
-    </div>
-
-    <div class="hero card" style="margin-top:12px">
+    <div class="hero card dorah-priority">
       <div class="meta">
         <div>
           <div class="label">الدر الحالي</div>
@@ -456,6 +819,36 @@
           <div id="manualOverrideWarning" class="manual-warn"></div>
         </div>
         <div class="countdown"><strong id="countdownDays">--</strong><span style="font-size:11px;color:#8db2c8">يوم للتالي</span></div>
+      </div>
+    </div>
+
+    <div class="card map-card">
+      <div class="map-head">
+        <span>خريطة المحطات والتحليل</span>
+        <span id="mapMetaText">نطاق التحليل: 0.02</span>
+      </div>
+      <div id="stationMap"></div>
+    </div>
+
+    <div id="hotspotPanel" class="hotspot-panel">
+      <div class="hotspot-title-row">
+        <div class="label">نتيجة hotspot للمحطة المختارة</div>
+        <div id="analysisLoadingHint" class="analysis-loading-hint">جاري التحليل</div>
+      </div>
+      <div class="hot-score" id="hotspotScore">--</div>
+      <div id="confidenceBadge" class="confidence-pill low">Confidence: Low</div>
+      <div id="hotspotZone">المنطقة: ---</div>
+      <div id="hotspotBest">أفضل نقطة: ---</div>
+      <div id="hotspotCurrent">التيار: ---</div>
+      <div id="hotspotPoints">النقاط المحللة: ---</div>
+      <button id="whyToggleBtn" class="why-toggle" type="button">Why this spot?</button>
+      <div id="whySpotBox" class="why-box"></div>
+      <div class="feedback-row">
+        <span style="font-size:12px;color:#d9efff;font-weight:800">هل التوقع مناسب؟</span>
+        <button id="feedbackYes" type="button" class="feedback-btn yes">YES</button>
+        <button id="feedbackNo" type="button" class="feedback-btn no">NO</button>
+        <span id="feedbackGateNote" class="feedback-gate-note">سجّل كعضو اختبار لإرسال YES / NO.</span>
+        <span id="feedbackStatus" class="feedback-status"></span>
       </div>
     </div>
 
@@ -534,6 +927,11 @@
     </div>
   </div>
 
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
   <script>
     const COUNTRY_TIMEZONES = {
       'قطر': 'Asia/Qatar',
@@ -545,7 +943,7 @@
       'إيران': 'Asia/Tehran'
     };
 
-    const STATIONS = [
+    const HARD_CODED_STATIONS = [
       {name:'الدوحة',country:'قطر',lat:25.2854,lng:51.5310,flag:'🇶🇦'},{name:'الخور',country:'قطر',lat:25.6804,lng:51.4968,flag:'🇶🇦'},{name:'الوكرة',country:'قطر',lat:25.1659,lng:51.6030,flag:'🇶🇦'},{name:'الرويس',country:'قطر',lat:26.1331,lng:51.2147,flag:'🇶🇦'},
       {name:'الكويت',country:'الكويت',lat:29.3759,lng:47.9774,flag:'🇰🇼'},{name:'الجهراء',country:'الكويت',lat:29.3375,lng:47.6581,flag:'🇰🇼'},
       {name:'الخبر',country:'السعودية',lat:26.2825,lng:50.2085,flag:'🇸🇦'},{name:'الجبيل',country:'السعودية',lat:27.0046,lng:49.6225,flag:'🇸🇦'},{name:'الدمام',country:'السعودية',lat:26.4207,lng:50.0888,flag:'🇸🇦'},{name:'العقير',country:'السعودية',lat:25.6457,lng:50.2118,flag:'🇸🇦'},
@@ -555,6 +953,8 @@
       {name:'مسقط',country:'عمان',lat:23.5880,lng:58.3829,flag:'🇴🇲'},{name:'صحار',country:'عمان',lat:24.3615,lng:56.7308,flag:'🇴🇲'},{name:'مسندم (خصب)',country:'عمان',lat:26.1735,lng:56.2415,flag:'🇴🇲'},{name:'الدقم',country:'عمان',lat:19.6714,lng:57.6534,flag:'🇴🇲'},
       {name:'بوشهر',country:'إيران',lat:28.9234,lng:50.8203,flag:'🇮🇷'}
     ];
+
+    const GULF_COUNTRIES = ['السعودية', 'الكويت', 'البحرين', 'قطر', 'الإمارات', 'عمان'];
 
     const ARABIAN_SEA_STATIONS = ['الدقم', 'صلالة'];
     const RED_SEA_STATIONS = ['حقل', 'ضبا', 'الوجه', 'أملج', 'ينبع', 'رابغ', 'جدة', 'الليث', 'القنفذة', 'جازان'];
@@ -940,9 +1340,13 @@
         this.lat = base.lat;
         this.lng = base.lng;
         this.flag = base.flag;
+        this.defaultRadius = Number(base.default_radius || 0.02);
         this.timezone = COUNTRY_TIMEZONES[base.country] || 'Asia/Qatar';
         this.utcOffset = COUNTRY_UTC_OFFSET_HOURS[base.country] || 3;
-        this.bathymetry = STATION_BATHYMETRY[base.name] || 'mid';
+        const mappedBathymetry = STATION_BATHYMETRY[base.name] || null;
+        const resolvedMode = String(base.fishing_mode || '').toLowerCase() === 'deep' ? 'deep' : (String(base.fishing_mode || '').toLowerCase() === 'coastal' ? 'coastal' : (mappedBathymetry === 'deep' ? 'deep' : 'coastal'));
+        this.fishingMode = resolvedMode;
+        this.bathymetry = mappedBathymetry || (resolvedMode === 'deep' ? 'deep' : 'shallow');
         this.tideSource = 'tide://' + encodeURIComponent(base.country) + '/' + encodeURIComponent(base.name);
         this.sohail = SOHAIL_STATIONS[base.name] || SOHAIL_STATIONS['الدوحة'];
         this.speciesPriority = STATION_SPECIES_PRIORITY[base.name] || [];
@@ -984,7 +1388,82 @@
       }
     }
 
-    const navidurEngine = new NavidurGlobalEngine(STATIONS);
+    function getFlagByCountry(country) {
+      const map = {
+        'قطر': '🇶🇦',
+        'الكويت': '🇰🇼',
+        'السعودية': '🇸🇦',
+        'البحرين': '🇧🇭',
+        'الإمارات': '🇦🇪',
+        'عمان': '🇴🇲',
+        'إيران': '🇮🇷'
+      };
+      return map[country] || '📍';
+    }
+
+    function mapApiStationToBase(st) {
+      return {
+        id: st.id,
+        name: st.name,
+        country: st.country,
+        lat: Number(st.lat),
+        lng: Number(st.lon),
+        flag: getFlagByCountry(st.country),
+        fishing_mode: String(st.fishing_mode || ''),
+        default_radius: Number(st.default_radius || 0.02)
+      };
+    }
+
+    function isEmergencyStationFallbackEnabled() {
+      const byStorage = String(localStorage.getItem('navidur_force_station_fallback') || '') === '1';
+      const params = new URLSearchParams(window.location.search || '');
+      const byQuery = params.get('station_fallback') === '1';
+      return byStorage || byQuery;
+    }
+
+    function getHardcodedEmergencyStations() {
+      return HARD_CODED_STATIONS.filter(function (st) {
+        return GULF_COUNTRIES.includes(st.country);
+      });
+    }
+
+    async function loadRuntimeStations() {
+      const emergencyFallback = isEmergencyStationFallbackEnabled();
+      try {
+        const res = await fetch('/api/stations', { method: 'GET', cache: 'no-store' });
+        if (!res.ok) throw new Error('stations_http_' + res.status);
+        const data = await res.json();
+        const list = Array.isArray(data.stations) ? data.stations.map(mapApiStationToBase).filter(function (st) {
+          return st.name && Number.isFinite(st.lat) && Number.isFinite(st.lng) && GULF_COUNTRIES.includes(st.country);
+        }) : [];
+        if (!list.length) throw new Error('stations_empty');
+        return { stations: list, source: 'api', degraded: false, warning: '' };
+      } catch (_err) {
+        if (emergencyFallback) {
+          return {
+            stations: getHardcodedEmergencyStations(),
+            source: 'hardcoded_emergency',
+            degraded: true,
+            warning: 'تحذير: تم تفعيل وضع الطوارئ واستخدام قائمة محطات احتياطية. قد لا تظهر المحطات الجديدة المضافة من لوحة الإدارة.'
+          };
+        }
+        return {
+          stations: [],
+          source: 'unavailable',
+          degraded: true,
+          warning: 'تعذر تحميل المحطات من الخادم. تم إيقاف fallback التلقائي لحماية المحطات المضافة من الإدارة.'
+        };
+      }
+    }
+
+    function resetEngineWithStations(stations) {
+      const safeStations = Array.isArray(stations) ? stations : [];
+      navidurEngine = new NavidurGlobalEngine(safeStations);
+      selectedStation = navidurEngine.getStationByIndex(0) || null;
+      appTimezone = selectedStation && selectedStation.timezone ? selectedStation.timezone : 'Asia/Qatar';
+    }
+
+    let navidurEngine = new NavidurGlobalEngine(HARD_CODED_STATIONS);
 
     let appTimezone = 'Asia/Qatar';
     let selectedStation = navidurEngine.getStationByIndex(0);
@@ -999,7 +1478,335 @@
     let dayChangeSyncTimer = null;
     let dayRefreshInFlight = null;
     let lastKnownAppIsoDay = getAppIsoDay(new Date());
+    let stationMap = null;
+    let stationMarkerLayer = null;
+    let evaluatedLayer = null;
+    let analysisCircle = null;
+    let stationMarkerMap = new Map();
+    let latestHotspotResult = null;
+    let allStationsExpanded = false;
+    let selectionTracking = { country: '', fishing_mode: '', station_id: '' };
+    let runtimeUiSettings = {
+      site_mode: 'live',
+      maintenance_message: '',
+      allow_admin_bypass: true,
+      station_list_mode: 'grouped',
+      location_mode: 'ask',
+      sort_stations_by_distance: false
+    };
+    let userGeoState = { granted: false, lat: null, lon: null, promptRequested: false };
+    let userLocationMarker = null;
+    let memberAuthState = { token: '', user: null };
     const NAVIDUR_SOURCE_PREFIX = 'مصدر البيانات: رادار NAVIDUR';
+
+    function loadMemberAuthState() {
+      memberAuthState.token = String(localStorage.getItem('navidur_member_token') || '');
+      try {
+        memberAuthState.user = JSON.parse(localStorage.getItem('navidur_member_user') || 'null');
+      } catch (_err) {
+        memberAuthState.user = null;
+      }
+      if (!memberAuthState.user || typeof memberAuthState.user !== 'object') memberAuthState.user = null;
+    }
+
+    function isLoggedInMember() {
+      return !!(memberAuthState.token && memberAuthState.user && memberAuthState.user.role === 'member');
+    }
+
+    function updateMemberAuthUi(message, isError) {
+      const gateNote = document.getElementById('feedbackGateNote');
+      const yesBtn = document.getElementById('feedbackYes');
+      const noBtn = document.getElementById('feedbackNo');
+      const betaBanner = document.getElementById('memberBetaBanner');
+      const memberBanner = document.getElementById('fieldTestMemberBanner');
+      const isMember = isLoggedInMember();
+
+      if (gateNote) gateNote.style.display = isMember ? 'none' : 'inline';
+      if (yesBtn) yesBtn.style.display = isMember ? 'inline-flex' : 'none';
+      if (noBtn) noBtn.style.display = isMember ? 'inline-flex' : 'none';
+      if (betaBanner) betaBanner.style.display = isMember ? 'inline-flex' : 'none';
+      if (memberBanner) memberBanner.style.display = isMember ? 'inline-flex' : 'none';
+    }
+
+    function getAdminBypassAllowed() {
+      if (!runtimeUiSettings.allow_admin_bypass) return false;
+      return !!localStorage.getItem('navidur_admin_token');
+    }
+
+    function normalizeRuntimeSettings(raw) {
+      const src = raw && typeof raw === 'object' ? raw : {};
+      const out = {
+        site_mode: String(src.site_mode || 'live').toLowerCase(),
+        maintenance_message: String(src.maintenance_message || '').trim(),
+        allow_admin_bypass: !!src.allow_admin_bypass,
+        station_list_mode: String(src.station_list_mode || 'grouped').toLowerCase(),
+        location_mode: String(src.location_mode || 'ask').toLowerCase(),
+        sort_stations_by_distance: !!src.sort_stations_by_distance
+      };
+      if (out.site_mode !== 'live' && out.site_mode !== 'maintenance' && out.site_mode !== 'private_beta') out.site_mode = 'live';
+      if (out.station_list_mode !== 'chips' && out.station_list_mode !== 'classic' && out.station_list_mode !== 'grouped') out.station_list_mode = 'grouped';
+      if (out.location_mode !== 'off' && out.location_mode !== 'ask' && out.location_mode !== 'auto') out.location_mode = 'ask';
+      return out;
+    }
+
+    async function loadRuntimeUiSettings() {
+      try {
+        const res = await fetch('/api/admin-settings', { method: 'GET', cache: 'no-store' });
+        if (!res.ok) throw new Error('settings_http_' + res.status);
+        const payload = await res.json();
+        runtimeUiSettings = normalizeRuntimeSettings(payload && payload.settings ? payload.settings : payload);
+      } catch (_err) {
+        runtimeUiSettings = normalizeRuntimeSettings(runtimeUiSettings);
+      }
+    }
+
+    function updateMaintenanceScreen() {
+      const maintenanceScreen = document.getElementById('maintenanceScreen');
+      const maintenanceMessageText = document.getElementById('maintenanceMessageText');
+      if (!maintenanceScreen || !maintenanceMessageText) return;
+
+      const isMaintenance = runtimeUiSettings.site_mode === 'maintenance';
+      const bypass = getAdminBypassAllowed();
+      const show = isMaintenance && !bypass;
+      maintenanceScreen.style.display = show ? 'block' : 'none';
+
+      const custom = runtimeUiSettings.maintenance_message || 'الموقع تحت الصيانة حالياً، سنعود قريباً.';
+      maintenanceMessageText.textContent = custom;
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const toRad = function (v) { return (v * Math.PI) / 180; };
+      const R = 6371;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function getOrderedStationsForList(stationsInput) {
+      const stations = Array.isArray(stationsInput) ? stationsInput.slice() : navidurEngine.getStations().slice();
+      if (!userGeoState.granted) return stations;
+      return stations.sort(function (a, b) {
+        const da = haversineKm(userGeoState.lat, userGeoState.lon, a.lat, a.lng);
+        const db = haversineKm(userGeoState.lat, userGeoState.lon, b.lat, b.lng);
+        return da - db;
+      });
+    }
+
+    function updateStationFlowHint(message) {
+      const hint = document.getElementById('stationFlowHint');
+      if (!hint) return;
+      hint.textContent = message || '';
+    }
+
+    function normalizeFishingModeValue(station) {
+      if (station && station.fishingMode === 'deep') return 'deep';
+      if (station && station.fishingMode === 'coastal') return 'coastal';
+      if (station && station.bathymetry === 'deep') return 'deep';
+      return 'coastal';
+    }
+
+    function buildCountryOptions() {
+      const select = document.getElementById('countrySelect');
+      if (!select) return;
+      select.innerHTML = '<option value="">اختر الدولة</option>';
+      GULF_COUNTRIES.forEach(function (country) {
+        const opt = document.createElement('option');
+        opt.value = country;
+        opt.textContent = country;
+        select.appendChild(opt);
+      });
+    }
+
+    function getFlowStations(country, fishingMode) {
+      let out = navidurEngine.getStations().filter(function (st) {
+        if (!GULF_COUNTRIES.includes(st.country)) return false;
+        if (country && st.country !== country) return false;
+        if (fishingMode && normalizeFishingModeValue(st) !== fishingMode) return false;
+        return true;
+      });
+      if (runtimeUiSettings.sort_stations_by_distance) {
+        out = getOrderedStationsForList(out);
+      }
+      return out;
+    }
+
+    function renderFlowStations() {
+      const countrySelect = document.getElementById('countrySelect');
+      const modeSelect = document.getElementById('fishingModeSelect');
+      const stationSelect = document.getElementById('stationFlowSelect');
+      if (!countrySelect || !modeSelect || !stationSelect) return;
+
+      const country = countrySelect.value;
+      const mode = modeSelect.value;
+      stationSelect.innerHTML = '';
+      stationSelect.disabled = true;
+
+      if (!country) {
+        stationSelect.appendChild(new Option('اختر الدولة أولاً', ''));
+        updateStationFlowHint('اختر الدولة ثم نوع الصيد ثم المحطة لبدء التحليل.');
+        return;
+      }
+
+      if (!mode) {
+        stationSelect.appendChild(new Option('اختر نوع الصيد أولاً', ''));
+        updateStationFlowHint('تم اختيار الدولة. الآن اختر نوع الصيد (ساحلي/غزير).');
+        return;
+      }
+
+      const list = getFlowStations(country, mode);
+      stationSelect.disabled = false;
+      stationSelect.appendChild(new Option('اختر المحطة', ''));
+      list.forEach(function (st) {
+        const distPrefix = userGeoState.granted && runtimeUiSettings.sort_stations_by_distance
+          ? (haversineKm(userGeoState.lat, userGeoState.lon, st.lat, st.lng).toFixed(1) + ' كم - ')
+          : '';
+        stationSelect.appendChild(new Option(distPrefix + st.flag + ' ' + st.name, String(st.id)));
+      });
+
+      if (!list.length) {
+        updateStationFlowHint('لا توجد محطات مطابقة للدولة ونوع الصيد المحددين.');
+      } else {
+        updateStationFlowHint('اختر محطة للمتابعة إلى التحليل والنتائج.');
+      }
+    }
+
+    function setupStationFlow() {
+      const countrySelect = document.getElementById('countrySelect');
+      const modeSelect = document.getElementById('fishingModeSelect');
+      const stationSelect = document.getElementById('stationFlowSelect');
+      if (!countrySelect || !modeSelect || !stationSelect) return;
+
+      buildCountryOptions();
+      modeSelect.value = '';
+      modeSelect.disabled = true;
+      stationSelect.innerHTML = '<option value="">اختر الدولة أولاً</option>';
+      stationSelect.disabled = true;
+
+      countrySelect.addEventListener('change', function () {
+        selectionTracking.country = countrySelect.value || '';
+        selectionTracking.fishing_mode = '';
+        selectionTracking.station_id = '';
+        modeSelect.value = '';
+        modeSelect.disabled = !countrySelect.value;
+        renderFlowStations();
+      });
+
+      modeSelect.addEventListener('change', function () {
+        selectionTracking.fishing_mode = modeSelect.value || '';
+        selectionTracking.station_id = '';
+        renderFlowStations();
+      });
+
+      stationSelect.addEventListener('change', async function () {
+        const stationId = stationSelect.value;
+        selectionTracking.station_id = stationId || '';
+        if (!stationId) return;
+        const station = navidurEngine.getStations().find(function (s) { return String(s.id) === String(stationId); });
+        if (!station) return;
+        await onStationChange(station.index, { source: 'flow' });
+      });
+    }
+
+    function syncFlowFromSelectedStation() {
+      const countrySelect = document.getElementById('countrySelect');
+      const modeSelect = document.getElementById('fishingModeSelect');
+      const stationSelect = document.getElementById('stationFlowSelect');
+      if (!countrySelect || !modeSelect || !stationSelect || !selectedStation) return;
+      countrySelect.value = selectedStation.country;
+      modeSelect.disabled = false;
+      modeSelect.value = normalizeFishingModeValue(selectedStation);
+      renderFlowStations();
+      stationSelect.value = String(selectedStation.id);
+    }
+
+    function showStationLoadUnavailable(message) {
+      const countrySelect = document.getElementById('countrySelect');
+      const modeSelect = document.getElementById('fishingModeSelect');
+      const stationSelect = document.getElementById('stationFlowSelect');
+      if (countrySelect) {
+        countrySelect.innerHTML = '<option value="">تعذر تحميل المحطات</option>';
+        countrySelect.disabled = true;
+      }
+      if (modeSelect) {
+        modeSelect.innerHTML = '<option value="">غير متاح</option>';
+        modeSelect.disabled = true;
+      }
+      if (stationSelect) {
+        stationSelect.innerHTML = '<option value="">غير متاح</option>';
+        stationSelect.disabled = true;
+      }
+      updateStationFlowHint(message || 'تعذر تحميل المحطات حالياً.');
+      updateLocationStatusText('لا يمكن ترتيب المحطات قبل استعادة الاتصال بالخادم.');
+      const locationBtn = document.getElementById('locationRequestBtn');
+      if (locationBtn) locationBtn.style.display = 'none';
+    }
+
+    function updateLocationStatusText(message) {
+      const el = document.getElementById('locationStatusText');
+      if (!el) return;
+      el.textContent = message || '';
+    }
+
+    function drawUserLocationCue() {
+      if (!stationMap) return;
+      if (!userGeoState.granted) {
+        if (userLocationMarker) {
+          userLocationMarker.remove();
+          userLocationMarker = null;
+        }
+        return;
+      }
+      if (userLocationMarker) userLocationMarker.remove();
+      userLocationMarker = L.circleMarker([userGeoState.lat, userGeoState.lon], {
+        radius: 7,
+        color: '#fff7c8',
+        fillColor: '#ffe266',
+        fillOpacity: 0.95,
+        weight: 2
+      }).addTo(stationMap);
+      userLocationMarker.bindPopup('موقعك الحالي (لترتيب المحطات)').openPopup();
+    }
+
+    async function requestUserLocationForSorting() {
+      if (userGeoState.promptRequested) return;
+      userGeoState.promptRequested = true;
+      if (!navigator.geolocation) {
+        updateLocationStatusText('المتصفح لا يدعم تحديد الموقع.');
+        return;
+      }
+      updateLocationStatusText('السماح باستخدام الموقع لتحسين دقة النتائج');
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        userGeoState.granted = true;
+        userGeoState.lat = Number(pos.coords.latitude);
+        userGeoState.lon = Number(pos.coords.longitude);
+        drawUserLocationCue();
+        updateLocationStatusText('تم تفعيل الفرز حسب الأقرب.');
+        renderFlowStations();
+      }, function () {
+        userGeoState.granted = false;
+        userGeoState.lat = null;
+        userGeoState.lon = null;
+        drawUserLocationCue();
+        updateLocationStatusText('تم رفض إذن الموقع. سيستمر التطبيق بشكل طبيعي.');
+        renderFlowStations();
+      }, {
+        enableHighAccuracy: false,
+        timeout: 7000,
+        maximumAge: 300000
+      });
+    }
+
+    function applyLocationModeUi() {
+      const btn = document.getElementById('locationRequestBtn');
+      if (!btn) return;
+      btn.style.display = 'inline-block';
+      btn.textContent = userGeoState.granted ? 'تحديث الموقع' : 'السماح باستخدام الموقع';
+      updateLocationStatusText(userGeoState.granted ? 'الفرز حسب الأقرب مفعل.' : 'السماح باستخدام الموقع لتحسين دقة النتائج');
+    }
 
     function formatWeatherModelProfile(profile) {
       if (!profile || String(profile).includes('icon_seamless')) return 'ICON-Seamless';
@@ -1336,16 +2143,6 @@
       }
     };
 
-    function makeNoWindDay(station, dayOffset) {
-      return generateHours(station, dayOffset).map(function (h) {
-        return Object.assign({}, h, {
-          windSpeed: { sg: null },
-          windDirection: { sg: null },
-          windGust: { sg: null }
-        });
-      });
-    }
-
     function toIsoDay(date) {
       const d = new Date(date || Date.now());
       return d.toISOString().slice(0, 10);
@@ -1366,11 +2163,10 @@
 
       return targetWeekDates.map(function (d) {
         const key = getAppIsoDay(d);
-        const dayOffset = Math.floor((toUtcDay(d) - toUtcDay(normalizeUtcDate(new Date()))) / 86400000);
         const sorted = (map[key] || []).sort(function (a, b) {
           return new Date(a.time).getTime() - new Date(b.time).getTime();
         });
-        return sorted.length ? sorted.slice(0, 24) : makeNoWindDay(station, dayOffset);
+        return sorted.length ? sorted.slice(0, 24) : [];
       });
     }
 
@@ -1486,10 +2282,8 @@
         return await fetchProviderHours(provider, station, targetWeekDates);
       } catch (liveErr) {
         return {
-          hoursByDay: targetWeekDates.map(function (dayDate) {
-            const dayOffset = Math.floor((toUtcDay(dayDate) - toUtcDay(normalizeUtcDate(new Date()))) / 86400000);
-            return makeNoWindDay(station, dayOffset);
-          }),
+          status: 'NO_DATA_AVAILABLE',
+          hoursByDay: targetWeekDates.map(function () { return []; }),
           meta: {
             source: 'official-wind-pending',
             sourceLabel: 'رادار NAVIDUR',
@@ -1503,29 +2297,6 @@
           }
         };
       }
-    }
-
-    function generateHours(station, dayOffset) {
-      const list = [];
-      const base = getForecastBaseDate(dayOffset);
-      const lat = station && station.lat != null ? station.lat : 25;
-      const lng = station && station.lng != null ? station.lng : 51;
-      const bathymetry = station && station.bathymetry ? station.bathymetry : 'mid';
-      const depthFactor = bathymetry === 'deep' ? 1.18 : bathymetry === 'shallow' ? 0.82 : 1;
-      const seed = ((lat || 25) % 10) + ((lng || 51) % 10) + dayOffset * 0.8;
-      for (let i = 0; i < 24; i++) {
-        const t = new Date(base.getTime());
-        t.setUTCHours(t.getUTCHours() + i);
-        list.push({
-          time: t.toISOString(),
-          windSpeed: { sg: null },
-          windDirection: { sg: null },
-          windGust: { sg: null },
-          seaLevel: { sg: +((0.35 + Math.sin(i / 3 + seed) * 0.28 + (dayOffset * 0.01)) * depthFactor).toFixed(2) },
-          waterTemperature: { sg: +(24 + Math.sin(i / 8 + dayOffset) * 1.8).toFixed(1) }
-        });
-      }
-      return list;
     }
 
     function getActiveHours() {
@@ -1636,20 +2407,17 @@
       const tideState = getTideState(prev, cur, next);
       const amplitude = prev == null || next == null ? 0 : Math.abs(next - prev);
 
-      // If live sea-level is missing, keep a deterministic fallback by lunar cycle.
+      // Strict real-data mode: do not infer tide/water state locally when live data is missing.
       if (cur == null || prev == null || next == null) {
-        const hf = getHamalFasadStatus(date);
-        const waterState = hf.name;
-        const mode = waterState === 'حمل' ? 'deep' : 'coastal';
-        const migrationSeason = getCurrentMigrationSeason(date, st);
         return {
-          mode: mode,
-          waterState: waterState,
-          tidalCoefficient: waterState === 'حمل' ? 60 : 40,
+          status: 'INSUFFICIENT_DATA',
+          mode: null,
+          waterState: null,
+          tidalCoefficient: null,
           tideState: tideState,
           amplitude: amplitude,
-          migrationSeason: migrationSeason,
-          migrationAdvice: getMigrationAdviceByState(waterState, mode, migrationSeason)
+          migrationSeason: null,
+          migrationAdvice: null
         };
       }
 
@@ -1832,15 +2600,236 @@
     }
 
     function renderStations() {
-      const sel = document.getElementById('stationSel');
-      sel.innerHTML = '';
-      navidurEngine.getStations().forEach((st, i) => {
-        const op = document.createElement('option');
-        op.value = String(i);
-        op.textContent = st.flag + ' ' + st.name + ' - ' + st.country;
-        sel.appendChild(op);
+      renderFlowStations();
+    }
+
+    function getMarkerStyle(station) {
+      const selected = selectedStation && selectedStation.id === station.id;
+      return {
+        radius: selected ? 9 : 6,
+        color: selected ? '#7ae2ff' : '#9ad9ff',
+        fillColor: selected ? '#27beff' : '#0f5f8f',
+        fillOpacity: selected ? 0.95 : 0.75,
+        weight: selected ? 2 : 1
+      };
+    }
+
+    function renderStationMarkers() {
+      if (!stationMap || !stationMarkerLayer) return;
+      stationMarkerLayer.clearLayers();
+      stationMarkerMap = new Map();
+
+      navidurEngine.getStations().forEach(function (st) {
+        const marker = L.circleMarker([st.lat, st.lng], getMarkerStyle(st));
+        marker.bindPopup('<strong>' + st.name + '</strong><br>' + st.country);
+        marker.addTo(stationMarkerLayer);
+        stationMarkerMap.set(st.id, marker);
       });
-      sel.value = '0';
+    }
+
+    function focusStationOnMap(station) {
+      if (!stationMap || !station) return;
+      stationMap.flyTo([station.lat, station.lng], 8, { duration: 0.6 });
+      renderStationMarkers();
+    }
+
+    function getScoreVisual(score) {
+      if (score >= 80) return { color: '#ff4d4d', fill: '#ff6b6b' };
+      if (score >= 60) return { color: '#ffd24d', fill: '#ffe27a' };
+      return { color: '#4fa7ff', fill: '#7ec0ff' };
+    }
+
+    function getConfidenceMeta(score) {
+      if (score >= 80) return { label: 'High Confidence', cls: 'high' };
+      if (score >= 60) return { label: 'Medium Confidence', cls: 'medium' };
+      return { label: 'Low Confidence', cls: 'low' };
+    }
+
+    function setAnalysisLoading(isLoading) {
+      const panel = document.getElementById('hotspotPanel');
+      const hint = document.getElementById('analysisLoadingHint');
+      if (panel) panel.classList.toggle('is-loading', !!isLoading);
+      if (hint) hint.style.display = isLoading ? 'inline-flex' : 'none';
+      if (isLoading) {
+        const statusEl = document.getElementById('feedbackStatus');
+        if (statusEl) statusEl.textContent = 'جاري تحديث نتائج التحليل...';
+      }
+    }
+
+    function getWhyBreakdown(result) {
+      const data = result && result.data ? result.data : {};
+      const current = data.current != null ? data.current : 0;
+      const wave = data.wave != null ? data.wave : 0;
+      const selectedHour = getSelectedHourEntry().hour || {};
+      const wind = getDisplayedWindKmh(selectedHour) || 0;
+
+      const currentPts = current >= 0.6 ? 30 : (current >= 0.45 ? 25 : 8);
+      const windPts = wind <= 20 ? 20 : (wind <= 30 ? 12 : 6);
+      const activityPts = wave >= 0.3 && wave <= 1.2 ? 20 : 8;
+      return {
+        currentPts,
+        windPts,
+        activityPts,
+        wind,
+        wave,
+        current
+      };
+    }
+
+    function getSessionId() {
+      const key = 'navidur_session_id';
+      let v = localStorage.getItem(key);
+      if (!v) {
+        v = 'sess_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        localStorage.setItem(key, v);
+      }
+      return v;
+    }
+
+    function pushTrackingRecord(record) {
+      const key = 'navidur_tracking_queue';
+      const current = JSON.parse(localStorage.getItem(key) || '[]');
+      current.push(record);
+      localStorage.setItem(key, JSON.stringify(current.slice(-500)));
+    }
+
+    async function flushTrackingQueue() {
+      const key = 'navidur_tracking_queue';
+      const list = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!Array.isArray(list) || !list.length) return;
+      try {
+        const res = await fetch('/api/tracking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: list.slice(0, 100) })
+        });
+        if (res.ok) {
+          localStorage.setItem(key, JSON.stringify(list.slice(100)));
+        }
+      } catch (_err) {
+        // Keep queued tracking until next flush.
+      }
+    }
+
+    async function sendFeedbackVote(answer) {
+      if (!latestHotspotResult || !latestHotspotResult.best_spot) return;
+      if (!isLoggedInMember()) {
+        updateMemberAuthUi('feedback متاح فقط لعضو اختبار مسجل.', true);
+        return;
+      }
+      const best = latestHotspotResult.best_spot;
+      const payload = {
+        answer,
+        station: selectedStation ? selectedStation.name : null,
+        lat: best.lat,
+        lon: best.lon,
+        score: best.score,
+        zone: best.zone || null,
+        timestamp: new Date().toISOString(),
+        session_id: getSessionId()
+      };
+
+      const feedbackStatus = document.getElementById('feedbackStatus');
+      feedbackStatus.textContent = 'Sending...';
+      try {
+        const response = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + memberAuthState.token
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          throw new Error('feedback_http_' + response.status);
+        }
+        feedbackStatus.textContent = 'Thanks, feedback saved.';
+      } catch (_err) {
+        feedbackStatus.textContent = 'Feedback failed. Try again.';
+      }
+    }
+
+    function renderHotspotPanel(result) {
+      if (!result) return;
+      const best = result.best_spot || {};
+      const data = result.data || {};
+      const area = result.search_area || {};
+      document.getElementById('hotspotScore').textContent = String(best.score != null ? best.score : '--');
+      document.getElementById('hotspotZone').textContent = 'المنطقة: ' + (best.zone || '---');
+      document.getElementById('hotspotBest').textContent = 'أفضل نقطة: ' + (best.lat != null ? best.lat.toFixed(4) : '--') + ', ' + (best.lon != null ? best.lon.toFixed(4) : '--');
+      document.getElementById('hotspotCurrent').textContent = 'التيار: ' + (data.current != null ? data.current : '--') + ' • حرارة: ' + (data.temp != null ? data.temp : '--');
+      document.getElementById('hotspotPoints').textContent = 'النقاط المحللة: ' + (area.points_evaluated != null ? area.points_evaluated : '---');
+      const radiusText = area.radius != null ? area.radius : 0.02;
+      document.getElementById('mapMetaText').textContent = 'نطاق التحليل: ' + radiusText;
+
+      const confidence = getConfidenceMeta(best.score != null ? best.score : 0);
+      const confidenceBadge = document.getElementById('confidenceBadge');
+      confidenceBadge.className = 'confidence-pill ' + confidence.cls;
+      confidenceBadge.textContent = 'Confidence: ' + confidence.label;
+
+      const why = getWhyBreakdown(result);
+      const whyBox = document.getElementById('whySpotBox');
+      whyBox.classList.remove('is-open');
+      whyBox.innerHTML =
+        'Current Score: <strong>' + why.currentPts + '</strong> (current=' + why.current.toFixed(2) + ')<br>' +
+        'Wind Score: <strong>' + why.windPts + '</strong> (wind=' + Math.round(why.wind) + ' km/h)<br>' +
+        'Activity Score: <strong>' + why.activityPts + '</strong> (wave=' + why.wave.toFixed(2) + 'm)';
+
+      document.getElementById('feedbackStatus').textContent = '';
+    }
+
+    function renderGridOnMap(result, station) {
+      if (!stationMap || !station || !result) return;
+
+      if (evaluatedLayer) {
+        evaluatedLayer.clearLayers();
+      }
+
+      const points = Array.isArray(result.evaluated_points) ? result.evaluated_points : [];
+      points.forEach(function (p) {
+        const isBest = result.best_spot && p.lat === result.best_spot.lat && p.lon === result.best_spot.lon;
+        const visual = getScoreVisual(p.score || 0);
+        const gridMarker = L.circleMarker([p.lat, p.lon], {
+          radius: isBest ? 11 : 6,
+          color: isBest ? '#ffffff' : visual.color,
+          fillColor: isBest ? '#ff3b30' : visual.fill,
+          fillOpacity: isBest ? 0.98 : 0.82,
+          weight: isBest ? 3 : 1.5
+        });
+        gridMarker.bindPopup('Score: ' + p.score + '<br>Zone: ' + p.zone + (isBest ? '<br><strong>BEST SPOT</strong>' : ''));
+        gridMarker.addTo(evaluatedLayer);
+      });
+
+      if (analysisCircle) {
+        analysisCircle.remove();
+      }
+      const radiusDegrees = result.search_area && result.search_area.radius != null ? result.search_area.radius : 0.02;
+      analysisCircle = L.circle([station.lat, station.lng], {
+        radius: Math.round(radiusDegrees * 111000),
+        color: '#7ed9ff',
+        weight: 1.2,
+        fillColor: '#4db7e8',
+        fillOpacity: 0.08
+      }).addTo(stationMap);
+    }
+
+    async function fetchHotspotForStation(station) {
+      const url = '/api/fishing-engine?lat=' + encodeURIComponent(station.lat) + '&lon=' + encodeURIComponent(station.lng) + '&debug=true';
+      const response = await fetch(url, { method: 'GET' });
+      if (!response.ok) throw new Error('hotspot_http_' + response.status);
+      return response.json();
+    }
+
+    function initStationMap() {
+      if (stationMap) return;
+      if (!selectedStation) return;
+      stationMap = L.map('stationMap', { zoomControl: true, attributionControl: false }).setView([selectedStation.lat, selectedStation.lng], 7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(stationMap);
+      stationMarkerLayer = L.layerGroup().addTo(stationMap);
+      evaluatedLayer = L.layerGroup().addTo(stationMap);
+      renderStationMarkers();
     }
 
     function renderForecastStrip() {
@@ -2067,38 +3056,134 @@
       const sourceEl = document.getElementById('nawkhadaDataSource');
       const kanaadEl = document.getElementById('kanaadAlert');
 
-      // Station-based dynamic fish lists
-      const stName = selectedStation ? selectedStation.name : '';
-      const region = getMarineRegion(selectedStation);
+      // ─── حالة المحطة والماية ─────────────────────────────────────────────
       const stationState = stationStates[selectedStation.id] || null;
       const localMode = stationState ? stationState.mode : getDailyFishingLabel(date, selectedStation).mode;
       const tidalCoef = stationState && typeof stationState.tidalCoefficient === 'number' ? stationState.tidalCoefficient : null;
-      const waterState = stationState && stationState.waterState ? stationState.waterState : (localMode === 'deep' ? 'حمل' : 'فساد');
-      const migrationAdvice = stationState && stationState.migrationAdvice ? stationState.migrationAdvice : '';
-      const isUqairSharqiyah = ['العقير','الخبر','الدمام','الجبيل','الدوحة','الخور','الوكرة','الرويس','المنامة'].some(function(s){ return stName.includes(s); });
-      const isDubaiMusandam = ['دبي','مسندم','رأس الخيمة','الشارقة','أم القيوين','الفجيرة'].some(function(s){ return stName.includes(s); });
-      const isRedSea = region === 'red_sea';
+      const waterState = stationState && stationState.waterState ? stationState.waterState : null;
 
-      var hamalFish, fasadFish;
+      // ─── اتجاه الماية (سقي / ثبر) من بيانات ساعات المد ──────────────────
+      const activeHours = getActiveHours();
+      const hr = activeHours[selectedHourIndex] || {};
+      const seaCur  = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
+      const seaPrev = selectedHourIndex > 0 && activeHours[selectedHourIndex - 1] && activeHours[selectedHourIndex - 1].seaLevel && activeHours[selectedHourIndex - 1].seaLevel.sg != null
+        ? activeHours[selectedHourIndex - 1].seaLevel.sg : seaCur;
+      const seaNext = selectedHourIndex < activeHours.length - 1 && activeHours[selectedHourIndex + 1] && activeHours[selectedHourIndex + 1].seaLevel && activeHours[selectedHourIndex + 1].seaLevel.sg != null
+        ? activeHours[selectedHourIndex + 1].seaLevel.sg : seaCur;
+      const tideState = getTideState(seaPrev, seaCur, seaNext);
+
+      // ─── بيانات الرياح ────────────────────────────────────────────────────
+      const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
+      const windSpeedKmh = hasLiveWind ? (getDisplayedWindKmh(hr) || 0) : 0;
+      const windDirDeg   = hasLiveWind ? (hr.windDirection.sg || 0) : 0;
+      const windDirAr    = hasLiveWind ? windDirText8(windDirDeg) : null;
+      const windKnots    = windSpeedKmh / 1.852;
+      const waveH        = (hr.waveHeight != null) ? hr.waveHeight : null;
+
+      // ─── قوائم الأسماك الموسمية ───────────────────────────────────────────
       const seasonalAdvice = getSeasonalFishAdvice(date, selectedStation);
-      hamalFish = seasonalAdvice.hamal;
-      fasadFish = seasonalAdvice.fasad;
+      const hamalFish = seasonalAdvice.hamal || 'سبيطي، كنعد، بريم، منقوس';
+      const fasadFish = seasonalAdvice.fasad || 'هامور، شعم، قواع، بدح';
 
       if (sourceEl) sourceEl.textContent = getSourceBrandingText();
 
-      if (waterState === 'حمل') {
-        adviceEl.className = 'nawkhada-advice-hamal';
-        adviceEl.innerHTML =
-          '🟢 <strong>ديسجن إنجن: ' + waterState + '</strong> • معامل المد: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
-          'الوضع التلقائي: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • الأفضل صيد: <strong>' + hamalFish + '</strong> (' + selectedStation.getBathymetryLabel() + ').<br>' +
-          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'السمك الآن يرعى في القوع بسبب قوة الحمل.') + '</span>';
-      } else {
+      if (!waterState) {
         adviceEl.className = 'nawkhada-advice-fasad';
         adviceEl.innerHTML =
-          '🔴 <strong>ديسجن إنجن: ' + waterState + '</strong> • معامل المد: <strong>' + (tidalCoef != null ? tidalCoef : '---') + '</strong><br>' +
-          'الوضع التلقائي: <strong>' + (localMode === 'deep' ? 'غزير' : 'ساحلي') + '</strong> • الأفضل صيد: <strong>' + fasadFish + '</strong> (' + selectedStation.getBathymetryLabel() + ').<br>' +
-          '<span style="opacity:.85;font-size:12px">' + (migrationAdvice || 'الماية هادئة والسمك أقرب للساحل في هذه الساعة.') + '</span>';
+          '📍 <strong>ملخص الحالة:</strong> البيانات البحرية غير مكتملة حالياً.<br>' +
+          '🌊 <strong>حالة التيار والموج:</strong> لا توجد قراءة حية كافية لتحديد حمل/فساد.<br>' +
+          '🎣 <strong>التوصية الفنية:</strong> انتظر التحديث الرسمي قبل اتخاذ قرار نزول.<br>' +
+          '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف المتوقعة:</strong> ' + hamalFish + ' • ' + fasadFish + '</span>';
+        const isKanaadDarFallback = darLabel === 'المقدم' || darLabel === 'المؤخر';
+        kanaadEl.style.display = isKanaadDarFallback ? 'block' : 'none';
+        return;
       }
+
+      // ─── المنطق الذكي ─────────────────────────────────────────────────────
+      const isStrongWind     = windKnots > 15;
+      const isVeryStrongWind = windKnots > 25;
+      // كوس = رياح شمالية / شمالية غربية (270°–360° أو 0°–45°)
+      const isKaosWind  = hasLiveWind && (windDirDeg >= 270 || windDirDeg <= 45);
+      // تضارب = حمل + سقي + رياح كوس فوق 8 عقد
+      const isConflict  = waterState === 'حمل' && tideState.key === 'sagi' && isKaosWind && windKnots > 8;
+      const isWaqfa     = tideState.key === 'steady';
+
+      // ─── القسم الأول: ملخص الحالة ─────────────────────────────────────────
+      const tideDirLabel = tideState.key === 'sagi' ? 'سقي' : tideState.key === 'thabr' ? 'ثبر' : 'وقفة ماية';
+      var summaryText;
+      if (waterState === 'حمل') {
+        summaryText = 'الماية <strong>حمل</strong> والاتجاه <strong>' + tideDirLabel + '</strong>';
+        if (hasLiveWind) {
+          summaryText += '، الرياح <strong>' + windDirAr + '</strong> بسرعة ' + Math.round(windSpeedKmh) + ' كم/س';
+          summaryText += isConflict
+            ? ' — رياح مضادة لاتجاه السقي، <strong>احذر من ضرب الموج</strong>.'
+            : '.';
+        }
+      } else {
+        summaryText = 'الماية <strong>فساد</strong> والاتجاه <strong>' + tideDirLabel + '</strong> — المياه هادئة والتيار خفيف';
+        if (hasLiveWind) {
+          summaryText += '، الرياح من <strong>' + windDirAr + '</strong> (' + Math.round(windSpeedKmh) + ' كم/س).';
+        } else {
+          summaryText += '.';
+        }
+      }
+
+      // ─── القسم الثاني: حالة التيار والموج ────────────────────────────────
+      const coefStrength = tidalCoef != null
+        ? (tidalCoef >= 70 ? 'قوي جداً' : tidalCoef >= 55 ? 'قوي' : tidalCoef >= 35 ? 'معتدل' : 'خفيف')
+        : 'غير محدد';
+      var currentWaveText = 'قوة التيار <strong>' + coefStrength + '</strong>';
+      if (waveH != null) {
+        const waveClass = waveH >= 1.5 ? 'مرتفع' : waveH >= 0.7 ? 'متوسط' : 'خفيف';
+        currentWaveText += ' • ارتفاع الموج <strong>' + waveH.toFixed(1) + ' م</strong> (' + waveClass + ')';
+      }
+      if (isStrongWind) {
+        currentWaveText += ' • الرياح القوية ترفع الموج وتصعّب الوقفة في المناطق المكشوفة';
+      }
+
+      // ─── القسم الثالث: التوصية الفنية ─────────────────────────────────────
+      var techTip;
+      if (isVeryStrongWind) {
+        techTip = '⚠️ رياح شديدة تجاوزت 25 عقدة — <strong>أولوية السلامة</strong>، تجنب الخروج للغزير وابقَ في الأماكن المحمية للصيد الساحلي فقط.';
+      } else if (isStrongWind && isConflict) {
+        techTip = 'رياح نشطة مع تضارب تيار — الأفضل الصيد من <strong>الساحل أو الأماكن المحمية</strong>، قلّل وزن الطعم وابتعد عن المناطق المكشوفة حتى تهدأ الرياح.';
+      } else if (isStrongWind) {
+        techTip = 'الرياح فوق 15 عقدة — الأولوية للسلامة، وإن أردت الصيد فجرّب <strong>العدة الخفيفة في الأماكن المحمية</strong> وانتظر وقفة الماية.';
+      } else if (waterState === 'حمل') {
+        if (isWaqfa) {
+          techTip = '⭐ أنت في <strong>وقفة الماية</strong> — أفضل لحظة للغزير، فعّل العدة الثقيلة واستغل هذه النافذة قبل انقلاب التيار.';
+        } else if (tideState.key === 'sagi') {
+          techTip = 'الحمل في مرحلة سقي ينشّط الأسماك في الممرات. العدة المتوسطة مع <strong>طعم حي</strong> مناسبة لاصطياد أسماك الممرات، وأفضل لحظة ستكون عند <strong>وقفة الماية</strong>.';
+        } else {
+          techTip = 'الحمل في مرحلة ثبر — انتظر <strong>وقفة الماية</strong> للحصول على أفضل نتيجة في الغزير، بينها جرّب التعمق أكثر في القاع.';
+        }
+      } else {
+        if (isWaqfa) {
+          techTip = '⭐ <strong>وقفة ماية في الفساد</strong> — القاع هادئ ومثالي لأسماك الچبة والهامور. العدة الثقيلة على القاع هي الأنسب لهذه اللحظة.';
+        } else {
+          techTip = 'الفساد يُبطئ التيار ويُقرّب الأسماك من الساحل. ابحث عن <strong>الحدبات والصخور</strong> وجرّب العدة الساحلية الخفيفة.';
+        }
+      }
+
+      // ─── القسم الرابع: الأهداف المتوقعة ──────────────────────────────────
+      var fishTargets;
+      if (isVeryStrongWind) {
+        fishTargets = 'أجّل الصيد حتى تتحسن الظروف.';
+      } else if (waterState === 'حمل') {
+        fishTargets = 'أسماك الممرات والنشاط السطحي: <strong>' + hamalFish + '</strong>';
+        fishTargets += ' • وفي القاع: <strong>' + fasadFish + '</strong>';
+      } else {
+        fishTargets = 'أسماك القاع والچبة: <strong>' + fasadFish + '</strong>';
+        fishTargets += ' • ساحلي: <strong>' + hamalFish + '</strong>';
+      }
+
+      // ─── تجميع النصيحة النهائية ───────────────────────────────────────────
+      adviceEl.className = waterState === 'حمل' ? 'nawkhada-advice-hamal' : 'nawkhada-advice-fasad';
+      adviceEl.innerHTML =
+        '📍 <strong>ملخص الحالة:</strong> ' + summaryText + '<br>' +
+        '🌊 <strong>حالة التيار والموج:</strong> ' + currentWaveText + '<br>' +
+        '🎣 <strong>التوصية الفنية:</strong> ' + techTip + '<br>' +
+        '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف المتوقعة:</strong> ' + fishTargets + '</span>';
 
       const isKanaadDar = darLabel === 'المقدم' || darLabel === 'المؤخر';
       kanaadEl.style.display = isKanaadDar ? 'block' : 'none';
@@ -2117,9 +3202,14 @@
       renderFish(date);
     }
 
-    async function onStationChange(idx) {
+    async function onStationChange(idx, opts) {
+      const options = opts || {};
+      setAnalysisLoading(true);
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
+      selectionTracking.country = selectedStation.country;
+      selectionTracking.fishing_mode = normalizeFishingModeValue(selectedStation);
+      selectionTracking.station_id = selectedStation.id;
       manualMode = null;
       weekDates = getVisibleWeekDatesFromToday(new Date());
       selectedForecastDay = 0;
@@ -2131,6 +3221,41 @@
       selectedHourIndex = getDefaultHourIndex(selectedForecastDay);
       updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
       renderAll();
+
+      syncFlowFromSelectedStation();
+      focusStationOnMap(selectedStation);
+
+      try {
+        const hotspot = await fetchHotspotForStation(selectedStation);
+        latestHotspotResult = hotspot;
+        renderHotspotPanel(hotspot);
+        renderGridOnMap(hotspot, selectedStation);
+      } catch (_hotspotErr) {
+        latestHotspotResult = null;
+        document.getElementById('hotspotScore').textContent = '--';
+        document.getElementById('hotspotZone').textContent = 'المنطقة: تعذر التحليل';
+        document.getElementById('hotspotBest').textContent = 'أفضل نقطة: ---';
+        document.getElementById('hotspotCurrent').textContent = 'التيار: ---';
+        document.getElementById('hotspotPoints').textContent = 'النقاط المحللة: ---';
+      } finally {
+        setAnalysisLoading(false);
+      }
+
+      pushTrackingRecord({
+        country: selectionTracking.country || (selectedStation ? selectedStation.country : null),
+        fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null),
+        station_id: selectionTracking.station_id || (selectedStation ? selectedStation.id : null),
+        station: selectedStation ? selectedStation.name : null,
+        lat: selectedStation ? selectedStation.lat : null,
+        lon: selectedStation ? selectedStation.lng : null,
+        timestamp: new Date().toISOString(),
+        session_id: getSessionId()
+      });
+      flushTrackingQueue();
+
+      if (!options.silentPopup && stationMarkerMap.has(selectedStation.id)) {
+        stationMarkerMap.get(selectedStation.id).openPopup();
+      }
     }
 
     async function refreshSelectedStationLiveWind() {
@@ -2182,8 +3307,29 @@
     }
 
     async function initApp() {
+      loadMemberAuthState();
+      await loadRuntimeUiSettings();
+      updateMaintenanceScreen();
+      updateMemberAuthUi('', false);
+
+      const stationLoad = await loadRuntimeStations();
+      resetEngineWithStations(stationLoad.stations);
+      setupStationFlow();
+      if (!stationLoad.stations.length) {
+        showStationLoadUnavailable(stationLoad.warning);
+        return;
+      }
       renderStations();
-      await onStationChange(0);
+      if (stationLoad.degraded && stationLoad.warning) {
+        updateStationFlowHint(stationLoad.warning);
+      }
+      initStationMap();
+      applyLocationModeUi();
+      const locationSeenKey = 'navidur_location_prompt_seen';
+      if (!localStorage.getItem(locationSeenKey) && !userGeoState.granted && !userGeoState.promptRequested) {
+        localStorage.setItem(locationSeenKey, '1');
+        requestUserLocationForSorting();
+      }
       startLiveClock();
       lastKnownAppIsoDay = getAppIsoDay(new Date());
 
@@ -2195,8 +3341,26 @@
       }, UPDATE_FREQUENCY_MINUTES * 60 * 1000);
       setupDayChangeSync();
 
-      document.getElementById('stationSel').addEventListener('change', async function (e) {
-        await onStationChange(parseInt(e.target.value, 10));
+      var locationBtn = document.getElementById('locationRequestBtn');
+      if (locationBtn) {
+        locationBtn.addEventListener('click', function () {
+          userGeoState.promptRequested = false;
+          requestUserLocationForSorting();
+        });
+      }
+
+      document.getElementById('whyToggleBtn').addEventListener('click', function () {
+        const box = document.getElementById('whySpotBox');
+        const visible = box.classList.contains('is-open');
+        box.classList.toggle('is-open', !visible);
+      });
+
+      document.getElementById('feedbackYes').addEventListener('click', function () {
+        sendFeedbackVote('YES');
+      });
+
+      document.getElementById('feedbackNo').addEventListener('click', function () {
+        sendFeedbackVote('NO');
       });
 
       document.getElementById('coastalBtn').addEventListener('click', function () {
@@ -2219,6 +3383,8 @@
       document.getElementById('fishModal').addEventListener('click', function (e) {
         if (e.target.id === 'fishModal') closeModal();
       });
+
+      setInterval(flushTrackingQueue, 15000);
     }
 
     autoSteerMode();

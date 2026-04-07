@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1c2c">
+  <title>NaviDur | دخول أعضاء الاختبار</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: radial-gradient(circle at top right, #0e3250, #081a2b 55%);
+      color: #e9f6ff;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .card {
+      width: min(460px, 100%);
+      background: rgba(16,44,69,.95);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      padding: 20px;
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 18px 36px rgba(0,0,0,.32);
+    }
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .title { font-size: 1.12rem; font-weight: 900; color: #ffdca4; }
+    .mode-badge {
+      border: 1px solid rgba(111, 220, 255, 0.55);
+      background: rgba(111, 220, 255, 0.16);
+      color: #dff6ff;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: .72rem;
+      font-weight: 900;
+    }
+    .sub { font-size: .86rem; color: #9fd1ec; line-height: 1.7; }
+    label { font-size: .82rem; color: #c7d5e4; }
+    input {
+      width: 100%;
+      background: #0d2235;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 10px;
+      padding: 11px;
+      font-size: .9rem;
+      font-family: inherit;
+    }
+    .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    button, a {
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: .85rem;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    button {
+      background: linear-gradient(135deg, #26b8ff, #0e78bd);
+      color: #fff;
+      border-color: #7ae2ff;
+      font-weight: 900;
+    }
+    a {
+      background: #10324a;
+      color: #e7f7ff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+    }
+    .status {
+      min-height: 18px;
+      font-size: .82rem;
+      color: #9fd1ec;
+      padding: 4px 0;
+    }
+    .status.error { color: #ffb3b3; }
+    @media (max-width: 560px) {
+      .actions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top-row">
+      <div class="title">دخول أعضاء الاختبار الميداني</div>
+      <div class="mode-badge">Field Testing Mode</div>
+    </div>
+    <div class="sub">هذه الصفحة مخصصة لأعضاء الاختبار فقط. بعد الدخول سيتم تحويلك للتطبيق الرئيسي.</div>
+
+    <label for="memberUser">اسم المستخدم</label>
+    <input id="memberUser" type="text" autocomplete="username" placeholder="field_member_a">
+
+    <label for="memberPass">كلمة المرور</label>
+    <input id="memberPass" type="password" autocomplete="current-password" placeholder="********">
+
+    <div class="actions">
+      <button id="memberLoginBtn" type="button">تسجيل الدخول</button>
+      <a href="/">العودة للصفحة العامة</a>
+    </div>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script>
+    (function () {
+      var userInput = document.getElementById('memberUser');
+      var passInput = document.getElementById('memberPass');
+      var loginBtn = document.getElementById('memberLoginBtn');
+      var statusEl = document.getElementById('status');
+
+      function showStatus(msg, isError) {
+        statusEl.textContent = msg || '';
+        statusEl.classList.toggle('error', !!isError);
+      }
+
+      async function loginMember() {
+        var username = String(userInput.value || '').trim();
+        var password = String(passInput.value || '');
+
+        if (!username || !password) {
+          showStatus('أدخل اسم المستخدم وكلمة المرور.', true);
+          return;
+        }
+
+        showStatus('جاري تسجيل الدخول...', false);
+        loginBtn.disabled = true;
+
+        try {
+          var res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ username: username, password: password })
+          });
+          var data = await res.json().catch(function () { return {}; });
+
+          if (!res.ok) throw new Error(data && data.error ? data.error : 'login_failed');
+          if (!data.user || data.user.role !== 'member' || !data.token) throw new Error('member_login_required');
+
+          localStorage.setItem('navidur_member_token', data.token);
+          localStorage.setItem('navidur_member_user', JSON.stringify(data.user));
+          showStatus('تم تسجيل الدخول. جاري التحويل...', false);
+          window.location.href = '/';
+        } catch (_err) {
+          showStatus('فشل دخول عضو الاختبار.', true);
+          loginBtn.disabled = false;
+        }
+      }
+
+      loginBtn.addEventListener('click', loginMember);
+      passInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') loginMember();
+      });
+    })();
+  </script>
+</body>
+</html>
