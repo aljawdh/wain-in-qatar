@@ -478,6 +478,17 @@
         insightsRows.push('<td>Low</td><td>' + (x.station_name || '--') + '</td><td>' + Number(x.count || 0) + '</td>');
       });
       renderKeyValueRows('selectionInsightsBody', insightsRows, 'لا توجد بيانات كافية لاستخراج insights', 3);
+
+      // Funnel
+      var funnel = s.funnel || { steps: [], drop_off: [] };
+      renderKeyValueRows('funnelStepsBody', (funnel.steps || []).map(function (x) {
+        return '<td>' + (x.label || x.step) + '</td><td><strong>' + Number(x.count || 0) + '</strong></td>';
+      }), 'لا توجد بيانات funnel بعد — تبدأ بأول اختيار محطة', 2);
+      renderKeyValueRows('funnelDropOffBody', (funnel.drop_off || []).map(function (x) {
+        var pct = x.drop_off_pct !== null && x.drop_off_pct !== undefined ? x.drop_off_pct + '%' : '--';
+        var color = (x.drop_off_pct !== null && x.drop_off_pct > 50) ? 'color:#ffb3b3' : 'color:#b9ffd8';
+        return '<td>' + (x.from || '--') + '</td><td>' + (x.to || '--') + '</td><td>' + Number(x.to_count || 0) + '/' + Number(x.from_count || 0) + '</td><td style="' + color + '"><strong>' + pct + '</strong></td>';
+      }), 'لا توجد بيانات', 4);
       updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
     } catch (_e) {
       latestSummaryCache = { total_yes: 0, total_no: 0 };
@@ -490,6 +501,8 @@
       renderKeyValueRows('selectionModeBody', [], 'لا توجد بيانات', 2);
       renderKeyValueRows('selectionCountryBody', [], 'لا توجد بيانات', 2);
       renderKeyValueRows('selectionInsightsBody', [], 'لا توجد بيانات كافية لاستخراج insights', 3);
+      renderKeyValueRows('funnelStepsBody', [], 'لا توجد بيانات funnel بعد', 2);
+      renderKeyValueRows('funnelDropOffBody', [], 'لا توجد بيانات', 4);
       updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
     }
   }

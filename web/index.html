@@ -1786,6 +1786,10 @@
         selectionTracking.country = countrySelect.value || '';
         selectionTracking.fishing_mode = '';
         selectionTracking.station_id = '';
+        if (countrySelect.value) {
+          pushTrackingRecord({ event_type: 'country_select', country: countrySelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
+          flushTrackingQueue();
+        }
         modeSelect.value = '';
         modeSelect.disabled = !countrySelect.value;
         renderFlowStations();
@@ -1794,6 +1798,10 @@
       modeSelect.addEventListener('change', function () {
         selectionTracking.fishing_mode = modeSelect.value || '';
         selectionTracking.station_id = '';
+        if (modeSelect.value) {
+          pushTrackingRecord({ event_type: 'mode_select', country: selectionTracking.country || '', fishing_mode: modeSelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
+          flushTrackingQueue();
+        }
         renderFlowStations();
       });
 
@@ -3323,6 +3331,8 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
+        pushTrackingRecord({ event_type: 'analysis_complete', station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
+        flushTrackingQueue();
       } catch (_hotspotErr) {
         latestHotspotResult = null;
         document.getElementById('hotspotScore').textContent = '--';
@@ -3335,6 +3345,7 @@
       }
 
       pushTrackingRecord({
+        event_type: 'station_select',
         country: selectionTracking.country || (selectedStation ? selectedStation.country : null),
         fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null),
         station_id: selectionTracking.station_id || (selectedStation ? selectedStation.id : null),

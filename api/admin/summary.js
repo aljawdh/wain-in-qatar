@@ -85,6 +85,28 @@ function buildSelectionAnalytics(trackingRows, stations) {
   };
 }
 
+function buildFunnelAnalytics(rows) {
+  const counts = { country_select: 0, mode_select: 0, station_select: 0, analysis_complete: 0 };
+  (rows || []).forEach(function (r) {
+    const et = String(r.event_type || 'station_select');
+    if (Object.prototype.hasOwnProperty.call(counts, et)) counts[et] += 1;
+  });
+  const steps = [
+    { step: 'country_select',    label: 'اختيار الدولة',      count: counts.country_select },
+    { step: 'mode_select',       label: 'اختيار نوع الصيد',   count: counts.mode_select },
+    { step: 'station_select',    label: 'اختيار المحطة',      count: counts.station_select },
+    { step: 'analysis_complete', label: 'اكتمال التحليل',     count: counts.analysis_complete }
+  ];
+  const dropOff = [];
+  for (var i = 0; i < steps.length - 1; i++) {
+    var from = steps[i];
+    var to   = steps[i + 1];
+    var rate = from.count > 0 ? Number(((1 - to.count / from.count) * 100).toFixed(1)) : null;
+    dropOff.push({ from: from.label, to: to.label, from_count: from.count, to_count: to.count, drop_off_pct: rate });
+  }
+  return { steps: steps, drop_off: dropOff };
+}
+
 module.exports = async function handler(req, res) {
   setNoCache(res);
   if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'forbidden_domain' });
@@ -135,6 +157,7 @@ module.exports = async function handler(req, res) {
     .slice(0, 10);
 
   const selectionAnalytics = buildSelectionAnalytics(tracking, stations);
+  const funnelAnalytics = buildFunnelAnalytics(tracking);
 
   return res.status(200).json({
     ok: true,
@@ -153,6 +176,7 @@ module.exports = async function handler(req, res) {
     station_selection_counts: selectionAnalytics.station_selection_counts,
     fishing_mode_distribution: selectionAnalytics.fishing_mode_distribution,
     country_usage: selectionAnalytics.country_usage,
-    selection_insights: selectionAnalytics.selection_insights
+    selection_insights: selectionAnalytics.selection_insights,
+    funnel: funnelAnalytics
   });
 };
