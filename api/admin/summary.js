@@ -41,8 +41,33 @@ function toSortedCountArray(mapObj, keyName) {
     .sort((a, b) => b.count - a.count);
 }
 
-function buildSelectionAnalytics(trackingRows, stations) {
-  const stationNameById = new Map((stations || []).map((s) => [String(s.id || ''), String(s.name || '')]));
+function buildDailyAcquisition(rows) {
+  const byDay = new Map();
+  (rows || []).forEach(function (r) {
+    const key = bucketKey(r.timestamp, 'daily');
+    if (key === 'unknown') return;
+    const d = byDay.get(key) || { date: key, total_events: 0, sessions: new Set(), analysis_complete: 0 };
+    d.total_events += 1;
+    if (r.session_id) d.sessions.add(String(r.session_id));
+    if (String(r.event_type || '') === 'analysis_complete') d.analysis_complete += 1;
+    byDay.set(key, d);
+  });
+  return Array.from(byDay.values())
+    .map(function (d) {
+      const unique = d.sessions.size;
+      const conversion = unique > 0 ? Number(((d.analysis_complete / unique) * 100).toFixed(1)) : 0;
+      return {
+        date: d.date,
+        daily_sessions: d.total_events,
+        daily_unique_sessions: unique,
+        daily_analysis_complete: d.analysis_complete,
+        conversion_pct: conversion
+      };
+    })
+    .sort(function (a, b) { return a.date.localeCompare(b.date); });
+}
+
+function buildSelectionAnalytics(stationNameById, trackingRows) {
   const stationCounts = new Map();
   const modeCounts = new Map();
   const countryCounts = new Map();
@@ -184,8 +209,10 @@ module.exports = async function handler(req, res) {
   const period = (req.query && req.query.period) || 'all';
   const filteredTracking = filterByPeriod(tracking, period);
   const totalAnalyses = filteredTracking.filter(r => r.event_type === 'analysis_complete').length;
-  const selectionAnalytics = buildSelectionAnalytics(filteredTracking, stations);
+  const stationNameById = new Map((stations || []).map((s) => [String(s.id || ''), String(s.name || '')]));
+  const selectionAnalytics = buildSelectionAnalytics(stationNameById, filteredTracking);
   const funnelAnalytics = buildFunnelAnalytics(filteredTracking);
+  const dailyAcquisition = buildDailyAcquisition(tracking);
 
   return res.status(200).json({
     ok: true,
@@ -206,6 +233,7 @@ module.exports = async function handler(req, res) {
     country_usage: selectionAnalytics.country_usage,
     selection_insights: selectionAnalytics.selection_insights,
     funnel: funnelAnalytics,
-    total_analyses: totalAnalyses
+    total_analyses: totalAnalyses,
+    daily_acquisition: dailyAcquisition
   });
 };
