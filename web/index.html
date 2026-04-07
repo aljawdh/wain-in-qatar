@@ -1787,8 +1787,9 @@
         selectionTracking.fishing_mode = '';
         selectionTracking.station_id = '';
         if (countrySelect.value) {
-          pushTrackingRecord({ event_type: 'country_select', country: countrySelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
-          flushTrackingQueue();
+          // Reset full session on new country selection so funnel restarts cleanly
+          resetFunnelSession();
+          trackOnce('country_select', { event_type: 'country_select', country: countrySelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
         }
         modeSelect.value = '';
         modeSelect.disabled = !countrySelect.value;
@@ -1799,8 +1800,7 @@
         selectionTracking.fishing_mode = modeSelect.value || '';
         selectionTracking.station_id = '';
         if (modeSelect.value) {
-          pushTrackingRecord({ event_type: 'mode_select', country: selectionTracking.country || '', fishing_mode: modeSelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
-          flushTrackingQueue();
+          trackOnce('mode_select', { event_type: 'mode_select', country: selectionTracking.country || '', fishing_mode: modeSelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
         }
         renderFlowStations();
       });
@@ -2790,6 +2790,34 @@
       return v;
     }
 
+    function getFunnelSession() {
+      const key = 'navidur_tracking_session';
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) return JSON.parse(raw);
+      } catch (_) { /* ignore */ }
+      return { country_selected: false, mode_selected: false, station_selected: false, analysis_completed: false };
+    }
+
+    function saveFunnelSession(s) {
+      localStorage.setItem('navidur_tracking_session', JSON.stringify(s));
+    }
+
+    function resetFunnelSession() {
+      saveFunnelSession({ country_selected: false, mode_selected: false, station_selected: false, analysis_completed: false });
+    }
+
+    function trackOnce(eventType, record) {
+      const s = getFunnelSession();
+      const flagMap = { country_select: 'country_selected', mode_select: 'mode_selected', station_select: 'station_selected', analysis_complete: 'analysis_completed' };
+      const flag = flagMap[eventType];
+      if (!flag || s[flag]) return; // already sent this session
+      s[flag] = true;
+      saveFunnelSession(s);
+      pushTrackingRecord(record);
+      flushTrackingQueue();
+    }
+
     function pushTrackingRecord(record) {
       const key = 'navidur_tracking_queue';
       const current = JSON.parse(localStorage.getItem(key) || '[]');
@@ -3331,8 +3359,7 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
-        pushTrackingRecord({ event_type: 'analysis_complete', station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
-        flushTrackingQueue();
+        trackOnce('analysis_complete', { event_type: 'analysis_complete', station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
         document.getElementById('hotspotScore').textContent = '--';
@@ -3344,7 +3371,7 @@
         setAnalysisLoading(false);
       }
 
-      pushTrackingRecord({
+      trackOnce('station_select', {
         event_type: 'station_select',
         country: selectionTracking.country || (selectedStation ? selectedStation.country : null),
         fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null),
@@ -3355,7 +3382,6 @@
         timestamp: new Date().toISOString(),
         session_id: getSessionId()
       });
-      flushTrackingQueue();
 
       if (!options.silentPopup && stationMarkerMap.has(selectedStation.id)) {
         stationMarkerMap.get(selectedStation.id).openPopup();
