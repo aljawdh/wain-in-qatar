@@ -3187,7 +3187,10 @@
       const hr = getSelectedHourEntry().hour || {};
       const ws = getDisplayedWindKmh(hr);
       const sea = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
-      const wt = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null;
+      const wtForecast = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null;
+      const wtEngine = latestHotspotResult && latestHotspotResult.data && latestHotspotResult.data.temp != null
+        ? Number(latestHotspotResult.data.temp) : null;
+      const wt = wtForecast != null ? wtForecast : (Number.isFinite(wtEngine) ? wtEngine : null);
       const activeHours = getActiveHours();
       const cur = sea;
       const prev = selectedHourIndex > 0
@@ -3455,6 +3458,8 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
+        // Refresh temperature card with engine data now that latestHotspotResult is set
+        renderHero(getForecastDateByIndex(selectedForecastDay));
         trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), region: selectionTracking.region || (selectedStation ? selectedStation.region : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
