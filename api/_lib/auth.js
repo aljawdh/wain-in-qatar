@@ -11,6 +11,26 @@ const ROLE_ORDER = {
   super_admin: 3
 };
 
+function getJwtSecret() {
+  const secret = process.env.NAVIDUR_JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') throw new Error('NAVIDUR_JWT_SECRET is not set — cannot run in production without it');
+    return 'navidur-dev-secret';
+  }
+  return secret;
+}
+
+function getAuthSalt() {
+  const salt = process.env.NAVIDUR_AUTH_SALT;
+  if (!salt) {
+    if (process.env.NODE_ENV === 'production') throw new Error('NAVIDUR_AUTH_SALT is not set — cannot run in production without it');
+    return 'navidur-static-salt';
+  }
+  return salt;
+}
+
+// Field test accounts are DISABLED by default.
+// Set NAVIDUR_ALLOW_FIELD_ACCOUNTS=true in Vercel env to enable them for controlled deployments.
 const FIELD_TEST_ACCOUNTS = [
   { id: 'usr_super_001', username: 'Mohamed_Admin', password: 'SuperAdmin2026!', role: 'super_admin' },
   { id: 'usr_field_admin_001', username: 'field_admin', password: 'FieldAdmin2026!', role: 'admin' },
@@ -18,23 +38,29 @@ const FIELD_TEST_ACCOUNTS = [
   { id: 'usr_field_member_b', username: 'field_member_b', password: 'FieldTestB2026!', role: 'member' }
 ];
 
+function isFieldAccountsEnabled() {
+  return process.env.NAVIDUR_ALLOW_FIELD_ACCOUNTS === 'true';
+}
+
 function getFieldAccountByUsername(username) {
+  if (!isFieldAccountsEnabled()) return null;
   const safe = cleanString(username, 60).toLowerCase();
   return FIELD_TEST_ACCOUNTS.find((a) => a.username.toLowerCase() === safe) || null;
 }
 
 function getFieldAccountById(userId) {
+  if (!isFieldAccountsEnabled()) return null;
   const safe = cleanString(userId, 80);
   return FIELD_TEST_ACCOUNTS.find((a) => a.id === safe) || null;
 }
 
 function hashPassword(password) {
-  const salt = process.env.NAVIDUR_AUTH_SALT || 'navidur-static-salt';
+  const salt = getAuthSalt();
   return crypto.createHash('sha256').update(String(password || '') + '|' + salt).digest('hex');
 }
 
 function signPayload(payload) {
-  const secret = process.env.NAVIDUR_JWT_SECRET || 'navidur-dev-secret';
+  const secret = getJwtSecret();
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto.createHmac('sha256', secret).update(body).digest('base64url');
   return body + '.' + sig;
@@ -43,7 +69,7 @@ function signPayload(payload) {
 function verifyToken(token) {
   if (!token || typeof token !== 'string' || !token.includes('.')) return null;
   const [body, sig] = token.split('.');
-  const secret = process.env.NAVIDUR_JWT_SECRET || 'navidur-dev-secret';
+  const secret = getJwtSecret();
   const expected = crypto.createHmac('sha256', secret).update(body).digest('base64url');
   if (sig !== expected) return null;
   try {
@@ -115,45 +141,47 @@ function clearAuthCookie(res) {
 
 async function login(username, password) {
   const safeUsername = cleanString(username, 60);
-  const users = await readJsonFile('users', []);
-  const user = users.find((u) => String(u.username || '').toLowerCase() === safeUsername.toLowerCase());
   const passHash = hashPassword(password);
 
-  let authUser = user;
-  if (!authUser || authUser.active_status === false) {
-    const field = getFieldAccountByUsername(safeUsername);
-    if (!field) return null;
+  // Fixed accounts are checked FIRST — they always work regardless of DB state.
+  const field = getFieldAccountByUsername(safeUsername);
+  if (field) {
     if (passHash !== hashPassword(field.password)) return null;
-    authUser = {
-      id: field.id,
-      username: field.username,
+    const token = signPayload({
+      user_id: field.id,
       role: field.role,
-      active_status: true,
-      assigned_stations: []
+      username: field.username,
+      exp: Date.now() + (12 * 60 * 60 * 1000)
+    });
+    return {
+      token,
+      user: { id: field.id, username: field.username, role: field.role, assigned_stations: [] }
     };
-  } else if (passHash !== authUser.hashed_password) {
-    return null;
   }
 
-  if (user) {
-    user.last_login = nowIso();
-    await writeJsonFile('users', users);
-  }
+  // Regular DB users
+  const users = await readJsonFile('users', []);
+  const user = users.find((u) => String(u.username || '').toLowerCase() === safeUsername.toLowerCase());
+  if (!user || user.active_status === false) return null;
+  if (passHash !== user.hashed_password) return null;
+
+  user.last_login = nowIso();
+  await writeJsonFile('users', users);
 
   const token = signPayload({
-    user_id: authUser.id,
-    role: authUser.role,
-    username: authUser.username,
+    user_id: user.id,
+    role: user.role,
+    username: user.username,
     exp: Date.now() + (12 * 60 * 60 * 1000)
   });
 
   return {
     token,
     user: {
-      id: authUser.id,
-      username: authUser.username,
-      role: authUser.role,
-      assigned_stations: Array.isArray(authUser.assigned_stations) ? authUser.assigned_stations : []
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      assigned_stations: Array.isArray(user.assigned_stations) ? user.assigned_stations : []
     }
   };
 }

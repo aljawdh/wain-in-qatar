@@ -1656,7 +1656,7 @@
       if (!maintenanceScreen || !maintenanceMessageText) return;
 
       const isMaintenance = runtimeUiSettings.site_mode === 'maintenance';
-      const bypass = getAdminBypassAllowed();
+      const bypass = getAdminBypassAllowed() || isLoggedInMember();
       const show = isMaintenance && !bypass;
       maintenanceScreen.style.display = show ? 'block' : 'none';
 

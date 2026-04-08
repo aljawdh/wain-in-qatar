@@ -1366,6 +1366,18 @@
       }
     }
 
+    // Fishing mode warning bar
+    var unsetModeCount = stationsCache.filter(function (s) { return !s.fishing_mode; }).length;
+    var modeWarnEl = getEl('fishingModeWarningBar');
+    if (modeWarnEl) {
+      if (unsetModeCount > 0) {
+        modeWarnEl.style.display = '';
+        modeWarnEl.textContent = '\u26a0 ' + unsetModeCount + ' \u0645\u062d\u0637\u0629 \u0644\u0645 \u064a\u064f\u062d\u062f\u062f \u0646\u0648\u0639 \u0635\u064a\u062f\u0647\u0627 \u2014 \u0627\u0636\u063a\u0637 \u062a\u0639\u062f\u064a\u0644 \u0648\u062a\u062e\u062a\u0631 \u0633\u0627\u062d\u0644\u064a \u0623\u0648 \u0639\u0645\u0642.';
+      } else {
+        modeWarnEl.style.display = 'none';
+      }
+    }
+
     // Refresh background map markers
     var editingId = _stationEditMode ? (getEl('stId').value.trim() || null) : null;
     refreshAllStationMarkers(editingId);
@@ -1377,11 +1389,23 @@
       var regionBg = isGulf ? 'rgba(255,185,0,.18)' : 'rgba(39,179,255,.12)';
       var regionBorder = isGulf ? 'rgba(255,185,0,.5)' : 'rgba(39,179,255,.3)';
       var regionLabel = isGulf ? ('\u26a0 ' + (st.region || '--')) : (st.region || '--');
+
+      var fm = String(st.fishing_mode || '').toLowerCase();
+      var fmBadge;
+      if (fm === 'deep') {
+        fmBadge = '<span style="background:rgba(100,200,100,.15);border:1px solid rgba(100,200,100,.4);border-radius:6px;padding:2px 7px;font-size:12px">\u0639\u0645\u0642</span>';
+      } else if (fm === 'coastal') {
+        fmBadge = '<span style="background:rgba(39,179,255,.12);border:1px solid rgba(39,179,255,.3);border-radius:6px;padding:2px 7px;font-size:12px">\u0633\u0627\u062d\u0644\u064a</span>';
+      } else {
+        fmBadge = '<span style="background:rgba(255,100,0,.18);border:1px solid rgba(255,100,0,.5);border-radius:6px;padding:2px 7px;font-size:12px">\u26a0 \u0644\u0645 \u064a\u064f\u062d\u062f\u062f</span>';
+      }
+
       var tr = document.createElement('tr');
       tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
         '<td><strong>' + st.name + '</strong><br><span style="font-size:11px;color:#8ea4ba">' + st.id + '</span></td>' +
         '<td><span style="background:' + regionBg + ';border:1px solid ' + regionBorder + ';border-radius:6px;padding:2px 7px;font-size:12px">' + regionLabel + '</span></td>' +
         '<td>' + (st.country || '--') + '</td>' +
+        '<td>' + fmBadge + '</td>' +
         '<td>' + stationStatusBadge(st.status) + '</td>' +
         '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
         '<td>' +
