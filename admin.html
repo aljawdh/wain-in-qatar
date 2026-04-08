@@ -116,6 +116,17 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
 .insight-card{display:flex;align-items:flex-start;gap:9px;background:rgba(10,33,50,.6);border:1px solid rgba(111,220,255,.16);border-radius:10px;padding:9px 12px;font-size:.82rem;color:#d8ecfc;line-height:1.6}
 .insight-icon{font-size:1rem;flex-shrink:0;margin-top:1px}
 @media(max-width:760px){.ops-summary{grid-template-columns:repeat(2,1fr)}.funnel-health-row{grid-template-columns:90px 1fr 40px}}
+/* ── Platform Control Panel ───────────────────────────── */
+.platform-ctrl-wrap{background:linear-gradient(160deg,#0b1f30,#0a1a27);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px 20px;margin-bottom:4px}
+.platform-ctrl-label{font-size:.75rem;color:var(--txt3);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+.platform-mode-btns{display:flex;gap:10px}
+.platform-mode-btn{flex:1;background:var(--bg3);border:2px solid rgba(255,255,255,.1);color:var(--txt2);border-radius:12px;padding:14px 10px;font-size:.95rem;font-family:inherit;cursor:pointer;font-weight:700;transition:border-color .2s,background .2s,color .2s;line-height:1.4;text-align:center}
+.platform-mode-btn .pmode-sub{display:block;font-size:.7rem;font-weight:400;color:var(--txt3);margin-top:3px}
+.platform-mode-btn.active-open{background:rgba(38,194,129,.15);border-color:#26c281;color:#8bf2ca}
+.platform-mode-btn.active-closed{background:rgba(255,185,0,.12);border-color:#ffb300;color:#ffe7aa}
+.platform-mode-info{margin-top:12px;font-size:.82rem;padding:8px 12px;border-radius:8px;display:none}
+.platform-mode-info.info-open{display:block;background:rgba(38,194,129,.1);border:1px solid rgba(38,194,129,.25);color:#8bf2ca}
+.platform-mode-info.info-closed{display:block;background:rgba(255,185,0,.08);border:1px solid rgba(255,185,0,.3);color:#ffe7aa}
 </style>
 </head>
 <body>
@@ -367,92 +378,72 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           </div>
 
           <div class="admin-section admin-block" data-section="settings">
-            <h4><i class="fa-solid fa-pen-ruler"></i> إعدادات الواجهة</h4>
-            <div class="section-subtitle">إعدادات العرض والتشغيل في مكان مستقل لسهولة التعديل بدون تشتيت.</div>
-            <div class="admin-form-grid">
-              <div class="admin-field full">
-                <label for="headerTextInput">نص الهيدر</label>
-                <input type="text" id="headerTextInput" placeholder="مثال: نافي دور - النسخة المباشرة">
-              </div>
-              <div class="admin-field">
-                <label for="headerColorInput">لون الهيدر/التمييز</label>
-                <input type="text" id="headerColorInput" placeholder="#27b3ff">
-              </div>
-              <div class="admin-field">
-                <label for="hijriOffsetInput">تعديل التاريخ الهجري</label>
-                <input type="number" id="hijriOffsetInput" placeholder="0">
-              </div>
-              <div class="admin-field"><label for="footerNameInput">الاسم</label><input type="text" id="footerNameInput"></div>
-              <div class="admin-field"><label for="footerPhoneInput">الهاتف</label><input type="text" id="footerPhoneInput"></div>
-              <div class="admin-field full"><label for="footerEmailInput">البريد</label><input type="text" id="footerEmailInput"></div>
-              <div class="admin-field full"><label for="footerSponsorInput">الراعي</label><input type="text" id="footerSponsorInput"></div>
-              <div class="admin-field full"><label for="footerSponsorLinkInput">رابط الراعي</label><input type="text" id="footerSponsorLinkInput"></div>
+            <h4><i class="fa-solid fa-sliders"></i> التحكم في المنصة</h4>
+            <div class="section-subtitle">تحكم في حالة المنصة وإمكانية الوصول العام.</div>
 
-              <div class="admin-field full">
-                <div class="admin-switch">
-                  <input type="checkbox" id="adBannerEnabled">
-                  <label for="adBannerEnabled">تفعيل بانر الإعلان</label>
-                </div>
+            <!-- ── Platform mode toggle ─────────────────── -->
+            <div class="platform-ctrl-wrap">
+              <div class="platform-ctrl-label">وضع المنصة</div>
+              <div class="platform-mode-btns">
+                <button type="button" class="platform-mode-btn" id="platformModeOpenBtn">
+                  🌐 مفتوح <span class="pmode-sub">للعامة</span>
+                </button>
+                <button type="button" class="platform-mode-btn" id="platformModeClosedBtn">
+                  🔒 مغلق <span class="pmode-sub">وضع الاختبار</span>
+                </button>
               </div>
-              <div class="admin-field full"><label for="adBannerImageInput">رابط صورة الإعلان</label><input type="text" id="adBannerImageInput"></div>
-              <div class="admin-field full"><label for="adBannerLinkInput">رابط الوجهة</label><input type="text" id="adBannerLinkInput"></div>
-              <div class="admin-field full"><label for="adsJsonInput">Ads JSON</label><textarea id="adsJsonInput"></textarea></div>
-
-              <div class="admin-field full">
-                <div class="admin-switch">
-                  <input type="checkbox" id="featurePredictionToggle" checked>
-                  <label for="featurePredictionToggle">تفعيل قسم التوقعات</label>
-                </div>
-              </div>
-              <div class="admin-field">
-                <label for="siteModeInput">وضع الموقع</label>
-                <select id="siteModeInput">
-                  <option value="live">live</option>
-                  <option value="maintenance">maintenance</option>
-                  <option value="private_beta">private_beta</option>
-                </select>
-              </div>
-              <div class="admin-field">
-                <label for="stationListModeInput">عرض قائمة المحطات</label>
-                <select id="stationListModeInput">
-                  <option value="chips">chips</option>
-                  <option value="classic">classic</option>
-                  <option value="grouped">grouped</option>
-                </select>
-              </div>
-              <div class="admin-field">
-                <label for="locationModeInput">وضع الموقع</label>
-                <select id="locationModeInput">
-                  <option value="off">off</option>
-                  <option value="ask">ask</option>
-                  <option value="auto">auto</option>
-                </select>
-              </div>
-              <div class="admin-field full">
-                <label for="maintenanceMessageInput">رسالة الصيانة</label>
-                <textarea id="maintenanceMessageInput" placeholder="الموقع تحت الصيانة حالياً..."></textarea>
-              </div>
-              <div class="admin-field full">
-                <div class="admin-switch">
-                  <input type="checkbox" id="allowAdminBypassInput" checked>
-                  <label for="allowAdminBypassInput">السماح بتجاوز الصيانة للمشرف</label>
-                </div>
-              </div>
-              <div class="admin-field full">
-                <div class="admin-switch">
-                  <input type="checkbox" id="sortStationsByDistanceInput">
-                  <label for="sortStationsByDistanceInput">ترتيب المحطات حسب الأقرب</label>
-                </div>
-              </div>
-              <div class="admin-field full"><label for="featuresJsonInput">Features JSON</label><textarea id="featuresJsonInput"></textarea></div>
-              <div class="admin-field full"><label for="fishDataInput">Fish Data JSON</label><textarea id="fishDataInput"></textarea></div>
+              <div class="platform-mode-info" id="platformModeInfo"></div>
             </div>
+
+            <!-- ── Closure message ──────────────────────── -->
+            <div id="closureMsgWrap" style="display:none;margin-top:16px">
+              <label for="maintenanceMessageInput" style="display:block;font-size:.88rem;color:#9fc1d7;margin-bottom:6px">رسالة الإغلاق <span style="font-weight:400;color:#8ea4ba">(تظهر للزوار عند محاولة الدخول)</span></label>
+              <textarea id="maintenanceMessageInput" placeholder="المنصة في وضع الاختبار حالياً. سنعود قريباً." style="width:100%;min-height:72px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;font-size:.9rem;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+            </div>
+
+            <!-- ── Actions ──────────────────────────────── -->
             <div class="settings-actions">
-              <button class="settings-btn secondary" id="reloadSettingsBtn">إعادة تحميل</button>
-              <button class="settings-btn" id="saveSettingsBtn">حفظ الإعدادات</button>
+              <button class="settings-btn" id="saveSettingsBtn">حفظ</button>
+              <button class="settings-btn secondary" id="reloadSettingsBtn">تحديث البيانات</button>
               <button class="settings-btn danger" id="logoutBtn">تسجيل الخروج</button>
             </div>
             <div class="settings-status" id="settingsStatus">جاهز.</div>
+
+            <!-- ── Hidden fields for backend compatibility ─ -->
+            <div style="display:none" aria-hidden="true">
+              <select id="siteModeInput">
+                <option value="live">live</option>
+                <option value="maintenance">maintenance</option>
+                <option value="private_beta">private_beta</option>
+              </select>
+              <select id="stationListModeInput">
+                <option value="grouped" selected>grouped</option>
+                <option value="chips">chips</option>
+                <option value="classic">classic</option>
+              </select>
+              <select id="locationModeInput">
+                <option value="ask" selected>ask</option>
+                <option value="off">off</option>
+                <option value="auto">auto</option>
+              </select>
+              <input type="checkbox" id="allowAdminBypassInput" checked>
+              <input type="checkbox" id="sortStationsByDistanceInput">
+              <input type="checkbox" id="adBannerEnabled">
+              <input type="text" id="adBannerImageInput">
+              <input type="text" id="adBannerLinkInput">
+              <textarea id="adsJsonInput"></textarea>
+              <input type="checkbox" id="featurePredictionToggle" checked>
+              <textarea id="featuresJsonInput"></textarea>
+              <textarea id="fishDataInput"></textarea>
+              <input type="text" id="headerTextInput">
+              <input type="text" id="headerColorInput" value="#27b3ff">
+              <input type="number" id="hijriOffsetInput" value="-1">
+              <input type="text" id="footerNameInput">
+              <input type="text" id="footerPhoneInput">
+              <input type="text" id="footerEmailInput">
+              <input type="text" id="footerSponsorInput">
+              <input type="text" id="footerSponsorLinkInput">
+            </div>
           </div>
         </div>
       </div>

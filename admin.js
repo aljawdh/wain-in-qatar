@@ -356,6 +356,38 @@
 
     var featuresJsonEl = queryFirst(['#featuresJsonInput', '#featuresJson', 'textarea[name="featuresJson"]']);
     if (featuresJsonEl) featuresJsonEl.value = JSON.stringify(s.features, null, 2);
+
+    syncPlatformToggle(s.site_mode || 'live');
+  }
+
+  function syncPlatformToggle(siteMode) {
+    var isClosed = siteMode === 'maintenance' || siteMode === 'private_beta';
+    var openBtn = getEl('platformModeOpenBtn');
+    var closedBtn = getEl('platformModeClosedBtn');
+    var infoEl = getEl('platformModeInfo');
+    var msgWrap = getEl('closureMsgWrap');
+
+    if (openBtn) {
+      openBtn.classList.toggle('active-open', !isClosed);
+      openBtn.classList.toggle('active-closed', false);
+    }
+    if (closedBtn) {
+      closedBtn.classList.toggle('active-closed', isClosed);
+      closedBtn.classList.toggle('active-open', false);
+    }
+    if (infoEl) {
+      infoEl.className = 'platform-mode-info ' + (isClosed ? 'info-closed' : 'info-open');
+      if (isClosed) {
+        infoEl.textContent = '🔒 المنصة مغلقة — المديرون والأعضاء المسجّلون فقط يمكنهم الدخول. الجمهور محجوب.';
+      } else {
+        infoEl.textContent = '🌐 المنصة مفتوحة — الجميع يمكنهم الوصول.';
+      }
+    }
+    if (msgWrap) msgWrap.style.display = isClosed ? '' : 'none';
+
+    // Keep allowAdminBypass always enabled so admin is never locked out
+    var bypassEl = getEl('allowAdminBypassInput');
+    if (bypassEl) bypassEl.checked = true;
   }
 
   function collectSettingsFromForm() {
@@ -1676,6 +1708,24 @@
 
     var logoutBtn = getEl('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
+
+    // Platform mode toggle buttons
+    var openBtn = getEl('platformModeOpenBtn');
+    var closedBtn = getEl('platformModeClosedBtn');
+    if (openBtn) {
+      openBtn.addEventListener('click', function () {
+        var sel = getEl('siteModeInput');
+        if (sel) sel.value = 'live';
+        syncPlatformToggle('live');
+      });
+    }
+    if (closedBtn) {
+      closedBtn.addEventListener('click', function () {
+        var sel = getEl('siteModeInput');
+        if (sel) sel.value = 'maintenance';
+        syncPlatformToggle('maintenance');
+      });
+    }
   }
 
   function initStationFormBindings() {
