@@ -22,6 +22,7 @@
   var currentPeriod = 'all';
   var stationsAdminMap = null;
   var stationAdminMarker = null;
+  var allStationMarkersList = [];
   var stationReverseRequestId = 0;
   var waterCheckState = { isWater: null, lat: null, lon: null, checking: false, result: 'unknown', fallback: false };
   // result values: 'unknown' | 'confirmed_water' | 'confirmed_land' | 'uncertain'
@@ -1068,6 +1069,31 @@
 
   // ── End water placement validation ─────────────────────────────────────────
 
+  function refreshAllStationMarkers(editingId) {
+    allStationMarkersList.forEach(function (m) {
+      if (stationsAdminMap) stationsAdminMap.removeLayer(m.marker);
+    });
+    allStationMarkersList = [];
+    if (!stationsAdminMap) return;
+    stationsCache.forEach(function (st) {
+      if (!st.lat || !st.lon) return;
+      if (editingId && st.id === editingId) return;
+      var lat = Number(st.lat);
+      var lon = Number(st.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      var hasGulf = (st.region || '').toLowerCase() === 'gulf';
+      var m = L.circleMarker([lat, lon], {
+        radius: 7,
+        color: hasGulf ? '#ffb300' : '#27b3ff',
+        fillColor: hasGulf ? '#ffd54f' : '#0ea5e9',
+        fillOpacity: 0.75,
+        weight: 2
+      }).addTo(stationsAdminMap);
+      m.bindTooltip((hasGulf ? '⚠ ' : '') + st.name + (st.region ? ' (' + st.region + ')' : '') + ' — ' + (st.country || ''), { permanent: false, direction: 'top' });
+      allStationMarkersList.push({ id: st.id, marker: m });
+    });
+  }
+
   function setStationMarker(lat, lon, shouldCenter) {
     if (!stationsAdminMap || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
     if (!stationAdminMarker) {
@@ -1158,7 +1184,7 @@
     if (!mapEl || typeof L === 'undefined') return;
     if (stationsAdminMap) return;
 
-    stationsAdminMap = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([25.2854, 51.5310], 8);
+    stationsAdminMap = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([24.0, 53.0], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
@@ -1213,6 +1239,7 @@
     var wrapEl = getEl('newRegionWrap');
     if (wrapEl) wrapEl.style.display = 'none';
     syncStationMapFromInputs(true);
+    refreshAllStationMarkers(_stationEditMode ? (st.id || null) : null);
     if (st.lat != null && st.lon != null) {
       reverseGeocodeStation(Number(st.lat), Number(st.lon));
     } else {
@@ -1226,6 +1253,7 @@
       stationsAdminMap.removeLayer(stationAdminMarker);
       stationAdminMarker = null;
     }
+    refreshAllStationMarkers(null);
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
     waterCheckState.isWater = null;
@@ -1294,13 +1322,33 @@
     var data = await res.json();
     stationsCache = Array.isArray(data.stations) ? data.stations : [];
 
+    // Gulf warning bar
+    var gulfCount = stationsCache.filter(function (s) { return (s.region || '').toLowerCase() === 'gulf'; }).length;
+    var warnEl = getEl('gulfWarningBar');
+    if (warnEl) {
+      if (gulfCount > 0) {
+        warnEl.style.display = '';
+        warnEl.textContent = '\u26a0 ' + gulfCount + ' \u0645\u062d\u0637\u0629 \u0644\u0627 \u062a\u0632\u0627\u0644 \u062a\u0633\u062a\u062e\u062f\u0645 region = gulf \u2014 \u0627\u0646\u0642\u0631 \u062a\u0639\u062f\u064a\u0644 \u0644\u062a\u0635\u062d\u064a\u062d \u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0641\u0639\u0644\u064a\u0629.';
+      } else {
+        warnEl.style.display = 'none';
+      }
+    }
+
+    // Refresh background map markers
+    var editingId = _stationEditMode ? (getEl('stId').value.trim() || null) : null;
+    refreshAllStationMarkers(editingId);
+
     var body = getEl('stationsBody');
     body.innerHTML = '';
     stationsCache.forEach(function (st, idx) {
+      var isGulf = (st.region || '').toLowerCase() === 'gulf';
+      var regionBg = isGulf ? 'rgba(255,185,0,.18)' : 'rgba(39,179,255,.12)';
+      var regionBorder = isGulf ? 'rgba(255,185,0,.5)' : 'rgba(39,179,255,.3)';
+      var regionLabel = isGulf ? ('\u26a0 ' + (st.region || '--')) : (st.region || '--');
       var tr = document.createElement('tr');
       tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
         '<td><strong>' + st.name + '</strong><br><span style="font-size:11px;color:#8ea4ba">' + st.id + '</span></td>' +
-        '<td><span style="background:rgba(39,179,255,.12);border:1px solid rgba(39,179,255,.3);border-radius:6px;padding:2px 7px;font-size:12px">' + (st.region || '--') + '</span></td>' +
+        '<td><span style="background:' + regionBg + ';border:1px solid ' + regionBorder + ';border-radius:6px;padding:2px 7px;font-size:12px">' + regionLabel + '</span></td>' +
         '<td>' + (st.country || '--') + '</td>' +
         '<td>' + stationStatusBadge(st.status) + '</td>' +
         '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
@@ -1308,7 +1356,7 @@
           '<div class="inline-actions">' +
             '<button class="small-btn" data-action="edit" data-id="' + st.id + '">تعديل</button>' +
             '<button class="small-btn warn" data-action="toggle" data-id="' + st.id + '">' + (st.status === 'disabled' ? 'تفعيل' : 'تعطيل') + '</button>' +
-            '<button class="small-btn danger" data-action="archive" data-id="' + st.id + '">Archive</button>' +
+            '<button class="small-btn danger" data-action="delete" data-id="' + st.id + '" data-name="' + (st.name || '').replace(/"/g, '&quot;') + '">حذف</button>' +
           '</div>' +
         '</td>';
       body.appendChild(tr);
@@ -1337,8 +1385,21 @@
           return;
         }
 
-        if (action === 'archive') {
-          await apiFetch('/api/admin/stations/' + encodeURIComponent(id), { method: 'DELETE' });
+        if (action === 'delete') {
+          var stName = btn.getAttribute('data-name') || id;
+          if (!window.confirm('حذف نهائي للمحطة "' + stName + '"؟\nلا يمكن التراجع عن هذا الإجراء.')) return;
+          var delRes = await apiFetch('/api/admin/stations/' + encodeURIComponent(id), { method: 'DELETE' });
+          if (!delRes.ok) {
+            var delErr = '';
+            try { delErr = await delRes.text(); } catch (_) {}
+            alert('فشل الحذف: ' + (delErr || delRes.status));
+            return;
+          }
+          // Remove from map marker list immediately
+          allStationMarkersList = allStationMarkersList.filter(function (m) {
+            if (m.id === id) { if (stationsAdminMap) stationsAdminMap.removeLayer(m.marker); return false; }
+            return true;
+          });
           await loadStations();
         }
       });

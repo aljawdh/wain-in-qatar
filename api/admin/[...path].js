@@ -177,10 +177,11 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      rows[idx] = { ...rows[idx], status: 'archived', updated_at: nowIso() };
+      const deleted = rows[idx];
+      rows.splice(idx, 1);
       await writeJsonFile('stations', rows);
-      await writeAudit('station_archived', actor, { station_id: rows[idx].id, station_name: rows[idx].name });
-      return res.status(200).json({ ok: true, station: rows[idx] });
+      await writeAudit('station_deleted', actor, { station_id: deleted.id, station_name: deleted.name });
+      return res.status(200).json({ ok: true, deleted: true, station_id: deleted.id });
     }
 
     res.setHeader('Allow', 'PUT, DELETE, PATCH');
