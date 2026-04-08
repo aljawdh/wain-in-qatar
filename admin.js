@@ -1296,6 +1296,7 @@
         }
       });
     });
+  }
 
   async function saveStationFromForm() {
     var status = getEl('stationsStatus');
