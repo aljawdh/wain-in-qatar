@@ -1165,15 +1165,13 @@
 
   function readStationForm() {
     var active = !!getEl('stActive').checked;
-    var areaVal = (getEl('stArea').value.trim()) || (getEl('stAreaSelect').value.trim()) || '';
     return {
       id: getEl('stId').value.trim() || undefined,
       name: getEl('stName').value.trim(),
       lat: Number(getEl('stLat').value),
       lon: Number(getEl('stLon').value),
       country: getEl('stCountry').value.trim(),
-      area: areaVal,
-      region: getEl('stRegion').value.trim() || 'gulf',
+      region: getEl('stRegion').value.trim() || '',
       fishing_mode: getEl('stFishingMode').value === 'deep' ? 'deep' : 'coastal',
       status: active ? 'active' : 'disabled',
       sort_order: Number(getEl('stSort').value || 0),
@@ -1189,9 +1187,7 @@
     getEl('stLat').value = st.lat != null ? st.lat : '';
     getEl('stLon').value = st.lon != null ? st.lon : '';
     getEl('stCountry').value = st.country || '';
-    getEl('stArea').value = st.area || '';
-    rebuildAreaSelect(st.country || '', st.area || '');
-    getEl('stRegion').value = st.region || 'gulf';
+    getEl('stRegion').value = st.region || '';
     getEl('stFishingMode').value = st.fishing_mode === 'deep' ? 'deep' : 'coastal';
     getEl('stActive').checked = st.status !== 'disabled' && st.status !== 'archived';
     getEl('stSort').value = st.sort_order != null ? st.sort_order : 1;
@@ -1207,7 +1203,7 @@
   }
 
   function clearStationForm() {
-    fillStationForm({ id: '', name: '', lat: '', lon: '', country: '', area: '', region: 'gulf', fishing_mode: 'coastal', status: 'active', sort_order: 1, default_radius: 0.02, notes: '', assigned_members: [] });
+    fillStationForm({ id: '', name: '', lat: '', lon: '', country: '', region: '', fishing_mode: 'coastal', status: 'active', sort_order: 1, default_radius: 0.02, notes: '', assigned_members: [] });
     if (stationAdminMarker && stationsAdminMap) {
       stationsAdminMap.removeLayer(stationAdminMarker);
       stationAdminMarker = null;
@@ -1223,85 +1219,26 @@
     setWaterStatus('unknown', '');
   }
 
-  // ── Area / region helpers ─────────────────────────────────────────────────
 
-  function getAreasForCountry(country) {
+  // ── Region helpers ────────────────────────────────────────────────────────
+
+  function getRegionsForCountry(country) {
     var seen = new Set();
-    var areas = [];
+    var regions = [];
     stationsCache.forEach(function (st) {
       if (country && st.country !== country) return;
-      var a = st.area || st.name || '';
-      if (a && !seen.has(a)) { seen.add(a); areas.push(a); }
+      var r = st.region || '';
+      if (r && !seen.has(r)) { seen.add(r); regions.push(r); }
     });
-    return areas;
+    return regions;
   }
 
-  function getStationsInArea(country, area) {
-    return stationsCache.filter(function (st) {
-      return (!country || st.country === country) && (st.area || st.name || '') === area;
+  function suggestAutoNumber(country, region) {
+    if (!region) return '';
+    var existing = stationsCache.filter(function (st) {
+      return (!country || st.country === country) && st.region === region;
     });
-  }
-
-  function rebuildAreaSelect(country, selectedArea) {
-    var sel = getEl('stAreaSelect');
-    if (!sel) return;
-    var prev = selectedArea || sel.value;
-    sel.innerHTML = '<option value="">\u2014 \u0645\u0646\u0637\u0642\u0629 \u062c\u062f\u064a\u062f\u0629 \u2014</option>';
-    var areas = getAreasForCountry(country);
-    areas.forEach(function (a) {
-      var opt = document.createElement('option');
-      opt.value = a;
-      opt.textContent = a;
-      if (a === prev) opt.selected = true;
-      sel.appendChild(opt);
-    });
-  }
-
-  function suggestAutoNumber(country, area) {
-    if (!area) return '';
-    var existing = getStationsInArea(country, area);
-    var next = existing.length + 1;
-    return area + ' ' + String(next).padStart(2, '0');
-  }
-
-  function setupAreaControls() {
-    var countryEl = getEl('stCountry');
-    var areaSelectEl = getEl('stAreaSelect');
-    var areaInputEl = getEl('stArea');
-    var nameEl = getEl('stName');
-    var hintEl = getEl('stAreaAutoHint');
-
-    if (!countryEl || !areaSelectEl || !areaInputEl) return;
-
-    // When country changes, rebuild area dropdown
-    countryEl.addEventListener('input', function () {
-      rebuildAreaSelect(countryEl.value.trim(), '');
-      areaInputEl.value = '';
-      if (hintEl) hintEl.textContent = '';
-    });
-
-    // When area is selected from dropdown, sync text input + suggest name
-    areaSelectEl.addEventListener('change', function () {
-      var area = areaSelectEl.value;
-      if (area) {
-        areaInputEl.value = area;
-        var suggested = suggestAutoNumber(countryEl.value.trim(), area);
-        if (suggested && !nameEl.value.trim()) {
-          nameEl.value = suggested;
-        }
-        if (hintEl) hintEl.textContent = suggested ? '\u0627\u0633\u0645 \u0645\u0642\u062a\u0631\u062d: ' + suggested : '';
-      } else {
-        areaInputEl.value = '';
-        if (hintEl) hintEl.textContent = '';
-      }
-    });
-
-    // When area text changes, update hint
-    areaInputEl.addEventListener('input', function () {
-      var area = areaInputEl.value.trim();
-      var suggested = suggestAutoNumber(countryEl.value.trim(), area);
-      if (hintEl) hintEl.textContent = (area && suggested) ? '\u0627\u0633\u0645 \u0645\u0642\u062a\u0631\u062d: ' + suggested : '';
-    });
+    return region + ' ' + String(existing.length + 1).padStart(2, '0');
   }
 
   async function loadStations() {
@@ -1318,7 +1255,7 @@
         '<td><strong>' + st.name + '</strong><br><span style="font-size:12px;color:#8ea4ba">' + st.id + '</span></td>' +
         '<td>' + stationStatusBadge(st.status) + '</td>' +
         '<td>' + (st.country || '--') + '</td>' +
-        '<td>' + (st.area || '--') + '</td>' +
+        '<td>' + (st.region || '--') + '</td>' +
         '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
         '<td>' +
           '<div class="inline-actions">' +
@@ -1359,12 +1296,6 @@
         }
       });
     });
-
-    // Refresh area dropdown to reflect newly loaded stations
-    var currentCountry = getEl('stCountry') ? getEl('stCountry').value.trim() : '';
-    var currentArea = getEl('stArea') ? getEl('stArea').value.trim() : '';
-    rebuildAreaSelect(currentCountry, currentArea);
-  }
 
   async function saveStationFromForm() {
     var status = getEl('stationsStatus');
@@ -1681,7 +1612,6 @@
     getEl('createUserBtn').addEventListener('click', createUserFromForm);
     getEl('loadFeedbackBtn').addEventListener('click', function () { loadFeedback(); });
     initStationsAdminMap();
-    setupAreaControls();
 
     bindSettingsActions();
 
