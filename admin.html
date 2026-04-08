@@ -271,14 +271,24 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
 
           <div class="admin-section admin-block" data-section="stations">
             <h4><i class="fa-solid fa-location-dot"></i> إدارة المحطات</h4>
-            <div class="section-subtitle">إضافة وتعديل المحطات عبر الخريطة مباشرة، مع تحديد الدولة ونوع الصيد لكل محطة.</div>
+            <div class="section-subtitle">إضافة وتعديل المحطات عبر الخريطة. التسلسل: الدولة ← المنطقة ← المحطة. يمكن إنشاء منطقة جديدة مباشرة عند إضافة المحطة.</div>
             <div class="admin-form-grid">
               <div class="admin-field"><label>ID (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
               <div class="admin-field"><label>اسم المحطة (مطلوب)</label><input id="stName" type="text"></div>
               <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
               <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
-              <div class="admin-field"><label>Country</label><input id="stCountry" type="text"></div>
-              <div class="admin-field"><label>Region</label><input id="stRegion" type="text" value="gulf"></div>
+              <div class="admin-field"><label>الدولة</label><input id="stCountry" type="text" placeholder="قطر"></div>
+              <div class="admin-field">
+                <label>المنطقة (تحديد أو إنشاء جديدة)</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <select id="stAreaSelect" style="flex:1;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 11px;font-size:.88rem;font-family:inherit">
+                    <option value="">— منطقة جديدة —</option>
+                  </select>
+                  <input id="stArea" type="text" placeholder="اسم المنطقة" style="flex:1">
+                </div>
+                <small id="stAreaAutoHint" style="color:#8ea4ba;font-size:11px;margin-top:4px;display:block"></small>
+              </div>
+              <div class="admin-field"><label>Sea Region</label><input id="stRegion" type="text" value="gulf"></div>
               <div class="admin-field"><label>نوع الصيد</label><select id="stFishingMode"><option value="coastal">ساحلي</option><option value="deep">غزير</option></select></div>
               <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
               <div class="admin-field"><label>Radius</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
@@ -306,7 +316,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <hr class="sep">
             <div class="table-wrap">
               <table class="admin-table">
-                <thead><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>الدولة</th><th>نوع الصيد</th><th>Radius</th><th>إجراءات</th></tr></thead>
+                <thead><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>الدولة</th><th>المنطقة</th><th>Radius</th><th>إجراءات</th></tr></thead>
                 <tbody id="stationsBody"></tbody>
               </table>
             </div>

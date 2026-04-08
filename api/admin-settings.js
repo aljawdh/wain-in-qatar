@@ -43,11 +43,14 @@ function isAllowedOrigin(req) {
   return okOrigin || okReferer || localhost || sameHostFromOrigin || sameHostFromReferer || previewOriginAllowed || previewRefererAllowed || missingHeadersButKnownHost;
 }
 
-function getMemoryStore() {
-  if (!globalThis.__NAVIDUR_SETTINGS__) {
-    globalThis.__NAVIDUR_SETTINGS__ = null;
+function assertSettingsPersistence() {
+  if (process.env.VERCEL && !isKvConfigured()) {
+    throw new Error(
+      'persistent_store_not_configured: ' +
+      'Set KV_REST_API_URL and KV_REST_API_TOKEN (Upstash Redis) ' +
+      'in Vercel project environment variables to enable persistent settings storage.'
+    );
   }
-  return globalThis;
 }
 
 function defaultSettings() {
@@ -190,11 +193,11 @@ async function readSettings() {
     }
   }
 
-  const mem = getMemoryStore();
-  if (!mem.__NAVIDUR_SETTINGS__) {
-    mem.__NAVIDUR_SETTINGS__ = defaultSettings();
-  }
-  return normalizeSettings(mem.__NAVIDUR_SETTINGS__);
+  // Vercel without KV: refuse to operate on ephemeral memory.
+  assertSettingsPersistence();
+
+  // Local development: return defaults (settings are not critical in dev).
+  return defaultSettings();
 }
 
 async function writeSettings(nextSettings) {
@@ -205,8 +208,10 @@ async function writeSettings(nextSettings) {
     return normalized;
   }
 
-  const mem = getMemoryStore();
-  mem.__NAVIDUR_SETTINGS__ = normalized;
+  // Vercel without KV: refuse to silently lose settings on next cold start.
+  assertSettingsPersistence();
+
+  // Local development: no-op write (settings are ephemeral in dev — that's fine).
   return normalized;
 }
 
@@ -226,7 +231,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         key: SETTINGS_KEY,
-        source: isKvConfigured() ? 'upstash-kv-rest' : 'memory-fallback',
+        source: isKvConfigured() ? 'upstash-kv-rest' : 'local-dev-defaults',
         settings: settings
       });
     } catch (e) {
@@ -242,7 +247,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         key: SETTINGS_KEY,
-        source: isKvConfigured() ? 'upstash-kv-rest' : 'memory-fallback',
+        source: isKvConfigured() ? 'upstash-kv-rest' : 'local-dev-defaults',
         settings: saved
       });
     } catch (e) {

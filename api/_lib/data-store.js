@@ -4,7 +4,9 @@ const { Redis } = require('@upstash/redis');
 const fs = require('fs/promises');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+// Bundled seed data shipped with the deployment (read-only on Vercel).
+// Used ONLY for one-time KV bootstrap and local development writes.
+const DATA_SEED_DIR = path.join(__dirname, '..', '..', 'data');
 
 const FILES = {
   users: 'users.json',
@@ -36,128 +38,81 @@ function kvStoreKey(key) {
   return 'navidur_store_' + key;
 }
 
-function getRuntimeStoreBaseUrl() {
-  const explicit = String(process.env.NAVIDUR_STORE_URL || '').trim();
-  if (explicit) return explicit.replace(/\/$/, '');
-  const appUrl = String(process.env.NAVIDUR_APP_URL || 'https://navidur.app').trim();
-  return (/^https?:\/\//i.test(appUrl) ? appUrl : 'https://' + appUrl).replace(/\/$/, '');
-}
-
-function shouldUseRuntimeStore() {
-  return !getKv() && !!process.env.VERCEL;
-}
-
-function getRuntimeStoreSecret() {
-  return String(process.env.NAVIDUR_STORE_SECRET || process.env.NAVIDUR_JWT_SECRET || 'navidur-dev-secret');
-}
-
-async function runtimeStoreRead(key) {
-  const url = getRuntimeStoreBaseUrl() + '/api/runtime-store?key=' + encodeURIComponent(key);
-  const headers = { 'x-navidur-store-secret': getRuntimeStoreSecret() };
-  const res = await fetch(url, {
-    method: 'GET',
-    headers
-  });
-  if (!res.ok) throw new Error('runtime_store_read_failed_' + res.status);
-  return res.json();
-}
-
-async function runtimeStoreWrite(key, value) {
-  const url = getRuntimeStoreBaseUrl() + '/api/runtime-store';
-  const headers = {
-    'Content-Type': 'application/json',
-    'x-navidur-store-secret': getRuntimeStoreSecret()
-  };
-  const body = JSON.stringify({ key, value });
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body
-  });
-  if (!res.ok) throw new Error('runtime_store_write_failed_' + res.status);
-}
-
-async function readFromFileStore(key, fallback) {
-  const full = filePath(key);
+// Read the bundled seed file. Used for:
+//   1. One-time KV bootstrap on first deploy or after a KV flush.
+//   2. All reads/writes in local development (data/ is writable).
+async function readSeedFile(key, fallback) {
+  const fname = FILES[key];
+  if (!fname) return JSON.parse(JSON.stringify(fallback));
   try {
-    const raw = await fs.readFile(full, 'utf8');
+    const raw = await fs.readFile(path.join(DATA_SEED_DIR, fname), 'utf8');
     return JSON.parse(raw);
-  } catch (err) {
-    if (err && err.code === 'ENOENT') {
-      return JSON.parse(JSON.stringify(fallback));
-    }
+  } catch (_) {
     return JSON.parse(JSON.stringify(fallback));
   }
 }
 
-async function writeToFileStore(key, value) {
-  await ensureDataDir();
-  const full = filePath(key);
+// Write directly to data/ — only used in local development (not on Vercel).
+async function writeToSeedFile(key, value) {
+  await fs.mkdir(DATA_SEED_DIR, { recursive: true });
+  const fname = FILES[key];
+  if (!fname) throw new Error('unknown_store_key_' + key);
+  const full = path.join(DATA_SEED_DIR, fname);
   const tmp = full + '.tmp';
-  const content = JSON.stringify(value, null, 2) + '\n';
-  await fs.writeFile(tmp, content, 'utf8');
+  await fs.writeFile(tmp, JSON.stringify(value, null, 2) + '\n', 'utf8');
   await fs.rename(tmp, full);
 }
 
-async function ensureDataDir() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-}
-
-function filePath(key) {
-  const name = FILES[key];
-  if (!name) throw new Error('unknown_store_key_' + key);
-  return path.join(DATA_DIR, name);
+// On Vercel without KV configured, throw a clear error so callers surface a
+// meaningful 500 / 503 instead of silently returning stale or ephemeral data.
+function assertPersistentStoreAvailable() {
+  if (process.env.VERCEL && !getKv()) {
+    throw new Error(
+      'persistent_store_not_configured: ' +
+      'Set KV_REST_API_URL and KV_REST_API_TOKEN (Upstash Redis) ' +
+      'in Vercel project environment variables to enable persistent station storage.'
+    );
+  }
 }
 
 async function readJsonFile(key, fallback) {
   const kv = getKv();
+
   if (kv) {
     const storeKey = kvStoreKey(key);
-    try {
-      const raw = await kv.get(storeKey);
-      if (raw != null) {
-        if (typeof raw === 'string') return JSON.parse(raw);
-        return raw;
-      }
-      const seeded = await readFromFileStore(key, fallback);
-      await kv.set(storeKey, JSON.stringify(seeded));
-      return JSON.parse(JSON.stringify(seeded));
-    } catch (_err) {
-      return JSON.parse(JSON.stringify(fallback));
+    // Let KV errors propagate — callers should surface them, not swallow them.
+    const raw = await kv.get(storeKey);
+    if (raw != null) {
+      if (typeof raw === 'string') return JSON.parse(raw);
+      return raw;
     }
+    // KV key absent — one-time bootstrap from bundled seed file.
+    // This only happens on first deploy or after an explicit KV flush.
+    // After this point the seed file is never consulted for reads again.
+    const seeded = await readSeedFile(key, fallback);
+    await kv.set(storeKey, JSON.stringify(seeded));
+    return JSON.parse(JSON.stringify(seeded));
   }
 
-  if (shouldUseRuntimeStore()) {
-    try {
-      const storeKey = kvStoreKey(key);
-      const payload = await runtimeStoreRead(storeKey);
-      if (payload && payload.found) {
-        return JSON.parse(JSON.stringify(payload.value));
-      }
-      const seeded = await readFromFileStore(key, fallback);
-      await runtimeStoreWrite(storeKey, seeded);
-      return JSON.parse(JSON.stringify(seeded));
-    } catch (_err) {
-      return JSON.parse(JSON.stringify(fallback));
-    }
-  }
+  // No KV configured.
+  assertPersistentStoreAvailable(); // throws on Vercel — keeps ephemeral storage out of the write path
 
-  return readFromFileStore(key, fallback);
+  // Local development: read/write directly from data/
+  return readSeedFile(key, fallback);
 }
 
 async function writeJsonFile(key, value) {
   const kv = getKv();
+
   if (kv) {
     await kv.set(kvStoreKey(key), JSON.stringify(value));
     return;
   }
 
-  if (shouldUseRuntimeStore()) {
-    await runtimeStoreWrite(kvStoreKey(key), value);
-    return;
-  }
+  assertPersistentStoreAvailable(); // throws on Vercel
 
-  await writeToFileStore(key, value);
+  // Local development only
+  await writeToSeedFile(key, value);
 }
 
 function nowIso() {

@@ -864,11 +864,9 @@
               <select id="countrySelect" class="station-flow-select"></select>
             </div>
             <div class="station-flow-field">
-              <label for="fishingModeSelect"><span class="step-num">2</span> نوع الصيد</label>
-              <select id="fishingModeSelect" class="station-flow-select" disabled>
-                <option value="">اختر النوع</option>
-                <option value="coastal">ساحلي</option>
-                <option value="deep">غزير</option>
+              <label for="areaFlowSelect"><span class="step-num">2</span> المنطقة</label>
+              <select id="areaFlowSelect" class="station-flow-select" disabled>
+                <option value="">اختر المنطقة</option>
               </select>
             </div>
             <div class="station-flow-field">
@@ -876,7 +874,7 @@
               <select id="stationFlowSelect" class="station-flow-select" disabled></select>
             </div>
           </div>
-          <div id="stationFlowHint" class="station-flow-hint">اختر الدولة ثم نوع الصيد ثم المحطة لبدء التحليل.</div>
+          <div id="stationFlowHint" class="station-flow-hint">اختر الدولة ثم المنطقة ثم المحطة لبدء التحليل.</div>
         </div>
       </div>
 
@@ -1426,6 +1424,7 @@
         this.id = 'st_' + String(index + 1).padStart(3, '0');
         this.name = base.name;
         this.country = base.country;
+        this.area = base.area || base.name || '';
         this.lat = base.lat;
         this.lng = base.lng;
         this.flag = base.flag;
@@ -1500,6 +1499,7 @@
         lng: Number(st.lon),
         flag: getFlagByCountry(st.country),
         fishing_mode: String(st.fishing_mode || ''),
+        area: String(st.area || st.name || ''),
         default_radius: Number(st.default_radius || 0.02)
       };
     }
@@ -1575,7 +1575,7 @@
     let stationMarkerMap = new Map();
     let latestHotspotResult = null;
     let allStationsExpanded = false;
-    let selectionTracking = { country: '', fishing_mode: '', station_id: '' };
+    let selectionTracking = { country: '', area: '', station_id: '' };
     let runtimeUiSettings = {
       site_mode: 'live',
       maintenance_message: '',
@@ -1717,11 +1717,11 @@
       });
     }
 
-    function getFlowStations(country, fishingMode) {
+    function getFlowStations(country, area) {
       let out = navidurEngine.getStations().filter(function (st) {
         if (!GULF_COUNTRIES.includes(st.country)) return false;
         if (country && st.country !== country) return false;
-        if (fishingMode && normalizeFishingModeValue(st) !== fishingMode) return false;
+        if (area && (st.area || st.name) !== area) return false;
         return true;
       });
       if (runtimeUiSettings.sort_stations_by_distance) {
@@ -1730,30 +1730,55 @@
       return out;
     }
 
+    function getAreasForCountry(country) {
+      const seen = new Set();
+      const areas = [];
+      navidurEngine.getStations().forEach(function (st) {
+        if (!GULF_COUNTRIES.includes(st.country)) return;
+        if (country && st.country !== country) return;
+        const a = st.area || st.name || '';
+        if (a && !seen.has(a)) { seen.add(a); areas.push(a); }
+      });
+      return areas;
+    }
+
+    function buildAreaOptions(country) {
+      const select = document.getElementById('areaFlowSelect');
+      if (!select) return;
+      select.innerHTML = '<option value="">اختر المنطقة</option>';
+      const areas = getAreasForCountry(country);
+      areas.forEach(function (a) {
+        const opt = document.createElement('option');
+        opt.value = a;
+        opt.textContent = a;
+        select.appendChild(opt);
+      });
+    }
+
     function renderFlowStations() {
       const countrySelect = document.getElementById('countrySelect');
-      const modeSelect = document.getElementById('fishingModeSelect');
+      const areaSelect = document.getElementById('areaFlowSelect');
       const stationSelect = document.getElementById('stationFlowSelect');
-      if (!countrySelect || !modeSelect || !stationSelect) return;
+      if (!countrySelect || !areaSelect || !stationSelect) return;
 
       const country = countrySelect.value;
-      const mode = modeSelect.value;
+      const area = areaSelect.value;
       stationSelect.innerHTML = '';
       stationSelect.disabled = true;
 
       if (!country) {
         stationSelect.appendChild(new Option('اختر الدولة أولاً', ''));
-        updateStationFlowHint('اختر الدولة ثم نوع الصيد ثم المحطة لبدء التحليل.');
+        updateStationFlowHint('اختر الدولة ثم المنطقة ثم المحطة لبدء التحليل.');
         return;
       }
 
-      if (!mode) {
-        stationSelect.appendChild(new Option('اختر نوع الصيد أولاً', ''));
-        updateStationFlowHint('تم اختيار الدولة. الآن اختر نوع الصيد (ساحلي/غزير).');
+      if (!area) {
+        stationSelect.appendChild(new Option('اختر المنطقة أولاً', ''));
+        updateStationFlowHint('تم اختيار الدولة. الآن اختر المنطقة.');
         return;
       }
 
-      const list = getFlowStations(country, mode);
+      const list = getFlowStations(country, area);
       stationSelect.disabled = false;
       stationSelect.appendChild(new Option('اختر المحطة', ''));
       list.forEach(function (st) {
@@ -1764,43 +1789,43 @@
       });
 
       if (!list.length) {
-        updateStationFlowHint('لا توجد محطات مطابقة للدولة ونوع الصيد المحددين.');
+        updateStationFlowHint('لا توجد محطات في هذه المنطقة.');
       } else {
-        updateStationFlowHint('اختر محطة للمتابعة إلى التحليل والنتائج.');
+        updateStationFlowHint('اختر محطة لتبدأ التحليل.');
       }
     }
 
     function setupStationFlow() {
       const countrySelect = document.getElementById('countrySelect');
-      const modeSelect = document.getElementById('fishingModeSelect');
+      const areaSelect = document.getElementById('areaFlowSelect');
       const stationSelect = document.getElementById('stationFlowSelect');
-      if (!countrySelect || !modeSelect || !stationSelect) return;
+      if (!countrySelect || !areaSelect || !stationSelect) return;
 
       buildCountryOptions();
-      modeSelect.value = '';
-      modeSelect.disabled = true;
+      areaSelect.innerHTML = '<option value="">اختر المنطقة</option>';
+      areaSelect.disabled = true;
       stationSelect.innerHTML = '<option value="">اختر الدولة أولاً</option>';
       stationSelect.disabled = true;
 
       countrySelect.addEventListener('change', function () {
         selectionTracking.country = countrySelect.value || '';
-        selectionTracking.fishing_mode = '';
+        selectionTracking.area = '';
         selectionTracking.station_id = '';
         if (countrySelect.value) {
-          // Reset full session on new country selection so funnel restarts cleanly
           resetFunnelSession();
           trackOnce('country_select', { event_type: 'country_select', country: countrySelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
         }
-        modeSelect.value = '';
-        modeSelect.disabled = !countrySelect.value;
+        buildAreaOptions(countrySelect.value);
+        areaSelect.value = '';
+        areaSelect.disabled = !countrySelect.value;
         renderFlowStations();
       });
 
-      modeSelect.addEventListener('change', function () {
-        selectionTracking.fishing_mode = modeSelect.value || '';
+      areaSelect.addEventListener('change', function () {
+        selectionTracking.area = areaSelect.value || '';
         selectionTracking.station_id = '';
-        if (modeSelect.value) {
-          trackOnce('mode_select', { event_type: 'mode_select', country: selectionTracking.country || '', fishing_mode: modeSelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
+        if (areaSelect.value) {
+          trackOnce('area_select', { event_type: 'area_select', country: selectionTracking.country || '', area: areaSelect.value, session_id: getSessionId(), timestamp: new Date().toISOString() });
         }
         renderFlowStations();
       });
@@ -1817,27 +1842,28 @@
 
     function syncFlowFromSelectedStation() {
       const countrySelect = document.getElementById('countrySelect');
-      const modeSelect = document.getElementById('fishingModeSelect');
+      const areaSelect = document.getElementById('areaFlowSelect');
       const stationSelect = document.getElementById('stationFlowSelect');
-      if (!countrySelect || !modeSelect || !stationSelect || !selectedStation) return;
+      if (!countrySelect || !areaSelect || !stationSelect || !selectedStation) return;
       countrySelect.value = selectedStation.country;
-      modeSelect.disabled = false;
-      modeSelect.value = normalizeFishingModeValue(selectedStation);
+      buildAreaOptions(selectedStation.country);
+      areaSelect.disabled = false;
+      areaSelect.value = selectedStation.area || selectedStation.name || '';
       renderFlowStations();
       stationSelect.value = String(selectedStation.id);
     }
 
     function showStationLoadUnavailable(message) {
       const countrySelect = document.getElementById('countrySelect');
-      const modeSelect = document.getElementById('fishingModeSelect');
+      const areaSelect = document.getElementById('areaFlowSelect');
       const stationSelect = document.getElementById('stationFlowSelect');
       if (countrySelect) {
         countrySelect.innerHTML = '<option value="">تعذر تحميل المحطات</option>';
         countrySelect.disabled = true;
       }
-      if (modeSelect) {
-        modeSelect.innerHTML = '<option value="">غير متاح</option>';
-        modeSelect.disabled = true;
+      if (areaSelect) {
+        areaSelect.innerHTML = '<option value="">غير متاح</option>';
+        areaSelect.disabled = true;
       }
       if (stationSelect) {
         stationSelect.innerHTML = '<option value="">غير متاح</option>';
@@ -2751,9 +2777,13 @@
         marker.bindPopup('<strong>' + st.name + '</strong><br>' + st.country);
         marker.on('click', function () {
           var cSel = document.getElementById('countrySelect');
-          var mSel = document.getElementById('fishingModeSelect');
+          var aSel = document.getElementById('areaFlowSelect');
           if (cSel) cSel.value = st.country || '';
-          if (mSel) { mSel.disabled = false; mSel.value = normalizeFishingModeValue(st) || ''; }
+          if (aSel) {
+            buildAreaOptions(st.country || '');
+            aSel.disabled = !st.country;
+            aSel.value = st.area || st.name || '';
+          }
           renderFlowStations();
           var sSel = document.getElementById('stationFlowSelect');
           if (sSel) sSel.value = String(st.id);
@@ -3383,7 +3413,7 @@
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
       selectionTracking.country = selectedStation.country;
-      selectionTracking.fishing_mode = normalizeFishingModeValue(selectedStation);
+      selectionTracking.area = selectedStation.area || selectedStation.name || '';
       selectionTracking.station_id = selectedStation.id;
       manualMode = null;
       rebuildDays();
@@ -3405,7 +3435,7 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
-        trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
+        trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), area: selectionTracking.area || (selectedStation ? (selectedStation.area || selectedStation.name) : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
         document.getElementById('hotspotScore').textContent = '--';
@@ -3421,7 +3451,7 @@
         event_type: 'station_select',
         source: source,
         country: selectionTracking.country || (selectedStation ? selectedStation.country : null),
-        fishing_mode: selectionTracking.fishing_mode || (selectedStation ? normalizeFishingModeValue(selectedStation) : null),
+        area: selectionTracking.area || (selectedStation ? (selectedStation.area || selectedStation.name) : null),
         station_id: selectionTracking.station_id || (selectedStation ? selectedStation.id : null),
         station: selectedStation ? selectedStation.name : null,
         lat: selectedStation ? selectedStation.lat : null,
