@@ -62,6 +62,22 @@
       cache: 'no-store',
       headers: headers,
       body: opts.body
+    }).then(function (res) {
+      if (res.status === 401 && adminAuthenticated) {
+        // Token expired or secret rotated — clear session and redirect to login
+        authToken = '';
+        adminAuthenticated = false;
+        localStorage.removeItem('navidur_admin_token');
+        var contentEl = getEl('adminContent');
+        var loginEl = getEl('adminLoginForm');
+        var passEl = getEl('adminPass');
+        if (contentEl) contentEl.classList.remove('active');
+        if (loginEl) loginEl.style.display = 'block';
+        if (passEl) passEl.value = '';
+        var errEl = document.getElementById('adminErr');
+        if (errEl) { errEl.textContent = 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.'; errEl.style.display = 'block'; }
+      }
+      return res;
     });
   }
 
