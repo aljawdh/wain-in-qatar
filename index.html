@@ -2042,7 +2042,11 @@
     }
 
     function rebuildDays() {
-      const base = normalizeUtcDate(new Date());
+      // Use timezone-aware today (appTimezone) to match getTodayKey() / getAppIsoDay().
+      // normalizeUtcDate() gave UTC midnight which diverges from local midnight by up
+      // to UTC offset hours, causing the strip to freeze on the old day after rollover.
+      const todayParts = getAppDateParts(new Date());
+      const base = new Date(Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day));
       const days = [];
       for (var i = 0; i < 5; i++) {
         var d = new Date(base.getTime());
