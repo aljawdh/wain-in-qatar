@@ -271,21 +271,53 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
 
           <div class="admin-section admin-block" data-section="stations">
             <h4><i class="fa-solid fa-location-dot"></i> إدارة المحطات</h4>
-            <div class="section-subtitle">إضافة وتعديل المحطات عبر الخريطة. التسلسل: الدولة ← المنطقة ← المحطة. يمكن إنشاء منطقة جديدة مباشرة عند إضافة المحطة.</div>
+            <div class="section-subtitle">إضافة سريعة: الدولة → المنطقة → الاسم يُملأ تلقائياً. انقر الخريطة لتحديد الموقع.</div>
             <div class="admin-form-grid">
-              <div class="admin-field"><label>ID (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
-              <div class="admin-field"><label>اسم المحطة (مطلوب)</label><input id="stName" type="text"></div>
-              <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
-              <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
-              <div class="admin-field"><label>الدولة</label><input id="stCountry" type="text" placeholder="قطر"></div>
-              <div class="admin-field"><label>المنطقة</label><input id="stRegion" type="text" placeholder="مثال: الساحل الشرقي"></div>
-              <div class="admin-field"><label>نوع الصيد</label><select id="stFishingMode"><option value="coastal">ساحلي</option><option value="deep">غزير</option></select></div>
-              <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
-              <div class="admin-field"><label>Radius</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
-              <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
-              <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
-              <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stActive" checked><label for="stActive">Active</label></div></div>
+              <div class="admin-field">
+                <label>الدولة</label>
+                <select id="stCountry">
+                  <option value="">-- اختر الدولة --</option>
+                  <option>قطر</option>
+                  <option>السعودية</option>
+                  <option>الكويت</option>
+                  <option>البحرين</option>
+                  <option>الإمارات العربية المتحدة</option>
+                  <option>عمان</option>
+                  <option>إيران</option>
+                </select>
+              </div>
+              <div class="admin-field">
+                <label>المنطقة</label>
+                <div style="display:flex;gap:6px;align-items:stretch">
+                  <select id="stRegion" style="flex:1"><option value="">-- اختر المنطقة --</option></select>
+                  <button type="button" id="addRegionBtn" class="small-btn" style="white-space:nowrap;padding:6px 10px;border-radius:8px">+ منطقة</button>
+                </div>
+                <div id="newRegionWrap" style="display:none;margin-top:6px">
+                  <div style="display:flex;gap:6px">
+                    <input id="stRegionNew" type="text" placeholder="اسم المنطقة الجديدة" style="flex:1;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:.88rem;font-family:inherit">
+                    <button type="button" id="confirmRegionBtn" class="small-btn" style="padding:6px 10px">تأكيد</button>
+                  </div>
+                </div>
+              </div>
+              <div class="admin-field full">
+                <label>اسم المحطة <span id="stNameAutoHint" style="color:#ffe7aa;font-size:.75rem;margin-right:6px;font-weight:400"></span></label>
+                <input id="stName" type="text" placeholder="يُملأ تلقائياً عند اختيار المنطقة">
+              </div>
             </div>
+            <details class="adv-options" style="margin:10px 0">
+              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-sliders" style="margin-left:6px"></i> خيارات متقدمة</summary>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>ID (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
+                <div class="admin-field"><label>Radius</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
+                <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
+                <div class="admin-field"><label>نوع الصيد</label><select id="stFishingMode"><option value="coastal">ساحلي</option><option value="deep">غزير</option></select></div>
+                <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
+                <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
+                <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stActive" checked><label for="stActive">Active</label></div></div>
+                <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
+              </div>
+            </details>
             <div class="station-map-wrap">
               <div class="station-map-head">
                 <strong>اختيار الموقع من الخريطة</strong>
@@ -306,7 +338,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <hr class="sep">
             <div class="table-wrap">
               <table class="admin-table">
-                <thead><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>الدولة</th><th>المنطقة</th><th>Radius</th><th>إجراءات</th></tr></thead>
+                <thead><tr><th>#</th><th>الاسم</th><th>المنطقة</th><th>الدولة</th><th>الحالة</th><th>Radius</th><th>إجراءات</th></tr></thead>
                 <tbody id="stationsBody"></tbody>
               </table>
             </div>

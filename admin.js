@@ -27,6 +27,18 @@
   // result values: 'unknown' | 'confirmed_water' | 'confirmed_land' | 'uncertain'
   // fallback: true means the result was produced by the lightweight fallback, not strict Overpass check
   var _waterCheckTimer = null;
+  var _stationEditMode = false;
+  var _stationNameUserEdited = false;
+
+  var COASTAL_REGIONS = {
+    'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
+    'السعودية': ['خفجي', 'الجبيل', 'الدمام', 'الخبر', 'العقير', 'حقل', 'ضبا', 'الوجه', 'أملج', 'ينبع', 'رابغ', 'جدة', 'الليث', 'القنفذة', 'جازان'],
+    'البحرين': ['المنامة', 'المحرق', 'سترة', 'الحد', 'الدراز', 'البديع'],
+    'الكويت': ['الكويت', 'الشويخ', 'الشعيبية', 'الفحيحيل', 'الخيران', 'الجليعة', 'الزور', 'الصبية', 'الدوحة'],
+    'الإمارات العربية المتحدة': ['أبوظبي', 'دبي', 'الشارقة', 'عجمان', 'أم القيوين', 'رأس الخيمة', 'الفجيرة', 'كلباء', 'خورفكان'],
+    'عمان': ['مسقط', 'مطرح', 'بركاء', 'صحار', 'شناص', 'صور', 'الدقم', 'صلالة', 'خصب'],
+    'إيران': []
+  };
 
   function getEl(id) {
     return document.getElementById(id);
@@ -1181,19 +1193,25 @@
     };
   }
 
-  function fillStationForm(st) {
+  function fillStationForm(st, editMode) {
+    _stationEditMode = (editMode !== false);
+    _stationNameUserEdited = false;
     getEl('stId').value = st.id || '';
+    getEl('stCountry').value = st.country || '';
+    rebuildRegionSelect(st.country || '', st.region || '');
     getEl('stName').value = st.name || '';
     getEl('stLat').value = st.lat != null ? st.lat : '';
     getEl('stLon').value = st.lon != null ? st.lon : '';
-    getEl('stCountry').value = st.country || '';
-    getEl('stRegion').value = st.region || '';
     getEl('stFishingMode').value = st.fishing_mode === 'deep' ? 'deep' : 'coastal';
     getEl('stActive').checked = st.status !== 'disabled' && st.status !== 'archived';
     getEl('stSort').value = st.sort_order != null ? st.sort_order : 1;
     getEl('stRadius').value = st.default_radius != null ? st.default_radius : 0.02;
     getEl('stNotes').value = st.notes || '';
     getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
+    var hintEl = getEl('stNameAutoHint');
+    if (hintEl) hintEl.textContent = '';
+    var wrapEl = getEl('newRegionWrap');
+    if (wrapEl) wrapEl.style.display = 'none';
     syncStationMapFromInputs(true);
     if (st.lat != null && st.lon != null) {
       reverseGeocodeStation(Number(st.lat), Number(st.lon));
@@ -1203,7 +1221,7 @@
   }
 
   function clearStationForm() {
-    fillStationForm({ id: '', name: '', lat: '', lon: '', country: '', region: '', fishing_mode: 'coastal', status: 'active', sort_order: 1, default_radius: 0.02, notes: '', assigned_members: [] });
+    fillStationForm({ id: '', name: '', lat: '', lon: '', country: '', region: '', fishing_mode: 'coastal', status: 'active', sort_order: 1, default_radius: 0.02, notes: '', assigned_members: [] }, false);
     if (stationAdminMarker && stationsAdminMap) {
       stationsAdminMap.removeLayer(stationAdminMarker);
       stationAdminMarker = null;
@@ -1223,14 +1241,43 @@
   // ── Region helpers ────────────────────────────────────────────────────────
 
   function getRegionsForCountry(country) {
-    var seen = new Set();
-    var regions = [];
+    if (!country) return [];
+    var predefined = (COASTAL_REGIONS[country] || []).slice();
+    var seen = new Set(predefined);
     stationsCache.forEach(function (st) {
-      if (country && st.country !== country) return;
+      if (st.country !== country) return;
       var r = st.region || '';
-      if (r && !seen.has(r)) { seen.add(r); regions.push(r); }
+      if (r && !seen.has(r)) { seen.add(r); predefined.push(r); }
     });
-    return regions;
+    return predefined;
+  }
+
+  function rebuildRegionSelect(country, selectedRegion) {
+    var sel = getEl('stRegion');
+    if (!sel) return;
+    var regions = getRegionsForCountry(country);
+    sel.innerHTML = '<option value="">اختر المنطقة...</option>';
+    regions.forEach(function (r) {
+      var opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      sel.appendChild(opt);
+    });
+    var addOpt = document.createElement('option');
+    addOpt.value = '__add_new__';
+    addOpt.textContent = '+ إضافة منطقة جديدة...';
+    sel.appendChild(addOpt);
+    if (selectedRegion) {
+      sel.value = selectedRegion;
+      // If not matched (custom region from DB), add it
+      if (sel.value !== selectedRegion) {
+        var customOpt = document.createElement('option');
+        customOpt.value = selectedRegion;
+        customOpt.textContent = selectedRegion;
+        sel.insertBefore(customOpt, sel.querySelector('option[value="__add_new__"]'));
+        sel.value = selectedRegion;
+      }
+    }
   }
 
   function suggestAutoNumber(country, region) {
@@ -1252,10 +1299,10 @@
     stationsCache.forEach(function (st, idx) {
       var tr = document.createElement('tr');
       tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
-        '<td><strong>' + st.name + '</strong><br><span style="font-size:12px;color:#8ea4ba">' + st.id + '</span></td>' +
-        '<td>' + stationStatusBadge(st.status) + '</td>' +
+        '<td><strong>' + st.name + '</strong><br><span style="font-size:11px;color:#8ea4ba">' + st.id + '</span></td>' +
+        '<td><span style="background:rgba(39,179,255,.12);border:1px solid rgba(39,179,255,.3);border-radius:6px;padding:2px 7px;font-size:12px">' + (st.region || '--') + '</span></td>' +
         '<td>' + (st.country || '--') + '</td>' +
-        '<td>' + (st.region || '--') + '</td>' +
+        '<td>' + stationStatusBadge(st.status) + '</td>' +
         '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
         '<td>' +
           '<div class="inline-actions">' +
@@ -1570,6 +1617,103 @@
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
   }
 
+  function initStationFormBindings() {
+    var countryEl = getEl('stCountry');
+    var regionEl = getEl('stRegion');
+    var nameEl = getEl('stName');
+    var hintEl = getEl('stNameAutoHint');
+
+    if (countryEl) {
+      countryEl.addEventListener('change', function () {
+        rebuildRegionSelect(countryEl.value, '');
+        if (!_stationEditMode && !_stationNameUserEdited) {
+          if (nameEl) nameEl.value = '';
+          if (hintEl) hintEl.textContent = '';
+        }
+      });
+    }
+
+    if (regionEl) {
+      regionEl.addEventListener('change', function () {
+        var v = regionEl.value;
+        if (v === '__add_new__') {
+          regionEl.value = '';
+          var wrap = getEl('newRegionWrap');
+          if (wrap) { wrap.style.display = 'block'; }
+          var inp = getEl('stRegionNew');
+          if (inp) inp.focus();
+          return;
+        }
+        if (!_stationEditMode && !_stationNameUserEdited && v) {
+          var suggested = suggestAutoNumber(countryEl ? countryEl.value : '', v);
+          if (nameEl) nameEl.value = suggested;
+          if (hintEl) hintEl.textContent = '(تلقائي)';
+          _stationNameUserEdited = false;
+        }
+      });
+    }
+
+    if (nameEl) {
+      nameEl.addEventListener('input', function () {
+        _stationNameUserEdited = true;
+        if (hintEl) hintEl.textContent = '';
+      });
+    }
+
+    var addRegionBtn = getEl('addRegionBtn');
+    if (addRegionBtn) {
+      addRegionBtn.addEventListener('click', function () {
+        var wrap = getEl('newRegionWrap');
+        if (!wrap) return;
+        var isHidden = wrap.style.display === 'none' || wrap.style.display === '';
+        wrap.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) {
+          var inp = getEl('stRegionNew');
+          if (inp) inp.focus();
+        }
+      });
+    }
+
+    function confirmNewRegion() {
+      var newName = (getEl('stRegionNew') ? getEl('stRegionNew').value.trim() : '');
+      if (!newName) return;
+      var sel = getEl('stRegion');
+      if (!sel) return;
+      var exists = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === newName) { exists = true; break; }
+      }
+      if (!exists) {
+        var opt = document.createElement('option');
+        opt.value = newName;
+        opt.textContent = newName;
+        var addNewOpt = sel.querySelector('option[value="__add_new__"]');
+        if (addNewOpt) sel.insertBefore(opt, addNewOpt);
+        else sel.appendChild(opt);
+      }
+      sel.value = newName;
+      getEl('stRegionNew').value = '';
+      getEl('newRegionWrap').style.display = 'none';
+      if (!_stationEditMode && !_stationNameUserEdited) {
+        var suggested = suggestAutoNumber(countryEl ? countryEl.value : '', newName);
+        if (nameEl) nameEl.value = suggested;
+        if (hintEl) hintEl.textContent = '(تلقائي)';
+        _stationNameUserEdited = false;
+      }
+    }
+
+    var confirmRegionBtn = getEl('confirmRegionBtn');
+    if (confirmRegionBtn) {
+      confirmRegionBtn.addEventListener('click', confirmNewRegion);
+    }
+    var stRegionNew = getEl('stRegionNew');
+    if (stRegionNew) {
+      stRegionNew.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); confirmNewRegion(); }
+      });
+    }
+  }
+
   function initAdminPage() {
     var loginBtn = getEl('adminLoginBtn');
     var passInput = getEl('adminPass');
@@ -1613,6 +1757,7 @@
     getEl('createUserBtn').addEventListener('click', createUserFromForm);
     getEl('loadFeedbackBtn').addEventListener('click', function () { loadFeedback(); });
     initStationsAdminMap();
+    initStationFormBindings();
 
     bindSettingsActions();
 
