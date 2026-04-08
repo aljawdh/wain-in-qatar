@@ -1730,14 +1730,34 @@
       return out;
     }
 
+    const GENERIC_REGION_VALUES = new Set(['gulf','arabian_gulf','red_sea','sea_of_oman','oman_sea','indian_ocean','arabian_sea','persian_gulf']);
+
+    const PREDEFINED_REGIONS = {
+      'قطر': ['الدوحة','الخور','الوكرة','دخان','الشمال','الرويس','أم باب','مسيعيد'],
+      'السعودية': ['خفجي','الجبيل','الدمام','الخبر','العقير','حقل','ضبا','الوجه','أملج','ينبع','رابغ','جدة','الليث','القنفذة','جازان'],
+      'البحرين': ['المنامة','المحرق','سترة','الحد','الدراز','البديع'],
+      'الكويت': ['الكويت','الشويخ','الشعيبة','الفحيحيل','الخيران','الجليعة','الزور','الصبية','الدوحة'],
+      'الإمارات العربية المتحدة': ['أبوظبي','دبي','الشارقة','عجمان','أم القيوين','رأس الخيمة','الفجيرة','كلباء','خورفكان'],
+      'عمان': ['مسقط','مطرح','بركاء','صحار','شناص','صور','الدقم','صلالة','خصب'],
+      'إيران': []
+    };
+
     function getRegionsForCountry(country) {
       const seen = new Set();
       const regions = [];
+      // First: real local regions from station data (filtered — no generic basin names)
       navidurEngine.getStations().forEach(function (st) {
-        if (!GULF_COUNTRIES.includes(st.country)) return;
         if (country && st.country !== country) return;
-        const r = st.region || '';
-        if (r && !seen.has(r)) { seen.add(r); regions.push(r); }
+        const r = (st.region || '').trim();
+        if (r && !GENERIC_REGION_VALUES.has(r) && !seen.has(r)) {
+          seen.add(r);
+          regions.push(r);
+        }
+      });
+      // Then: fill in predefined list for anything not already present
+      const predefined = PREDEFINED_REGIONS[country] || [];
+      predefined.forEach(function (r) {
+        if (!seen.has(r)) { seen.add(r); regions.push(r); }
       });
       return regions;
     }
