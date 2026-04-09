@@ -2224,15 +2224,6 @@
       return DORAH_INFO[dorahName] || 'معلومات الدر: فترة انتقال موسمية، راقب اتجاه الماية واختر موقع الصيد حسب الحالة.';
     }
 
-    // Returns Hamal/Fasad using user-specified Hijri day ranges:
-    // HAMAL (strong current): days 11-18 or 26-30/1-3
-    // FASAD (quiet water):   days 4-10 or 19-25
-    function getNawkhadaAdviceMode(date) {
-      const d = getLunarDay(date);
-      const isHamal = (d >= 11 && d <= 18) || (d >= 26) || (d <= 3);
-      return isHamal ? 'hamal' : 'fasad';
-    }
-
     function getTagClass(tag) {
       if (!tag) return '';
       if (tag.includes('وفير')) return 'tag-wafir';
@@ -2667,13 +2658,17 @@
       return out;
     }
 
-    function getFishForStation(date) {
+    // Layer 2 (local marine state) is the authoritative source for حمل/فساد.
+    // waterStateOverride supplies the live tidal decision when available.
+    // Falls back to lunar cycle only when live data is absent.
+    function getFishForStation(date, waterStateOverride) {
       const region = getMarineRegion(selectedStation);
       const p = getAppDateParts(date);
       const monthCode = getMonthCode(p.month);
       const dar = getCurrentDar(date);
-      const hf = getHamalFasadStatus(date);
-      const isFasad = hf.name === 'فساد';
+      const isFasad = waterStateOverride != null
+        ? (waterStateOverride === 'فساد')
+        : (getHamalFasadStatus(date).name === 'فساد');
       const darLabel = (dar.darName.split(' - ')[1] || dar.darName);
 
       const pool = FISH_SPECIES_DATABASE.filter(function (f) { return f.regions.includes(region); });
@@ -2737,9 +2732,12 @@
       }).slice(0, 10);
     }
 
-    function scoreFish(fish, hr, date) {
-      const hf = getHamalFasadStatus(date);
-      const isFasad = hf.name === 'فساد';
+    // waterStateOverride: pass live tidal waterState when available to align
+    // fish scoring with the authoritative per-station marine decision.
+    function scoreFish(fish, hr, date, waterStateOverride) {
+      const isFasad = waterStateOverride != null
+        ? (waterStateOverride === 'فساد')
+        : (getHamalFasadStatus(date).name === 'فساد');
       const ws = mpsToKmh(hr.windSpeed && hr.windSpeed.sg != null ? hr.windSpeed.sg : 0) || 0;
       const sea = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : 0.4;
       const dar = getCurrentDar(date).dar;
@@ -3001,10 +2999,11 @@
       const why = getWhyBreakdown(result);
       const whyBox = document.getElementById('whySpotBox');
       whyBox.classList.remove('is-open');
+      const _cQ = why.current >= 0.6 ? 'قوي' : why.current >= 0.45 ? 'متوسط' : 'خفيف';
+      const _wQ = why.wind <= 20 ? 'مناسب' : why.wind <= 30 ? 'نشط' : 'شديد';
+      const _aQ = why.wave >= 0.3 && why.wave <= 1.2 ? 'نشط' : 'هادئ';
       whyBox.innerHTML =
-        'Current Score: <strong>' + why.currentPts + '</strong> (current=' + why.current.toFixed(2) + ')<br>' +
-        'Wind Score: <strong>' + why.windPts + '</strong> (wind=' + Math.round(why.wind) + ' km/h)<br>' +
-        'Activity Score: <strong>' + why.activityPts + '</strong> (wave=' + why.wave.toFixed(2) + 'm)';
+        'التيار: <strong>' + _cQ + '</strong> • الرياح: <strong>' + _wQ + '</strong> • نشاط البحر: <strong>' + _aQ + '</strong>';
 
       document.getElementById('feedbackStatus').textContent = '';
     }
@@ -3120,7 +3119,8 @@
         : 'جاري جلب بيانات الرادار البحري...';
       document.getElementById('windDirLabel').textContent = hasLiveWind ? (windDirText8(wd) + ' • ' + Math.round(wd || 0) + '°') : '---';
       const fdi = computeFDI(date);
-      document.getElementById('strategyHint').textContent = (getActiveMode(date) === 'deep' ? 'الغزير مفعّل' : 'الساحلي مفعّل') + ' • FDI: ' + fdi + '/100';
+      const _stratLabel = fdi >= 70 ? 'نشاط عالٍ' : fdi >= 45 ? 'نشاط متوسط' : 'نشاط منخفض';
+      document.getElementById('strategyHint').textContent = (getActiveMode(date) === 'deep' ? 'الغزير مفعّل' : 'الساحلي مفعّل') + ' • ' + _stratLabel;
     }
 
     function renderSeaStatusStrip() {
@@ -3149,8 +3149,12 @@
     function renderFish(date) {
       const hr = getSelectedHourEntry().hour || {};
       const dorahLabel = (getCurrentDar(date).darName.split(' - ')[1] || getCurrentDar(date).darName);
-      const fish = getFishForStation(date)
-        .map(function (f) { return Object.assign({}, f, { score: scoreFish(f, hr, date) }); })
+      // Use the authoritative per-station live waterState so fish ranking is
+      // consistent with the main advice box (Layer 2 → Layer 3 coherence).
+      const _stState = stationStates && selectedStation ? stationStates[selectedStation.id] : null;
+      const liveWaterState = _stState && _stState.waterState ? _stState.waterState : null;
+      const fish = getFishForStation(date, liveWaterState)
+        .map(function (f) { return Object.assign({}, f, { score: scoreFish(f, hr, date, liveWaterState) }); })
         .sort(function (a, b) {
           if ((b.priority || 0) !== (a.priority || 0)) return (b.priority || 0) - (a.priority || 0);
           return b.score - a.score;
@@ -3186,7 +3190,6 @@
     function renderHero(date) {
       const dar = getCurrentDar(date);
       const moon = getMoonPhase(date);
-      const hf = getHamalFasadStatus(date);
       const activeMode = getActiveMode(date);
       const hr = getSelectedHourEntry().hour || {};
       const ws = getDisplayedWindKmh(hr);
@@ -3215,7 +3218,8 @@
       document.getElementById('windVal').textContent = hasLiveWind && ws != null ? ('💨 ' + ws + ' كم/س' + (activeWind ? ' • رياح نشطة' : '')) : '💨 جاري جلب بيانات الرادار البحري...';
       document.getElementById('tideHeightVal').textContent = sea != null ? ('🌊 ' + sea.toFixed(2) + ' م') : '🌊 ---';
       const fdi = computeFDI(date);
-      document.getElementById('currentWaterHeight').innerHTML = '≈ اتجاه الماء الحالي: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> • الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : '---') + ' • FDI: ' + fdi + '/100';
+      const _fdiLabel = fdi >= 70 ? 'نشاط عالٍ' : fdi >= 45 ? 'نشاط متوسط' : 'نشاط منخفض';
+      document.getElementById('currentWaterHeight').innerHTML = '≈ اتجاه الماء الحالي: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> • الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : '---') + ' • ' + _fdiLabel;
 
       const dorahLabel = (dar.darName.split(' - ')[1] || dar.darName);
       document.getElementById('dorahName').textContent = 'ذروة الدر: ' + dorahLabel;
@@ -3533,9 +3537,7 @@
     }
 
     function autoSteerMode() {
-      const date = getForecastDateByIndex(selectedForecastDay);
-      const hf = getHamalFasadStatus(date);
-      return hf;
+      return getStationDecisionEngine(getForecastDateByIndex(selectedForecastDay), selectedStation);
     }
 
     async function initApp() {
@@ -3615,7 +3617,6 @@
       setInterval(flushTrackingQueue, 15000);
     }
 
-    autoSteerMode();
     initApp();
   </script>
 </body>
