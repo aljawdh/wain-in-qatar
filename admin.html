@@ -283,8 +283,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <div class="admin-section admin-block" data-section="stations">
             <h4><i class="fa-solid fa-location-dot"></i> إدارة المحطات</h4>
             <div id="gulfWarningBar" style="display:none;background:rgba(255,185,0,.12);border:1px solid rgba(255,185,0,.5);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.88rem;color:#ffe7aa;font-weight:500"></div>
-            <div id="fishingModeWarningBar" style="display:none;background:rgba(255,100,0,.12);border:1px solid rgba(255,100,0,.5);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.88rem;color:#ffcba0;font-weight:500"></div>
-            <div class="section-subtitle">إضافة سريعة: الدولة → المنطقة → الاسم يُملأ تلقائياً. انقر الخريطة لتحديد الموقع.</div>
+            <div class="section-subtitle">إضافة تلقائية: ضع النقطة على الخريطة ← تُكتشف الدولة والمنطقة تلقائياً ← الاسم يُملأ تلقائياً. القرار النهائي للصيد يُحدد من التحليل الحي فقط.</div>
             <div class="admin-form-grid">
               <div class="admin-field">
                 <label>الدولة</label>
@@ -294,7 +293,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                   <option>السعودية</option>
                   <option>الكويت</option>
                   <option>البحرين</option>
-                  <option>الإمارات العربية المتحدة</option>
+                  <option value="الإمارات">الإمارات العربية المتحدة</option>
                   <option>عمان</option>
                   <option>إيران</option>
                 </select>
@@ -323,7 +322,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div class="admin-field"><label>ID (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
                 <div class="admin-field"><label>Radius</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
                 <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
-                <div class="admin-field"><label>نوع الصيد</label><select id="stFishingMode"><option value="coastal">ساحلي</option><option value="deep">غزير</option></select></div>
+                <input type="hidden" id="stFishingMode" value="coastal">
                 <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
                 <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
                 <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
@@ -340,6 +339,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <div class="station-map-meta">
                 <span id="stCoordPreview">الإحداثيات الحالية: -- , --</span>
               </div>
+              <div id="stMarineTypeHint" style="font-size:.8rem;padding:3px 4px;display:none"></div>
               <div id="stPlaceSuggestion" class="station-place-suggestion">الموقع المختار: --</div>
               <div id="stWaterStatus" class="st-water-status" style="display:none"></div>
             </div>
@@ -351,7 +351,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <hr class="sep">
             <div class="table-wrap">
               <table class="admin-table">
-                <thead><tr><th>#</th><th>الاسم</th><th>المنطقة</th><th>الدولة</th><th>نوع الصيد</th><th>الحالة</th><th>Radius</th><th>إجراءات</th></tr></thead>
+                <thead><tr><th>#</th><th>الاسم</th><th>المنطقة</th><th>الدولة</th><th>النوع البحري</th><th>الحالة</th><th>Radius</th><th>إجراءات</th></tr></thead>
                 <tbody id="stationsBody"></tbody>
               </table>
             </div>

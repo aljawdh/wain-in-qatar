@@ -36,10 +36,75 @@
     'السعودية': ['خفجي', 'الجبيل', 'الدمام', 'الخبر', 'العقير', 'حقل', 'ضبا', 'الوجه', 'أملج', 'ينبع', 'رابغ', 'جدة', 'الليث', 'القنفذة', 'جازان'],
     'البحرين': ['المنامة', 'المحرق', 'سترة', 'الحد', 'الدراز', 'البديع'],
     'الكويت': ['الكويت', 'الشويخ', 'الشعيبية', 'الفحيحيل', 'الخيران', 'الجليعة', 'الزور', 'الصبية', 'الدوحة'],
-    'الإمارات العربية المتحدة': ['أبوظبي', 'دبي', 'الشارقة', 'عجمان', 'أم القيوين', 'رأس الخيمة', 'الفجيرة', 'كلباء', 'خورفكان'],
+    'الإمارات': ['أبوظبي', 'دبي', 'الشارقة', 'عجمان', 'أم القيوين', 'رأس الخيمة', 'الفجيرة', 'كلباء', 'خورفكان'],
     'عمان': ['مسقط', 'مطرح', 'بركاء', 'صحار', 'شناص', 'صور', 'الدقم', 'صلالة', 'خصب'],
     'إيران': []
   };
+
+  // ── Country name normalization: map Nominatim strings → canonical keys ────
+  var COUNTRY_NAME_ALIASES = {
+    'المملكة العربية السعودية': 'السعودية',
+    'Saudi Arabia': 'السعودية',
+    'Qatar': 'قطر',
+    'Kuwait': 'الكويت',
+    'Bahrain': 'البحرين',
+    'الإمارات العربية المتحدة': 'الإمارات',
+    'United Arab Emirates': 'الإمارات',
+    'الإمارات': 'الإمارات',
+    'عُمان': 'عمان',
+    'Oman': 'عمان',
+    'Iran': 'إيران',
+    'ايران': 'إيران'
+  };
+
+  function normalizeCountryName(raw) {
+    if (!raw) return '';
+    var t = raw.trim();
+    return COUNTRY_NAME_ALIASES[t] || t;
+  }
+
+  // Automatically infer coastal/deep from geographic position.
+  // This is stored as station metadata only; the live analysis engine
+  // always overrides it with the real per-station tidal decision.
+  function inferFishingModeFromCoords(lat, lon, country) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'coastal';
+    if (lon >= 32 && lon <= 44 && lat >= 12 && lat <= 30) return 'deep';          // Red Sea
+    if (lon >= 54 && lon <= 62 && lat >= 16 && lat <= 26) return 'deep';          // Arabian Sea / Oman Sea
+    if (lon >= 55 && lon <= 59 && lat >= 25 && lat <= 27) return 'deep';          // Gulf of Oman / Musandam
+    if (lon >= 49 && lon <= 56 && lat >= 23 && lat <= 30) return 'coastal';       // Inner Arabian Gulf
+    return 'coastal';
+  }
+
+  function showMarineTypeHint(mode) {
+    var el = getEl('stMarineTypeHint');
+    if (!el) return;
+    el.style.display = '';
+    if (mode === 'deep') {
+      el.textContent = '🌊 النوع البحري المُستنتج تلقائياً: غزير (مياه أعمق)';
+      el.style.color = '#6fdcff';
+    } else {
+      el.textContent = '🏖️ النوع البحري المُستنتج تلقائياً: ساحلي (مياه ضحلة)';
+      el.style.color = '#8bf2ca';
+    }
+  }
+
+  // Try to find the best matching coastal region from Nominatim address fields.
+  function findBestCoastalRegion(country, addr) {
+    if (!country || !addr) return '';
+    var regions = COASTAL_REGIONS[country] || [];
+    if (!regions.length) return '';
+    var candidates = [
+      addr.city, addr.town, addr.municipality, addr.state_district,
+      addr.county, addr.suburb, addr.neighbourhood, addr.state, addr.region
+    ].filter(Boolean);
+    for (var i = 0; i < candidates.length; i++) {
+      var c = candidates[i];
+      for (var j = 0; j < regions.length; j++) {
+        if (c === regions[j] || c.includes(regions[j]) || regions[j].includes(c)) return regions[j];
+      }
+    }
+    return '';
+  }
 
   function getEl(id) {
     return document.getElementById(id);
@@ -1173,13 +1238,40 @@
       if (currentRequestId !== stationReverseRequestId) return;
 
       var addr = data && data.address ? data.address : {};
-      var suggestedRegion = addr.state || addr.region || addr.county || '';
-      var suggestedCountry = addr.country || '';
-      var regionValue = getEl('stRegion').value.trim();
+      var rawCountry = addr.country || '';
+      var normCountry = normalizeCountryName(rawCountry);
       var isNewDraft = !getEl('stId').value.trim();
 
-      if ((!regionValue || (isNewDraft && regionValue === 'gulf')) && suggestedRegion) getEl('stRegion').value = suggestedRegion;
-      if (suggestedCountry) getEl('stCountry').value = suggestedCountry;
+      // Auto-set country (normalized) for new stations or when empty
+      if (normCountry) {
+        var countryEl = getEl('stCountry');
+        if (countryEl && (!_stationEditMode || isNewDraft || !countryEl.value)) {
+          countryEl.value = normCountry;
+          rebuildRegionSelect(normCountry, getEl('stRegion').value.trim());
+        }
+      }
+
+      var effectiveCountry = (getEl('stCountry') && getEl('stCountry').value) || normCountry;
+
+      // Auto-suggest region from address, then auto-generate station name
+      var regionNow = getEl('stRegion').value.trim();
+      if (!_stationEditMode && (!regionNow || regionNow === 'gulf')) {
+        var matchedRegion = findBestCoastalRegion(effectiveCountry, addr);
+        if (matchedRegion) {
+          var sel = getEl('stRegion');
+          if (sel) sel.value = matchedRegion;
+          if (!_stationNameUserEdited) {
+            var autoN = suggestAutoNumber(effectiveCountry, matchedRegion);
+            var nameEl = getEl('stName');
+            var hintEl2 = getEl('stNameAutoHint');
+            if (autoN && nameEl) { nameEl.value = autoN; }
+            if (hintEl2) hintEl2.textContent = '(تلقائي)';
+          }
+        }
+      }
+
+      // Show inferred marine type
+      showMarineTypeHint(inferFishingModeFromCoords(lat, lon, effectiveCountry));
 
       // Use loose coordinate tolerance (1e-4 ≈ 11 m) to accommodate auto-offset shift
       var coordsMatchWaterCheck = waterCheckState &&
@@ -1212,6 +1304,8 @@
     getEl('stLon').value = lon.toFixed(6);
     updateStationCoordPreview(lat, lon);
     setStationMarker(lat, lon, shouldCenter);
+    // Immediate best-effort marine type — refined once reverse geocode returns
+    showMarineTypeHint(inferFishingModeFromCoords(lat, lon, getEl('stCountry') ? getEl('stCountry').value : ''));
     if (runReverse) reverseGeocodeStation(lat, lon);
     if (!skipWaterCheck) scheduleWaterCheck(lat, lon);
   }
@@ -1258,7 +1352,7 @@
       lon: Number(getEl('stLon').value),
       country: getEl('stCountry').value.trim(),
       region: getEl('stRegion').value.trim() || '',
-      fishing_mode: getEl('stFishingMode').value === 'deep' ? 'deep' : 'coastal',
+      fishing_mode: inferFishingModeFromCoords(Number(getEl('stLat').value), Number(getEl('stLon').value), getEl('stCountry').value.trim()),
       status: active ? 'active' : 'disabled',
       sort_order: Number(getEl('stSort').value || 0),
       default_radius: Number(getEl('stRadius').value || 0.02),
@@ -1276,7 +1370,8 @@
     getEl('stName').value = st.name || '';
     getEl('stLat').value = st.lat != null ? st.lat : '';
     getEl('stLon').value = st.lon != null ? st.lon : '';
-    getEl('stFishingMode').value = st.fishing_mode === 'deep' ? 'deep' : 'coastal';
+    var fmEl = getEl('stFishingMode');
+    if (fmEl) fmEl.value = st.fishing_mode === 'deep' ? 'deep' : 'coastal';
     getEl('stActive').checked = st.status !== 'disabled' && st.status !== 'archived';
     getEl('stSort').value = st.sort_order != null ? st.sort_order : 1;
     getEl('stRadius').value = st.default_radius != null ? st.default_radius : 0.02;
@@ -1288,9 +1383,14 @@
     if (wrapEl) wrapEl.style.display = 'none';
     syncStationMapFromInputs(true);
     refreshAllStationMarkers(_stationEditMode ? (st.id || null) : null);
-    if (st.lat != null && st.lon != null) {
-      reverseGeocodeStation(Number(st.lat), Number(st.lon));
+    var fLat = Number(st.lat);
+    var fLon = Number(st.lon);
+    if (Number.isFinite(fLat) && Number.isFinite(fLon)) {
+      showMarineTypeHint(inferFishingModeFromCoords(fLat, fLon, st.country || ''));
+      reverseGeocodeStation(fLat, fLon);
     } else {
+      var mHint = getEl('stMarineTypeHint');
+      if (mHint) mHint.style.display = 'none';
       setStationPlaceSuggestion('الموقع المختار: --');
     }
   }
@@ -1304,6 +1404,8 @@
     refreshAllStationMarkers(null);
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
+    var mHintClear = getEl('stMarineTypeHint');
+    if (mHintClear) mHintClear.style.display = 'none';
     waterCheckState.isWater = null;
     waterCheckState.lat = null;
     waterCheckState.lon = null;
@@ -1379,18 +1481,6 @@
         warnEl.textContent = '\u26a0 ' + gulfCount + ' \u0645\u062d\u0637\u0629 \u0644\u0627 \u062a\u0632\u0627\u0644 \u062a\u0633\u062a\u062e\u062f\u0645 region = gulf \u2014 \u0627\u0646\u0642\u0631 \u062a\u0639\u062f\u064a\u0644 \u0644\u062a\u0635\u062d\u064a\u062d \u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0641\u0639\u0644\u064a\u0629.';
       } else {
         warnEl.style.display = 'none';
-      }
-    }
-
-    // Fishing mode warning bar
-    var unsetModeCount = stationsCache.filter(function (s) { return !s.fishing_mode; }).length;
-    var modeWarnEl = getEl('fishingModeWarningBar');
-    if (modeWarnEl) {
-      if (unsetModeCount > 0) {
-        modeWarnEl.style.display = '';
-        modeWarnEl.textContent = '\u26a0 ' + unsetModeCount + ' \u0645\u062d\u0637\u0629 \u0644\u0645 \u064a\u064f\u062d\u062f\u062f \u0646\u0648\u0639 \u0635\u064a\u062f\u0647\u0627 \u2014 \u0627\u0636\u063a\u0637 \u062a\u0639\u062f\u064a\u0644 \u0648\u062a\u062e\u062a\u0631 \u0633\u0627\u062d\u0644\u064a \u0623\u0648 \u0639\u0645\u0642.';
-      } else {
-        modeWarnEl.style.display = 'none';
       }
     }
 
