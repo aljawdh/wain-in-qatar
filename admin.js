@@ -1839,7 +1839,8 @@
     var logoutBtn = getEl('logoutBtn');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
-    // Platform mode toggle buttons
+    // Platform mode toggle buttons — auto-save immediately on click so the
+    // change is globally visible without requiring a separate "حفظ" press.
     var openBtn = getEl('platformModeOpenBtn');
     var closedBtn = getEl('platformModeClosedBtn');
     if (openBtn) {
@@ -1847,6 +1848,7 @@
         var sel = getEl('siteModeInput');
         if (sel) sel.value = 'live';
         syncPlatformToggle('live');
+        if (!settingsInFlight) saveSettingsFromAdmin();
       });
     }
     if (closedBtn) {
@@ -1854,6 +1856,7 @@
         var sel = getEl('siteModeInput');
         if (sel) sel.value = 'maintenance';
         syncPlatformToggle('maintenance');
+        if (!settingsInFlight) saveSettingsFromAdmin();
       });
     }
   }

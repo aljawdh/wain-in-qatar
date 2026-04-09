@@ -185,9 +185,12 @@ function normalizeSettings(input) {
 async function readSettings() {
   if (isKvConfigured()) {
     const raw = await getKv().get(SETTINGS_KEY);
-    if (!raw) return defaultSettings();
+    if (raw == null) return defaultSettings();
     try {
-      return normalizeSettings(JSON.parse(raw));
+      // @upstash/redis auto-deserializes JSON stored values into objects.
+      // Handle both: already-parsed object and raw JSON string.
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return normalizeSettings(parsed);
     } catch (e) {
       return defaultSettings();
     }
