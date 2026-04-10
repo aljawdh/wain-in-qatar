@@ -55,8 +55,13 @@ async function handleLogCatch(req, res) {
     const fishingMethod = cleanString(body.fishing_method || '', 60) || null;
 
     // ── Deduplication fingerprint (Task 6) ─────────────────────────────────
-    // Fingerprint = station + analysis_timestamp (truncated to minute) + catch_success + sorted species
+    // Fingerprint = snapshot_id + station + analysis_timestamp (minute) + catch_success + sorted species
+    // snapshot_id is included so that two different analysis sessions at the same
+    // station/minute/species are NOT falsely deduplicated — only truly identical
+    // submits (same analysis view, double-click) are blocked.
+    const snapshotIdForDedup = cleanString(body.prediction_snapshot_id || '', 80) || '';
     const dedupFingerprint = [
+      snapshotIdForDedup,
       stationId,
       analysisTimestamp.slice(0, 16),
       catchSuccess ? '1' : '0',
