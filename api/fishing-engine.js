@@ -476,7 +476,76 @@ async function runGridSearch(centerLat, centerLon) {
   });
 }
 
+// ─── Server-side tidal compute helpers (mirrors client getTidalCoefficient / getWaterStateFromCoefficient) ───
+
+function serverGetTideState(prev, cur, next) {
+  if (prev == null || cur == null || next == null) return 'steady';
+  const trend = next - prev;
+  if (trend > 0.04) return 'sagi';
+  if (trend < -0.04) return 'thabr';
+  return 'steady';
+}
+
+function serverGetTidalCoefficient(prev, cur, next) {
+  if (prev == null || cur == null || next == null) return 0;
+  const amplitudeCm = Math.abs(next - prev) * 100;
+  const acceleration = (Math.abs(cur - prev) + Math.abs(next - cur)) * 100;
+  const tideKey = serverGetTideState(prev, cur, next);
+  const trendBoost = tideKey === 'sagi' ? 16 : tideKey === 'thabr' ? 10 : 0;
+  const coefficient = Math.round((amplitudeCm * 1.25) + (acceleration * 0.8) + trendBoost);
+  return Math.max(0, Math.min(100, coefficient));
+}
+
+function serverComputeActivityScore(windSpeedKmh, tideAmplitude, tideKey, mode) {
+  const ws = windSpeedKmh != null ? windSpeedKmh : 0;
+  const amplitude = tideAmplitude != null ? tideAmplitude : 0;
+  let score = 42;
+  score += ws > 26 ? 22 : ws > 18 ? 12 : 4;
+  score += amplitude > 0.2 ? 18 : amplitude > 0.12 ? 10 : 4;
+  const isSagiStrong = tideKey === 'sagi' && amplitude >= 0.12;
+  if (mode === 'deep' && isSagiStrong) score -= 14;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+async function handleComputeDecision(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'forbidden_domain' });
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const tide = body.tide || {};
+    const wind = body.wind || {};
+
+    const prev = parseNumber(tide.previous);
+    const cur = parseNumber(tide.current);
+    const next = parseNumber(tide.next);
+    const windSpeedKmh = parseNumber(wind.speed);
+
+    const tidalCoefficient = serverGetTidalCoefficient(prev, cur, next);
+    const waterState = tidalCoefficient >= 55 ? 'حمل' : 'فساد';
+    const mode = waterState === 'حمل' ? 'deep' : 'coastal';
+    const tideKey = serverGetTideState(prev, cur, next);
+    const amplitude = prev != null && next != null ? Math.abs(next - prev) : 0;
+    const activityScore = serverComputeActivityScore(windSpeedKmh, amplitude, tideKey, mode);
+
+    return res.status(200).json({ tidalCoefficient, waterState, activityScore });
+  } catch (err) {
+    return res.status(500).json({ error: 'compute_failed', detail: String(err.message || err) });
+  }
+}
+
+// ─── Main handler ───
+
 module.exports = async function handler(req, res) {
+  // Route: /api/compute-decision (rewrites send ?_navidur_route=compute_decision)
+  if (req.query && req.query._navidur_route === 'compute_decision') {
+    return handleComputeDecision(req, res);
+  }
+
   if (!isAllowedOrigin(req)) {
     return res.status(403).json({ error: 'Forbidden domain' });
   }

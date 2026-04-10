@@ -983,6 +983,43 @@
       <div class="fish-list" id="fishList"></div>
     </div>
 
+    <!-- TASK 3: catch logging block -->
+    <div class="card" id="catchLogBlock" style="display:none">
+      <div class="label" style="margin-bottom:12px;font-size:15px;font-weight:700">🎣 هل صاد معك؟</div>
+      <div id="catchLogPrompt" style="display:flex;gap:10px;justify-content:center">
+        <button id="catchLogYesBtn" onclick="onCatchLogYes()" style="flex:1;padding:10px;background:#0d3b52;border:1px solid #27beff;color:#e7f7ff;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700">نعم</button>
+        <button id="catchLogNoBtn" onclick="onCatchLogNo()" style="flex:1;padding:10px;background:#0d3b52;border:1px solid rgba(255,255,255,.2);color:#aac8d8;border-radius:10px;cursor:pointer;font-size:15px">لا</button>
+      </div>
+      <div id="catchLogForm" style="display:none;margin-top:14px">
+        <div style="margin-bottom:8px">
+          <label style="display:block;font-size:12px;color:#8db2c8;margin-bottom:4px">نوع السمك</label>
+          <select id="catchFishType" style="width:100%;padding:8px;background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;font-size:14px">
+            <option value="">اختر...</option>
+          </select>
+        </div>
+        <div style="margin-bottom:8px">
+          <label style="display:block;font-size:12px;color:#8db2c8;margin-bottom:4px">الكمية</label>
+          <input id="catchQuantity" type="number" min="0" max="999" placeholder="0" style="width:100%;box-sizing:border-box;padding:8px;background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;font-size:14px" />
+        </div>
+        <div style="margin-bottom:12px">
+          <label style="display:block;font-size:12px;color:#8db2c8;margin-bottom:4px">طريقة الصيد</label>
+          <select id="catchMethod" style="width:100%;padding:8px;background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;font-size:14px">
+            <option value="">اختر...</option>
+            <option value="حداق قاع">حداق قاع</option>
+            <option value="حداق ساحلي">حداق ساحلي</option>
+            <option value="تشخيط">تشخيط</option>
+            <option value="غزل">غزل</option>
+            <option value="طواري">طواري</option>
+            <option value="قرقور">قرقور</option>
+            <option value="أخرى">أخرى</option>
+          </select>
+        </div>
+        <button onclick="submitCatchLog()" style="width:100%;padding:10px;background:#27beff;border:none;color:#071722;border-radius:10px;cursor:pointer;font-size:15px;font-weight:800">إرسال السجل</button>
+      </div>
+      <div id="catchLogStatus" style="margin-top:10px;font-size:13px;text-align:center;min-height:20px"></div>
+    </div>
+    <!-- end catch logging block -->
+
     <div class="foot">
       <div class="foot-line1">© 2026 NAVIDUR. جميع الحقوق محفوظة.</div>
       <div class="foot-line2"><span class="foot-expert">تطوير وتصميم الخبير البحري:</span> <span class="foot-name">محمد الحضري</span></div>
@@ -1574,6 +1611,7 @@
     let analysisCircle = null;
     let stationMarkerMap = new Map();
     let latestHotspotResult = null;
+    let serverComputeResult = null; // cached server-side tidal compute result (TASK 1 fallback layer)
     let allStationsExpanded = false;
     let selectionTracking = { country: '', region: '', station_id: '' };
     let runtimeUiSettings = {
@@ -2676,6 +2714,56 @@
       return getSelectedStationMode();
     }
 
+    // ── TASK 1: server-side compute layer (async, non-blocking) ──────────────
+    // Fires POST /api/compute-decision and stores result in serverComputeResult.
+    // Client local logic runs first; this call happens in background.
+    // If it fails or times out the local result is already displayed — zero regression.
+    async function tryServerComputeDecision(hourData, stationId) {
+      try {
+        const hr = hourData || {};
+        const activeHours = getActiveHours();
+        const idx = selectedHourIndex;
+        const cur = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
+        const prev = idx > 0
+          ? (activeHours[idx - 1] && activeHours[idx - 1].seaLevel && activeHours[idx - 1].seaLevel.sg != null ? activeHours[idx - 1].seaLevel.sg : cur)
+          : cur;
+        const next = idx < activeHours.length - 1
+          ? (activeHours[idx + 1] && activeHours[idx + 1].seaLevel && activeHours[idx + 1].seaLevel.sg != null ? activeHours[idx + 1].seaLevel.sg : cur)
+          : cur;
+        const windSpeedKmh = hr.windSpeed && hr.windSpeed.sg != null
+          ? (hr.windSpeed.sg * 3.6)
+          : null;
+
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller
+          ? setTimeout(function () { controller.abort(); }, 5000)
+          : null;
+
+        const payload = {
+          station_id: stationId || (selectedStation && selectedStation.id) || '',
+          lat: selectedStation ? selectedStation.lat : 0,
+          lng: selectedStation ? selectedStation.lng : 0,
+          wind: { speed: windSpeedKmh, direction: hr.windDirection && hr.windDirection.sg != null ? hr.windDirection.sg : null },
+          tide: { current: cur, previous: prev, next: next },
+          temperature: hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null
+        };
+
+        const fetchOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
+        if (controller) fetchOpts.signal = controller.signal;
+
+        const resp = await fetch('/api/compute-decision', fetchOpts);
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (resp.ok) {
+          const result = await resp.json();
+          serverComputeResult = Object.assign({}, result, { _fetchedAt: Date.now(), _stationId: stationId });
+        }
+      } catch (_err) {
+        // Silently fall back to local computation — no user impact
+      }
+    }
+    // ── end TASK 1 ──────────────────────────────────────────────────────────
+
     function updateAllStationStates(date) {
       const targetDate = new Date(date || new Date());
       const out = {};
@@ -3482,6 +3570,7 @@
       renderCompass(date);
       renderSeaStatusStrip();
       renderFish(date);
+      renderCatchLogBlock();
     }
 
     async function onStationChange(idx, opts) {
@@ -3504,6 +3593,11 @@
       selectedHourIndex = getDefaultHourIndex(selectedForecastDay);
       updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
       renderAll();
+
+      // TASK 1: fire server compute in background (non-blocking, zero regression)
+      const _hrForCompute = getActiveHours()[selectedHourIndex] || {};
+      serverComputeResult = null;
+      tryServerComputeDecision(_hrForCompute, selectedStation.id).catch(function () {});
 
       syncFlowFromSelectedStation();
       focusStationOnMap(selectedStation);
@@ -3549,6 +3643,140 @@
       const idx = selectedStation && typeof selectedStation.index === 'number' ? selectedStation.index : 0;
       await onStationChange(idx);
     }
+
+    // ── TASK 3: catch logging UI helpers ─────────────────────────────────────
+
+    function renderCatchLogBlock() {
+      const block = document.getElementById('catchLogBlock');
+      if (!block) return;
+      // Show block only when a station is selected and analysis is available
+      if (!selectedStation || !selectedStation.id) { block.style.display = 'none'; return; }
+      block.style.display = 'block';
+      // Reset to prompt each time station changes
+      document.getElementById('catchLogPrompt').style.display = 'flex';
+      document.getElementById('catchLogForm').style.display = 'none';
+      document.getElementById('catchLogStatus').textContent = '';
+      // Populate fish options from current NAVIDUR prediction
+      const fishSel = document.getElementById('catchFishType');
+      fishSel.innerHTML = '<option value="">اختر...</option>';
+      try {
+        const date = getForecastDateByIndex(selectedForecastDay);
+        const _stState = stationStates && selectedStation ? stationStates[selectedStation.id] : null;
+        const liveWs = _stState && _stState.waterState ? _stState.waterState : null;
+        const topFish = getFishForStation(date, liveWs).slice(0, 10);
+        topFish.forEach(function (f) {
+          const opt = document.createElement('option');
+          opt.value = f.name_ar;
+          opt.textContent = f.name_ar;
+          fishSel.appendChild(opt);
+        });
+      } catch (_) {}
+      const otherOpt = document.createElement('option');
+      otherOpt.value = 'أخرى';
+      otherOpt.textContent = 'أخرى';
+      fishSel.appendChild(otherOpt);
+    }
+
+    function _buildCatchLogPayload(catchSuccess, actualSpecies, qty, method) {
+      const date = getForecastDateByIndex(selectedForecastDay);
+      const hr = getActiveHours()[selectedHourIndex] || {};
+      const activeHours = getActiveHours();
+      const idx = selectedHourIndex;
+      const cur = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
+      const prev = idx > 0
+        ? (activeHours[idx - 1] && activeHours[idx - 1].seaLevel && activeHours[idx - 1].seaLevel.sg != null ? activeHours[idx - 1].seaLevel.sg : cur)
+        : cur;
+      const next = idx < activeHours.length - 1
+        ? (activeHours[idx + 1] && activeHours[idx + 1].seaLevel && activeHours[idx + 1].seaLevel.sg != null ? activeHours[idx + 1].seaLevel.sg : cur)
+        : cur;
+
+      const _stState = stationStates && selectedStation ? stationStates[selectedStation.id] : null;
+      const liveWs = _stState && _stState.waterState ? _stState.waterState : null;
+      // Prefer server compute result if fresh (within 5 min), else use local
+      const _srv = serverComputeResult && serverComputeResult._stationId === selectedStation.id
+        && (Date.now() - (serverComputeResult._fetchedAt || 0)) < 300000
+        ? serverComputeResult : null;
+      const waterStatePredicted = _srv ? _srv.waterState : (liveWs || (_stState && _stState.waterState) || null);
+      const activityScorePredicted = _srv ? _srv.activityScore : computeFDI(date);
+      const fishingModePredicted = _stState && _stState.mode ? _stState.mode : getActiveMode(date);
+      const topFish = getFishForStation(date, liveWs).slice(0, 5).map(function (f) { return f.name_ar; });
+
+      return {
+        station_id: selectedStation.id,
+        lat: selectedStation.lat != null ? selectedStation.lat : null,
+        lng: selectedStation.lng != null ? selectedStation.lng : null,
+        timestamp: new Date().toISOString(),
+        wind_speed: hr.windSpeed && hr.windSpeed.sg != null ? +(hr.windSpeed.sg * 3.6).toFixed(1) : null,
+        wind_direction: hr.windDirection && hr.windDirection.sg != null ? hr.windDirection.sg : null,
+        tide_current: cur,
+        tide_previous: prev,
+        tide_next: next,
+        temperature: hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null,
+        water_state_predicted: waterStatePredicted,
+        activity_score_predicted: activityScorePredicted,
+        fishing_mode_predicted: fishingModePredicted,
+        species_predicted: topFish,
+        catch_success: catchSuccess,
+        actual_species: actualSpecies || [],
+        catch_quantity: qty != null ? qty : null,
+        fishing_method: method || null
+      };
+    }
+
+    function onCatchLogYes() {
+      document.getElementById('catchLogPrompt').style.display = 'none';
+      document.getElementById('catchLogForm').style.display = 'block';
+      document.getElementById('catchLogStatus').textContent = '';
+    }
+
+    function onCatchLogNo() {
+      if (!selectedStation || !selectedStation.id) {
+        document.getElementById('catchLogStatus').textContent = 'لم يتم تحديد محطة.';
+        return;
+      }
+      const payload = _buildCatchLogPayload(false, [], null, null);
+      _sendCatchLog(payload);
+    }
+
+    function submitCatchLog() {
+      if (!selectedStation || !selectedStation.id) {
+        document.getElementById('catchLogStatus').textContent = 'لم يتم تحديد محطة.';
+        return;
+      }
+      const fishType = document.getElementById('catchFishType').value.trim();
+      const qty = parseInt(document.getElementById('catchQuantity').value, 10);
+      const method = document.getElementById('catchMethod').value.trim();
+      const payload = _buildCatchLogPayload(
+        true,
+        fishType ? [fishType] : [],
+        Number.isFinite(qty) && qty >= 0 ? qty : null,
+        method || null
+      );
+      _sendCatchLog(payload);
+    }
+
+    function _sendCatchLog(payload) {
+      const statusEl = document.getElementById('catchLogStatus');
+      statusEl.textContent = 'جارٍ الإرسال...';
+      fetch('/api/log-catch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(function (resp) {
+          if (resp.ok) {
+            document.getElementById('catchLogPrompt').style.display = 'none';
+            document.getElementById('catchLogForm').style.display = 'none';
+            statusEl.textContent = '✅ تم تسجيل الصيد. شكراً!';
+          } else {
+            statusEl.textContent = '⚠️ تعذّر الإرسال. حاول مجدداً.';
+          }
+        })
+        .catch(function () {
+          statusEl.textContent = '⚠️ خطأ في الاتصال. حاول مجدداً.';
+        });
+    }
+    // ── end TASK 3 ──────────────────────────────────────────────────────────
 
     async function refreshIfDayChanged(force) {
       const todayKey = getTodayKey();

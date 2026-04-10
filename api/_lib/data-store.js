@@ -13,7 +13,8 @@ const FILES = {
   stations: 'stations.json',
   feedback: 'feedback.json',
   audit: 'audit_logs.json',
-  tracking: 'tracking.json'
+  tracking: 'tracking.json',
+  catch_logs: 'catch_logs.json'
 };
 
 let _kvClient = null;
