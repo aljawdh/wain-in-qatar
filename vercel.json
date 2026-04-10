@@ -13,6 +13,7 @@
     { "source": "/api/compute-decision", "destination": "/api/fishing-engine?_navidur_route=compute_decision" },
     { "source": "/api/log-catch", "destination": "/api/tracking?_navidur_route=log_catch" },
     { "source": "/api/catch-data", "destination": "/api/tracking?_navidur_route=catch_data" },
+    { "source": "/api/system-storage-health", "destination": "/api/tracking?_navidur_route=storage_health" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/admin.html", "destination": "/admin.html" },
     { "source": "/:path*", "destination": "/:path*" }

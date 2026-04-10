@@ -17,6 +17,13 @@ const FILES = {
   catch_logs: 'catch_logs.json'
 };
 
+// ─── KV keys for append-safe catch log storage ───────────────────────────────
+const CATCH_INDEX_KEY = 'navidur_catch_index';   // Redis LIST of IDs (newest first)
+const CATCH_RECORD_PREFIX = 'navidur_catch:';     // navidur_catch:{id} = JSON record
+const CATCH_INDEX_MAX_SIZE = 10000;               // LTRIM guard — prevents unbounded growth
+const DEDUP_PREFIX = 'navidur_dedup:';            // short-lived dedup keys
+const RL_PREFIX = 'navidur_rl:';                  // rate-limit counters
+
 let _kvClient = null;
 
 function getKvConfig() {
@@ -116,6 +123,112 @@ async function writeJsonFile(key, value) {
   await writeToSeedFile(key, value);
 }
 
+// ─── Append-safe catch log storage (Tasks 1 + 2) ─────────────────────────────
+// Each catch log is stored as an independent KV record (no full-list rewrite).
+// A Redis LIST acts as an ordered index of IDs (newest first via LPUSH).
+
+async function appendCatchLog(record) {
+  const kv = getKv();
+  if (!kv) {
+    assertPersistentStoreAvailable();
+    throw new Error('kv_not_available');
+  }
+  const id = String(record.id);
+  // Store individual record — no read-modify-write, fully safe under concurrent writes
+  await kv.set(CATCH_RECORD_PREFIX + id, JSON.stringify(record));
+  // Push ID to front of list (atomic, newest first)
+  await kv.lpush(CATCH_INDEX_KEY, id);
+  // Trim index to guard against unbounded growth
+  await kv.ltrim(CATCH_INDEX_KEY, 0, CATCH_INDEX_MAX_SIZE - 1);
+}
+
+async function getCatchLogs(stationId, limit) {
+  const kv = getKv();
+  if (!kv) {
+    assertPersistentStoreAvailable();
+    throw new Error('kv_not_available');
+  }
+  const safeLimit = (typeof limit === 'number' && limit > 0) ? limit : 100;
+  // Fetch more IDs when filtering by station so we can return up to safeLimit after filter
+  const fetchCount = stationId ? Math.min(500, CATCH_INDEX_MAX_SIZE) : safeLimit;
+
+  const ids = await kv.lrange(CATCH_INDEX_KEY, 0, fetchCount - 1);
+  if (!ids || !ids.length) return [];
+
+  // Batch-fetch all records
+  const keys = ids.map((id) => CATCH_RECORD_PREFIX + String(id));
+  const rawRecords = await kv.mget(...keys);
+
+  const records = rawRecords
+    .map((r) => {
+      if (r == null) return null;
+      try { return typeof r === 'string' ? JSON.parse(r) : r; }
+      catch (_) { return null; }
+    })
+    .filter(Boolean);
+
+  if (stationId) {
+    return records.filter((r) => r.station_id === stationId).slice(0, safeLimit);
+  }
+  return records.slice(0, safeLimit);
+}
+
+// ─── Upstash-backed rate limiting (Task 3) ────────────────────────────────────
+// Uses Redis INCR + EXPIRE for cross-instance, persistent rate limiting.
+// Falls back to allowing the request if KV is unavailable.
+
+async function rateLimitKv(prefix, ip, maxRequests, windowSec) {
+  const kv = getKv();
+  if (!kv) return true; // no KV — allow (in-memory fallback handled by caller)
+  try {
+    const key = RL_PREFIX + prefix + ':' + String(ip).slice(0, 100);
+    const count = await kv.incr(key);
+    if (count === 1) await kv.expire(key, windowSec);
+    return count <= maxRequests;
+  } catch (_) {
+    return true; // never block on KV error
+  }
+}
+
+// ─── Deduplication (Task 6) ──────────────────────────────────────────────────
+// Returns true when the fingerprint already exists (= duplicate, reject).
+// Uses SET NX (set only if not exists) + EX (auto-expire).
+
+async function checkAndSetDedup(fingerprint, ttlSec) {
+  const kv = getKv();
+  if (!kv) return false; // no KV — allow through
+  try {
+    const key = DEDUP_PREFIX + String(fingerprint).slice(0, 200);
+    // 'OK' = newly set (not a dup). null = key existed already (= dup).
+    const result = await kv.set(key, '1', { nx: true, ex: ttlSec });
+    return result === null; // true means duplicate
+  } catch (_) {
+    return false; // never block on KV error
+  }
+}
+
+// ─── Storage health check (Task 2) ───────────────────────────────────────────
+async function checkStorageHealth() {
+  const hasConfig = !!(process.env.KV_REST_API_URL || process.env.KV_URL) &&
+                    !!(process.env.KV_REST_API_TOKEN);
+  const kv = getKv();
+  if (!kv) {
+    return { ok: false, storage: 'upstash-kv', configured: false, writable: false, readable: false, error: 'kv_not_configured' };
+  }
+  const testKey = 'navidur_health_' + Date.now();
+  let writable = false;
+  let readable = false;
+  try {
+    await kv.set(testKey, 'ok', { ex: 30 });
+    writable = true;
+    const val = await kv.get(testKey);
+    readable = val === 'ok';
+    return { ok: writable && readable, storage: 'upstash-kv', configured: hasConfig, writable, readable };
+  } catch (err) {
+    return { ok: false, storage: 'upstash-kv', configured: hasConfig, writable, readable, error: String(err.message || err) };
+  }
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -129,5 +242,11 @@ module.exports = {
   readJsonFile,
   writeJsonFile,
   nowIso,
-  createId
+  createId,
+  getKv,
+  appendCatchLog,
+  getCatchLogs,
+  rateLimitKv,
+  checkAndSetDedup,
+  checkStorageHealth
 };

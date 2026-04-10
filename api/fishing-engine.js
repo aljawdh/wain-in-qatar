@@ -1,5 +1,7 @@
 'use strict';
 
+const { rateLimitKv } = require('./_lib/data-store');
+
 const ALLOWED_ORIGINS = [
   'https://navidur.app',
   'https://www.navidur.app'
@@ -514,6 +516,11 @@ async function handleComputeDecision(req, res) {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'method_not_allowed' });
   }
+
+  // KV-backed rate limit: 30 req/min per IP
+  const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim() || 'unknown';
+  const kvAllowed = await rateLimitKv('compute_decision', ip, 30, 60);
+  if (!kvAllowed) return res.status(429).json({ error: 'rate_limited' });
 
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});

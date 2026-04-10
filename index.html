@@ -1612,6 +1612,7 @@
     let stationMarkerMap = new Map();
     let latestHotspotResult = null;
     let serverComputeResult = null; // cached server-side tidal compute result (TASK 1 fallback layer)
+    let currentPredictionSnapshot = null; // frozen snapshot of analysis state — used for catch logging
     let allStationsExpanded = false;
     let selectionTracking = { country: '', region: '', station_id: '' };
     let runtimeUiSettings = {
@@ -2757,12 +2758,79 @@
         if (resp.ok) {
           const result = await resp.json();
           serverComputeResult = Object.assign({}, result, { _fetchedAt: Date.now(), _stationId: stationId });
+          // ── Task 7: update prediction snapshot with server compute result ──
+          if (currentPredictionSnapshot && currentPredictionSnapshot.station_id === stationId) {
+            currentPredictionSnapshot.compute_source = 'server';
+            currentPredictionSnapshot.server_water_state = result.waterState;
+            currentPredictionSnapshot.server_tidal_coefficient = result.tidalCoefficient;
+            currentPredictionSnapshot.server_activity_score = result.activityScore;
+          }
         }
       } catch (_err) {
         // Silently fall back to local computation — no user impact
       }
     }
     // ── end TASK 1 ──────────────────────────────────────────────────────────
+
+    // ── TASK 4: freeze prediction snapshot ───────────────────────────────────
+    // Called from renderAll() AFTER all rendering is complete.
+    // Captures exactly what the user sees at analysis time.
+    // Once frozen, it is never recomputed — only server compute fields are appended later.
+    function freezePredictionSnapshot() {
+      if (!selectedStation || !selectedStation.id) {
+        currentPredictionSnapshot = null;
+        return;
+      }
+      const date = getForecastDateByIndex(selectedForecastDay);
+      const activeHours = getActiveHours();
+      const idx = selectedHourIndex;
+      const hr = activeHours[idx] || {};
+      const cur = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
+      const prev = idx > 0
+        ? (activeHours[idx - 1] && activeHours[idx - 1].seaLevel && activeHours[idx - 1].seaLevel.sg != null ? activeHours[idx - 1].seaLevel.sg : cur)
+        : cur;
+      const next = idx < activeHours.length - 1
+        ? (activeHours[idx + 1] && activeHours[idx + 1].seaLevel && activeHours[idx + 1].seaLevel.sg != null ? activeHours[idx + 1].seaLevel.sg : cur)
+        : cur;
+
+      const _stState = stationStates && selectedStation ? stationStates[selectedStation.id] : null;
+      const waterState = _stState && _stState.waterState ? _stState.waterState : null;
+      const tidalCoeff = _stState && typeof _stState.tidalCoefficient === 'number' ? _stState.tidalCoefficient : null;
+      const fishingMode = _stState && _stState.mode ? _stState.mode : getActiveMode(date);
+      const fdi = computeFDI(date);
+      const topFish = getFishForStation(date, waterState).slice(0, 5).map(function (f) { return f.name_ar; });
+
+      // Generate stable snapshot id for this analysis view
+      const snapId = 'snap_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+      currentPredictionSnapshot = {
+        snapshot_id: snapId,
+        station_id: selectedStation.id,
+        station_name: selectedStation.name || '',
+        lat: selectedStation.lat != null ? selectedStation.lat : null,
+        lng: selectedStation.lng != null ? selectedStation.lng : null,
+        analysis_timestamp: new Date().toISOString(),
+        // Environment frozen at this exact selected hour
+        tide_current: cur,
+        tide_previous: prev,
+        tide_next: next,
+        wind_speed_kmh: hr.windSpeed && hr.windSpeed.sg != null ? +(hr.windSpeed.sg * 3.6).toFixed(1) : null,
+        wind_direction: hr.windDirection && hr.windDirection.sg != null ? hr.windDirection.sg : null,
+        temperature: hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null,
+        // Local predictions
+        tidal_coefficient: tidalCoeff,
+        water_state: waterState,
+        activity_score: fdi,
+        fishing_mode: fishingMode,
+        species_predicted: topFish,
+        // Server compute — populated later by tryServerComputeDecision if it succeeds
+        compute_source: 'local',
+        server_water_state: null,
+        server_tidal_coefficient: null,
+        server_activity_score: null
+      };
+    }
+    // ── end TASK 4 ──────────────────────────────────────────────────────────
 
     function updateAllStationStates(date) {
       const targetDate = new Date(date || new Date());
@@ -3570,13 +3638,15 @@
       renderCompass(date);
       renderSeaStatusStrip();
       renderFish(date);
-      renderCatchLogBlock();
+      freezePredictionSnapshot();  // Task 4: freeze AFTER rendering — snapshot = what user sees
+      renderCatchLogBlock();        // uses frozen snapshot for fish dropdown
     }
 
     async function onStationChange(idx, opts) {
       const options = opts || {};
       const source = options.source === 'map' ? 'map' : 'list';
       setAnalysisLoading(true);
+      currentPredictionSnapshot = null; // Task 4: invalidate snapshot on station change
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
       selectionTracking.country = selectedStation.country;
@@ -3644,78 +3714,70 @@
       await onStationChange(idx);
     }
 
-    // ── TASK 3: catch logging UI helpers ─────────────────────────────────────
-
+    // ── TASK 3+4: catch logging UI helpers (uses frozen prediction snapshot) ─
     function renderCatchLogBlock() {
       const block = document.getElementById('catchLogBlock');
       if (!block) return;
-      // Show block only when a station is selected and analysis is available
       if (!selectedStation || !selectedStation.id) { block.style.display = 'none'; return; }
       block.style.display = 'block';
-      // Reset to prompt each time station changes
+      // Reset UI to prompt state on every renderAll
       document.getElementById('catchLogPrompt').style.display = 'flex';
       document.getElementById('catchLogForm').style.display = 'none';
       document.getElementById('catchLogStatus').textContent = '';
-      // Populate fish options from current NAVIDUR prediction
+      // Populate fish dropdown from the FROZEN snapshot — never from live state
       const fishSel = document.getElementById('catchFishType');
       fishSel.innerHTML = '<option value="">اختر...</option>';
-      try {
-        const date = getForecastDateByIndex(selectedForecastDay);
-        const _stState = stationStates && selectedStation ? stationStates[selectedStation.id] : null;
-        const liveWs = _stState && _stState.waterState ? _stState.waterState : null;
-        const topFish = getFishForStation(date, liveWs).slice(0, 10);
-        topFish.forEach(function (f) {
-          const opt = document.createElement('option');
-          opt.value = f.name_ar;
-          opt.textContent = f.name_ar;
-          fishSel.appendChild(opt);
-        });
-      } catch (_) {}
+      const speciesList = currentPredictionSnapshot && currentPredictionSnapshot.species_predicted
+        ? currentPredictionSnapshot.species_predicted
+        : [];
+      speciesList.forEach(function (name) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        fishSel.appendChild(opt);
+      });
       const otherOpt = document.createElement('option');
       otherOpt.value = 'أخرى';
       otherOpt.textContent = 'أخرى';
       fishSel.appendChild(otherOpt);
     }
 
+    // Build the payload entirely from the frozen snapshot.
+    // Returns null if snapshot is missing or invalid — caller must check.
     function _buildCatchLogPayload(catchSuccess, actualSpecies, qty, method) {
-      const date = getForecastDateByIndex(selectedForecastDay);
-      const hr = getActiveHours()[selectedHourIndex] || {};
-      const activeHours = getActiveHours();
-      const idx = selectedHourIndex;
-      const cur = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
-      const prev = idx > 0
-        ? (activeHours[idx - 1] && activeHours[idx - 1].seaLevel && activeHours[idx - 1].seaLevel.sg != null ? activeHours[idx - 1].seaLevel.sg : cur)
-        : cur;
-      const next = idx < activeHours.length - 1
-        ? (activeHours[idx + 1] && activeHours[idx + 1].seaLevel && activeHours[idx + 1].seaLevel.sg != null ? activeHours[idx + 1].seaLevel.sg : cur)
-        : cur;
-
-      const _stState = stationStates && selectedStation ? stationStates[selectedStation.id] : null;
-      const liveWs = _stState && _stState.waterState ? _stState.waterState : null;
-      // Prefer server compute result if fresh (within 5 min), else use local
-      const _srv = serverComputeResult && serverComputeResult._stationId === selectedStation.id
-        && (Date.now() - (serverComputeResult._fetchedAt || 0)) < 300000
-        ? serverComputeResult : null;
-      const waterStatePredicted = _srv ? _srv.waterState : (liveWs || (_stState && _stState.waterState) || null);
-      const activityScorePredicted = _srv ? _srv.activityScore : computeFDI(date);
-      const fishingModePredicted = _stState && _stState.mode ? _stState.mode : getActiveMode(date);
-      const topFish = getFishForStation(date, liveWs).slice(0, 5).map(function (f) { return f.name_ar; });
-
+      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) return null;
+      const snap = currentPredictionSnapshot;
+      // Use server compute values if available (Task 7), else fall back to local
+      const waterStateFinal = snap.compute_source === 'server' && snap.server_water_state
+        ? snap.server_water_state : snap.water_state;
+      const tidalCoeffFinal = snap.compute_source === 'server' && snap.server_tidal_coefficient != null
+        ? snap.server_tidal_coefficient : snap.tidal_coefficient;
+      const activityScoreFinal = snap.compute_source === 'server' && snap.server_activity_score != null
+        ? snap.server_activity_score : snap.activity_score;
       return {
-        station_id: selectedStation.id,
-        lat: selectedStation.lat != null ? selectedStation.lat : null,
-        lng: selectedStation.lng != null ? selectedStation.lng : null,
-        timestamp: new Date().toISOString(),
-        wind_speed: hr.windSpeed && hr.windSpeed.sg != null ? +(hr.windSpeed.sg * 3.6).toFixed(1) : null,
-        wind_direction: hr.windDirection && hr.windDirection.sg != null ? hr.windDirection.sg : null,
-        tide_current: cur,
-        tide_previous: prev,
-        tide_next: next,
-        temperature: hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null,
-        water_state_predicted: waterStatePredicted,
-        activity_score_predicted: activityScorePredicted,
-        fishing_mode_predicted: fishingModePredicted,
-        species_predicted: topFish,
+        // Identity
+        station_id: snap.station_id,
+        lat: snap.lat,
+        lng: snap.lng,
+        // Timestamps from snapshot — not from current time
+        analysis_timestamp: snap.analysis_timestamp,
+        prediction_snapshot_id: snap.snapshot_id,
+        source: 'public_ui',
+        // Environment frozen at analysis time
+        wind_speed: snap.wind_speed_kmh,
+        wind_direction: snap.wind_direction,
+        tide_current: snap.tide_current,
+        tide_previous: snap.tide_previous,
+        tide_next: snap.tide_next,
+        temperature: snap.temperature,
+        // Predictions from snapshot
+        water_state_predicted: waterStateFinal,
+        tidal_coefficient_predicted: tidalCoeffFinal,
+        activity_score_predicted: activityScoreFinal,
+        fishing_mode_predicted: snap.fishing_mode,
+        species_predicted: snap.species_predicted,
+        compute_source: snap.compute_source,
+        // Outcome (provided by user)
         catch_success: catchSuccess,
         actual_species: actualSpecies || [],
         catch_quantity: qty != null ? qty : null,
@@ -3724,23 +3786,31 @@
     }
 
     function onCatchLogYes() {
+      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) {
+        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط. اختر محطة أولاً.';
+        return;
+      }
       document.getElementById('catchLogPrompt').style.display = 'none';
       document.getElementById('catchLogForm').style.display = 'block';
       document.getElementById('catchLogStatus').textContent = '';
     }
 
     function onCatchLogNo() {
-      if (!selectedStation || !selectedStation.id) {
-        document.getElementById('catchLogStatus').textContent = 'لم يتم تحديد محطة.';
+      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) {
+        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط. اختر محطة أولاً.';
         return;
       }
       const payload = _buildCatchLogPayload(false, [], null, null);
+      if (!payload) {
+        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط.';
+        return;
+      }
       _sendCatchLog(payload);
     }
 
     function submitCatchLog() {
-      if (!selectedStation || !selectedStation.id) {
-        document.getElementById('catchLogStatus').textContent = 'لم يتم تحديد محطة.';
+      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) {
+        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط. اختر محطة أولاً.';
         return;
       }
       const fishType = document.getElementById('catchFishType').value.trim();
@@ -3752,6 +3822,10 @@
         Number.isFinite(qty) && qty >= 0 ? qty : null,
         method || null
       );
+      if (!payload) {
+        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط.';
+        return;
+      }
       _sendCatchLog(payload);
     }
 
@@ -3768,6 +3842,8 @@
             document.getElementById('catchLogPrompt').style.display = 'none';
             document.getElementById('catchLogForm').style.display = 'none';
             statusEl.textContent = '✅ تم تسجيل الصيد. شكراً!';
+          } else if (resp.status === 409) {
+            statusEl.textContent = '⚠️ تم تسجيل هذا الصيد مسبقاً.';
           } else {
             statusEl.textContent = '⚠️ تعذّر الإرسال. حاول مجدداً.';
           }
@@ -3776,7 +3852,7 @@
           statusEl.textContent = '⚠️ خطأ في الاتصال. حاول مجدداً.';
         });
     }
-    // ── end TASK 3 ──────────────────────────────────────────────────────────
+    // ── end TASK 3+4 ────────────────────────────────────────────────────────
 
     async function refreshIfDayChanged(force) {
       const todayKey = getTodayKey();
