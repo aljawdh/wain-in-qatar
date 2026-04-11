@@ -1442,17 +1442,26 @@ function onFilterRegionChange() {
 
 function initMap() {
   if (_fieldMap || !document.getElementById('fieldMap')) return;
-  _fieldMap = L.map('fieldMap', {
-    center: [24, 52],
-    zoom: 5,
-    zoomControl: true,
-    attributionControl: false
-  });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
-  }).addTo(_fieldMap);
-  L.control.attribution({ position: 'bottomright', prefix: '© OSM' }).addTo(_fieldMap);
-  renderMapMarkers({});
+  if (typeof L === 'undefined') {
+    console.warn('[field] Leaflet not loaded — map disabled');
+    return;
+  }
+  try {
+    _fieldMap = L.map('fieldMap', {
+      center: [24, 52],
+      zoom: 5,
+      zoomControl: true,
+      attributionControl: false
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(_fieldMap);
+    L.control.attribution({ position: 'bottomright', prefix: '© OSM' }).addTo(_fieldMap);
+    renderMapMarkers({});
+  } catch(e) {
+    console.warn('[field] initMap error:', e);
+    _fieldMap = null;
+  }
 }
 
 function renderMapMarkers(filter) {
@@ -2514,15 +2523,19 @@ function renderSessionPanel() {
 async function initApp() {
   showAppScreen();
 
-  // Load stations from API → cache → fallback (must happen before buildStationSelects)
-  await loadStations().catch(() => { if (!STATIONS.length) STATIONS = FALLBACK_STATIONS.slice(); });
+  // Load stations — must not crash
+  try {
+    await loadStations();
+  } catch(_) {
+    if (!STATIONS.length) STATIONS = FALLBACK_STATIONS.slice();
+  }
 
-  buildStationSelects();
-  buildSpeciesGrid();
-  renderCatchWarning();
+  try { buildStationSelects(); } catch(e) { console.warn('[field] buildStationSelects:', e); }
+  try { buildSpeciesGrid(); } catch(e) { console.warn('[field] buildSpeciesGrid:', e); }
+  try { renderCatchWarning(); } catch(e) { console.warn('[field] renderCatchWarning:', e); }
 
   // Initialize the Leaflet map (needs STATIONS populated)
-  initMap();
+  try { initMap(); } catch(e) { console.warn('[field] initMap:', e); }
 
   const user = Auth.user;
   if (!user) return;
@@ -2555,28 +2568,32 @@ async function initApp() {
   }
 
   // Sync map to restored station
-  if (appState.currentStation && _fieldMap) {
-    const st = appState.currentStation;
-    _fieldMap.setView([st.lat, st.lon], 9);
-    renderMapMarkers({});
-    updateSelectedInfo();
-  }
+  try {
+    if (appState.currentStation && _fieldMap) {
+      const st = appState.currentStation;
+      _fieldMap.setView([st.lat, st.lon], 9);
+      renderMapMarkers({});
+      updateSelectedInfo();
+    }
+  } catch(e) { console.warn('[field] map sync:', e); }
 
   // Restore prediction from localStorage; fetch fresh if online
-  if (appState.currentStation) {
-    const stored = _loadPredictionFromStorage(appState.currentStation.id);
-    if (stored) {
-      currentFieldPrediction = stored;
-      const w  = stored.water_state_predicted || '—';
-      const a  = stored.activity_score_predicted != null
-        ? stored.activity_score_predicted.toFixed(0) + '%'
-        : (stored.fishing_mode_predicted === 'deep' ? 'عمق' : '—');
-      const cs = stored.compute_source === 'server' ? 'NAVIDUR' : stored.compute_source === 'local_field' ? 'محلي' : '—';
-      updateChips({ water: w, activity: a, src: cs + ' (محفوظ)' });
-      _refreshSpeciesGridFromSnapshot();
+  try {
+    if (appState.currentStation) {
+      const stored = _loadPredictionFromStorage(appState.currentStation.id);
+      if (stored) {
+        currentFieldPrediction = stored;
+        const w  = stored.water_state_predicted || '—';
+        const a  = stored.activity_score_predicted != null
+          ? stored.activity_score_predicted.toFixed(0) + '%'
+          : (stored.fishing_mode_predicted === 'deep' ? 'عمق' : '—');
+        const cs = stored.compute_source === 'server' ? 'NAVIDUR' : stored.compute_source === 'local_field' ? 'محلي' : '—';
+        updateChips({ water: w, activity: a, src: cs + ' (محفوظ)' });
+        _refreshSpeciesGridFromSnapshot();
+      }
+      if (appState.isOnline) fetchAnalysis(appState.currentStation).catch(() => {});
     }
-    if (appState.isOnline) fetchAnalysis(appState.currentStation).catch(() => {});
-  }
+  } catch(e) { console.warn('[field] prediction restore:', e); }
 
   // Count pending
   try {
@@ -2584,11 +2601,11 @@ async function initApp() {
     appState.pendingCount = pending.length;
   } catch(_) {}
 
-  renderTripPanel();
-  renderSessionPanel();
-  renderStatusBar();
-  renderCatchWarning();
-  renderPredictionPanel();
+  try { renderTripPanel(); } catch(e) { console.warn('[field] renderTripPanel:', e); }
+  try { renderSessionPanel(); } catch(e) { console.warn('[field] renderSessionPanel:', e); }
+  try { renderStatusBar(); } catch(e) { console.warn('[field] renderStatusBar:', e); }
+  try { renderCatchWarning(); } catch(e) { console.warn('[field] renderCatchWarning:', e); }
+  try { renderPredictionPanel(); } catch(e) { console.warn('[field] renderPredictionPanel:', e); }
 
   // Start label age tick (updates "before X min" text)
   _startPredAgeTick();
