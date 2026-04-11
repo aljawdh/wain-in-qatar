@@ -11,6 +11,7 @@
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [
+    { "source": "/api/fish-species", "destination": "/api/stations?_navidur_route=fish_species" },
     { "source": "/api/compute-decision", "destination": "/api/fishing-engine?_navidur_route=compute_decision" },
     { "source": "/api/log-catch", "destination": "/api/tracking?_navidur_route=log_catch" },
     { "source": "/api/catch-data", "destination": "/api/tracking?_navidur_route=catch_data" },
