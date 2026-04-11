@@ -210,6 +210,63 @@
     .chip-warn { background: rgba(255,213,127,0.12); border-color: rgba(255,213,127,0.4); color: var(--warn); }
     .chip-bad { background: rgba(255,126,126,0.12); border-color: rgba(255,126,126,0.4); color: var(--bad); }
     .chip-accent { background: rgba(39,190,255,0.12); border-color: rgba(39,190,255,0.4); color: var(--accent); }
+    /* ── Prediction Summary Panel ── */
+    #predPanel { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+    .pred-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .pred-cell {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .pred-cell-wide { grid-column: span 2; }
+    .pred-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    .pred-val {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--txt);
+      line-height: 1;
+    }
+    .pred-val-md  { font-size: 18px; }
+    .pred-val-sm  { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .pred-val-haml  { color: var(--ok);   }
+    .pred-val-fasad { color: var(--bad);  }
+    .pred-val-sagi  { color: var(--accent); }
+    .pred-val-thabr { color: var(--warn);  }
+    .pred-refresh-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+    }
+    .pred-updated-txt {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .btn-pred-refresh {
+      font-size: 11px;
+      background: rgba(39,190,255,0.12);
+      border: 1px solid rgba(39,190,255,0.3);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 700;
+    }
+    .btn-pred-refresh:active { opacity: 0.7; }
     /* ── Trip / Session Panels ── */
     .phase-card { border-radius: 16px; padding: 14px; }
     .phase-card.inactive {
@@ -618,6 +675,45 @@
         <div class="chip chip-neutral" id="chipActivity">النشاط: —</div>
         <div class="chip chip-neutral" id="chipCoords">GPS: —</div>
         <div class="chip chip-neutral" id="chipSrc">التنبؤ: —</div>
+      </div>
+    </div>
+
+    <!-- ─ Prediction Summary Panel ─ -->
+    <div class="card" id="predPanel" style="display:none">
+      <div class="card-title">🌊 ملخص التنبؤ البحري</div>
+      <div class="pred-grid">
+        <div class="pred-cell">
+          <div class="pred-label">🌡 الحرارة</div>
+          <div class="pred-val pred-val-md" id="pvTemp">—</div>
+        </div>
+        <div class="pred-cell">
+          <div class="pred-label">💧 حالة الماي</div>
+          <div class="pred-val" id="pvWaterState">—</div>
+        </div>
+        <div class="pred-cell">
+          <div class="pred-label">🌀 سقي / ثبر</div>
+          <div class="pred-val pred-val-md" id="pvSaghiThabr">—</div>
+        </div>
+        <div class="pred-cell">
+          <div class="pred-label">📊 النشاط</div>
+          <div class="pred-val pred-val-md" id="pvActivity">—</div>
+        </div>
+        <div class="pred-cell">
+          <div class="pred-label">🧭 اتجاه الرياح</div>
+          <div class="pred-val pred-val-md" id="pvWindDir">—</div>
+        </div>
+        <div class="pred-cell">
+          <div class="pred-label">💨 سرعة الرياح</div>
+          <div class="pred-val pred-val-md" id="pvWindSpeed">—</div>
+        </div>
+        <div class="pred-cell pred-cell-wide">
+          <div class="pred-label">🌊 التيار (منسوب)</div>
+          <div class="pred-val pred-val-sm" id="pvTide">—</div>
+        </div>
+      </div>
+      <div class="pred-refresh-row">
+        <span class="pred-updated-txt" id="pvUpdated">—</span>
+        <button class="btn-pred-refresh" onclick="_manualPredRefresh()">🔄 تحديث</button>
       </div>
     </div>
 
@@ -1757,6 +1853,144 @@ function _refreshSpeciesGridFromSnapshot() {
 function clearAnalysis() {
   currentFieldPrediction = null;
   updateChips({ water: '—', activity: '—', src: '—' });
+  renderPredictionPanel();
+  _stopPredRefreshTimer();
+}
+
+// ══════════════════════════════════════════════════════════
+// PREDICTION PANEL HELPERS
+// ══════════════════════════════════════════════════════════
+
+/** Convert wind direction degrees to 8-point Arabic compass label. */
+function _windDirText(deg) {
+  if (deg == null) return '—';
+  const dirs = ['شمال','شمال شرقي','شرق','جنوب شرقي','جنوب','جنوب غربي','غرب','شمال غربي'];
+  return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+
+/** Derive سقي/ثبر/ثابت from tide prev/next (mirrors lab.html getTideState). */
+function _getTideState(prev, cur, next) {
+  if (prev == null || next == null) return { key: 'unknown', label: '—', arrow: '' };
+  const trend = next - prev;
+  if (trend >  0.04) return { key: 'sagi',   label: 'سقي ↑',  arrow: '↑' };
+  if (trend < -0.04) return { key: 'thabr',  label: 'ثبر ↓',  arrow: '↓' };
+  return { key: 'steady', label: 'ثابت ●', arrow: '●' };
+}
+
+/** Format timestamp ISO → relative Arabic time. */
+function _fmtPredAge(isoStr) {
+  if (!isoStr) return '—';
+  const diffMin = Math.round((Date.now() - new Date(isoStr).getTime()) / 60000);
+  if (diffMin < 1) return 'الآن';
+  if (diffMin === 1) return 'قبل دقيقة';
+  if (diffMin < 60) return 'قبل ' + diffMin + ' دقيقة';
+  const h = Math.floor(diffMin / 60);
+  return 'قبل ' + h + (h === 1 ? ' ساعة' : ' ساعات');
+}
+
+/** Render the full prediction summary panel from currentFieldPrediction. */
+function renderPredictionPanel() {
+  const panel = document.getElementById('predPanel');
+  if (!panel) return;
+  const snap = currentFieldPrediction;
+  if (!snap || !snap.water_state_predicted) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+
+  // Temperature
+  const tempEl = document.getElementById('pvTemp');
+  if (tempEl) tempEl.textContent = snap.temperature != null ? snap.temperature.toFixed(1) + ' °م' : '—';
+
+  // Water state
+  const wsEl = document.getElementById('pvWaterState');
+  if (wsEl) {
+    wsEl.textContent = snap.water_state_predicted || '—';
+    wsEl.className = 'pred-val ' + (snap.water_state_predicted === 'حمل' ? 'pred-val-haml' :
+                                    snap.water_state_predicted === 'فساد' ? 'pred-val-fasad' : '');
+  }
+
+  // سقي / ثبر
+  const stEl = document.getElementById('pvSaghiThabr');
+  if (stEl) {
+    const ts = _getTideState(snap.tide_previous, snap.tide_current, snap.tide_next);
+    stEl.textContent = ts.label;
+    stEl.className = 'pred-val pred-val-md' +
+      (ts.key === 'sagi' ? ' pred-val-sagi' : ts.key === 'thabr' ? ' pred-val-thabr' : '');
+  }
+
+  // Activity
+  const actEl = document.getElementById('pvActivity');
+  if (actEl) {
+    const as = snap.activity_score_predicted;
+    const fm = snap.fishing_mode_predicted;
+    actEl.textContent = as != null ? as.toFixed(0) + '%' :
+      (fm === 'deep' ? 'عمق' : fm === 'coastal' ? 'ساحل' : '—');
+  }
+
+  // Wind direction
+  const wdEl = document.getElementById('pvWindDir');
+  if (wdEl) wdEl.textContent = _windDirText(snap.wind_direction);
+
+  // Wind speed
+  const wspdEl = document.getElementById('pvWindSpeed');
+  if (wspdEl) wspdEl.textContent = snap.wind_speed_kmh != null ? snap.wind_speed_kmh.toFixed(0) + ' كم/س' : '—';
+
+  // Tide level
+  const tideEl = document.getElementById('pvTide');
+  if (tideEl) {
+    const tc = snap.tidal_coefficient_predicted;
+    const cur = snap.tide_current;
+    let tideText = cur != null ? cur.toFixed(2) + ' م' : '—';
+    if (tc != null) tideText += '  ·  معاملة: ' + tc;
+    tideEl.textContent = tideText;
+  }
+
+  // Last updated
+  const updEl = document.getElementById('pvUpdated');
+  if (updEl) {
+    const src = snap.compute_source === 'server' ? 'NAVIDUR' :
+                snap.compute_source === 'local_field' ? 'محلي' : '—';
+    updEl.textContent = 'آخر تحديث: ' + _fmtPredAge(snap.analysis_timestamp) + '  ·  ' + src;
+  }
+}
+
+// ── Auto-refresh ticker (updates "before X minutes" label) ──
+let _predAgeTickTimer = null;
+function _startPredAgeTick() {
+  if (_predAgeTickTimer) return;
+  _predAgeTickTimer = setInterval(() => {
+    const updEl = document.getElementById('pvUpdated');
+    const snap = currentFieldPrediction;
+    if (updEl && snap && snap.analysis_timestamp) {
+      const src = snap.compute_source === 'server' ? 'NAVIDUR' :
+                  snap.compute_source === 'local_field' ? 'محلي' : '—';
+      updEl.textContent = 'آخر تحديث: ' + _fmtPredAge(snap.analysis_timestamp) + '  ·  ' + src;
+    }
+  }, 30000); // update label every 30s
+}
+
+// ── Auto-refresh: refetch prediction every 10 minutes ──
+let _predRefreshTimer = null;
+const PRED_REFRESH_MS = 10 * 60 * 1000;
+
+function _startPredRefreshTimer() {
+  _stopPredRefreshTimer();
+  _predRefreshTimer = setInterval(() => {
+    if (appState.currentStation) {
+      fetchAnalysis(appState.currentStation).catch(() => {});
+    }
+  }, PRED_REFRESH_MS);
+}
+
+function _stopPredRefreshTimer() {
+  if (_predRefreshTimer) { clearInterval(_predRefreshTimer); _predRefreshTimer = null; }
+}
+
+function _manualPredRefresh() {
+  if (!appState.currentStation) return;
+  fetchAnalysis(appState.currentStation).catch(() => {});
 }
 
 function fmtCoords() {
@@ -1804,28 +2038,9 @@ function updateChips({ water, activity, coords, src }) {
       banner.style.display = 'none';
     }
   }
-}
 
-// ══════════════════════════════════════════════════════════
-// GPS
-// ══════════════════════════════════════════════════════════
-let _gpsSuggested = null;
-
-function doGps() {
-  if (!navigator.geolocation) {
-    showToast('GPS غير متاح في هذا الجهاز', 'warn');
-    return;
-  }
-  const btn = document.getElementById('gpsBtn');
-  btn.disabled = true;
-  btn.textContent = '📍 جارٍ...';
-
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      btn.disabled = false;
-      btn.textContent = '📍 موقعي';
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+    // Sync prediction summary panel
+    renderPredictionPanel();
       appState.currentLat = lat;
       appState.currentLng = lng;
 
@@ -1986,6 +2201,7 @@ async function startSession() {
   if (appState.currentStation && appState.isOnline) {
     fetchAnalysis(appState.currentStation).catch(() => {});
   }
+  _startPredRefreshTimer();
   const user = Auth.user;
 
   const session = {
@@ -2019,6 +2235,7 @@ async function endSession(silent) {
   await FieldDB.endSession(appState.activeSession.session_id, endTime);
   appState.activeSession.session_end_time = endTime;
   appState.activeSession = null;
+  _stopPredRefreshTimer();
   renderSessionPanel();
   renderCatchWarning();
   if (!silent) showToast('⏹ تم إنهاء الجلسة', 'ok');
@@ -2139,6 +2356,9 @@ async function saveCatch() {
   resetCatchForm();
   document.getElementById('catchStatus').textContent = '';
   showToast('💾 تم الحفظ محلياً', 'ok');
+
+  // Refresh prediction panel for next entry (time may have moved)
+  renderPredictionPanel();
 
   // Try to sync immediately
   syncPending();
@@ -2364,6 +2584,13 @@ async function initApp() {
   renderSessionPanel();
   renderStatusBar();
   renderCatchWarning();
+  renderPredictionPanel();
+
+  // Start label age tick (updates "before X min" text)
+  _startPredAgeTick();
+
+  // Restore auto-refresh timer if session was active
+  if (appState.activeSession) _startPredRefreshTimer();
 
   // Attempt to sync on load
   if (appState.isOnline) syncPending();
