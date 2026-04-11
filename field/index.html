@@ -1287,13 +1287,19 @@ async function doLogin(e) {
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok || !data.token) {
-      errEl.textContent = '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
+      errEl.textContent = data.error === 'rate_limited'
+        ? '⚠️ محاولات كثيرة، انتظر دقيقة ثم أعد المحاولة'
+        : '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
       return;
     }
-    Auth.save(data.token, data.user);
+    Auth.save(data.token, data.user || {});
     await initApp();
-  } catch(_) {
-    errEl.textContent = '⚠️ تعذّر الاتصال بالخادم. تحقق من الإنترنت.';
+  } catch(err) {
+    showAuthScreen();
+    errEl.textContent = err instanceof TypeError
+      ? '⚠️ تعذّر الاتصال بالخادم. تحقق من الإنترنت.'
+      : '⚠️ خطأ أثناء تحميل التطبيق. أعد المحاولة.';
+    console.error('[field] login/initApp error:', err);
   } finally {
     btn.disabled = false;
     btn.textContent = 'دخول';
@@ -2047,9 +2053,27 @@ function updateChips({ water, activity, coords, src }) {
       banner.style.display = 'none';
     }
   }
+}
 
-    // Sync prediction summary panel
-    renderPredictionPanel();
+function doGps() {
+  const btn = document.getElementById('gpsBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  if (!navigator.geolocation) {
+    showToast('⚠️ المتصفح لا يدعم GPS', 'warn');
+    btn.disabled = false;
+    btn.textContent = '📍 موقعي';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      btn.disabled = false;
+      btn.textContent = '📍 موقعي';
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      _updateUserCircle(lat, lng);
+      // Sync prediction summary panel
+      renderPredictionPanel();
       appState.currentLat = lat;
       appState.currentLng = lng;
 
