@@ -1280,7 +1280,7 @@ function _updateStationCircle(station) {
   }
   if (!station || !_fieldMap) return;
   _currentStationCircle = L.circle([station.lat, station.lon], {
-    radius: 300,
+    radius: 10,
     color: '#27beff',
     weight: 1.5,
     fillOpacity: 0.08,
@@ -1296,7 +1296,7 @@ function _updateUserCircle(lat, lng) {
   }
   if (lat == null || !_fieldMap) return;
   _currentUserCircle = L.circle([lat, lng], {
-    radius: 200,
+    radius: 5,
     color: '#facc15',
     weight: 1.5,
     fillOpacity: 0.15,
