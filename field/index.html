@@ -31,6 +31,12 @@
       min-height: 100dvh;
       overscroll-behavior: none;
     }
+    body.modal-open {
+      overflow: hidden;
+      overscroll-behavior: contain;
+      position: fixed;
+      width: 100%;
+    }
     /* ── Auth Screen ── */
     #authScreen {
       min-height: 100dvh;
@@ -516,6 +522,8 @@
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s;
+      overscroll-behavior: contain;
+      touch-action: none;
     }
     .modal-overlay.open { opacity: 1; pointer-events: all; }
     .modal-sheet {
@@ -525,10 +533,24 @@
       padding: 20px;
       width: 100%;
       max-width: 440px;
+      max-height: min(86dvh, 760px);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
       transform: translateY(20px);
       transition: transform 0.25s;
+      touch-action: manipulation;
     }
     .modal-overlay.open .modal-sheet { transform: translateY(0); }
+    .add-station-map {
+      width: 100%;
+      height: 230px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: #0a1f2d;
+      margin-bottom: 10px;
+      touch-action: none;
+    }
     .modal-title { font-size: 15px; font-weight: 900; margin-bottom: 6px; }
     .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
     .modal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -983,6 +1005,7 @@
   <div class="modal-sheet">
     <div class="modal-title">➕ إضافة محطة ميدانية</div>
     <div class="modal-sub" id="addStationSub">اختر نقطة من الخريطة أو استخدم GPS لتحديد الإحداثيات.</div>
+    <div id="addStationMap" class="add-station-map"></div>
 
     <div id="nearestStationBox" class="nearest-station-box" style="display:none">
       <div>أقرب محطة: <strong id="nearestStationName">—</strong></div>
@@ -1599,6 +1622,102 @@ let _userMarker = null;
 let _distLine = null;          // user-to-station polyline
 let _currentStationCircle = null;  // accuracy circle around selected station
 let _currentUserCircle = null;     // accuracy circle around user location
+let _addStationMap = null;
+let _addStationMarker = null;
+let _bodyLockY = 0;
+let _modalTouchBound = false;
+
+function _lockBodyScroll() {
+  if (document.body.classList.contains('modal-open')) return;
+  _bodyLockY = window.scrollY || window.pageYOffset || 0;
+  document.body.classList.add('modal-open');
+  document.body.style.top = '-' + _bodyLockY + 'px';
+}
+
+function _unlockBodyScroll() {
+  if (!document.body.classList.contains('modal-open')) return;
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, _bodyLockY || 0);
+}
+
+function _bindModalTouchGuards() {
+  if (_modalTouchBound) return;
+  _modalTouchBound = true;
+  ['addStationModal', 'gpsModal', 'fishSpeciesModal'].forEach(function (id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+    overlay.addEventListener('touchmove', function (e) {
+      const inLeaflet = !!(e.target && e.target.closest && e.target.closest('.leaflet-container'));
+      if (!inLeaflet) e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false });
+    overlay.addEventListener('wheel', function (e) {
+      const inLeaflet = !!(e.target && e.target.closest && e.target.closest('.leaflet-container'));
+      if (!inLeaflet) e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false });
+  });
+}
+
+function _syncAddStationMapPoint(lat, lon) {
+  if (!_addStationMap || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  const point = [lat, lon];
+  if (_addStationMarker) {
+    _addStationMarker.setLatLng(point);
+  } else {
+    _addStationMarker = L.circleMarker(point, {
+      radius: 9,
+      fillColor: '#27beff',
+      color: '#ffffff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.95
+    }).addTo(_addStationMap);
+  }
+  _addStationMap.setView(point, Math.max(_addStationMap.getZoom() || 7, 11), { animate: false });
+}
+
+function _ensureAddStationMap() {
+  const node = document.getElementById('addStationMap');
+  if (!node || typeof L === 'undefined') return;
+  if (_addStationMap) {
+    setTimeout(function () {
+      try { _addStationMap.invalidateSize(true); } catch(_) {}
+    }, 60);
+    return;
+  }
+
+  _addStationMap = L.map('addStationMap', {
+    center: [24, 52],
+    zoom: 5,
+    zoomControl: true,
+    attributionControl: false,
+    tap: true,
+    dragging: true,
+    touchZoom: true,
+    scrollWheelZoom: true
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(_addStationMap);
+  L.control.attribution({ position: 'bottomright', prefix: '© OSM' }).addTo(_addStationMap);
+  _addStationMap.on('click', function (e) {
+    if (!e || !e.latlng) return;
+    setAddStationPoint(e.latlng.lat, e.latlng.lng, false);
+    showToast('📌 تم تحديد موقع المحطة الجديدة', 'ok');
+  });
+  if (_addStationMap.dragging) _addStationMap.dragging.enable();
+  if (_addStationMap.touchZoom) _addStationMap.touchZoom.enable();
+  if (_addStationMap.boxZoom) _addStationMap.boxZoom.enable();
+  if (_addStationMap.tap) _addStationMap.tap.enable();
+  L.DomEvent.disableClickPropagation(node);
+  L.DomEvent.disableScrollPropagation(node);
+
+  setTimeout(function () {
+    try { _addStationMap.invalidateSize(true); } catch(_) {}
+  }, 60);
+}
 
 // ── Helpers ──────────────────────────────────────────────
 
@@ -1931,7 +2050,7 @@ function onStationSelectChange() {
     _updateStationCircle(st);
     _updateUserToStationLine();
     updateSelectedInfo();
-    fetchAnalysis(st);
+    fetchAnalysis(st).catch(() => {});
   } else {
     _updateStationCircle(null);
     renderMapMarkers(getCurrentFilter());
@@ -2026,6 +2145,7 @@ function setAddStationPoint(lat, lon, fromGps) {
   addStationState.pointLat = Number(lat);
   addStationState.pointLon = Number(lon);
   addStationState.fromGps = !!fromGps;
+  _syncAddStationMapPoint(addStationState.pointLat, addStationState.pointLon);
   _findNearestByPoint(addStationState.pointLat, addStationState.pointLon);
 
   const latEl = document.getElementById('addLat');
@@ -2076,23 +2196,36 @@ function openAddStationModal() {
 
   _syncAddStationNearestUi();
   _updateAddStationNameSuggestion();
+  _bindModalTouchGuards();
+  _lockBodyScroll();
   document.getElementById('addStationModal').classList.add('open');
+  _ensureAddStationMap();
+  const centerLat = appState.currentStation ? appState.currentStation.lat : 24;
+  const centerLon = appState.currentStation ? appState.currentStation.lon : 52;
+  if (_addStationMap) {
+    _addStationMap.setView([centerLat, centerLon], appState.currentStation ? 10 : 5, { animate: false });
+    setTimeout(function () {
+      try { _addStationMap.invalidateSize(true); } catch(_) {}
+    }, 80);
+  }
 
-  if (_fieldMap) showToast('📌 اضغط على الخريطة لتحديد المحطة الجديدة', 'ok');
+  if (_addStationMap) showToast('📌 حرّك خريطة المودال وحدّد نقطة المحطة', 'ok');
 }
 
 function closeAddStationModal() {
   addStationState.active = false;
   document.getElementById('addStationModal').classList.remove('open');
+  _unlockBodyScroll();
 }
 
 function enableAddStationMapMode() {
-  if (!_fieldMap) {
+  if (!_addStationMap) {
     showToast('⚠️ الخريطة غير متاحة', 'warn');
     return;
   }
   addStationState.active = true;
-  showToast('📌 اضغط على الخريطة لتحديد الإحداثيات', 'ok');
+  _ensureAddStationMap();
+  showToast('📌 اسحب/كبّر الخريطة داخل المودال وحدد النقطة', 'ok');
 }
 
 function useGpsForAddStation() {
@@ -2266,6 +2399,24 @@ function _localWaterState(prev, cur, next) {
   return tc != null ? (tc >= 55 ? 'حمل' : 'فساد') : null;
 }
 
+function _pickFirstHourlyArray(hourly, keys) {
+  if (!hourly) return [];
+  for (const key of keys) {
+    const arr = hourly[key];
+    if (Array.isArray(arr) && arr.length > 0) return arr;
+  }
+  return [];
+}
+
+function _pickCurrentValue(current, keys) {
+  if (!current || typeof current !== 'object') return null;
+  for (const key of keys) {
+    const v = current[key];
+    if (v != null && Number.isFinite(Number(v))) return Number(v);
+  }
+  return null;
+}
+
 async function fetchAnalysis(station) {
   // ── Offline: restore stored prediction for this station ──
   if (!appState.isOnline) {
@@ -2306,6 +2457,7 @@ async function fetchAnalysis(station) {
     '&start_date=' + today + '&end_date=' + today + '&timezone=UTC';
 
   let tideArr = [], windSpdArr = [], windDirArr = [], sstArr = [];
+  let currentWind = null, currentWindDir = null, currentSst = null;
   try {
     const [mResp, wResp] = await Promise.all([
       fetch(marineUrl).catch(() => null),
@@ -2317,24 +2469,31 @@ async function fetchAnalysis(station) {
     }
     if (wResp && wResp.ok) {
       const wd = await wResp.json();
-      windSpdArr = (wd && wd.hourly && wd.hourly.wind_speed_10m) || [];
-      windDirArr = (wd && wd.hourly && wd.hourly.wind_direction_10m) || [];
-      sstArr     = (wd && wd.hourly && wd.hourly.sea_surface_temperature) || [];
+      const hourly = (wd && wd.hourly) || {};
+      windSpdArr = _pickFirstHourlyArray(hourly, ['wind_speed_10m', 'wind_speed_10m_icon_seamless', 'wind_speed_10m_icon_global']);
+      windDirArr = _pickFirstHourlyArray(hourly, ['wind_direction_10m', 'wind_direction_10m_icon_seamless', 'wind_direction_10m_icon_global']);
+      sstArr     = _pickFirstHourlyArray(hourly, ['sea_surface_temperature', 'sea_surface_temperature_icon_seamless', 'sea_surface_temperature_icon_global']);
+      currentWind = _pickCurrentValue(wd.current, ['wind_speed_10m', 'wind_speed_10m_icon_seamless', 'wind_speed_10m_icon_global']);
+      currentWindDir = _pickCurrentValue(wd.current, ['wind_direction_10m', 'wind_direction_10m_icon_seamless', 'wind_direction_10m_icon_global']);
+      currentSst = _pickCurrentValue(wd.current, ['sea_surface_temperature', 'sea_surface_temperature_icon_seamless', 'sea_surface_temperature_icon_global']);
     }
   } catch(_) {}
 
   // ── 2. Current-hour slice ──
   const nowHour = new Date().getUTCHours();
-  const curIdx  = Math.min(nowHour, Math.max(tideArr.length - 1, 0));
-  const prevIdx = Math.max(0, curIdx - 1);
-  const nextIdx = Math.min(Math.max(tideArr.length - 1, 0), curIdx + 1);
+  const tideMaxIdx = Math.max(tideArr.length - 1, 0);
+  const weatherMaxIdx = Math.max(Math.max(windSpdArr.length - 1, windDirArr.length - 1, sstArr.length - 1), 0);
+  const tideCurIdx = Math.min(nowHour, tideMaxIdx);
+  const weatherCurIdx = Math.min(nowHour, weatherMaxIdx);
+  const prevIdx = Math.max(0, tideCurIdx - 1);
+  const nextIdx = Math.min(tideMaxIdx, tideCurIdx + 1);
 
-  const tideCur  = tideArr[curIdx]  != null ? +tideArr[curIdx]  : null;
+  const tideCur  = tideArr[tideCurIdx]  != null ? +tideArr[tideCurIdx]  : null;
   const tidePrev = tideArr[prevIdx] != null ? +tideArr[prevIdx] : tideCur;
   const tideNext = tideArr[nextIdx] != null ? +tideArr[nextIdx] : tideCur;
-  const windKmh  = windSpdArr[curIdx] != null ? +windSpdArr[curIdx] : null;
-  const windDir  = windDirArr[curIdx] != null ? +windDirArr[curIdx] : null;
-  const sst      = sstArr[curIdx]     != null ? +sstArr[curIdx]     : null;
+  const windKmh  = windSpdArr[weatherCurIdx] != null ? +windSpdArr[weatherCurIdx] : currentWind;
+  const windDir  = windDirArr[weatherCurIdx] != null ? +windDirArr[weatherCurIdx] : currentWindDir;
+  const sst      = sstArr[weatherCurIdx]     != null ? +sstArr[weatherCurIdx]     : currentSst;
 
   // ── 3. POST /api/compute-decision ──
   let serverResult = null;
@@ -2694,10 +2853,13 @@ function doGps() {
 }
 
 function openGpsModal() {
+  _bindModalTouchGuards();
+  _lockBodyScroll();
   document.getElementById('gpsModal').classList.add('open');
 }
 function closeGpsModal() {
   document.getElementById('gpsModal').classList.remove('open');
+  _unlockBodyScroll();
 }
 
 function confirmGpsStation() {
@@ -2971,11 +3133,14 @@ function openFishSpeciesModal(mode, fishId) {
     saveBtn.textContent = 'أرشفة';
   }
 
+  _bindModalTouchGuards();
+  _lockBodyScroll();
   document.getElementById('fishSpeciesModal').classList.add('open');
 }
 
 function closeFishSpeciesModal() {
   document.getElementById('fishSpeciesModal').classList.remove('open');
+  _unlockBodyScroll();
   fishSpeciesUiState.mode = 'create';
   fishSpeciesUiState.editingId = null;
   fishSpeciesUiState.previousName = '';
