@@ -708,6 +708,54 @@
       line-height: 1.7;
     }
     .nearest-station-box strong { color: var(--ok); }
+    .station-verify-box {
+      border: 1px dashed rgba(39,190,255,0.35);
+      background: rgba(39,190,255,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--txt);
+      line-height: 1.7;
+    }
+    .station-verify-title {
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .verify-pill {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-weight: 800;
+      font-size: 11px;
+    }
+    .verify-pill.good {
+      color: var(--ok);
+      background: rgba(95,221,151,0.12);
+      border-color: rgba(95,221,151,0.35);
+    }
+    .verify-pill.warn {
+      color: var(--warn);
+      background: rgba(255,213,127,0.12);
+      border-color: rgba(255,213,127,0.35);
+    }
+    .verify-pill.bad {
+      color: var(--bad);
+      background: rgba(255,126,126,0.12);
+      border-color: rgba(255,126,126,0.35);
+    }
+    .verify-force {
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--warn);
+      font-size: 11px;
+      font-weight: 700;
+    }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -797,6 +845,19 @@
           <div>البحر: <span id="nearestStationSea">—</span></div>
           <div>المنطقة المحلية: <span id="nearestStationLocal">—</span></div>
           <div>المسافة: <span id="nearestStationDist">—</span></div>
+        </div>
+
+        <div id="stationVerifyBox" class="station-verify-box">
+          <div class="station-verify-title">التحقق الميداني للنقطة</div>
+          <div>الإحداثيات: <span id="verifyCoords">—</span></div>
+          <div>حالة الموقع: <span id="verifyWaterStatus" class="verify-pill warn">بانتظار التحقق</span></div>
+          <div>نوع الصيد المتوقع: <span id="verifyFishingMode">—</span></div>
+          <div>البحر المقترح: <span id="verifySea">—</span></div>
+          <div>اقتراح المكان: <span id="verifyPlace">—</span></div>
+          <label id="verifyForceRow" class="verify-force" style="display:none">
+            <input id="addForceSave" type="checkbox" />
+            أؤكد الحفظ رغم أن الحالة تحتاج مراجعة
+          </label>
         </div>
 
         <div class="field-actions-row" style="margin-bottom:8px">
@@ -1427,7 +1488,15 @@ const addStationState = {
   pointLat: null,
   pointLon: null,
   nearest: null,
-  nearestDistKm: null
+  nearestDistKm: null,
+  waterStatus: 'idle',
+  waterHint: '—',
+  needsReview: false,
+  inferredFishingMode: '—',
+  inferredSea: 'gulf',
+  suggestedCountry: '',
+  suggestedLocalArea: '',
+  checkSeq: 0
 };
 
 const fishSpeciesUiState = {
@@ -1606,6 +1675,7 @@ function showAppScreen() {
 let _fieldMap = null;
 let _stationMarkers = {};
 let _userMarker = null;
+let _addStationMarker = null;
 let _distLine = null;          // user-to-station polyline
 let _currentStationCircle = null;  // accuracy circle around selected station
 let _currentUserCircle = null;     // accuracy circle around user location
@@ -2032,6 +2102,155 @@ function _findNearestByPoint(lat, lon) {
   addStationState.nearestDistKm = Number.isFinite(out.distKm) ? out.distKm : null;
 }
 
+function _inferSeaFromCoords(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'gulf';
+  if (lon >= 56.2) return 'oman_sea';
+  if (lat <= 24.4 && lon >= 33.0 && lon <= 43.8) return 'red_sea';
+  return 'gulf';
+}
+
+function _inferFishingModeFromPoint(lat, lon) {
+  const sea = _inferSeaFromCoords(lat, lon);
+  const nearestKm = addStationState.nearestDistKm;
+  if (Number.isFinite(nearestKm) && nearestKm >= 14) return 'عمق';
+  return sea === 'oman_sea' ? 'عمق' : 'ساحل';
+}
+
+function _classifyWaterFromOverpassElements(elements) {
+  let waterScore = 0;
+  let coastScore = 0;
+  let landScore = 0;
+  const list = Array.isArray(elements) ? elements : [];
+  list.forEach(function (el) {
+    const tags = el && el.tags ? el.tags : {};
+    const natural = String(tags.natural || '').toLowerCase();
+    const water = String(tags.water || '').toLowerCase();
+    const waterway = String(tags.waterway || '').toLowerCase();
+    const place = String(tags.place || '').toLowerCase();
+    const landuse = String(tags.landuse || '').toLowerCase();
+
+    if (natural === 'coastline') coastScore += 3;
+    if (natural === 'water' || water || waterway) waterScore += 2;
+    if (place === 'sea' || place === 'ocean' || place === 'bay') waterScore += 3;
+    if (natural === 'beach' || natural === 'wetland') waterScore += 1;
+    if (landuse === 'residential' || landuse === 'industrial' || landuse === 'farmland' || landuse === 'forest') landScore += 2;
+  });
+
+  if (waterScore + coastScore >= landScore + 3) return { status: 'water', hint: '✅ نقطة بحرية مؤكدة' };
+  if (waterScore + coastScore >= landScore + 1) return { status: 'review', hint: '⚠️ نقطة ساحلية تحتاج مراجعة' };
+  return { status: 'land', hint: '⛔ أقرب لليابسة' };
+}
+
+async function _checkPointWaterStatus(lat, lon) {
+  const q = '[out:json][timeout:10];('
+    + 'nwr(around:900,' + lat + ',' + lon + ')[natural~"coastline|water|beach|wetland"];'
+    + 'nwr(around:900,' + lat + ',' + lon + ')[water];'
+    + 'nwr(around:900,' + lat + ',' + lon + ')[waterway];'
+    + 'nwr(around:900,' + lat + ',' + lon + ')[place~"sea|ocean|bay"];'
+    + 'nwr(around:900,' + lat + ',' + lon + ')[landuse~"residential|industrial|farmland|forest"];'
+    + ');out tags 120;';
+  const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q);
+  const r = await fetch(url, { method: 'GET' });
+  if (!r.ok) throw new Error('overpass_http_' + r.status);
+  const data = await r.json();
+  return _classifyWaterFromOverpassElements(data && data.elements);
+}
+
+async function _reverseGeocodePoint(lat, lon) {
+  const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ar&lat=' + lat + '&lon=' + lon;
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error('reverse_http_' + r.status);
+  const data = await r.json();
+  const addr = data && data.address ? data.address : {};
+  return {
+    country: addr.country || '',
+    local: addr.state || addr.county || addr.city || addr.town || addr.village || '',
+    label: data && data.display_name ? data.display_name : ''
+  };
+}
+
+function _renderAddStationValidation() {
+  const coordsEl = document.getElementById('verifyCoords');
+  const waterEl = document.getElementById('verifyWaterStatus');
+  const modeEl = document.getElementById('verifyFishingMode');
+  const seaEl = document.getElementById('verifySea');
+  const placeEl = document.getElementById('verifyPlace');
+  const forceRow = document.getElementById('verifyForceRow');
+  if (!coordsEl || !waterEl || !modeEl || !seaEl || !placeEl || !forceRow) return;
+
+  if (Number.isFinite(addStationState.pointLat) && Number.isFinite(addStationState.pointLon)) {
+    coordsEl.textContent = addStationState.pointLat.toFixed(6) + ' , ' + addStationState.pointLon.toFixed(6);
+  } else {
+    coordsEl.textContent = '—';
+  }
+
+  let waterTxt = 'بانتظار التحقق';
+  let waterCls = 'verify-pill warn';
+  if (addStationState.waterStatus === 'water') { waterTxt = addStationState.waterHint || '✅ نقطة بحرية'; waterCls = 'verify-pill good'; }
+  if (addStationState.waterStatus === 'review') { waterTxt = addStationState.waterHint || '⚠️ تحتاج مراجعة'; waterCls = 'verify-pill warn'; }
+  if (addStationState.waterStatus === 'land') { waterTxt = addStationState.waterHint || '⛔ قريبة من اليابسة'; waterCls = 'verify-pill bad'; }
+  if (addStationState.waterStatus === 'checking') { waterTxt = 'جارٍ فحص الماء/اليابسة...'; waterCls = 'verify-pill warn'; }
+  waterEl.textContent = waterTxt;
+  waterEl.className = waterCls;
+
+  modeEl.textContent = addStationState.inferredFishingMode || '—';
+  seaEl.textContent = seaLabel(addStationState.inferredSea || 'gulf');
+
+  const nearestName = addStationState.nearest ? addStationState.nearest.name : '—';
+  const placeCore = addStationState.suggestedLocalArea || nearestName;
+  const placeCountry = addStationState.suggestedCountry || (addStationState.nearest ? addStationState.nearest.country : '');
+  placeEl.textContent = placeCore + (placeCountry ? (' — ' + placeCountry) : '');
+
+  forceRow.style.display = addStationState.needsReview ? '' : 'none';
+}
+
+async function _runAddStationValidation(lat, lon) {
+  const seq = ++addStationState.checkSeq;
+  addStationState.inferredSea = _inferSeaFromCoords(lat, lon);
+  addStationState.inferredFishingMode = _inferFishingModeFromPoint(lat, lon);
+  addStationState.waterStatus = 'checking';
+  addStationState.waterHint = 'جارٍ الفحص...';
+  addStationState.needsReview = false;
+  _renderAddStationValidation();
+
+  try {
+    const nearest = addStationState.nearest;
+    if (nearest) {
+      if (!addStationState.suggestedCountry) addStationState.suggestedCountry = nearest.country || '';
+      if (!addStationState.suggestedLocalArea) addStationState.suggestedLocalArea = nearest.local_area || extractLocalRegion(nearest.name);
+      if (addStationState.nearestDistKm != null && addStationState.nearestDistKm <= 45) {
+        addStationState.inferredSea = getStationRegion(nearest);
+      }
+    }
+
+    const [waterResult, reverseResult] = await Promise.all([
+      _checkPointWaterStatus(lat, lon).catch(function () { return { status: 'review', hint: '⚠️ تعذر التحقق الكامل من الموقع' }; }),
+      _reverseGeocodePoint(lat, lon).catch(function () { return null; })
+    ]);
+
+    if (seq !== addStationState.checkSeq) return;
+
+    if (reverseResult) {
+      addStationState.suggestedCountry = reverseResult.country || addStationState.suggestedCountry;
+      addStationState.suggestedLocalArea = reverseResult.local || addStationState.suggestedLocalArea;
+    }
+
+    addStationState.waterStatus = waterResult.status;
+    addStationState.waterHint = waterResult.hint;
+    addStationState.needsReview = waterResult.status !== 'water';
+
+    const countryEl = document.getElementById('addCountry');
+    const seaEl = document.getElementById('addSea');
+    const localEl = document.getElementById('addLocalRegion');
+    if (countryEl && !countryEl.value.trim() && addStationState.suggestedCountry) countryEl.value = addStationState.suggestedCountry;
+    if (seaEl && !seaEl.value && addStationState.inferredSea) seaEl.value = addStationState.inferredSea;
+    if (localEl && !localEl.value.trim() && addStationState.suggestedLocalArea) localEl.value = addStationState.suggestedLocalArea;
+    _updateAddStationNameSuggestion();
+  } finally {
+    if (seq === addStationState.checkSeq) _renderAddStationValidation();
+  }
+}
+
 function setAddStationPoint(lat, lon, fromGps) {
   addStationState.pointLat = Number(lat);
   addStationState.pointLon = Number(lon);
@@ -2043,13 +2262,25 @@ function setAddStationPoint(lat, lon, fromGps) {
   if (latEl) latEl.value = Number(addStationState.pointLat).toFixed(6);
   if (lonEl) lonEl.value = Number(addStationState.pointLon).toFixed(6);
 
+  if (_fieldMap && typeof L !== 'undefined') {
+    if (_addStationMarker) { try { _fieldMap.removeLayer(_addStationMarker); } catch(_) {} }
+    _addStationMarker = L.marker([addStationState.pointLat, addStationState.pointLon]).addTo(_fieldMap);
+    if (fromGps) _fieldMap.setView([addStationState.pointLat, addStationState.pointLon], Math.max((_fieldMap.getZoom() || 12), 12));
+  }
+
   _syncAddStationNearestUi();
   _prefillAddStationFromNearest();
   _updateAddStationNameSuggestion();
+  _runAddStationValidation(addStationState.pointLat, addStationState.pointLon).catch(function () {
+    addStationState.waterStatus = 'review';
+    addStationState.waterHint = '⚠️ تعذر إكمال التحقق من الموقع';
+    addStationState.needsReview = true;
+    _renderAddStationValidation();
+  });
 
   const sub = document.getElementById('addStationSub');
   if (sub) {
-    sub.textContent = 'تم تحديد الإحداثيات. أكمل الحقول ثم احفظ المحطة.';
+    sub.textContent = 'تم تحديد الإحداثيات. راجع التحقق الميداني ثم أكمل الحقول.';
   }
 }
 
@@ -2068,6 +2299,14 @@ function openAddStationModal() {
   addStationState.pointLon = null;
   addStationState.nearest = null;
   addStationState.nearestDistKm = null;
+  addStationState.waterStatus = 'idle';
+  addStationState.waterHint = '—';
+  addStationState.needsReview = false;
+  addStationState.inferredFishingMode = '—';
+  addStationState.inferredSea = appState.currentStation ? getStationRegion(appState.currentStation) : 'gulf';
+  addStationState.suggestedCountry = '';
+  addStationState.suggestedLocalArea = '';
+  addStationState.checkSeq += 1;
 
   const latEl = document.getElementById('addLat');
   const lonEl = document.getElementById('addLon');
@@ -2076,6 +2315,7 @@ function openAddStationModal() {
   const localEl = document.getElementById('addLocalRegion');
   const nameEl = document.getElementById('addStationName');
   const noteEl = document.getElementById('addNote');
+  const forceSaveEl = document.getElementById('addForceSave');
   if (latEl) latEl.value = '';
   if (lonEl) lonEl.value = '';
   if (countryEl) countryEl.value = appState.currentStation ? (appState.currentStation.country || '') : '';
@@ -2083,8 +2323,15 @@ function openAddStationModal() {
   if (localEl) localEl.value = appState.currentStation ? (appState.currentStation.local_area || extractLocalRegion(appState.currentStation.name)) : '';
   if (nameEl) { nameEl.value = ''; nameEl.dataset.autofill = '1'; }
   if (noteEl) noteEl.value = '';
+  if (forceSaveEl) forceSaveEl.checked = false;
+
+  if (_addStationMarker && _fieldMap) {
+    try { _fieldMap.removeLayer(_addStationMarker); } catch(_) {}
+    _addStationMarker = null;
+  }
 
   _syncAddStationNearestUi();
+  _renderAddStationValidation();
   _updateAddStationNameSuggestion();
   const inline = document.getElementById('addStationInline');
   if (inline) inline.classList.add('open');
@@ -2095,6 +2342,11 @@ function closeAddStationModal() {
   addStationState.active = false;
   addStationState.pointLat = null;
   addStationState.pointLon = null;
+  addStationState.checkSeq += 1;
+  if (_addStationMarker && _fieldMap) {
+    try { _fieldMap.removeLayer(_addStationMarker); } catch(_) {}
+    _addStationMarker = null;
+  }
   const inline = document.getElementById('addStationInline');
   if (inline) inline.classList.remove('open');
 }
@@ -2131,6 +2383,7 @@ async function saveNewFieldStation() {
   const note = (document.getElementById('addNote').value || '').trim();
   const lat = Number(document.getElementById('addLat').value);
   const lon = Number(document.getElementById('addLon').value);
+  const forceSave = !!((document.getElementById('addForceSave') || {}).checked);
 
   if (!country || !localArea || !stationName) {
     showToast('⚠️ الدولة والمنطقة المحلية واسم المحطة مطلوبة', 'warn');
@@ -2138,6 +2391,14 @@ async function saveNewFieldStation() {
   }
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     showToast('⚠️ حدّد الإحداثيات أولاً من الخريطة أو GPS', 'warn');
+    return;
+  }
+  if (addStationState.waterStatus === 'land' && !forceSave) {
+    showToast('⚠️ النقطة أقرب لليابسة. فعّل تأكيد الحفظ للمواصلة.', 'warn');
+    return;
+  }
+  if (addStationState.waterStatus === 'checking') {
+    showToast('⏳ انتظر اكتمال فحص الماء/اليابسة', 'warn');
     return;
   }
 
@@ -2327,7 +2588,8 @@ async function fetchAnalysis(station) {
   // ── 1. Fetch marine + weather (same sources as public page) ──
   const marineUrl = 'https://marine-api.open-meteo.com/v1/marine' +
     '?latitude=' + lat + '&longitude=' + lon +
-    '&hourly=sea_level_height_msl' +
+    '&hourly=sea_level_height_msl,sea_surface_temperature' +
+    '&current=sea_surface_temperature' +
     '&start_date=' + today + '&end_date=' + today + '&timezone=UTC';
 
   const weatherUrl = 'https://api.open-meteo.com/v1/forecast' +
@@ -2336,8 +2598,8 @@ async function fetchAnalysis(station) {
     '&models=icon_seamless,icon_global' +
     '&start_date=' + today + '&end_date=' + today + '&timezone=UTC';
 
-  let tideArr = [], windSpdArr = [], windDirArr = [], sstArr = [];
-  let currentWind = null, currentWindDir = null, currentSst = null;
+  let tideArr = [], marineSstArr = [], windSpdArr = [], windDirArr = [], sstArr = [];
+  let currentWind = null, currentWindDir = null, currentSst = null, marineCurrentSst = null;
   try {
     const [mResp, wResp] = await Promise.all([
       fetch(marineUrl).catch(() => null),
@@ -2346,6 +2608,8 @@ async function fetchAnalysis(station) {
     if (mResp && mResp.ok) {
       const md = await mResp.json();
       tideArr = (md && md.hourly && md.hourly.sea_level_height_msl) || [];
+      marineSstArr = (md && md.hourly && md.hourly.sea_surface_temperature) || [];
+      marineCurrentSst = _pickCurrentValue(md.current, ['sea_surface_temperature']);
     }
     if (wResp && wResp.ok) {
       const wd = await wResp.json();
@@ -2373,7 +2637,8 @@ async function fetchAnalysis(station) {
   const tideNext = tideArr[nextIdx] != null ? +tideArr[nextIdx] : tideCur;
   const windKmh  = windSpdArr[weatherCurIdx] != null ? +windSpdArr[weatherCurIdx] : currentWind;
   const windDir  = windDirArr[weatherCurIdx] != null ? +windDirArr[weatherCurIdx] : currentWindDir;
-  const sst      = sstArr[weatherCurIdx]     != null ? +sstArr[weatherCurIdx]     : currentSst;
+  const marineSst = marineSstArr[tideCurIdx] != null ? +marineSstArr[tideCurIdx] : marineCurrentSst;
+  const sst      = sstArr[weatherCurIdx]     != null ? +sstArr[weatherCurIdx]     : (currentSst != null ? currentSst : marineSst);
 
   // ── 3. POST /api/compute-decision ──
   let serverResult = null;
@@ -3379,6 +3644,12 @@ async function initApp() {
       _syncAddStationNearestUi();
       _prefillAddStationFromNearest();
       _updateAddStationNameSuggestion();
+      _runAddStationValidation(addStationState.pointLat, lon).catch(function () {
+        addStationState.waterStatus = 'review';
+        addStationState.waterHint = '⚠️ تعذر إكمال التحقق من الموقع';
+        addStationState.needsReview = true;
+        _renderAddStationValidation();
+      });
     }
   });
   if (addLonEl) addLonEl.addEventListener('input', function () {
@@ -3389,6 +3660,12 @@ async function initApp() {
       _syncAddStationNearestUi();
       _prefillAddStationFromNearest();
       _updateAddStationNameSuggestion();
+      _runAddStationValidation(lat, addStationState.pointLon).catch(function () {
+        addStationState.waterStatus = 'review';
+        addStationState.waterHint = '⚠️ تعذر إكمال التحقق من الموقع';
+        addStationState.needsReview = true;
+        _renderAddStationValidation();
+      });
     }
   });
   if (speciesManageSelect) speciesManageSelect.addEventListener('change', renderFishManageControls);
