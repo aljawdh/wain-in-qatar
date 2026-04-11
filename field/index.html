@@ -460,7 +460,82 @@
     }
     .trip-start-form input:focus, .trip-start-form textarea:focus { border-color: var(--trip); }
     .optional-label { font-size: 11px; color: rgba(134,169,191,0.6); }
+    /* ── Field Map ── */
+    .map-container {
+      width: 100%;
+      height: 250px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #0a1f2d;
+      margin-bottom: 8px;
+    }
+    .leaflet-container { background: #0a1f2d !important; font-family: inherit; }
+    .leaflet-popup-content-wrapper {
+      background: #0f2b3d;
+      border: 1px solid rgba(39,190,255,0.35);
+      border-radius: 10px;
+      color: #e7f7ff;
+      font-family: 'Tajawal', system-ui, sans-serif;
+      font-size: 13px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .leaflet-popup-content { margin: 8px 14px; text-align: center; }
+    .leaflet-popup-tip { background: #0f2b3d; }
+    .leaflet-popup-close-button { color: var(--muted) !important; }
+    .leaflet-control-zoom a {
+      background: #0f2b3d !important;
+      color: #e7f7ff !important;
+      border-color: rgba(255,255,255,0.15) !important;
+    }
+    .leaflet-control-zoom a:hover { background: #1a3a52 !important; }
+    .leaflet-control-attribution { background: rgba(7,23,34,0.8) !important; color: var(--muted) !important; font-size: 10px !important; }
+    .leaflet-control-attribution a { color: var(--accent) !important; }
+    /* ── Filter Row ── */
+    .filter-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .filter-sel {
+      flex: 1;
+      padding: 8px 10px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--txt);
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+    }
+    .filter-sel:focus { border-color: var(--accent); }
+    /* ── Selected Station Info ── */
+    .selected-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(39,190,255,0.07);
+      border: 1px solid rgba(39,190,255,0.25);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+    .dist-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      background: rgba(255,255,255,0.07);
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -507,13 +582,33 @@
   <div class="main-content">
 
     <!-- ─ Card 1: Current State ─ -->
-    <div class="card">
-      <div class="card-title">📍 الموقع والحالة</div>
+    <div class="card" id="locationCard">
+      <div class="card-title">📍 الموقع والمحطة</div>
+      <!-- Filter row -->
+      <div class="filter-row">
+        <select id="filterCountry" class="filter-sel" onchange="onFilterCountryChange()">
+          <option value="">كل الدول</option>
+        </select>
+        <select id="filterSea" class="filter-sel" onchange="onFilterSeaChange()">
+          <option value="">كل المناطق</option>
+          <option value="gulf">الخليج العربي</option>
+          <option value="red_sea">البحر الأحمر</option>
+          <option value="oman_sea">بحر العرب</option>
+        </select>
+      </div>
+      <!-- Leaflet map — primary selection interface -->
+      <div id="fieldMap" class="map-container"></div>
+      <!-- Station dropdown + GPS button -->
       <div class="station-row">
         <select id="stationSelect" class="station-select" onchange="onStationSelectChange()">
-          <option value="">اختر المحطة...</option>
+          <option value="">اختر من الخريطة أو القائمة...</option>
         </select>
         <button class="btn-gps" id="gpsBtn" onclick="doGps()">📍 موقعي</button>
+      </div>
+      <!-- Selected station info bar -->
+      <div id="selectedStationInfo" class="selected-info" style="display:none">
+        <span id="selectedStationName" style="flex:1"></span>
+        <span id="selectedStationDist" class="dist-badge"></span>
       </div>
       <div class="status-chips" id="statusChips">
         <div class="chip chip-neutral" id="chipWater">الماي: —</div>
@@ -676,42 +771,76 @@
 'use strict';
 
 // ══════════════════════════════════════════════════════════
-// STATIONS DATA (embedded — works offline)
+// STATIONS — loaded dynamically from /api/stations
+// Falls back to localStorage cache, then FALLBACK_STATIONS
 // ══════════════════════════════════════════════════════════
-const STATIONS = [
-  {id:'st_001',name:'الدوحة',lat:25.2854,lon:51.531},
-  {id:'st_002',name:'الخور',lat:25.6804,lon:51.4968},
-  {id:'st_003',name:'الوكرة',lat:25.1659,lon:51.603},
-  {id:'st_004',name:'الرويس',lat:26.1331,lon:51.2147},
-  {id:'st_005',name:'الكويت',lat:29.3759,lon:47.9774},
-  {id:'st_006',name:'الجهراء',lat:29.3375,lon:47.6581},
-  {id:'st_007',name:'الخبر',lat:26.2825,lon:50.2085},
-  {id:'st_008',name:'الجبيل',lat:27.0046,lon:49.6225},
-  {id:'st_009',name:'الدمام',lat:26.4207,lon:50.0888},
-  {id:'st_010',name:'العقير',lat:25.6457,lon:50.2118},
-  {id:'st_011',name:'حقل',lat:29.2869,lon:34.9395},
-  {id:'st_012',name:'ضبا',lat:27.3513,lon:35.697},
-  {id:'st_013',name:'الوجه',lat:26.2455,lon:36.4525},
-  {id:'st_014',name:'أملج',lat:25.0213,lon:37.2685},
-  {id:'st_015',name:'ينبع',lat:24.0891,lon:38.0618},
-  {id:'st_016',name:'رابغ',lat:22.7986,lon:39.0349},
-  {id:'st_017',name:'جدة',lat:21.5433,lon:39.1728},
-  {id:'st_018',name:'الليث',lat:20.1274,lon:40.2661},
-  {id:'st_019',name:'القنفذة',lat:19.1269,lon:41.0789},
-  {id:'st_020',name:'جازان',lat:16.8892,lon:42.5511},
-  {id:'st_021',name:'المنامة',lat:26.2285,lon:50.586},
-  {id:'st_022',name:'دبي',lat:25.2048,lon:55.2708},
-  {id:'st_023',name:'أبوظبي',lat:24.4539,lon:54.3773},
-  {id:'st_024',name:'الشارقة',lat:25.3463,lon:55.4209},
-  {id:'st_025',name:'رأس الخيمة',lat:25.7895,lon:55.9432},
-  {id:'st_026',name:'أم القيوين',lat:25.5647,lon:55.5532},
-  {id:'st_027',name:'الفجيرة',lat:25.1288,lon:56.3264},
-  {id:'st_028',name:'مسقط',lat:23.588,lon:58.3829},
-  {id:'st_029',name:'صحار',lat:24.3615,lon:56.7308},
-  {id:'st_030',name:'مسندم (خصب)',lat:26.1735,lon:56.2415},
-  {id:'st_031',name:'الدقم',lat:19.6714,lon:57.6534},
-  {id:'st_032',name:'بوشهر',lat:28.9234,lon:50.8203}
+let STATIONS = []; // populated at runtime by loadStations()
+
+// Offline fallback — mirrors stations.json with correct country + region
+const FALLBACK_STATIONS = [
+  {id:'st_001',name:'الدوحة',lat:25.2854,lon:51.531,country:'قطر',region:'gulf'},
+  {id:'st_002',name:'الخور',lat:25.6804,lon:51.4968,country:'قطر',region:'gulf'},
+  {id:'st_003',name:'الوكرة',lat:25.1659,lon:51.603,country:'قطر',region:'gulf'},
+  {id:'st_004',name:'الرويس',lat:26.1331,lon:51.2147,country:'قطر',region:'gulf'},
+  {id:'st_005',name:'الكويت',lat:29.3759,lon:47.9774,country:'الكويت',region:'gulf'},
+  {id:'st_006',name:'الجهراء',lat:29.3375,lon:47.6581,country:'الكويت',region:'gulf'},
+  {id:'st_007',name:'الخبر',lat:26.2825,lon:50.2085,country:'السعودية',region:'gulf'},
+  {id:'st_008',name:'الجبيل',lat:27.0046,lon:49.6225,country:'السعودية',region:'gulf'},
+  {id:'st_009',name:'الدمام',lat:26.4207,lon:50.0888,country:'السعودية',region:'gulf'},
+  {id:'st_010',name:'العقير',lat:25.6457,lon:50.2118,country:'السعودية',region:'gulf'},
+  {id:'st_011',name:'حقل',lat:29.2869,lon:34.9395,country:'السعودية',region:'red_sea'},
+  {id:'st_012',name:'ضبا',lat:27.3513,lon:35.697,country:'السعودية',region:'red_sea'},
+  {id:'st_013',name:'الوجه',lat:26.2455,lon:36.4525,country:'السعودية',region:'red_sea'},
+  {id:'st_014',name:'أملج',lat:25.0213,lon:37.2685,country:'السعودية',region:'red_sea'},
+  {id:'st_015',name:'ينبع',lat:24.0891,lon:38.0618,country:'السعودية',region:'red_sea'},
+  {id:'st_016',name:'رابغ',lat:22.7986,lon:39.0349,country:'السعودية',region:'red_sea'},
+  {id:'st_017',name:'جدة',lat:21.5433,lon:39.1728,country:'السعودية',region:'red_sea'},
+  {id:'st_018',name:'الليث',lat:20.1274,lon:40.2661,country:'السعودية',region:'red_sea'},
+  {id:'st_019',name:'القنفذة',lat:19.1269,lon:41.0789,country:'السعودية',region:'red_sea'},
+  {id:'st_020',name:'جازان',lat:16.8892,lon:42.5511,country:'السعودية',region:'red_sea'},
+  {id:'st_021',name:'المنامة',lat:26.2285,lon:50.586,country:'البحرين',region:'gulf'},
+  {id:'st_022',name:'دبي',lat:25.2048,lon:55.2708,country:'الإمارات',region:'gulf'},
+  {id:'st_023',name:'أبوظبي',lat:24.4539,lon:54.3773,country:'الإمارات',region:'gulf'},
+  {id:'st_024',name:'الشارقة',lat:25.3463,lon:55.4209,country:'الإمارات',region:'gulf'},
+  {id:'st_025',name:'رأس الخيمة',lat:25.7895,lon:55.9432,country:'الإمارات',region:'gulf'},
+  {id:'st_026',name:'أم القيوين',lat:25.5647,lon:55.5532,country:'الإمارات',region:'gulf'},
+  {id:'st_027',name:'الفجيرة',lat:25.1288,lon:56.3264,country:'الإمارات',region:'gulf'},
+  {id:'st_028',name:'مسقط',lat:23.588,lon:58.3829,country:'عُمان',region:'oman_sea'},
+  {id:'st_029',name:'صحار',lat:24.3615,lon:56.7308,country:'عُمان',region:'gulf'},
+  {id:'st_030',name:'مسندم (خصب)',lat:26.1735,lon:56.2415,country:'عُمان',region:'gulf'},
+  {id:'st_031',name:'الدقم',lat:19.6714,lon:57.6534,country:'عُمان',region:'oman_sea'},
+  {id:'st_032',name:'بوشهر',lat:28.9234,lon:50.8203,country:'إيران',region:'gulf'}
 ];
+
+const STATIONS_CACHE_KEY = 'navidur_field_stations_v1';
+
+async function loadStations() {
+  // 1. Try live API (refreshes cache when online)
+  if (appState.isOnline) {
+    try {
+      const headers = Auth.token ? { 'Authorization': 'Bearer ' + Auth.token } : {};
+      const resp = await fetch('/api/stations', { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && Array.isArray(data.stations) && data.stations.length > 0) {
+          STATIONS = data.stations;
+          try { localStorage.setItem(STATIONS_CACHE_KEY, JSON.stringify(STATIONS)); } catch(_) {}
+          return;
+        }
+      }
+    } catch(_) {}
+  }
+  // 2. localStorage cache (offline restore)
+  try {
+    const cached = localStorage.getItem(STATIONS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) { STATIONS = parsed; return; }
+    }
+  } catch(_) {}
+  // 3. Embedded fallback — always available offline
+  STATIONS = FALLBACK_STATIONS.slice();
+}
 
 const FISH_SPECIES = [
   'الهامور','الشعري','السبيطي','الكنعد','الحمرا','الصافي',
@@ -1092,23 +1221,200 @@ function showAppScreen() {
 }
 
 // ══════════════════════════════════════════════════════════
+// MAP (Leaflet — primary station selection)
+// ══════════════════════════════════════════════════════════
+let _fieldMap = null;
+let _stationMarkers = {};
+let _userMarker = null;
+let _distLine = null;
+
+function initMap() {
+  if (_fieldMap || !document.getElementById('fieldMap')) return;
+  _fieldMap = L.map('fieldMap', {
+    center: [24, 52],
+    zoom: 5,
+    zoomControl: true,
+    attributionControl: false
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(_fieldMap);
+  L.control.attribution({ position: 'bottomright', prefix: '© OSM' }).addTo(_fieldMap);
+  renderMapMarkers({});
+}
+
+function renderMapMarkers(filter) {
+  if (!_fieldMap) return;
+  Object.values(_stationMarkers).forEach(m => { try { _fieldMap.removeLayer(m); } catch(_) {} });
+  _stationMarkers = {};
+  const fc = (filter.country || '').trim();
+  const fs = (filter.sea || '').trim();
+  const selectedId = appState.currentStation ? appState.currentStation.id : null;
+  (STATIONS || []).forEach(st => {
+    if (!st.lat || !st.lon) return;
+    if (fc && st.country !== fc) return;
+    if (fs && getStationRegion(st) !== fs) return;
+    const isSel = st.id === selectedId;
+    const m = L.circleMarker([st.lat, st.lon], {
+      radius: isSel ? 11 : 7,
+      fillColor: isSel ? '#27beff' : '#5fdd97',
+      color: isSel ? '#ffffff' : 'rgba(255,255,255,0.45)',
+      weight: isSel ? 2.5 : 1,
+      opacity: 1,
+      fillOpacity: isSel ? 1 : 0.75
+    });
+    m.bindPopup(
+      '<strong>' + st.name + '</strong>' +
+      (st.country ? '<br><small style="color:#86a9bf">' + st.country + '</small>' : ''),
+      { closeButton: false, maxWidth: 160 }
+    );
+    m.on('click', () => selectStationFromMap(st));
+    m.addTo(_fieldMap);
+    _stationMarkers[st.id] = m;
+  });
+}
+
+function selectStationFromMap(station) {
+  appState.currentStation = station;
+  const sel = document.getElementById('stationSelect');
+  if (sel) sel.value = station.id;
+  const fc = document.getElementById('filterCountry');
+  const fs = document.getElementById('filterSea');
+  if (fc && station.country) fc.value = station.country;
+  if (fs) fs.value = getStationRegion(station);
+  _fieldMap.flyTo([station.lat, station.lon], 11, { animate: true, duration: 0.7 });
+  renderMapMarkers(getCurrentFilter());
+  updateSelectedInfo();
+  updateDistanceLine();
+  fetchAnalysis(station).catch(() => {});
+  showToast('📍 ' + station.name, 'ok');
+}
+
+function getCurrentFilter() {
+  return {
+    country: ((document.getElementById('filterCountry') || {}).value || ''),
+    sea: ((document.getElementById('filterSea') || {}).value || '')
+  };
+}
+
+function populateFilterDropdowns() {
+  const countries = [...new Set((STATIONS || []).filter(s => s.country).map(s => s.country))]
+    .sort((a, b) => a.localeCompare(b, 'ar'));
+  const fc = document.getElementById('filterCountry');
+  if (fc) {
+    fc.innerHTML = '<option value="">\u0643\u0644 \u0627\u0644\u062f\u0648\u0644</option>' +
+      countries.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+  }
+}
+
+function onFilterCountryChange() {
+  const country = ((document.getElementById('filterCountry') || {}).value || '');
+  const filtered = country ? (STATIONS || []).filter(s => s.country === country) : (STATIONS || []);
+  const sel = document.getElementById('stationSelect');
+  if (sel) {
+    sel.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0623\u0648 \u0627\u0644\u0642\u0627\u0626\u0645\u0629...</option>' +
+      filtered.map(s => '<option value="' + s.id + '">' + s.name + (s.country ? ' \u2014 ' + s.country : '') + '</option>').join('');
+    if (appState.currentStation) sel.value = appState.currentStation.id;
+  }
+  renderMapMarkers(getCurrentFilter());
+  if (filtered.length > 0 && _fieldMap) {
+    try {
+      const pts = filtered.filter(s => s.lat && s.lon).map(s => [s.lat, s.lon]);
+      if (pts.length > 0) {
+        const bounds = L.latLngBounds(pts);
+        if (bounds.isValid()) _fieldMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
+      }
+    } catch(_) {}
+  }
+}
+
+function onFilterSeaChange() {
+  const country = ((document.getElementById('filterCountry') || {}).value || '');
+  const sea = ((document.getElementById('filterSea') || {}).value || '');
+  const filtered = (STATIONS || []).filter(s =>
+    (!country || s.country === country) && (!sea || getStationRegion(s) === sea)
+  );
+  const sel = document.getElementById('stationSelect');
+  if (sel) {
+    sel.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0623\u0648 \u0627\u0644\u0642\u0627\u0626\u0645\u0629...</option>' +
+      filtered.map(s => '<option value="' + s.id + '">' + s.name + (s.country ? ' \u2014 ' + s.country : '') + '</option>').join('');
+    if (appState.currentStation) sel.value = appState.currentStation.id;
+  }
+  renderMapMarkers(getCurrentFilter());
+  if (filtered.length > 0 && _fieldMap) {
+    try {
+      const pts = filtered.filter(s => s.lat && s.lon).map(s => [s.lat, s.lon]);
+      if (pts.length > 0) {
+        const bounds = L.latLngBounds(pts);
+        if (bounds.isValid()) _fieldMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
+      }
+    } catch(_) {}
+  }
+}
+
+function updateSelectedInfo() {
+  const infoEl = document.getElementById('selectedStationInfo');
+  const nameEl = document.getElementById('selectedStationName');
+  const distEl = document.getElementById('selectedStationDist');
+  if (!infoEl || !nameEl || !distEl) return;
+  const st = appState.currentStation;
+  if (!st) { infoEl.style.display = 'none'; return; }
+  nameEl.textContent = '\ud83d\udccd ' + st.name + (st.country ? '  \u00b7  ' + st.country : '');
+  if (appState.currentLat != null && st.lat && st.lon) {
+    const dist = haversineKm(appState.currentLat, appState.currentLng, st.lat, st.lon);
+    distEl.textContent = dist.toFixed(1) + ' \u0643\u0645';
+    distEl.style.display = '';
+  } else {
+    distEl.style.display = 'none';
+  }
+  infoEl.style.display = '';
+}
+
+function updateDistanceLine() {
+  if (!_fieldMap) return;
+  if (_distLine) { try { _fieldMap.removeLayer(_distLine); } catch(_) {} _distLine = null; }
+  const st = appState.currentStation;
+  if (!st || appState.currentLat == null) return;
+  _distLine = L.polyline(
+    [[appState.currentLat, appState.currentLng], [st.lat, st.lon]],
+    { color: 'rgba(39,190,255,0.5)', weight: 2, dashArray: '6,4' }
+  ).addTo(_fieldMap);
+}
+
+// ══════════════════════════════════════════════════════════
 // STATION SELECT
 // ══════════════════════════════════════════════════════════
 function buildStationSelects() {
+  populateFilterDropdowns();
   const sel = document.getElementById('stationSelect');
   const gpsSel = document.getElementById('gpsManualSelect');
   if (!sel || !gpsSel) return;
-  const opts = (STATIONS || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  sel.innerHTML = '<option value="">اختر المحطة...</option>' + opts;
+  const opts = (STATIONS || []).map(s =>
+    '<option value="' + s.id + '">' + s.name + (s.country ? ' \u2014 ' + s.country : '') + '</option>'
+  ).join('');
+  sel.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0623\u0648 \u0627\u0644\u0642\u0627\u0626\u0645\u0629...</option>' + opts;
   gpsSel.innerHTML = opts;
 }
 
 function onStationSelectChange() {
-  const val = document.getElementById('stationSelect').value;
-  const st = STATIONS.find(s => s.id === val) || null;
+  const val = ((document.getElementById('stationSelect') || {}).value || '');
+  const st = (STATIONS || []).find(s => s.id === val) || null;
   appState.currentStation = st;
-  if (st) fetchAnalysis(st);
-  else clearAnalysis();
+  if (st) {
+    const fc = document.getElementById('filterCountry');
+    const fs = document.getElementById('filterSea');
+    if (fc && st.country) fc.value = st.country;
+    if (fs) fs.value = getStationRegion(st);
+    if (_fieldMap) _fieldMap.flyTo([st.lat, st.lon], 11, { animate: true, duration: 0.7 });
+    renderMapMarkers(getCurrentFilter());
+    updateSelectedInfo();
+    updateDistanceLine();
+    fetchAnalysis(st);
+  } else {
+    renderMapMarkers(getCurrentFilter());
+    updateSelectedInfo();
+    clearAnalysis();
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1134,6 +1440,11 @@ const SPECIES_BY_STATE = {
 // st_001-st_004 = Qatar Gulf, st_005-st_010 = Gulf, st_011-st_020 = Red Sea,
 // st_021 = Bahrain Gulf, st_022-st_027 = UAE Gulf, st_028-st_031 = Oman, st_032 = Iran Gulf
 function getStationRegion(station) {
+  // Prefer explicit region field when it's a known analysis value
+  if (station.region === 'red_sea') return 'red_sea';
+  if (station.region === 'oman_sea') return 'oman_sea';
+  if (station.region === 'gulf') return 'gulf';
+  // Fallback: derive from ID (legacy / new stations without region field)
   const num = parseInt((station.id || '').replace('st_', ''), 10);
   if (!Number.isFinite(num)) return 'gulf';
   if (num >= 11 && num <= 20) return 'red_sea';
@@ -1382,12 +1693,41 @@ function doGps() {
       appState.currentLat = lat;
       appState.currentLng = lng;
 
+      // Show user position on map
+      if (_fieldMap) {
+        if (_userMarker) { try { _fieldMap.removeLayer(_userMarker); } catch(_) {} }
+        _userMarker = L.circleMarker([lat, lng], {
+          radius: 8,
+          fillColor: '#ffd57f',
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 1
+        }).bindPopup('<strong>موقعي</strong>', { closeButton: false }).addTo(_fieldMap);
+        _fieldMap.setView([lat, lng], Math.max((_fieldMap.getZoom() || 5), 7));
+      }
+
+      updateChips({ coords: fmtCoords() });
+
       const { station, distKm } = findNearestStation(lat, lng);
       _gpsSuggested = station;
 
-      // Pre-select nearest in manual select
+      // Draw provisional distance line to nearest station
+      if (!appState.currentStation) {
+        const st = station;
+        if (_fieldMap && st) {
+          if (_distLine) { try { _fieldMap.removeLayer(_distLine); } catch(_) {} _distLine = null; }
+          _distLine = L.polyline(
+            [[lat, lng], [st.lat, st.lon]],
+            { color: 'rgba(255,213,127,0.5)', weight: 2, dashArray: '6,4' }
+          ).addTo(_fieldMap);
+        }
+      } else {
+        updateDistanceLine();
+      }
+
       const gpsSel = document.getElementById('gpsManualSelect');
-      gpsSel.value = station.id;
+      if (gpsSel) gpsSel.value = station.id;
 
       document.getElementById('gpsModalSub').textContent =
         `أقرب محطة: ${station.name} (${distKm.toFixed(1)} كم)`;
@@ -1413,16 +1753,32 @@ function closeGpsModal() {
 }
 
 function confirmGpsStation() {
-  const selId = document.getElementById('gpsManualSelect').value;
-  const station = STATIONS.find(s => s.id === selId) || _gpsSuggested;
+  const selId = (document.getElementById('gpsManualSelect') || {}).value || '';
+  const station = (STATIONS || []).find(s => s.id === selId) || _gpsSuggested;
   if (!station) { closeGpsModal(); return; }
 
   appState.currentStation = station;
-  document.getElementById('stationSelect').value = station.id;
+  const sel = document.getElementById('stationSelect');
+  if (sel) sel.value = station.id;
+
+  // Sync filter dropdowns to confirmed station
+  const fc = document.getElementById('filterCountry');
+  const fs = document.getElementById('filterSea');
+  if (fc && station.country) fc.value = station.country;
+  if (fs) fs.value = getStationRegion(station);
+
   updateChips({ coords: fmtCoords() });
+
+  // Fly map to confirmed station and highlight it
+  if (_fieldMap) {
+    _fieldMap.flyTo([station.lat, station.lon], 11, { animate: true, duration: 0.8 });
+  }
+  renderMapMarkers(getCurrentFilter());
+  updateSelectedInfo();
+  updateDistanceLine();
+
   closeGpsModal();
   showToast('✅ محطة: ' + station.name, 'ok');
-  // Trigger real NAVIDUR analysis for this station
   fetchAnalysis(station).catch(() => {});
 }
 
@@ -1793,9 +2149,16 @@ function renderSessionPanel() {
 // ══════════════════════════════════════════════════════════
 async function initApp() {
   showAppScreen();
+
+  // Load stations from API → cache → fallback (must happen before buildStationSelects)
+  await loadStations().catch(() => { if (!STATIONS.length) STATIONS = FALLBACK_STATIONS.slice(); });
+
   buildStationSelects();
   buildSpeciesGrid();
   renderCatchWarning();
+
+  // Initialize the Leaflet map (needs STATIONS populated)
+  initMap();
 
   const user = Auth.user;
   if (!user) return;
@@ -1816,14 +2179,23 @@ async function initApp() {
 
     // Restore station from active trip if station not set yet
     if (appState.activeTrip && !appState.currentStation) {
-      const st = STATIONS.find(s => s.id === appState.activeTrip.station_id);
+      const st = (STATIONS || []).find(s => s.id === appState.activeTrip.station_id);
       if (st) {
         appState.currentStation = st;
-        document.getElementById('stationSelect').value = st.id;
+        const sel = document.getElementById('stationSelect');
+        if (sel) sel.value = st.id;
       }
     }
   } catch(e) {
     console.warn('State restore error:', e);
+  }
+
+  // Sync map to restored station
+  if (appState.currentStation && _fieldMap) {
+    const st = appState.currentStation;
+    _fieldMap.setView([st.lat, st.lon], 9);
+    renderMapMarkers({});
+    updateSelectedInfo();
   }
 
   // Restore prediction from localStorage; fetch fresh if online
