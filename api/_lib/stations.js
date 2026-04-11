@@ -56,6 +56,7 @@ function normalizeStationInput(input, existing) {
     lon: toNumber(input.lon != null ? input.lon : base.lon),
     country: cleanString(input.country != null ? input.country : base.country, 80),
     region: cleanString(input.region != null ? input.region : base.region, 80) || 'gulf',
+    local_area: cleanString(input.local_area != null ? input.local_area : base.local_area, 80),
     fishing_mode: fishingMode,
     category,
     status,
@@ -64,6 +65,8 @@ function normalizeStationInput(input, existing) {
     sort_order: Number.isFinite(Number(input.sort_order)) ? Number(input.sort_order) : (Number(base.sort_order) || 0),
     default_radius: Number.isFinite(Number(input.default_radius)) ? Number(input.default_radius) : (Number(base.default_radius) || 0.02),
     notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
+    added_from_field: input.added_from_field != null ? !!input.added_from_field : !!base.added_from_field,
+    source_tag: cleanString(input.source_tag != null ? input.source_tag : base.source_tag, 40),
     assigned_members: Array.isArray(input.assigned_members != null ? input.assigned_members : base.assigned_members)
       ? (input.assigned_members != null ? input.assigned_members : base.assigned_members).map((x) => cleanString(x, 80)).filter(Boolean).slice(0, 300)
       : [],

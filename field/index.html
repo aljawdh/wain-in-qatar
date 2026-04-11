@@ -196,6 +196,41 @@
     }
     .btn-gps:active { opacity: 0.7; }
     .btn-gps:disabled { opacity: 0.4; cursor: default; }
+    .field-actions-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .btn-action {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--txt);
+      font-size: 12px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-action-accent {
+      background: rgba(39,190,255,0.12);
+      border-color: rgba(39,190,255,0.35);
+      color: var(--accent);
+    }
+    .btn-action-ok {
+      background: rgba(95,221,151,0.11);
+      border-color: rgba(95,221,151,0.35);
+      color: var(--ok);
+    }
+    .btn-action:disabled { opacity: 0.45; cursor: default; }
+    .field-action-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin: -2px 2px 10px;
+      min-height: 14px;
+    }
     /* ── Status Chips ── */
     .status-chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip {
@@ -379,7 +414,24 @@
       grid-template-columns: repeat(2, 1fr);
       gap: 6px;
     }
+    .species-tools {
+      display: flex;
+      gap: 6px;
+      margin: 8px 0 10px;
+      flex-wrap: wrap;
+    }
+    .species-tools .btn-action,
+    .species-tools .select-field {
+      flex: 1 1 140px;
+      min-width: 0;
+    }
+    .species-card {
+      display: flex;
+      gap: 6px;
+      align-items: stretch;
+    }
     .species-chip {
+      flex: 1;
       padding: 9px 8px;
       background: rgba(0,0,0,0.25);
       border: 1px solid var(--border);
@@ -396,6 +448,28 @@
       border-color: var(--accent);
       color: var(--accent);
       font-weight: 800;
+    }
+    .species-admin-btn {
+      width: 38px;
+      flex: 0 0 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .species-admin-btn:disabled { opacity: 0.35; cursor: default; }
+    .species-empty {
+      grid-column: 1 / -1;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
     }
     .btn-save {
       width: 100%;
@@ -590,6 +664,35 @@
       border: 1px solid var(--border);
       white-space: nowrap;
     }
+    .station-type-badge {
+      font-size: 11px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .station-type-existing {
+      color: var(--accent);
+      background: rgba(39,190,255,0.12);
+      border-color: rgba(39,190,255,0.33);
+    }
+    .station-type-field {
+      color: var(--ok);
+      background: rgba(95,221,151,0.12);
+      border-color: rgba(95,221,151,0.35);
+    }
+    .nearest-station-box {
+      border: 1px dashed rgba(95,221,151,0.35);
+      background: rgba(95,221,151,0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--txt);
+      line-height: 1.7;
+    }
+    .nearest-station-box strong { color: var(--ok); }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -665,10 +768,16 @@
         </select>
         <button class="btn-gps" id="gpsBtn" onclick="doGps()">📍 موقعي</button>
       </div>
+      <div class="field-actions-row">
+        <button class="btn-action btn-action-accent" onclick="_manualPredRefresh()">🔄 تحديث التنبؤ الآن</button>
+        <button class="btn-action btn-action-ok" id="addStationBtn" onclick="openAddStationModal()">➕ إضافة محطة جديدة</button>
+      </div>
+      <div id="addStationHint" class="field-action-hint"></div>
       <!-- Selected station info bar -->
       <div id="selectedStationInfo" class="selected-info" style="display:none">
         <span id="selectedStationName" style="flex:1"></span>
         <span id="selectedStationDist" class="dist-badge"></span>
+        <span id="selectedStationBadge" class="station-type-badge station-type-existing"></span>
       </div>
       <div class="status-chips" id="statusChips">
         <div class="chip chip-neutral" id="chipWater">الماي: —</div>
@@ -786,6 +895,12 @@
       <div id="speciesSection" class="catch-fields" style="display:none;margin-bottom:10px">
         <div>
           <div class="field-label">أنواع السمك</div>
+          <div class="species-tools">
+            <button class="btn-action btn-action-ok" type="button" id="addFishBtn" onclick="openFishSpeciesModal('create')">➕ إضافة سمكة جديدة</button>
+            <select id="speciesManageSelect" class="select-field"></select>
+            <button class="btn-action" type="button" id="editFishBtn" onclick="openFishSpeciesModal('edit')">✏️ تعديل</button>
+            <button class="btn-action" type="button" id="archiveFishBtn" onclick="openFishSpeciesModal('archive')">🗃 أرشفة</button>
+          </div>
           <div class="species-grid" id="speciesGrid"></div>
         </div>
         <div>
@@ -859,6 +974,87 @@
     <div class="modal-btns">
       <button class="btn-confirm" onclick="confirmGpsStation()">✅ تأكيد</button>
       <button class="btn-cancel" onclick="closeGpsModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Station Modal -->
+<div class="modal-overlay" id="addStationModal">
+  <div class="modal-sheet">
+    <div class="modal-title">➕ إضافة محطة ميدانية</div>
+    <div class="modal-sub" id="addStationSub">اختر نقطة من الخريطة أو استخدم GPS لتحديد الإحداثيات.</div>
+
+    <div id="nearestStationBox" class="nearest-station-box" style="display:none">
+      <div>أقرب محطة: <strong id="nearestStationName">—</strong></div>
+      <div>الدولة: <span id="nearestStationCountry">—</span></div>
+      <div>البحر: <span id="nearestStationSea">—</span></div>
+      <div>المنطقة المحلية: <span id="nearestStationLocal">—</span></div>
+      <div>المسافة: <span id="nearestStationDist">—</span></div>
+    </div>
+
+    <div class="catch-fields" style="margin-bottom:12px">
+      <div class="field-actions-row" style="margin-bottom:2px">
+        <button class="btn-action" type="button" onclick="enableAddStationMapMode()">📌 تحديد من الخريطة</button>
+        <button class="btn-action" type="button" onclick="useGpsForAddStation()">📍 استخدام GPS</button>
+      </div>
+
+      <div>
+        <div class="field-label">الدولة</div>
+        <input id="addCountry" class="input-field" maxlength="80" placeholder="مثال: السعودية" />
+      </div>
+      <div>
+        <div class="field-label">البحر / المنطقة البحرية</div>
+        <select id="addSea" class="select-field">
+          <option value="gulf">الخليج العربي</option>
+          <option value="red_sea">البحر الأحمر</option>
+          <option value="oman_sea">بحر العرب</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">المنطقة المحلية</div>
+        <input id="addLocalRegion" class="input-field" maxlength="80" placeholder="مثال: العقير" />
+      </div>
+      <div>
+        <div class="field-label">اسم المحطة</div>
+        <input id="addStationName" class="input-field" maxlength="100" placeholder="يُولَّد تلقائيًا" />
+      </div>
+      <div class="filter-row" style="margin-bottom:0">
+        <div style="flex:1">
+          <div class="field-label">Latitude</div>
+          <input id="addLat" class="input-field" type="number" step="0.000001" inputmode="decimal" placeholder="0" />
+        </div>
+        <div style="flex:1">
+          <div class="field-label">Longitude</div>
+          <input id="addLon" class="input-field" type="number" step="0.000001" inputmode="decimal" placeholder="0" />
+        </div>
+      </div>
+      <div>
+        <div class="field-label">ملاحظة (اختياري)</div>
+        <input id="addNote" class="input-field" maxlength="200" placeholder="معلومة تشغيلية قصيرة" />
+      </div>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn-confirm" id="saveStationBtn" onclick="saveNewFieldStation()">💾 حفظ المحطة</button>
+      <button class="btn-cancel" onclick="closeAddStationModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fish Species Modal -->
+<div class="modal-overlay" id="fishSpeciesModal">
+  <div class="modal-sheet">
+    <div class="modal-title" id="fishSpeciesModalTitle">➕ إضافة سمكة جديدة</div>
+    <div class="modal-sub" id="fishSpeciesModalSub">سيتم حفظ النوع في القائمة المركزية ويظهر مباشرة في /field.</div>
+    <div class="catch-fields" style="margin-bottom:12px">
+      <div>
+        <div class="field-label">اسم السمكة</div>
+        <input id="fishSpeciesName" class="input-field" maxlength="80" placeholder="مثال: البدح" />
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-confirm" id="fishSpeciesSaveBtn" onclick="submitFishSpeciesModal()">حفظ</button>
+      <button class="btn-cancel" onclick="closeFishSpeciesModal()">إلغاء</button>
     </div>
   </div>
 </div>
@@ -941,11 +1137,51 @@ async function loadStations() {
   STATIONS = FALLBACK_STATIONS.slice();
 }
 
-const FISH_SPECIES = [
-  'الهامور','الشعري','السبيطي','الكنعد','الحمرا','الصافي',
-  'الشعم','النقرور','البالول','الجيذر','الباراكودا',
-  'الناجل','السيجان','الطرادي','الشعور','الحريد'
+async function loadFishSpecies() {
+  if (appState.isOnline) {
+    try {
+      const headers = Auth.token ? { 'Authorization': 'Bearer ' + Auth.token } : {};
+      const resp = await fetch('/api/fish-species', { headers });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && Array.isArray(data.fish_species) && data.fish_species.length > 0) {
+          FISH_SPECIES = data.fish_species;
+          try { localStorage.setItem(FISH_SPECIES_CACHE_KEY, JSON.stringify(FISH_SPECIES)); } catch(_) {}
+          return;
+        }
+      }
+    } catch(_) {}
+  }
+  try {
+    const cached = localStorage.getItem(FISH_SPECIES_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) { FISH_SPECIES = parsed; return; }
+    }
+  } catch(_) {}
+  FISH_SPECIES = FISH_SPECIES_FALLBACK.slice();
+}
+
+const FISH_SPECIES_FALLBACK = [
+  { id: 'fish_001', name: 'الهامور', status: 'active' },
+  { id: 'fish_002', name: 'الشعري', status: 'active' },
+  { id: 'fish_003', name: 'السبيطي', status: 'active' },
+  { id: 'fish_004', name: 'الكنعد', status: 'active' },
+  { id: 'fish_005', name: 'الحمرا', status: 'active' },
+  { id: 'fish_006', name: 'الصافي', status: 'active' },
+  { id: 'fish_007', name: 'الشعم', status: 'active' },
+  { id: 'fish_008', name: 'النقرور', status: 'active' },
+  { id: 'fish_009', name: 'البالول', status: 'active' },
+  { id: 'fish_010', name: 'الجيذر', status: 'active' },
+  { id: 'fish_011', name: 'الباراكودا', status: 'active' },
+  { id: 'fish_012', name: 'الناجل', status: 'active' },
+  { id: 'fish_013', name: 'السيجان', status: 'active' },
+  { id: 'fish_014', name: 'الطرادي', status: 'active' },
+  { id: 'fish_015', name: 'الشعور', status: 'active' },
+  { id: 'fish_016', name: 'الحريد', status: 'active' }
 ];
+const FISH_SPECIES_CACHE_KEY = 'navidur_field_fish_species_v1';
+let FISH_SPECIES = [];
 
 // ══════════════════════════════════════════════════════════
 // AUTH
@@ -1174,6 +1410,23 @@ let appState = {
   pendingCount: 0
 };
 
+const addStationState = {
+  active: false,
+  saving: false,
+  fromGps: false,
+  pointLat: null,
+  pointLon: null,
+  nearest: null,
+  nearestDistKm: null
+};
+
+const fishSpeciesUiState = {
+  mode: 'create',
+  editingId: null,
+  previousName: '',
+  busy: false
+};
+
 // Frozen NAVIDUR prediction snapshot — named currentFieldPrediction per field system spec.
 // Persisted to localStorage so it survives page refresh and offline restore.
 let currentFieldPrediction = null;
@@ -1186,6 +1439,18 @@ function nowMs() { return Date.now(); }
 
 function uid(prefix) {
   return (prefix || 'id') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+function toAsciiDigits(input) {
+  return String(input || '')
+    .replace(/[٠-٩]/g, function (d) { return String(d.charCodeAt(0) - 1632); })
+    .replace(/[۰-۹]/g, function (d) { return String(d.charCodeAt(0) - 1776); });
+}
+
+function parseTrailingInt(name) {
+  const s = toAsciiDigits(name).trim();
+  const m = s.match(/(\d+)\s*$/);
+  return m ? parseInt(m[1], 10) : null;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1339,7 +1604,7 @@ let _currentUserCircle = null;     // accuracy circle around user location
 
 /** Extract local-region name by stripping trailing digits/spaces ("العقير 01" → "العقير"). */
 function extractLocalRegion(name) {
-  const r = (name || '').replace(/\s*\d+$/, '').trim();
+  const r = toAsciiDigits(name || '').replace(/\s*\d+$/, '').trim();
   return r || (name || '').trim();
 }
 
@@ -1463,6 +1728,11 @@ function initMap() {
       maxZoom: 19
     }).addTo(_fieldMap);
     L.control.attribution({ position: 'bottomright', prefix: '© OSM' }).addTo(_fieldMap);
+    _fieldMap.on('click', function (e) {
+      if (!addStationState.active || !e || !e.latlng) return;
+      setAddStationPoint(e.latlng.lat, e.latlng.lng, false);
+      showToast('📌 تم تحديد موقع المحطة الجديدة', 'ok');
+    });
     renderMapMarkers({});
   } catch(e) {
     console.warn('[field] initMap error:', e);
@@ -1603,14 +1873,20 @@ function updateSelectedInfo() {
   const infoEl = document.getElementById('selectedStationInfo');
   const nameEl = document.getElementById('selectedStationName');
   const distEl = document.getElementById('selectedStationDist');
-  if (!infoEl || !nameEl || !distEl) return;
+  const badgeEl = document.getElementById('selectedStationBadge');
+  if (!infoEl || !nameEl || !distEl || !badgeEl) return;
   const st = appState.currentStation;
   if (!st) { infoEl.style.display = 'none'; return; }
-  const lr = extractLocalRegion(st.name);
+  const lr = st.local_area || extractLocalRegion(st.name);
   let label = '📍 ' + st.name;
   if (lr && lr !== st.name) label += ' · ' + lr;
   if (st.country) label += '  ·  ' + st.country;
   nameEl.textContent = label;
+
+  const isField = !!st.added_from_field || String(st.source_tag || '').toLowerCase() === 'field';
+  badgeEl.textContent = isField ? 'محطة مضافة ميدانيًا' : 'محطة موجودة';
+  badgeEl.className = 'station-type-badge ' + (isField ? 'station-type-field' : 'station-type-existing');
+
   if (appState.currentLat != null && st.lat && st.lon) {
     const dist = haversineKm(appState.currentLat, appState.currentLng, st.lat, st.lon);
     distEl.textContent = _fmtDist(dist);
@@ -1664,6 +1940,250 @@ function onStationSelectChange() {
   }
 }
 
+function _suggestSequentialStationName(localArea, country, sea) {
+  const base = String(localArea || '').trim();
+  if (!base) return '';
+  let maxNum = 0;
+  (STATIONS || []).forEach(function (s) {
+    if (!s) return;
+    if (country && s.country !== country) return;
+    if (sea && getStationRegion(s) !== sea) return;
+    const lr = extractLocalRegion(s.name);
+    if (lr !== base) return;
+    const n = parseTrailingInt(s.name);
+    if (Number.isFinite(n) && n > maxNum) maxNum = n;
+  });
+  return base + ' ' + (maxNum + 1);
+}
+
+function _syncAddStationNearestUi() {
+  const box = document.getElementById('nearestStationBox');
+  if (!box) return;
+  if (!addStationState.nearest) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  const st = addStationState.nearest;
+  const region = getStationRegion(st);
+  const local = st.local_area || extractLocalRegion(st.name);
+  const distTxt = addStationState.nearestDistKm != null ? _fmtDist(addStationState.nearestDistKm) : '—';
+  document.getElementById('nearestStationName').textContent = st.name || '—';
+  document.getElementById('nearestStationCountry').textContent = st.country || '—';
+  document.getElementById('nearestStationSea').textContent = seaLabel(region);
+  document.getElementById('nearestStationLocal').textContent = local || '—';
+  document.getElementById('nearestStationDist').textContent = distTxt;
+}
+
+function _prefillAddStationFromNearest() {
+  const st = addStationState.nearest;
+  if (!st) return;
+  const region = getStationRegion(st);
+  const local = st.local_area || extractLocalRegion(st.name);
+
+  const countryEl = document.getElementById('addCountry');
+  const seaEl = document.getElementById('addSea');
+  const localEl = document.getElementById('addLocalRegion');
+  const nameEl = document.getElementById('addStationName');
+
+  if (countryEl && !countryEl.value.trim()) countryEl.value = st.country || '';
+  if (seaEl && !seaEl.value) seaEl.value = region;
+  if (localEl && !localEl.value.trim()) localEl.value = local || '';
+
+  const finalCountry = (countryEl && countryEl.value.trim()) || (st.country || '');
+  const finalSea = (seaEl && seaEl.value) || region;
+  const finalLocal = (localEl && localEl.value.trim()) || local;
+  if (nameEl && !nameEl.value.trim()) {
+    nameEl.value = _suggestSequentialStationName(finalLocal, finalCountry, finalSea);
+  }
+}
+
+function _updateAddStationNameSuggestion() {
+  const countryEl = document.getElementById('addCountry');
+  const seaEl = document.getElementById('addSea');
+  const localEl = document.getElementById('addLocalRegion');
+  const nameEl = document.getElementById('addStationName');
+  if (!countryEl || !seaEl || !localEl || !nameEl) return;
+  const suggested = _suggestSequentialStationName(localEl.value.trim(), countryEl.value.trim(), seaEl.value);
+  if (!nameEl.value.trim() || nameEl.dataset.autofill === '1') {
+    nameEl.value = suggested;
+    nameEl.dataset.autofill = suggested ? '1' : '0';
+  }
+}
+
+function _findNearestByPoint(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !(STATIONS || []).length) {
+    addStationState.nearest = null;
+    addStationState.nearestDistKm = null;
+    return;
+  }
+  const out = findNearestStation(lat, lon);
+  addStationState.nearest = out.station || null;
+  addStationState.nearestDistKm = Number.isFinite(out.distKm) ? out.distKm : null;
+}
+
+function setAddStationPoint(lat, lon, fromGps) {
+  addStationState.pointLat = Number(lat);
+  addStationState.pointLon = Number(lon);
+  addStationState.fromGps = !!fromGps;
+  _findNearestByPoint(addStationState.pointLat, addStationState.pointLon);
+
+  const latEl = document.getElementById('addLat');
+  const lonEl = document.getElementById('addLon');
+  if (latEl) latEl.value = Number(addStationState.pointLat).toFixed(6);
+  if (lonEl) lonEl.value = Number(addStationState.pointLon).toFixed(6);
+
+  _syncAddStationNearestUi();
+  _prefillAddStationFromNearest();
+  _updateAddStationNameSuggestion();
+
+  const sub = document.getElementById('addStationSub');
+  if (sub) {
+    sub.textContent = 'تم تحديد الإحداثيات. أكمل الحقول ثم احفظ المحطة.';
+  }
+}
+
+function openAddStationModal() {
+  if (!canCurrentUserAddStations()) {
+    showToast('⚠️ لا تملك صلاحية إضافة محطة', 'warn');
+    return;
+  }
+  if (!appState.isOnline) {
+    showToast('⚠️ يلزم اتصال لحفظ المحطة في النظام', 'warn');
+    return;
+  }
+  addStationState.active = true;
+  addStationState.saving = false;
+  addStationState.pointLat = null;
+  addStationState.pointLon = null;
+  addStationState.nearest = null;
+  addStationState.nearestDistKm = null;
+
+  const latEl = document.getElementById('addLat');
+  const lonEl = document.getElementById('addLon');
+  const countryEl = document.getElementById('addCountry');
+  const seaEl = document.getElementById('addSea');
+  const localEl = document.getElementById('addLocalRegion');
+  const nameEl = document.getElementById('addStationName');
+  const noteEl = document.getElementById('addNote');
+  if (latEl) latEl.value = '';
+  if (lonEl) lonEl.value = '';
+  if (countryEl) countryEl.value = appState.currentStation ? (appState.currentStation.country || '') : '';
+  if (seaEl) seaEl.value = appState.currentStation ? getStationRegion(appState.currentStation) : 'gulf';
+  if (localEl) localEl.value = appState.currentStation ? (appState.currentStation.local_area || extractLocalRegion(appState.currentStation.name)) : '';
+  if (nameEl) { nameEl.value = ''; nameEl.dataset.autofill = '1'; }
+  if (noteEl) noteEl.value = '';
+
+  _syncAddStationNearestUi();
+  _updateAddStationNameSuggestion();
+  document.getElementById('addStationModal').classList.add('open');
+
+  if (_fieldMap) showToast('📌 اضغط على الخريطة لتحديد المحطة الجديدة', 'ok');
+}
+
+function closeAddStationModal() {
+  addStationState.active = false;
+  document.getElementById('addStationModal').classList.remove('open');
+}
+
+function enableAddStationMapMode() {
+  if (!_fieldMap) {
+    showToast('⚠️ الخريطة غير متاحة', 'warn');
+    return;
+  }
+  addStationState.active = true;
+  showToast('📌 اضغط على الخريطة لتحديد الإحداثيات', 'ok');
+}
+
+function useGpsForAddStation() {
+  if (!addStationState.active) openAddStationModal();
+  doGps();
+}
+
+async function saveNewFieldStation() {
+  if (addStationState.saving) return;
+  if (!canCurrentUserAddStations()) {
+    showToast('⚠️ لا تملك صلاحية إضافة محطة', 'warn');
+    return;
+  }
+  if (!appState.isOnline) {
+    showToast('⚠️ لا يمكن الحفظ بدون إنترنت', 'warn');
+    return;
+  }
+
+  const country = (document.getElementById('addCountry').value || '').trim();
+  const sea = (document.getElementById('addSea').value || '').trim() || 'gulf';
+  const localArea = (document.getElementById('addLocalRegion').value || '').trim();
+  const stationName = (document.getElementById('addStationName').value || '').trim();
+  const note = (document.getElementById('addNote').value || '').trim();
+  const lat = Number(document.getElementById('addLat').value);
+  const lon = Number(document.getElementById('addLon').value);
+
+  if (!country || !localArea || !stationName) {
+    showToast('⚠️ الدولة والمنطقة المحلية واسم المحطة مطلوبة', 'warn');
+    return;
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    showToast('⚠️ حدّد الإحداثيات أولاً من الخريطة أو GPS', 'warn');
+    return;
+  }
+
+  const btn = document.getElementById('saveStationBtn');
+  addStationState.saving = true;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ الحفظ...'; }
+
+  try {
+    const resp = await fetch('/api/stations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + Auth.token
+      },
+      body: JSON.stringify({
+        name: stationName,
+        lat: lat,
+        lon: lon,
+        country: country,
+        region: sea,
+        local_area: localArea,
+        notes: note || '',
+        category: 'all',
+        added_from_field: true,
+        source_tag: 'field'
+      })
+    });
+
+    const out = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || !out.station) {
+      const msg = out.error === 'duplicate_station_name_coordinates'
+        ? '⚠️ هذه المحطة موجودة مسبقًا بنفس الاسم والإحداثيات'
+        : out.error === 'forbidden_station_create'
+          ? '⚠️ حسابك غير مخوّل لإضافة المحطات'
+          : '⚠️ تعذّر حفظ المحطة';
+      showToast(msg, 'warn');
+      return;
+    }
+
+    STATIONS.push(out.station);
+    STATIONS.sort(function (a, b) { return Number(a.sort_order || 0) - Number(b.sort_order || 0); });
+    try { localStorage.setItem(STATIONS_CACHE_KEY, JSON.stringify(STATIONS)); } catch(_) {}
+
+    buildStationSelects();
+    populateFilterDropdowns();
+    renderMapMarkers(getCurrentFilter());
+
+    closeAddStationModal();
+    selectStationFromMap(out.station);
+    showToast('✅ تمت إضافة المحطة واختيارها', 'ok');
+  } catch (_) {
+    showToast('⚠️ خطأ شبكة أثناء حفظ المحطة', 'warn');
+  } finally {
+    addStationState.saving = false;
+    if (btn) { btn.disabled = false; btn.textContent = '💾 حفظ المحطة'; }
+  }
+}
+
+
 // ══════════════════════════════════════════════════════════
 // FIELD PREDICTION ENGINE
 // ══════════════════════════════════════════════════════════
@@ -1699,6 +2219,42 @@ function getStationRegion(station) {
   return 'gulf';
 }
 
+function seaLabel(region) {
+  if (region === 'red_sea') return 'البحر الأحمر';
+  if (region === 'oman_sea') return 'بحر العرب';
+  return 'الخليج العربي';
+}
+
+function canCurrentUserAddStations() {
+  const user = Auth.user || {};
+  const role = String(user.role || '').toLowerCase();
+  if (role === 'admin' || role === 'super_admin') return true;
+  if (user.can_add_stations === true) return true;
+  const perms = Array.isArray(user.permissions) ? user.permissions.map(function (x) { return String(x || '').toLowerCase(); }) : [];
+  return perms.includes('station_add') || perms.includes('add_station') || perms.includes('manage_stations');
+}
+
+function renderAddStationPermissionState() {
+  const btn = document.getElementById('addStationBtn');
+  const hint = document.getElementById('addStationHint');
+  if (!btn || !hint) return;
+
+  const allowed = canCurrentUserAddStations();
+  const offline = !appState.isOnline;
+  btn.style.display = '';
+  btn.disabled = !allowed || offline;
+
+  if (!allowed) {
+    hint.textContent = 'إضافة المحطات متاحة فقط للمشرف أو الدور المخوّل.';
+    return;
+  }
+  if (offline) {
+    hint.textContent = 'إضافة المحطة تتطلب اتصالًا لحفظها في النظام الفعلي.';
+    return;
+  }
+  hint.textContent = 'اضغط إضافة محطة، ثم حدّد النقطة من الخريطة أو GPS.';
+}
+
 // Local fallback tidal coefficient (mirrors server formula)
 function _localTidalCoeff(prev, cur, next) {
   if (cur == null) return null;
@@ -1726,6 +2282,7 @@ async function fetchAnalysis(station) {
       updateChips({ water: '—', activity: '—', src: 'لا يوجد' });
     }
     _refreshSpeciesGridFromSnapshot();
+    renderPredictionPanel();
     return;
   }
 
@@ -1847,6 +2404,7 @@ async function fetchAnalysis(station) {
     : (fishingMode === 'deep' ? 'عمق' : fishingMode === 'coastal' ? 'ساحل' : '—');
   updateChips({ water: wChip, activity: aChip, src: srcLabel });
   _refreshSpeciesGridFromSnapshot();
+  renderPredictionPanel();
 }
 
 // Highlight predicted species in the grid
@@ -1908,7 +2466,7 @@ function renderPredictionPanel() {
   const panel = document.getElementById('predPanel');
   if (!panel) return;
   const snap = currentFieldPrediction;
-  if (!snap || !snap.water_state_predicted) {
+  if (!snap || !snap.station_id) {
     panel.style.display = 'none';
     return;
   }
@@ -2092,6 +2650,12 @@ function doGps() {
       }
 
       updateChips({ coords: fmtCoords() });
+
+      if (addStationState.active) {
+        setAddStationPoint(lat, lng, true);
+        showToast('📍 تم تعبئة إحداثيات المحطة الجديدة من GPS', 'ok');
+        return;
+      }
 
       const { station, distKm } = findNearestStation(lat, lng);
       _gpsSuggested = station;
@@ -2286,12 +2850,66 @@ function setCatchResult(caught) {
   document.getElementById('catchStatus').textContent = '';
 }
 
+function getActiveFishSpecies() {
+  return (FISH_SPECIES || [])
+    .filter(function (fish) { return fish && String(fish.status || 'active').toLowerCase() !== 'archived'; })
+    .slice()
+    .sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); });
+}
+
+function canManageFishSpecies() {
+  return !!(Auth.user && Auth.user.id);
+}
+
+function syncSelectedSpeciesUi() {
+  document.querySelectorAll('.species-chip').forEach(function (el) {
+    const name = el.dataset.name;
+    el.classList.toggle('selected', appState.selectedSpecies.has(name));
+  });
+}
+
+function renderFishManageControls() {
+  const select = document.getElementById('speciesManageSelect');
+  const addBtn = document.getElementById('addFishBtn');
+  const editBtn = document.getElementById('editFishBtn');
+  const archiveBtn = document.getElementById('archiveFishBtn');
+  if (!select || !addBtn || !editBtn || !archiveBtn) return;
+
+  const allowed = canManageFishSpecies();
+  const onlineReady = allowed && appState.isOnline;
+  const activeFish = getActiveFishSpecies();
+  const current = select.value;
+  select.innerHTML = '<option value="">إدارة نوع...</option>' +
+    activeFish.map(function (fish) {
+      return '<option value="' + fish.id + '">' + fish.name + '</option>';
+    }).join('');
+  if (activeFish.some(function (fish) { return fish.id === current; })) select.value = current;
+
+  addBtn.disabled = !onlineReady;
+  editBtn.disabled = !onlineReady || !select.value;
+  archiveBtn.disabled = !onlineReady || !select.value;
+  select.disabled = !onlineReady;
+}
+
 function buildSpeciesGrid() {
   const grid = document.getElementById('speciesGrid');
   if (!grid) return;
-  grid.innerHTML = (FISH_SPECIES || []).map(name =>
-    `<button class="species-chip" data-name="${name}" onclick="toggleSpecies(this,'${name}')">${name}</button>`
-  ).join('');
+  const activeFish = getActiveFishSpecies();
+  if (!activeFish.length) {
+    grid.innerHTML = '<div class="species-empty">لا توجد أنواع مفعلة حاليًا.</div>';
+    renderFishManageControls();
+    return;
+  }
+  grid.innerHTML = activeFish.map(function (fish) {
+    const disabled = !appState.isOnline ? ' disabled' : '';
+    return '<div class="species-card">' +
+      '<button class="species-chip" data-name="' + fish.name + '" onclick="toggleSpecies(this,' + JSON.stringify(fish.name) + ')">' + fish.name + '</button>' +
+      '<button class="species-admin-btn" type="button" title="إدارة النوع" onclick="openFishSpeciesModal(' + JSON.stringify('edit') + ',' + JSON.stringify(fish.id) + ')"' + disabled + '>⋯</button>' +
+    '</div>';
+  }).join('');
+  renderFishManageControls();
+  syncSelectedSpeciesUi();
+  _refreshSpeciesGridFromSnapshot();
 }
 
 function toggleSpecies(el, name) {
@@ -2301,6 +2919,142 @@ function toggleSpecies(el, name) {
   } else {
     appState.selectedSpecies.add(name);
     el.classList.add('selected');
+  }
+}
+
+function openFishSpeciesModal(mode, fishId) {
+  if (!canManageFishSpecies()) {
+    showToast('⚠️ يجب تسجيل الدخول لإدارة أنواع السمك', 'warn');
+    return;
+  }
+  if (!appState.isOnline) {
+    showToast('⚠️ إدارة الأنواع تتطلب اتصالًا للحفظ الدائم', 'warn');
+    return;
+  }
+  const select = document.getElementById('speciesManageSelect');
+  const pickedId = fishId || (select ? select.value : '');
+  const fish = pickedId ? (FISH_SPECIES || []).find(function (row) { return row.id === pickedId; }) : null;
+  if (mode !== 'create' && !fish) {
+    showToast('⚠️ اختر نوع السمكة أولًا', 'warn');
+    return;
+  }
+
+  fishSpeciesUiState.mode = mode;
+  fishSpeciesUiState.editingId = fish ? fish.id : null;
+  fishSpeciesUiState.previousName = fish ? fish.name : '';
+  const titleEl = document.getElementById('fishSpeciesModalTitle');
+  const subEl = document.getElementById('fishSpeciesModalSub');
+  const inputEl = document.getElementById('fishSpeciesName');
+  const saveBtn = document.getElementById('fishSpeciesSaveBtn');
+  if (!titleEl || !subEl || !inputEl || !saveBtn) return;
+
+  if (mode === 'create') {
+    titleEl.textContent = '➕ إضافة سمكة جديدة';
+    subEl.textContent = 'سيتم حفظ النوع في القائمة المركزية ويظهر مباشرة في /field.';
+    inputEl.value = '';
+    inputEl.defaultValue = '';
+    inputEl.disabled = false;
+    saveBtn.textContent = 'حفظ';
+  } else if (mode === 'edit') {
+    titleEl.textContent = '✏️ تعديل اسم السمكة';
+    subEl.textContent = 'سيتم تحديث الاسم في القائمة المركزية للأنواع فقط.';
+    inputEl.value = fish ? fish.name : '';
+    inputEl.defaultValue = fish ? fish.name : '';
+    inputEl.disabled = false;
+    saveBtn.textContent = 'حفظ التعديل';
+  } else {
+    titleEl.textContent = '🗃 أرشفة السمكة';
+    subEl.textContent = 'الأرشفة توقف ظهور النوع الجديد دون كسر السجلات القديمة التي استخدمته.';
+    inputEl.value = fish ? fish.name : '';
+    inputEl.defaultValue = fish ? fish.name : '';
+    inputEl.disabled = true;
+    saveBtn.textContent = 'أرشفة';
+  }
+
+  document.getElementById('fishSpeciesModal').classList.add('open');
+}
+
+function closeFishSpeciesModal() {
+  document.getElementById('fishSpeciesModal').classList.remove('open');
+  fishSpeciesUiState.mode = 'create';
+  fishSpeciesUiState.editingId = null;
+  fishSpeciesUiState.previousName = '';
+  fishSpeciesUiState.busy = false;
+}
+
+async function submitFishSpeciesModal() {
+  if (fishSpeciesUiState.busy) return;
+  const saveBtn = document.getElementById('fishSpeciesSaveBtn');
+  const inputEl = document.getElementById('fishSpeciesName');
+  const mode = fishSpeciesUiState.mode;
+  const name = (inputEl ? inputEl.value : '').trim();
+  const editingId = fishSpeciesUiState.editingId;
+  if (mode !== 'archive' && !name) {
+    showToast('⚠️ اسم السمكة مطلوب', 'warn');
+    return;
+  }
+
+  fishSpeciesUiState.busy = true;
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    let resp;
+    if (mode === 'create') {
+      resp = await fetch('/api/fish-species', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.token },
+        body: JSON.stringify({ name: name })
+      });
+    } else {
+      resp = await fetch('/api/fish-species', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.token },
+        body: JSON.stringify({
+          id: editingId,
+          name: mode === 'edit' ? name : undefined,
+          status: mode === 'archive' ? 'archived' : 'active'
+        })
+      });
+    }
+    const out = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || !out.fish) {
+      const msg = out.error === 'fish_name_exists'
+        ? '⚠️ هذا الاسم موجود مسبقًا'
+        : '⚠️ تعذّر حفظ نوع السمكة';
+      showToast(msg, 'warn');
+      return;
+    }
+
+    const idx = (FISH_SPECIES || []).findIndex(function (row) { return row.id === out.fish.id; });
+    if (idx >= 0) {
+      FISH_SPECIES[idx] = out.fish;
+    } else {
+      FISH_SPECIES.push(out.fish);
+    }
+    try { localStorage.setItem(FISH_SPECIES_CACHE_KEY, JSON.stringify(FISH_SPECIES)); } catch(_) {}
+
+    if (mode === 'archive' && appState.selectedSpecies.has(out.fish.name)) {
+      appState.selectedSpecies.delete(out.fish.name);
+    }
+    if (mode === 'create') {
+      appState.selectedSpecies.add(out.fish.name);
+    }
+    if (mode === 'edit') {
+      const previous = fishSpeciesUiState.previousName || ((inputEl && inputEl.defaultValue) ? inputEl.defaultValue.trim() : '');
+      if (previous && previous !== out.fish.name && appState.selectedSpecies.has(previous)) {
+        appState.selectedSpecies.delete(previous);
+        appState.selectedSpecies.add(out.fish.name);
+      }
+    }
+
+    buildSpeciesGrid();
+    closeFishSpeciesModal();
+    showToast(mode === 'archive' ? '✅ تمت أرشفة السمكة' : '✅ تم حفظ نوع السمكة', 'ok');
+  } catch (_) {
+    showToast('⚠️ خطأ شبكة أثناء حفظ نوع السمكة', 'warn');
+  } finally {
+    fishSpeciesUiState.busy = false;
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
 
@@ -2554,9 +3308,51 @@ async function initApp() {
     if (!STATIONS.length) STATIONS = FALLBACK_STATIONS.slice();
   }
 
+  try {
+    await loadFishSpecies();
+  } catch(_) {
+    if (!FISH_SPECIES.length) FISH_SPECIES = FISH_SPECIES_FALLBACK.slice();
+  }
+
   try { buildStationSelects(); } catch(e) { console.warn('[field] buildStationSelects:', e); }
+  try { renderAddStationPermissionState(); } catch(e) { console.warn('[field] addStationPermission:', e); }
   try { buildSpeciesGrid(); } catch(e) { console.warn('[field] buildSpeciesGrid:', e); }
   try { renderCatchWarning(); } catch(e) { console.warn('[field] renderCatchWarning:', e); }
+
+  const addCountryEl = document.getElementById('addCountry');
+  const addSeaEl = document.getElementById('addSea');
+  const addLocalEl = document.getElementById('addLocalRegion');
+  const addNameEl = document.getElementById('addStationName');
+  const addLatEl = document.getElementById('addLat');
+  const addLonEl = document.getElementById('addLon');
+  const speciesManageSelect = document.getElementById('speciesManageSelect');
+  if (addCountryEl) addCountryEl.addEventListener('input', _updateAddStationNameSuggestion);
+  if (addSeaEl) addSeaEl.addEventListener('change', _updateAddStationNameSuggestion);
+  if (addLocalEl) addLocalEl.addEventListener('input', _updateAddStationNameSuggestion);
+  if (addNameEl) addNameEl.addEventListener('input', function () {
+    addNameEl.dataset.autofill = addNameEl.value.trim() ? '0' : '1';
+  });
+  if (addLatEl) addLatEl.addEventListener('input', function () {
+    addStationState.pointLat = Number(addLatEl.value);
+    const lon = Number((document.getElementById('addLon') || {}).value);
+    if (Number.isFinite(addStationState.pointLat) && Number.isFinite(lon)) {
+      _findNearestByPoint(addStationState.pointLat, lon);
+      _syncAddStationNearestUi();
+      _prefillAddStationFromNearest();
+      _updateAddStationNameSuggestion();
+    }
+  });
+  if (addLonEl) addLonEl.addEventListener('input', function () {
+    addStationState.pointLon = Number(addLonEl.value);
+    const lat = Number((document.getElementById('addLat') || {}).value);
+    if (Number.isFinite(lat) && Number.isFinite(addStationState.pointLon)) {
+      _findNearestByPoint(lat, addStationState.pointLon);
+      _syncAddStationNearestUi();
+      _prefillAddStationFromNearest();
+      _updateAddStationNameSuggestion();
+    }
+  });
+  if (speciesManageSelect) speciesManageSelect.addEventListener('change', renderFishManageControls);
 
   // Initialize the Leaflet map (needs STATIONS populated)
   try { initMap(); } catch(e) { console.warn('[field] initMap:', e); }
@@ -2652,6 +3448,8 @@ async function initApp() {
 window.addEventListener('online', () => {
   appState.isOnline = true;
   renderStatusBar();
+  renderAddStationPermissionState();
+  renderFishManageControls();
   showToast('✅ عاد الاتصال — جارٍ المزامنة...', 'ok');
   syncPending();
 });
@@ -2659,6 +3457,8 @@ window.addEventListener('online', () => {
 window.addEventListener('offline', () => {
   appState.isOnline = false;
   renderStatusBar();
+  renderAddStationPermissionState();
+  renderFishManageControls();
   showToast('📴 بدون إنترنت — يُحفظ محلياً', 'warn');
 });
 

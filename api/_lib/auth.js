@@ -54,6 +54,23 @@ function getFieldAccountById(userId) {
   return FIELD_TEST_ACCOUNTS.find((a) => a.id === safe) || null;
 }
 
+function normalizePermissions(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((x) => cleanString(x, 60).toLowerCase())
+    .filter(Boolean)
+    .slice(0, 50);
+}
+
+function canUserAddStations(user) {
+  if (!user) return false;
+  if (user.can_add_stations === true) return true;
+  const role = String(user.role || '').toLowerCase();
+  if (role === 'admin' || role === 'super_admin') return true;
+  const perms = normalizePermissions(user.permissions);
+  return perms.includes('station_add') || perms.includes('add_station') || perms.includes('manage_stations');
+}
+
 function hashPassword(password) {
   const salt = getAuthSalt();
   return crypto.createHash('sha256').update(String(password || '') + '|' + salt).digest('hex');
@@ -102,14 +119,18 @@ async function getAuthUser(req) {
       id: fieldUser.id,
       username: fieldUser.username,
       role: fieldUser.role,
-      assigned_stations: []
+      assigned_stations: [],
+      can_add_stations: canUserAddStations(fieldUser),
+      permissions: []
     };
   }
   return {
     id: user.id,
     username: user.username,
     role: user.role,
-    assigned_stations: Array.isArray(user.assigned_stations) ? user.assigned_stations : []
+    assigned_stations: Array.isArray(user.assigned_stations) ? user.assigned_stations : [],
+    can_add_stations: canUserAddStations(user),
+    permissions: normalizePermissions(user.permissions)
   };
 }
 
@@ -155,7 +176,14 @@ async function login(username, password) {
     });
     return {
       token,
-      user: { id: field.id, username: field.username, role: field.role, assigned_stations: [] }
+      user: {
+        id: field.id,
+        username: field.username,
+        role: field.role,
+        assigned_stations: [],
+        can_add_stations: canUserAddStations(field),
+        permissions: []
+      }
     };
   }
 
@@ -181,7 +209,9 @@ async function login(username, password) {
       id: user.id,
       username: user.username,
       role: user.role,
-      assigned_stations: Array.isArray(user.assigned_stations) ? user.assigned_stations : []
+      assigned_stations: Array.isArray(user.assigned_stations) ? user.assigned_stations : [],
+      can_add_stations: canUserAddStations(user),
+      permissions: normalizePermissions(user.permissions)
     }
   };
 }
@@ -214,6 +244,8 @@ async function createUser(input, actor) {
     role,
     active_status: input.active_status !== false,
     assigned_stations: Array.isArray(input.assigned_stations) ? input.assigned_stations.slice(0, 300) : [],
+    permissions: normalizePermissions(input.permissions),
+    can_add_stations: !!input.can_add_stations,
     created_at: nowIso(),
     last_login: null,
     trust_score: null
@@ -228,6 +260,7 @@ module.exports = {
   ROLE_ORDER,
   hashPassword,
   getAuthUser,
+  canUserAddStations,
   requireRole,
   setAuthCookie,
   clearAuthCookie,

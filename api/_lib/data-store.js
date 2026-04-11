@@ -11,6 +11,7 @@ const DATA_SEED_DIR = path.join(__dirname, '..', '..', 'data');
 const FILES = {
   users: 'users.json',
   stations: 'stations.json',
+  fish_species: 'fish_species.json',
   feedback: 'feedback.json',
   audit: 'audit_logs.json',
   tracking: 'tracking.json',

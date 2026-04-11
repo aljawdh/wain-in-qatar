@@ -1,0 +1,146 @@
+[
+  {
+    "id": "fish_001",
+    "name": "الهامور",
+    "icon": "🐡",
+    "regions": ["gulf", "oman_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_002",
+    "name": "الشعري",
+    "icon": "🎣",
+    "regions": ["gulf", "oman_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_003",
+    "name": "السبيطي",
+    "icon": "🐟",
+    "regions": ["gulf"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_004",
+    "name": "الكنعد",
+    "icon": "🦈",
+    "regions": ["gulf", "oman_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_005",
+    "name": "الحمرا",
+    "icon": "🐠",
+    "regions": ["gulf", "oman_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_006",
+    "name": "الصافي",
+    "icon": "🐟",
+    "regions": ["gulf"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_007",
+    "name": "الشعم",
+    "icon": "🐠",
+    "regions": ["gulf"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_008",
+    "name": "النقرور",
+    "icon": "🐟",
+    "regions": ["gulf"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_009",
+    "name": "البالول",
+    "icon": "🐡",
+    "regions": ["gulf"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_010",
+    "name": "الجيذر",
+    "icon": "🐟",
+    "regions": ["oman_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_011",
+    "name": "الباراكودا",
+    "icon": "🦈",
+    "regions": ["oman_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_012",
+    "name": "الناجل",
+    "icon": "🐟",
+    "regions": ["red_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_013",
+    "name": "السيجان",
+    "icon": "🐠",
+    "regions": ["red_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_014",
+    "name": "الطرادي",
+    "icon": "🦈",
+    "regions": ["red_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_015",
+    "name": "الشعور",
+    "icon": "🎣",
+    "regions": ["red_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  },
+  {
+    "id": "fish_016",
+    "name": "الحريد",
+    "icon": "🐡",
+    "regions": ["red_sea"],
+    "status": "active",
+    "created_at": "2026-04-11T00:00:00.000Z",
+    "updated_at": "2026-04-11T00:00:00.000Z"
+  }
+]
