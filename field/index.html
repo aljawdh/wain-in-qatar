@@ -1088,7 +1088,7 @@ function showAuthScreen() {
 
 function showAppScreen() {
   document.getElementById('authScreen').style.display = 'none';
-  document.getElementById('appScreen').style.display = '';
+  document.getElementById('appScreen').style.display = 'block';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1097,7 +1097,8 @@ function showAppScreen() {
 function buildStationSelects() {
   const sel = document.getElementById('stationSelect');
   const gpsSel = document.getElementById('gpsManualSelect');
-  const opts = STATIONS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  if (!sel || !gpsSel) return;
+  const opts = (STATIONS || []).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   sel.innerHTML = '<option value="">اختر المحطة...</option>' + opts;
   gpsSel.innerHTML = opts;
 }
@@ -1541,7 +1542,8 @@ function setCatchResult(caught) {
 
 function buildSpeciesGrid() {
   const grid = document.getElementById('speciesGrid');
-  grid.innerHTML = FISH_SPECIES.map(name =>
+  if (!grid) return;
+  grid.innerHTML = (FISH_SPECIES || []).map(name =>
     `<button class="species-chip" data-name="${name}" onclick="toggleSpecies(this,'${name}')">${name}</button>`
   ).join('');
 }
@@ -1558,7 +1560,8 @@ function toggleSpecies(el, name) {
 
 function renderCatchWarning() {
   const warn = document.getElementById('warnNoTrip');
-  const hasContext = appState.activeTrip && appState.activeSession;
+  if (!warn) return;
+  const hasContext = !!(appState.activeTrip && appState.activeSession);
   warn.classList.toggle('visible', !hasContext);
 }
 
@@ -1718,13 +1721,15 @@ function renderStatusBar() {
   const dot = document.getElementById('connDot');
   const badge = document.getElementById('pendingBadge');
 
-  dot.className = 'conn-dot' + (appState.isOnline ? ' online' : '');
+  if (dot) dot.className = 'conn-dot' + (appState.isOnline ? ' online' : '');
 
-  if (appState.pendingCount > 0) {
-    badge.textContent = appState.pendingCount + ' غير متزامن';
-    badge.classList.add('visible');
-  } else {
-    badge.classList.remove('visible');
+  if (badge) {
+    if (appState.pendingCount > 0) {
+      badge.textContent = appState.pendingCount + ' غير متزامن';
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
   }
 }
 
@@ -1732,14 +1737,16 @@ function renderTripPanel() {
   const card = document.getElementById('tripCard');
   const inactiveEl = document.getElementById('tripInactive');
   const activeEl = document.getElementById('tripActive');
+  if (!card || !inactiveEl || !activeEl) return;
   const trip = appState.activeTrip;
 
   if (trip) {
     card.className = 'phase-card active-trip';
     inactiveEl.style.display = 'none';
     activeEl.style.display = '';
-    const station = STATIONS.find(s => s.id === trip.station_id);
-    document.getElementById('tripMeta').innerHTML =
+    const station = (STATIONS || []).find(s => s.id === trip.station_id);
+    const metaEl = document.getElementById('tripMeta');
+    if (metaEl) metaEl.innerHTML =
       `<span>⏱ بدأت: ${formatTime(trip.trip_start_time)}</span> · ` +
       `<span>📍 ${station ? station.name : trip.station_id}</span>` +
       (trip.trip_target ? ` · <span>🎯 ${trip.trip_target}</span>` : '');
@@ -1747,8 +1754,10 @@ function renderTripPanel() {
     card.className = 'phase-card inactive';
     inactiveEl.style.display = '';
     activeEl.style.display = 'none';
-    document.getElementById('tripTarget').value = '';
-    document.getElementById('tripNote').value = '';
+    const tgt = document.getElementById('tripTarget');
+    const tnote = document.getElementById('tripNote');
+    if (tgt) tgt.value = '';
+    if (tnote) tnote.value = '';
   }
 }
 
@@ -1758,6 +1767,7 @@ function renderSessionPanel() {
   const activeEl = document.getElementById('sessionActive');
   const startBtn = document.getElementById('sessionStartBtn');
   const hint = document.getElementById('sessionHint');
+  if (!card || !inactiveEl || !activeEl) return;
   const session = appState.activeSession;
   const trip = appState.activeTrip;
 
@@ -1765,15 +1775,16 @@ function renderSessionPanel() {
     card.className = 'phase-card active-session';
     inactiveEl.style.display = 'none';
     activeEl.style.display = '';
-    document.getElementById('sessionMeta').innerHTML =
+    const metaEl = document.getElementById('sessionMeta');
+    if (metaEl) metaEl.innerHTML =
       `<span>⏱ بدأت: ${formatTime(session.session_start_time)}</span>` +
       (trip ? ` · <span>رحلة: ${formatTime(trip.trip_start_time)}</span>` : '');
   } else {
     card.className = 'phase-card inactive';
     inactiveEl.style.display = '';
     activeEl.style.display = 'none';
-    startBtn.disabled = !trip;
-    hint.style.display = trip ? 'none' : '';
+    if (startBtn) startBtn.disabled = !trip;
+    if (hint) hint.style.display = trip ? 'none' : '';
   }
 }
 
