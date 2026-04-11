@@ -3639,7 +3639,8 @@
       renderSeaStatusStrip();
       renderFish(date);
       freezePredictionSnapshot();  // Task 4: freeze AFTER rendering — snapshot = what user sees
-      renderCatchLogBlock();        // uses frozen snapshot for fish dropdown
+      // catch logging moved to /field — public page is read-only
+      // renderCatchLogBlock();     // disabled: use /field for data entry
     }
 
     async function onStationChange(idx, opts) {
@@ -3714,32 +3715,11 @@
       await onStationChange(idx);
     }
 
-    // ── TASK 3+4: catch logging UI helpers (uses frozen prediction snapshot) ─
+    // ── TASK 3+4: catch logging — DISABLED on public page (moved to /field) ─
     function renderCatchLogBlock() {
+      // Public page is READ-ONLY. Data entry is at /field.
       const block = document.getElementById('catchLogBlock');
-      if (!block) return;
-      if (!selectedStation || !selectedStation.id) { block.style.display = 'none'; return; }
-      block.style.display = 'block';
-      // Reset UI to prompt state on every renderAll
-      document.getElementById('catchLogPrompt').style.display = 'flex';
-      document.getElementById('catchLogForm').style.display = 'none';
-      document.getElementById('catchLogStatus').textContent = '';
-      // Populate fish dropdown from the FROZEN snapshot — never from live state
-      const fishSel = document.getElementById('catchFishType');
-      fishSel.innerHTML = '<option value="">اختر...</option>';
-      const speciesList = currentPredictionSnapshot && currentPredictionSnapshot.species_predicted
-        ? currentPredictionSnapshot.species_predicted
-        : [];
-      speciesList.forEach(function (name) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        fishSel.appendChild(opt);
-      });
-      const otherOpt = document.createElement('option');
-      otherOpt.value = 'أخرى';
-      otherOpt.textContent = 'أخرى';
-      fishSel.appendChild(otherOpt);
+      if (block) block.style.display = 'none';
     }
 
     // Build the payload entirely from the frozen snapshot.

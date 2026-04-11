@@ -7,7 +7,8 @@
   },
   "redirects": [
     { "source": "/web/index.html", "destination": "/index.html", "permanent": false },
-    { "source": "/admin", "destination": "/admin.html", "permanent": false }
+    { "source": "/admin", "destination": "/admin.html", "permanent": false },
+    { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [
     { "source": "/api/compute-decision", "destination": "/api/fishing-engine?_navidur_route=compute_decision" },

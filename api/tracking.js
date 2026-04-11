@@ -26,12 +26,18 @@ async function handleLogCatch(req, res) {
   try {
     const body = parseBody(req);
 
+    // ── Source detection ──────────────────────────────────────────────────
+    const sourceRaw = cleanString(body.source || 'public_ui', 20);
+    const isFieldApp = sourceRaw === 'field_app';
+
     // ── Required field validation ──────────────────────────────────────────
     const stationId = cleanString(body.station_id || '', 100);
     if (!stationId) return res.status(400).json({ error: 'station_id_required' });
 
-    const analysisTimestamp = cleanString(body.analysis_timestamp || '', 60);
-    if (!analysisTimestamp) return res.status(400).json({ error: 'analysis_timestamp_required' });
+    // For field_app: analysis_timestamp may be absent — fall back to recorded_at_local
+    const recordedAtLocalRaw = cleanString(body.recorded_at_local || '', 60) || null;
+    const analysisTimestampRaw = cleanString(body.analysis_timestamp || body.recorded_at_local || '', 60);
+    if (!analysisTimestampRaw) return res.status(400).json({ error: 'analysis_timestamp_required' });
 
     const catchSuccessRaw = body.catch_success;
     if (catchSuccessRaw === undefined || catchSuccessRaw === null) {
@@ -54,19 +60,24 @@ async function handleLogCatch(req, res) {
 
     const fishingMethod = cleanString(body.fishing_method || '', 60) || null;
 
+    // ── Field app extra fields ─────────────────────────────────────────────
+    const operatorId       = isFieldApp ? (cleanString(body.operator_id || '', 80) || null) : null;
+    const operatorUsername = isFieldApp ? (cleanString(body.operator_username || '', 60) || null) : null;
+    const tripId           = isFieldApp ? (cleanString(body.trip_id || '', 80) || null) : null;
+    const sessionId        = isFieldApp ? (cleanString(body.session_id || '', 80) || null) : null;
+    const locationType     = isFieldApp ? (cleanString(body.location_type || '', 30) || null) : null;
+    const waterObservation = isFieldApp ? (cleanString(body.water_observation || '', 30) || null) : null;
+    const userNote         = isFieldApp ? (cleanString(body.user_note || '', 140) || null) : null;
+    const syncedAt         = isFieldApp ? (cleanString(body.synced_at || '', 60) || null) : null;
+
     // ── Deduplication fingerprint (Task 6) ─────────────────────────────────
-    // Fingerprint = snapshot_id + station + analysis_timestamp (minute) + catch_success + sorted species
-    // snapshot_id is included so that two different analysis sessions at the same
-    // station/minute/species are NOT falsely deduplicated — only truly identical
-    // submits (same analysis view, double-click) are blocked.
+    // For field_app: include trip_id + session_id so field records can't falsely
+    // collide with public records, and multiple field users won't cross-dedup.
     const snapshotIdForDedup = cleanString(body.prediction_snapshot_id || '', 80) || '';
-    const dedupFingerprint = [
-      snapshotIdForDedup,
-      stationId,
-      analysisTimestamp.slice(0, 16),
-      catchSuccess ? '1' : '0',
-      actualSpecies.slice().sort().join('|')
-    ].join(':');
+    const dedupParts = isFieldApp
+      ? [tripId || '', sessionId || '', stationId, analysisTimestampRaw.slice(0, 16), catchSuccess ? '1' : '0']
+      : [snapshotIdForDedup, stationId, analysisTimestampRaw.slice(0, 16), catchSuccess ? '1' : '0', actualSpecies.slice().sort().join('|')];
+    const dedupFingerprint = dedupParts.join(':');
     const isDuplicate = await checkAndSetDedup(dedupFingerprint, 120);
     if (isDuplicate) {
       return res.status(409).json({ error: 'duplicate_submission', message: 'تم تسجيل هذا الصيد مسبقاً' });
@@ -76,13 +87,13 @@ async function handleLogCatch(req, res) {
     const record = {
       id: createId('catch'),
       created_at: nowIso(),
-      source: 'public_ui',
+      source: sourceRaw,
       // Identity
       station_id: stationId,
       lat: toNumber(body.lat),
       lng: toNumber(body.lng),
       // Timestamps
-      analysis_timestamp: analysisTimestamp,
+      analysis_timestamp: analysisTimestampRaw,
       prediction_snapshot_id: cleanString(body.prediction_snapshot_id || '', 80) || null,
       // Environment (frozen at analysis time)
       wind_speed: toNumber(body.wind_speed),
@@ -102,7 +113,17 @@ async function handleLogCatch(req, res) {
       catch_success: catchSuccess,
       actual_species: actualSpecies,
       catch_quantity: catchQuantityRaw,
-      fishing_method: fishingMethod
+      fishing_method: fishingMethod,
+      // Field app extras (null for public_ui)
+      operator_id: operatorId,
+      operator_username: operatorUsername,
+      trip_id: tripId,
+      session_id: sessionId,
+      location_type: locationType,
+      water_observation: waterObservation,
+      user_note: userNote,
+      recorded_at_local: recordedAtLocalRaw,
+      synced_at: syncedAt
     };
 
     // ── Append-safe write (Task 1) ─────────────────────────────────────────
