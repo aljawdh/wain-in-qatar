@@ -590,10 +590,13 @@
           <option value="">كل الدول</option>
         </select>
         <select id="filterSea" class="filter-sel" onchange="onFilterSeaChange()">
-          <option value="">كل المناطق</option>
+          <option value="">كل المياه</option>
           <option value="gulf">الخليج العربي</option>
           <option value="red_sea">البحر الأحمر</option>
           <option value="oman_sea">بحر العرب</option>
+        </select>
+        <select id="filterRegion" class="filter-sel" onchange="onFilterRegionChange()">
+          <option value="">كل المناطق</option>
         </select>
       </div>
       <!-- Leaflet map — primary selection interface -->
@@ -1226,7 +1229,120 @@ function showAppScreen() {
 let _fieldMap = null;
 let _stationMarkers = {};
 let _userMarker = null;
-let _distLine = null;
+let _distLine = null;          // user-to-station polyline
+let _currentStationCircle = null;  // accuracy circle around selected station
+let _currentUserCircle = null;     // accuracy circle around user location
+
+// ── Helpers ──────────────────────────────────────────────
+
+/** Extract local-region name by stripping trailing digits/spaces ("العقير 01" → "العقير"). */
+function extractLocalRegion(name) {
+  const r = (name || '').replace(/\s*\d+$/, '').trim();
+  return r || (name || '').trim();
+}
+
+/** Format a distance in km as meters (<1 km) or km with 1-2 decimal places. */
+function _fmtDist(km) {
+  if (km < 1) return Math.round(km * 1000) + ' م';
+  return km.toFixed(km < 10 ? 2 : 1) + ' كم';
+}
+
+/** Build a display label: "اسم المحطة — المنطقة — الدولة" (region omitted if same as name). */
+function _stationDisplayName(s) {
+  const lr = extractLocalRegion(s.name);
+  const parts = [s.name];
+  if (lr && lr !== s.name) parts.push(lr);
+  if (s.country) parts.push(s.country);
+  return parts.join(' — ');
+}
+
+/** Rebuild the filterRegion dropdown for the given country/sea filters. */
+function _populateRegionFilter(country, sea) {
+  const filtered = (STATIONS || []).filter(s =>
+    (!country || s.country === country) &&
+    (!sea || getStationRegion(s) === sea)
+  );
+  const regions = [...new Set(filtered.filter(s => s.name).map(s => extractLocalRegion(s.name)))]
+    .sort((a, b) => a.localeCompare(b, 'ar'));
+  const fr = document.getElementById('filterRegion');
+  if (!fr) return;
+  const cur = fr.value;
+  fr.innerHTML = '<option value="">كل المناطق</option>' +
+    regions.map(r => '<option value="' + r + '">' + r + '</option>').join('');
+  if (regions.includes(cur)) fr.value = cur;
+}
+
+/** Remove + redraw accuracy circle around the selected station. */
+function _updateStationCircle(station) {
+  if (_currentStationCircle) {
+    try { if (_fieldMap) _fieldMap.removeLayer(_currentStationCircle); } catch(_) {}
+    _currentStationCircle = null;
+  }
+  if (!station || !_fieldMap) return;
+  _currentStationCircle = L.circle([station.lat, station.lon], {
+    radius: 300,
+    color: '#27beff',
+    weight: 1.5,
+    fillOpacity: 0.08,
+    interactive: false
+  }).addTo(_fieldMap);
+}
+
+/** Remove + redraw accuracy circle around user GPS location. */
+function _updateUserCircle(lat, lng) {
+  if (_currentUserCircle) {
+    try { if (_fieldMap) _fieldMap.removeLayer(_currentUserCircle); } catch(_) {}
+    _currentUserCircle = null;
+  }
+  if (lat == null || !_fieldMap) return;
+  _currentUserCircle = L.circle([lat, lng], {
+    radius: 200,
+    color: '#facc15',
+    weight: 1.5,
+    fillOpacity: 0.15,
+    interactive: false
+  }).addTo(_fieldMap);
+}
+
+/** Redraw user→station polyline or clear it. */
+function _updateUserToStationLine() {
+  if (!_fieldMap) return;
+  if (_distLine) { try { _fieldMap.removeLayer(_distLine); } catch(_) {} _distLine = null; }
+  const st = appState.currentStation;
+  if (!st || appState.currentLat == null) return;
+  _distLine = L.polyline(
+    [[appState.currentLat, appState.currentLng], [st.lat, st.lon]],
+    { color: '#facc15', weight: 3, opacity: 0.9, dashArray: '6,6' }
+  ).addTo(_fieldMap);
+}
+
+/** Handler: filterRegion dropdown changed. */
+function onFilterRegionChange() {
+  const country = ((document.getElementById('filterCountry') || {}).value || '');
+  const sea     = ((document.getElementById('filterSea')     || {}).value || '');
+  const region  = ((document.getElementById('filterRegion') || {}).value || '');
+  const filtered = (STATIONS || []).filter(s =>
+    (!country || s.country === country) &&
+    (!sea    || getStationRegion(s) === sea) &&
+    (!region || extractLocalRegion(s.name) === region)
+  );
+  const sel = document.getElementById('stationSelect');
+  if (sel) {
+    sel.innerHTML = '<option value="">اختر من الخريطة أو القائمة...</option>' +
+      filtered.map(s => '<option value="' + s.id + '">' + _stationDisplayName(s) + '</option>').join('');
+    if (appState.currentStation) sel.value = appState.currentStation.id;
+  }
+  renderMapMarkers(getCurrentFilter());
+  if (filtered.length > 0 && _fieldMap) {
+    try {
+      const pts = filtered.filter(s => s.lat && s.lon).map(s => [s.lat, s.lon]);
+      if (pts.length > 0) {
+        const bounds = L.latLngBounds(pts);
+        if (bounds.isValid()) _fieldMap.fitBounds(bounds, { padding: [30, 30], maxZoom: filtered.length === 1 ? 17 : 12 });
+      }
+    } catch(_) {}
+  }
+}
 
 function initMap() {
   if (_fieldMap || !document.getElementById('fieldMap')) return;
@@ -1248,25 +1364,30 @@ function renderMapMarkers(filter) {
   Object.values(_stationMarkers).forEach(m => { try { _fieldMap.removeLayer(m); } catch(_) {} });
   _stationMarkers = {};
   const fc = (filter.country || '').trim();
-  const fs = (filter.sea || '').trim();
+  const fs = (filter.sea    || '').trim();
+  const fr = (filter.region || '').trim();
   const selectedId = appState.currentStation ? appState.currentStation.id : null;
   (STATIONS || []).forEach(st => {
     if (!st.lat || !st.lon) return;
     if (fc && st.country !== fc) return;
     if (fs && getStationRegion(st) !== fs) return;
+    if (fr && extractLocalRegion(st.name) !== fr) return;
     const isSel = st.id === selectedId;
     const m = L.circleMarker([st.lat, st.lon], {
-      radius: isSel ? 11 : 7,
+      radius: isSel ? 12 : 7,
       fillColor: isSel ? '#27beff' : '#5fdd97',
       color: isSel ? '#ffffff' : 'rgba(255,255,255,0.45)',
-      weight: isSel ? 2.5 : 1,
+      weight: isSel ? 3 : 1,
       opacity: 1,
       fillOpacity: isSel ? 1 : 0.75
     });
+    const lr = extractLocalRegion(st.name);
+    const nameLine = lr !== st.name
+      ? '<strong>' + st.name + '</strong><br><small style="color:#ffd57f">' + lr + '</small>'
+      : '<strong>' + st.name + '</strong>';
     m.bindPopup(
-      '<strong>' + st.name + '</strong>' +
-      (st.country ? '<br><small style="color:#86a9bf">' + st.country + '</small>' : ''),
-      { closeButton: false, maxWidth: 160 }
+      nameLine + (st.country ? '<br><small style="color:#86a9bf">' + st.country + '</small>' : ''),
+      { closeButton: false, maxWidth: 180 }
     );
     m.on('click', () => selectStationFromMap(st));
     m.addTo(_fieldMap);
@@ -1280,12 +1401,16 @@ function selectStationFromMap(station) {
   if (sel) sel.value = station.id;
   const fc = document.getElementById('filterCountry');
   const fs = document.getElementById('filterSea');
+  const fr = document.getElementById('filterRegion');
   if (fc && station.country) fc.value = station.country;
   if (fs) fs.value = getStationRegion(station);
-  _fieldMap.flyTo([station.lat, station.lon], 11, { animate: true, duration: 0.7 });
+  _populateRegionFilter(station.country || '', getStationRegion(station));
+  if (fr) fr.value = extractLocalRegion(station.name);
+  if (_fieldMap) _fieldMap.flyTo([station.lat, station.lon], 17, { animate: true, duration: 0.8 });
   renderMapMarkers(getCurrentFilter());
+  _updateStationCircle(station);
+  _updateUserToStationLine();
   updateSelectedInfo();
-  updateDistanceLine();
   fetchAnalysis(station).catch(() => {});
   showToast('📍 ' + station.name, 'ok');
 }
@@ -1293,7 +1418,8 @@ function selectStationFromMap(station) {
 function getCurrentFilter() {
   return {
     country: ((document.getElementById('filterCountry') || {}).value || ''),
-    sea: ((document.getElementById('filterSea') || {}).value || '')
+    sea:     ((document.getElementById('filterSea')     || {}).value || ''),
+    region:  ((document.getElementById('filterRegion') || {}).value || '')
   };
 }
 
@@ -1302,18 +1428,25 @@ function populateFilterDropdowns() {
     .sort((a, b) => a.localeCompare(b, 'ar'));
   const fc = document.getElementById('filterCountry');
   if (fc) {
-    fc.innerHTML = '<option value="">\u0643\u0644 \u0627\u0644\u062f\u0648\u0644</option>' +
+    fc.innerHTML = '<option value="">كل الدول</option>' +
       countries.map(c => '<option value="' + c + '">' + c + '</option>').join('');
   }
+  _populateRegionFilter('', '');
 }
 
 function onFilterCountryChange() {
   const country = ((document.getElementById('filterCountry') || {}).value || '');
-  const filtered = country ? (STATIONS || []).filter(s => s.country === country) : (STATIONS || []);
+  const sea     = ((document.getElementById('filterSea')     || {}).value || '');
+  const fr = document.getElementById('filterRegion');
+  if (fr) fr.value = '';
+  _populateRegionFilter(country, sea);
+  const filtered = (STATIONS || []).filter(s =>
+    (!country || s.country === country) && (!sea || getStationRegion(s) === sea)
+  );
   const sel = document.getElementById('stationSelect');
   if (sel) {
-    sel.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0623\u0648 \u0627\u0644\u0642\u0627\u0626\u0645\u0629...</option>' +
-      filtered.map(s => '<option value="' + s.id + '">' + s.name + (s.country ? ' \u2014 ' + s.country : '') + '</option>').join('');
+    sel.innerHTML = '<option value="">اختر من الخريطة أو القائمة...</option>' +
+      filtered.map(s => '<option value="' + s.id + '">' + _stationDisplayName(s) + '</option>').join('');
     if (appState.currentStation) sel.value = appState.currentStation.id;
   }
   renderMapMarkers(getCurrentFilter());
@@ -1330,14 +1463,17 @@ function onFilterCountryChange() {
 
 function onFilterSeaChange() {
   const country = ((document.getElementById('filterCountry') || {}).value || '');
-  const sea = ((document.getElementById('filterSea') || {}).value || '');
+  const sea     = ((document.getElementById('filterSea')     || {}).value || '');
+  const fr = document.getElementById('filterRegion');
+  if (fr) fr.value = '';
+  _populateRegionFilter(country, sea);
   const filtered = (STATIONS || []).filter(s =>
     (!country || s.country === country) && (!sea || getStationRegion(s) === sea)
   );
   const sel = document.getElementById('stationSelect');
   if (sel) {
-    sel.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0623\u0648 \u0627\u0644\u0642\u0627\u0626\u0645\u0629...</option>' +
-      filtered.map(s => '<option value="' + s.id + '">' + s.name + (s.country ? ' \u2014 ' + s.country : '') + '</option>').join('');
+    sel.innerHTML = '<option value="">اختر من الخريطة أو القائمة...</option>' +
+      filtered.map(s => '<option value="' + s.id + '">' + _stationDisplayName(s) + '</option>').join('');
     if (appState.currentStation) sel.value = appState.currentStation.id;
   }
   renderMapMarkers(getCurrentFilter());
@@ -1359,10 +1495,14 @@ function updateSelectedInfo() {
   if (!infoEl || !nameEl || !distEl) return;
   const st = appState.currentStation;
   if (!st) { infoEl.style.display = 'none'; return; }
-  nameEl.textContent = '\ud83d\udccd ' + st.name + (st.country ? '  \u00b7  ' + st.country : '');
+  const lr = extractLocalRegion(st.name);
+  let label = '📍 ' + st.name;
+  if (lr && lr !== st.name) label += ' · ' + lr;
+  if (st.country) label += '  ·  ' + st.country;
+  nameEl.textContent = label;
   if (appState.currentLat != null && st.lat && st.lon) {
     const dist = haversineKm(appState.currentLat, appState.currentLng, st.lat, st.lon);
-    distEl.textContent = dist.toFixed(1) + ' \u0643\u0645';
+    distEl.textContent = _fmtDist(dist);
     distEl.style.display = '';
   } else {
     distEl.style.display = 'none';
@@ -1370,16 +1510,7 @@ function updateSelectedInfo() {
   infoEl.style.display = '';
 }
 
-function updateDistanceLine() {
-  if (!_fieldMap) return;
-  if (_distLine) { try { _fieldMap.removeLayer(_distLine); } catch(_) {} _distLine = null; }
-  const st = appState.currentStation;
-  if (!st || appState.currentLat == null) return;
-  _distLine = L.polyline(
-    [[appState.currentLat, appState.currentLng], [st.lat, st.lon]],
-    { color: 'rgba(39,190,255,0.5)', weight: 2, dashArray: '6,4' }
-  ).addTo(_fieldMap);
-}
+function updateDistanceLine() { _updateUserToStationLine(); }
 
 // ══════════════════════════════════════════════════════════
 // STATION SELECT
@@ -1390,9 +1521,9 @@ function buildStationSelects() {
   const gpsSel = document.getElementById('gpsManualSelect');
   if (!sel || !gpsSel) return;
   const opts = (STATIONS || []).map(s =>
-    '<option value="' + s.id + '">' + s.name + (s.country ? ' \u2014 ' + s.country : '') + '</option>'
+    '<option value="' + s.id + '">' + _stationDisplayName(s) + '</option>'
   ).join('');
-  sel.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u062e\u0631\u064a\u0637\u0629 \u0623\u0648 \u0627\u0644\u0642\u0627\u0626\u0645\u0629...</option>' + opts;
+  sel.innerHTML = '<option value="">اختر من الخريطة أو القائمة...</option>' + opts;
   gpsSel.innerHTML = opts;
 }
 
@@ -1403,14 +1534,19 @@ function onStationSelectChange() {
   if (st) {
     const fc = document.getElementById('filterCountry');
     const fs = document.getElementById('filterSea');
+    const fr = document.getElementById('filterRegion');
     if (fc && st.country) fc.value = st.country;
     if (fs) fs.value = getStationRegion(st);
-    if (_fieldMap) _fieldMap.flyTo([st.lat, st.lon], 11, { animate: true, duration: 0.7 });
+    _populateRegionFilter(st.country || '', getStationRegion(st));
+    if (fr) fr.value = extractLocalRegion(st.name);
+    if (_fieldMap) _fieldMap.flyTo([st.lat, st.lon], 17, { animate: true, duration: 0.8 });
     renderMapMarkers(getCurrentFilter());
+    _updateStationCircle(st);
+    _updateUserToStationLine();
     updateSelectedInfo();
-    updateDistanceLine();
     fetchAnalysis(st);
   } else {
+    _updateStationCircle(null);
     renderMapMarkers(getCurrentFilter());
     updateSelectedInfo();
     clearAnalysis();
@@ -1730,7 +1866,7 @@ function doGps() {
       if (gpsSel) gpsSel.value = station.id;
 
       document.getElementById('gpsModalSub').textContent =
-        `أقرب محطة: ${station.name} (${distKm.toFixed(1)} كم)`;
+        `أقرب محطة: ${station.name} (${_fmtDist(distKm)})`;
 
       openGpsModal();
     },
@@ -1764,18 +1900,22 @@ function confirmGpsStation() {
   // Sync filter dropdowns to confirmed station
   const fc = document.getElementById('filterCountry');
   const fs = document.getElementById('filterSea');
+  const fr = document.getElementById('filterRegion');
   if (fc && station.country) fc.value = station.country;
   if (fs) fs.value = getStationRegion(station);
+  _populateRegionFilter(station.country || '', getStationRegion(station));
+  if (fr) fr.value = extractLocalRegion(station.name);
 
   updateChips({ coords: fmtCoords() });
 
   // Fly map to confirmed station and highlight it
   if (_fieldMap) {
-    _fieldMap.flyTo([station.lat, station.lon], 11, { animate: true, duration: 0.8 });
+    _fieldMap.flyTo([station.lat, station.lon], 17, { animate: true, duration: 0.8 });
   }
   renderMapMarkers(getCurrentFilter());
+  _updateStationCircle(station);
+  _updateUserToStationLine();
   updateSelectedInfo();
-  updateDistanceLine();
 
   closeGpsModal();
   showToast('✅ محطة: ' + station.name, 'ok');
