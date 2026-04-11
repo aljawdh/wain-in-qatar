@@ -2358,7 +2358,11 @@ async function saveCatch() {
   showToast('💾 تم الحفظ محلياً', 'ok');
 
   // Refresh prediction panel for next entry (time may have moved)
-  renderPredictionPanel();
+  if (appState.currentStation && appState.isOnline) {
+    fetchAnalysis(appState.currentStation).catch(() => { renderPredictionPanel(); });
+  } else {
+    renderPredictionPanel();
+  }
 
   // Try to sync immediately
   syncPending();
