@@ -19,10 +19,19 @@
   var usersCache = [];
   var latestSummaryCache = null;
   var latestFeedbackCache = [];
+  var dururCache = [];
+  var seasonEventsCache = [];
+  var stationProfilesCache = [];
+  var stationOverridesCache = [];
+  var annualComparisonsCache = [];
   var currentPeriod = 'all';
   var stationsAdminMap = null;
+  var dururAdminMap = null;
   var stationAdminMarker = null;
   var allStationMarkersList = [];
+  var dururStationMarkers = [];
+  var selectedDururStationId = null;
+  var dururMapFilters = { stationType: 'all', currentDur: 'all', seasonEvent: 'all' };
   var stationReverseRequestId = 0;
   var waterCheckState = { isWater: null, lat: null, lon: null, checking: false, result: 'unknown', fallback: false };
   // result values: 'unknown' | 'confirmed_water' | 'confirmed_land' | 'uncertain'
@@ -750,8 +759,818 @@
       renderSummarySection(),
       loadStations(),
       loadUsers(),
-      loadFeedback()
+      loadFeedback(),
+      loadDururData(),
+      loadSeasonEvents(),
+      loadStationProfiles(),
+      loadStationOverrides(),
+      loadAnnualComparisons()
     ]);
+  }
+
+  function getDurDateLabel(dur) {
+    if (!dur) return '--';
+    return (dur.gregorian_start_day || '?') + '/' + (dur.gregorian_start_month || '?') + ' ⇢ ' + (dur.gregorian_end_day || '?') + '/' + (dur.gregorian_end_month || '?');
+  }
+
+  function isDateWithinRange(month, day, dur) {
+    if (!dur) return false;
+    var start = dur.gregorian_start_month * 100 + dur.gregorian_start_day;
+    var end = dur.gregorian_end_month * 100 + dur.gregorian_end_day;
+    var target = month * 100 + day;
+    if (start <= end) {
+      return target >= start && target <= end;
+    }
+    return target >= start || target <= end;
+  }
+
+  function getCurrentDurForDate(date) {
+    if (!Array.isArray(dururCache)) return null;
+    var month = date.getMonth() + 1;
+    var day = date.getDate();
+    return dururCache.find(function (d) {
+      return d.is_active !== false && isDateWithinRange(month, day, d);
+    }) || null;
+  }
+
+  function applyDururFilters() {
+    dururMapFilters.stationType = getEl('dururStationTypeFilter') ? getEl('dururStationTypeFilter').value : 'all';
+    dururMapFilters.currentDur = getEl('dururCurrentDurFilter') ? getEl('dururCurrentDurFilter').value : 'all';
+    dururMapFilters.seasonEvent = getEl('dururSeasonEventFilter') ? getEl('dururSeasonEventFilter').value : 'all';
+    refreshDururMarkers();
+  }
+
+  function setDururTab(tabId) {
+    ['dururDurTab', 'seasonEventsTab', 'referenceStationsTab', 'dururAnalysisTab'].forEach(function (id) {
+      var panel = getEl(id);
+      if (panel) panel.classList.toggle('active', id === tabId);
+    });
+    ['dururDurTabBtn', 'seasonEventsTabBtn', 'referenceStationsTabBtn', 'dururAnalysisTabBtn'].forEach(function (btnId) {
+      var btn = getEl(btnId);
+      if (btn) btn.classList.toggle('active', btnId === tabId + 'Btn');
+    });
+  }
+
+  function getCurrentStationDurLabel(station) {
+    var date = new Date();
+    var dur = getCurrentDurForDate(date);
+    if (!dur) return 'لا يوجد در حالي';
+    var override = stationOverridesCache.find(function (row) {
+      return row.station_id === station.id && row.is_active && Number(row.dur_number) === Number(dur.dur_number);
+    });
+    if (override) {
+      return 'در ' + dur.name + ' (تعديل محلي: offset ' + override.start_offset_days + '/' + override.end_offset_days + ')';
+    }
+    return dur.name || 'غير معرف';
+  }
+
+  function getDururProfileForStation(station) {
+    return stationProfilesCache.find(function (row) { return row.station_id === station.id && row.is_active; }) || null;
+  }
+
+  function getSeasonEventsForDur(dur) {
+    if (!dur) return [];
+    return seasonEventsCache.filter(function (e) { return Array.isArray(e.related_dur_ids) && e.related_dur_ids.includes(dur.id); });
+  }
+
+  function getComparisonForStationDur(station, dur) {
+    if (!station || !dur) return null;
+    return annualComparisonsCache.find(function (row) {
+      return row.station_id === station.id && row.dur_id === dur.id;
+    }) || null;
+  }
+
+  async function loadDururData() {
+    try {
+      var res = await apiFetch('/api/admin/durur', { method: 'GET' });
+      if (!res.ok) throw new Error('durur_load_failed');
+      var data = await res.json();
+      dururCache = Array.isArray(data.items) ? data.items : [];
+      var select = getEl('dururCurrentDurFilter');
+      if (select) {
+        select.innerHTML = '<option value="all">الكل</option>' + dururCache.slice().sort(function (a, b) { return Number(a.dur_number) - Number(b.dur_number); }).map(function (d) {
+          return '<option value="' + (d.id || '') + '">' + (d.name || ('Dur ' + d.dur_number)) + '</option>';
+        }).join('');
+      }
+      var analysisDur = getEl('analysisDurFilter');
+      if (analysisDur) {
+        analysisDur.innerHTML = '<option value="">الكل</option>' + dururCache.slice().sort(function (a, b) { return Number(a.dur_number) - Number(b.dur_number); }).map(function (d) {
+          return '<option value="' + (d.id || '') + '">' + (d.name || ('Dur ' + d.dur_number)) + '</option>';
+        }).join('');
+      }
+      renderDururTable();
+      applyDururFilters();
+    } catch (e) {
+      console.error('[durur] load failed', e);
+    }
+  }
+
+  async function loadSeasonEvents() {
+    try {
+      var res = await apiFetch('/api/admin/season-events', { method: 'GET' });
+      if (!res.ok) throw new Error('season_events_load_failed');
+      var data = await res.json();
+      seasonEventsCache = Array.isArray(data.items) ? data.items : [];
+      var select = getEl('dururSeasonEventFilter');
+      if (select) {
+        select.innerHTML = '<option value="all">الكل</option>' + seasonEventsCache.map(function (e) {
+          return '<option value="' + (e.id || '') + '">' + (e.name || '') + '</option>';
+        }).join('');
+      }
+      renderSeasonEventsTable();
+      applyDururFilters();
+    } catch (e) {
+      console.error('[season-events] load failed', e);
+    }
+  }
+
+  async function loadStationProfiles() {
+    try {
+      var res = await apiFetch('/api/admin/station-dur-profiles', { method: 'GET' });
+      if (!res.ok) throw new Error('station_profiles_load_failed');
+      var data = await res.json();
+      stationProfilesCache = Array.isArray(data.items) ? data.items : [];
+      renderProfileTable();
+    } catch (e) {
+      console.error('[station-dur-profiles] load failed', e);
+    }
+  }
+
+  async function loadStationOverrides() {
+    try {
+      var res = await apiFetch('/api/admin/station-dur-overrides', { method: 'GET' });
+      if (!res.ok) throw new Error('station_overrides_load_failed');
+      var data = await res.json();
+      stationOverridesCache = Array.isArray(data.items) ? data.items : [];
+      renderOverrideTable();
+    } catch (e) {
+      console.error('[station-dur-overrides] load failed', e);
+    }
+  }
+
+  async function loadAnnualComparisons() {
+    try {
+      var res = await apiFetch('/api/admin/annual-comparisons', { method: 'GET' });
+      if (!res.ok) throw new Error('annual_comparisons_load_failed');
+      var data = await res.json();
+      annualComparisonsCache = Array.isArray(data.items) ? data.items : [];
+      renderAnalysisOptions();
+      renderComparisonTable();
+      renderAnalysisResults();
+    } catch (e) {
+      console.error('[annual-comparisons] load failed', e);
+    }
+  }
+
+  function renderDururTable() {
+    var body = getEl('dururBody');
+    if (!body) return;
+    body.innerHTML = '';
+    dururCache.forEach(function (d, idx) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
+        '<td>' + (d.name || '--') + '</td>' +
+        '<td>' + (d.dur_number || '--') + '</td>' +
+        '<td>' + getDurDateLabel(d) + '</td>' +
+        '<td>' + (d.is_active !== false ? 'Active' : 'Disabled') + '</td>' +
+        '<td><div class="inline-actions"><button class="small-btn" data-action="edit-dur" data-id="' + (d.id || '') + '">تعديل</button><button class="small-btn danger" data-action="delete-dur" data-id="' + (d.id || '') + '">حذف</button></div></td>';
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('button[data-action="edit-dur"]').forEach(function (btn) {
+      btn.addEventListener('click', function () { fillDurForm(btn.getAttribute('data-id')); });
+    });
+    body.querySelectorAll('button[data-action="delete-dur"]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        if (!window.confirm('حذف الدر نهائياً؟')) return;
+        await apiFetch('/api/admin/durur/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
+        await loadDururData();
+      });
+    });
+  }
+
+  function renderSeasonEventsTable() {
+    var body = getEl('seasonEventsBody');
+    if (!body) return;
+    body.innerHTML = '';
+    seasonEventsCache.forEach(function (e, idx) {
+      var related = Array.isArray(e.related_dur_ids) ? e.related_dur_ids.join(', ') : '--';
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
+        '<td>' + (e.name || '--') + '</td>' +
+        '<td>' + getDurDateLabel(e) + '</td>' +
+        '<td>' + related + '</td>' +
+        '<td>' + (e.is_active !== false ? 'Active' : 'Disabled') + '</td>' +
+        '<td><div class="inline-actions"><button class="small-btn" data-action="edit-event" data-id="' + (e.id || '') + '">تعديل</button><button class="small-btn danger" data-action="delete-event" data-id="' + (e.id || '') + '">حذف</button></div></td>';
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('button[data-action="edit-event"]').forEach(function (btn) {
+      btn.addEventListener('click', function () { fillEventForm(btn.getAttribute('data-id')); });
+    });
+    body.querySelectorAll('button[data-action="delete-event"]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        if (!window.confirm('حذف الحدث نهائياً؟')) return;
+        await apiFetch('/api/admin/season-events/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
+        await loadSeasonEvents();
+      });
+    });
+  }
+
+  function renderAnalysisOptions() {
+    var stationFilter = getEl('analysisStationFilter');
+    if (stationFilter) {
+      stationFilter.innerHTML = '<option value="">الكل</option>' + stationsCache.map(function (s) { return '<option value="' + (s.id || '') + '">' + (s.name || s.id || '--') + '</option>'; }).join('');
+    }
+    var durFilter = getEl('analysisDurFilter');
+    if (durFilter) {
+      durFilter.innerHTML = '<option value="">الكل</option>' + dururCache.map(function (d) { return '<option value="' + (d.id || '') + '">' + (d.name || d.dur_number || '--') + '</option>'; }).join('');
+    }
+    setComparisonOptions();
+  }
+
+  function renderAnalysisResults() {
+    renderComparisonTable();
+  }
+
+  function createDururPopupContent(station) {
+    var dur = getCurrentDurForDate(new Date());
+    var profile = getDururProfileForStation(station);
+    var events = getSeasonEventsForDur(dur);
+    var comparison = getComparisonForStationDur(station, dur);
+    var html = '<div style="text-align:right;line-height:1.4;font-size:0.95rem">';
+    html += '<strong>' + (station.name || station.id || '--') + '</strong><br>';
+    html += '<div>النوع: ' + (station.station_role_type || '--') + '</div>';
+    html += '<div>الدر الحالي: ' + (dur ? dur.name : '--') + '</div>';
+    html += '<div>المعرفة المحلية: ' + (profile ? profile.local_definition || '--' : '--') + '</div>';
+    html += '<div>الأحداث الموسمية: ' + (events.length ? events.map(function (e) { return e.name; }).join(', ') : '--') + '</div>';
+    if (comparison) {
+      html += '<div>تطابق سنوي: ' + ((Number(comparison.match_score) * 100).toFixed(0) + '%') + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function getDururMarkerOptions(station) {
+    var fillColor = '#f8c146';
+    if (station.station_role_type === 'primary_reference') fillColor = '#ff5252';
+    if (station.station_role_type === 'latlon_band_station') fillColor = '#ff8c00';
+    return { radius: 8, fillColor: fillColor, color: '#fff', weight: 1, fillOpacity: 0.9 };
+  }
+
+  function refreshDururMarkers() {
+    if (!dururAdminMap) return;
+    dururStationMarkers.forEach(function (entry) {
+      if (dururAdminMap && entry.marker) dururAdminMap.removeLayer(entry.marker);
+    });
+    dururStationMarkers = [];
+    stationsCache.forEach(function (station) {
+      if (!station.lat || !station.lon) return;
+      if (dururMapFilters.stationType !== 'all' && station.station_role_type !== dururMapFilters.stationType) return;
+      var dur = getCurrentDurForDate(new Date());
+      if (dururMapFilters.currentDur !== 'all' && (!dur || dur.id !== dururMapFilters.currentDur)) return;
+      if (dururMapFilters.seasonEvent !== 'all') {
+        var events = getSeasonEventsForDur(dur);
+        if (!events.some(function (e) { return e.id === dururMapFilters.seasonEvent; })) return;
+      }
+      var marker = L.circleMarker([station.lat, station.lon], getDururMarkerOptions(station)).addTo(dururAdminMap);
+      marker.on('click', function () { selectDururStation(station.id); });
+      dururStationMarkers.push({ id: station.id, marker: marker });
+    });
+  }
+
+  function selectDururStation(stationId) {
+    selectedDururStationId = stationId;
+    var station = stationsCache.find(function (s) { return s.id === stationId; });
+    if (!station) return;
+    if (dururAdminMap) {
+      dururAdminMap.setView([station.lat, station.lon], Math.max(dururAdminMap.getZoom(), 9));
+    }
+    if (dururStationMarkers.length) {
+      dururStationMarkers.forEach(function (entry) {
+        if (entry.id === stationId && entry.marker) entry.marker.setStyle({ weight: 2, radius: 10 });
+        else if (entry.marker) entry.marker.setStyle({ weight: 1, radius: 8 });
+      });
+    }
+    fillSelectedStationForms(station);
+    var dur = getCurrentDurForDate(new Date());
+    var profile = getDururProfileForStation(station);
+    var events = getSeasonEventsForDur(dur);
+    var comparison = getComparisonForStationDur(station, dur);
+    var html = '<div style="font-size:0.95rem;line-height:1.5">';
+    html += '<strong>' + (station.name || '--') + '</strong><br>';
+    html += '<div><strong>ID:</strong> ' + (station.id || '--') + '</div>';
+    html += '<div><strong>الدولة:</strong> ' + (station.country || '--') + '</div>';
+    html += '<div><strong>المنطقة:</strong> ' + (station.region || '--') + '</div>';
+    html += '<div><strong>الإحداثيات:</strong> ' + (station.lat || '--') + ', ' + (station.lon || '--') + '</div>';
+    html += '<div><strong>نوع المحطة:</strong> ' + (station.station_role_type || '--') + '</div>';
+    html += '<div><strong>مرجعية كبرى:</strong> ' + (station.primary_reference ? 'نعم' : 'لا') + '</div>';
+    html += '<div><strong>محطة مرجعية مرتبطة:</strong> ' + (station.reference_station_id || '--') + '</div>';
+    html += '<div><strong>الدر الحالي:</strong> ' + (dur ? dur.name : '--') + '</div>';
+    if (dur) {
+      html += '<div><strong>مدى الدر:</strong> ' + getDurDateLabel(dur) + '</div>';
+      html += '<div><strong>المعنى التراثي:</strong> ' + (dur.heritage_meaning || '--') + '</div>';
+    }
+    html += '<div><strong>المعرفة المحلية:</strong> ' + (profile ? (profile.local_definition || '--') : '--') + '</div>';
+    html += '<div><strong>الأحداث الموسمية:</strong> ' + (events.length ? events.map(function (e) { return e.name; }).join(', ') : '--') + '</div>';
+    if (comparison) {
+      html += '<div><strong>تطابق سنوي:</strong> ' + ((Number(comparison.match_score) * 100).toFixed(0) + '%') + '</div>';
+      html += '<div><strong>ملاحظات:</strong> ' + (comparison.notes || '--') + '</div>';
+    }
+    html += '<div><strong>الملاحظات:</strong> ' + (station.notes || '--') + '</div>';
+    html += '</div>';
+    var target = getEl('dururStationInfoContent');
+    if (target) target.innerHTML = html;
+  }
+
+  function initDururAdminMap() {
+    var mapEl = getEl('dururAdminMap');
+    if (!mapEl || typeof L === 'undefined') return;
+    if (dururAdminMap) return;
+    dururAdminMap = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([24.0, 53.0], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(dururAdminMap);
+    dururAdminMap.on('click', function (e) {
+      selectDururStation(null);
+    });
+    applyDururFilters();
+  }
+
+  function fillDurForm(id) {
+    var dur = dururCache.find(function (d) { return d.id === id; });
+    if (!dur) return;
+    getEl('durId').value = dur.id || '';
+    getEl('durNumber').value = dur.dur_number || '';
+    getEl('durName').value = dur.name || '';
+    getEl('durActive').checked = dur.is_active !== false;
+    getEl('durDaysCount').value = dur.days_count || '';
+    getEl('durStartMonth').value = dur.gregorian_start_month || '';
+    getEl('durStartDay').value = dur.gregorian_start_day || '';
+    getEl('durEndMonth').value = dur.gregorian_end_month || '';
+    getEl('durEndDay').value = dur.gregorian_end_day || '';
+    getEl('durDescription').value = dur.description || '';
+    getEl('durHeritageMeaning').value = dur.heritage_meaning || '';
+    getEl('durWeatherTraits').value = Array.isArray(dur.weather_traits) ? dur.weather_traits.join(',') : '';
+    getEl('durMarineTraits').value = Array.isArray(dur.marine_traits) ? dur.marine_traits.join(',') : '';
+    getEl('durFishTraits').value = Array.isArray(dur.fish_traits) ? dur.fish_traits.join(',') : '';
+    getEl('durNotes').value = dur.notes || '';
+  }
+
+  function fillEventForm(id) {
+    var ev = seasonEventsCache.find(function (e) { return e.id === id; });
+    if (!ev) return;
+    getEl('eventId').value = ev.id || '';
+    getEl('eventName').value = ev.name || '';
+    getEl('eventActive').checked = ev.is_active !== false;
+    getEl('eventStartMonth').value = ev.start_month || '';
+    getEl('eventStartDay').value = ev.start_day || '';
+    getEl('eventEndMonth').value = ev.end_month || '';
+    getEl('eventEndDay').value = ev.end_day || '';
+    getEl('eventDaysCount').value = ev.days_count || '';
+    getEl('eventRelatedDurIds').value = Array.isArray(ev.related_dur_ids) ? ev.related_dur_ids.join(',') : '';
+    getEl('eventTraits').value = Array.isArray(ev.traits) ? ev.traits.join(',') : '';
+    getEl('eventDescription').value = ev.description || '';
+  }
+
+  function readDurForm() {
+    return {
+      id: getEl('durId').value.trim() || undefined,
+      dur_number: Number(getEl('durNumber').value || 0),
+      name: getEl('durName').value.trim(),
+      is_active: getEl('durActive').checked,
+      days_count: Number(getEl('durDaysCount').value || 0),
+      gregorian_start_month: Number(getEl('durStartMonth').value || 0),
+      gregorian_start_day: Number(getEl('durStartDay').value || 0),
+      gregorian_end_month: Number(getEl('durEndMonth').value || 0),
+      gregorian_end_day: Number(getEl('durEndDay').value || 0),
+      description: getEl('durDescription').value.trim(),
+      heritage_meaning: getEl('durHeritageMeaning').value.trim(),
+      weather_traits: splitCsv(getEl('durWeatherTraits').value),
+      marine_traits: splitCsv(getEl('durMarineTraits').value),
+      fish_traits: splitCsv(getEl('durFishTraits').value),
+      notes: getEl('durNotes').value.trim()
+    };
+  }
+
+  function readEventForm() {
+    return {
+      id: getEl('eventId').value.trim() || undefined,
+      name: getEl('eventName').value.trim(),
+      is_active: getEl('eventActive').checked,
+      start_month: Number(getEl('eventStartMonth').value || 0),
+      start_day: Number(getEl('eventStartDay').value || 0),
+      end_month: Number(getEl('eventEndMonth').value || 0),
+      end_day: Number(getEl('eventEndDay').value || 0),
+      days_count: Number(getEl('eventDaysCount').value || 0),
+      related_dur_ids: splitCsv(getEl('eventRelatedDurIds').value),
+      traits: splitCsv(getEl('eventTraits').value),
+      description: getEl('eventDescription').value.trim()
+    };
+  }
+
+  function clearDurForm() {
+    getEl('durId').value = '';
+    getEl('durNumber').value = '';
+    getEl('durName').value = '';
+    getEl('durActive').checked = true;
+    getEl('durDaysCount').value = '';
+    getEl('durStartMonth').value = '';
+    getEl('durStartDay').value = '';
+    getEl('durEndMonth').value = '';
+    getEl('durEndDay').value = '';
+    getEl('durDescription').value = '';
+    getEl('durHeritageMeaning').value = '';
+    getEl('durWeatherTraits').value = '';
+    getEl('durMarineTraits').value = '';
+    getEl('durFishTraits').value = '';
+    getEl('durNotes').value = '';
+  }
+
+  function clearEventForm() {
+    getEl('eventId').value = '';
+    getEl('eventName').value = '';
+    getEl('eventActive').checked = true;
+    getEl('eventStartMonth').value = '';
+    getEl('eventStartDay').value = '';
+    getEl('eventEndMonth').value = '';
+    getEl('eventEndDay').value = '';
+    getEl('eventDaysCount').value = '';
+    getEl('eventRelatedDurIds').value = '';
+    getEl('eventTraits').value = '';
+    getEl('eventDescription').value = '';
+  }
+
+  async function saveDurForm() {
+    try {
+      var payload = readDurForm();
+      var btnStatus = getEl('durStatus');
+      if (btnStatus) btnStatus.textContent = 'جاري الحفظ...';
+      var res = await apiFetch('/api/admin/durur', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('dur_save_failed');
+      if (btnStatus) btnStatus.textContent = 'تم الحفظ.';
+      clearDurForm();
+      await loadDururData();
+    } catch (err) {
+      var btnStatus = getEl('durStatus');
+      if (btnStatus) btnStatus.textContent = 'فشل حفظ الدر: ' + (err && err.message ? err.message : 'error');
+    }
+  }
+
+  async function saveEventForm() {
+    try {
+      var payload = readEventForm();
+      var btnStatus = getEl('eventStatus');
+      if (btnStatus) btnStatus.textContent = 'جاري الحفظ...';
+      var res = await apiFetch('/api/admin/season-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('event_save_failed');
+      if (btnStatus) btnStatus.textContent = 'تم الحفظ.';
+      clearEventForm();
+      await loadSeasonEvents();
+    } catch (err) {
+      var btnStatus = getEl('eventStatus');
+      if (btnStatus) btnStatus.textContent = 'فشل حفظ الحدث: ' + (err && err.message ? err.message : 'error');
+    }
+  }
+
+  async function saveStationTypeUpdate() {
+    if (!selectedDururStationId) {
+      var status = getEl('stationTypeStatus');
+      if (status) status.textContent = 'اختر محطة من الخريطة أولاً.';
+      return;
+    }
+    try {
+      var station = stationsCache.find(function (s) { return s.id === selectedDururStationId; });
+      if (!station) throw new Error('station_not_selected');
+      var payload = {
+        id: station.id,
+        station_role_type: getEl('refStRoleType').value,
+        primary_reference: !!getEl('refStPrimaryReference').checked,
+        reference_station_id: getEl('refStReferenceStation').value.trim(),
+        notes: getEl('refStLocalNotes').value.trim()
+      };
+      var res = await apiFetch('/api/admin/stations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('station_type_save_failed');
+      var data = await res.json();
+      var status = getEl('stationTypeStatus');
+      if (status) status.textContent = 'تم تحديث خصائص المحطة.';
+      await loadStations();
+      if (data.station) selectDururStation(data.station.id);
+    } catch (err) {
+      var status = getEl('stationTypeStatus');
+      if (status) status.textContent = 'فشل التحديث: ' + (err && err.message ? err.message : 'error');
+    }
+  }
+
+  function fillSelectedStationForms(station) {
+    if (!station) return;
+    selectedDururStationId = station.id;
+    getEl('profileStationId').value = station.id;
+    getEl('profileStationName').value = station.name || station.id || '';
+    getEl('overrideStationId').value = station.id;
+    getEl('overrideStationName').value = station.name || station.id || '';
+    renderProfileTable();
+    renderOverrideTable();
+  }
+
+  function fillProfileForm(profile) {
+    getEl('profileId').value = profile.id || '';
+    getEl('profileStationId').value = profile.station_id || '';
+    getEl('profileStationName').value = (stationsCache.find(function (s) { return s.id === profile.station_id; }) || {}).name || profile.station_id || '';
+    getEl('profileLocalDefinition').value = profile.local_definition || '';
+    getEl('profileExpertSummary').value = profile.expert_summary || '';
+    getEl('profileNotes').value = profile.notes || '';
+    getEl('profileActive').checked = profile.is_active !== false;
+  }
+
+  function fillOverrideForm(override) {
+    getEl('overrideId').value = override.id || '';
+    getEl('overrideStationId').value = override.station_id || '';
+    getEl('overrideStationName').value = (stationsCache.find(function (s) { return s.id === override.station_id; }) || {}).name || override.station_id || '';
+    getEl('overrideDurNumber').value = override.dur_number || '';
+    getEl('overrideStartOffset').value = override.start_offset_days || 0;
+    getEl('overrideEndOffset').value = override.end_offset_days || 0;
+    getEl('overrideLocalNotes').value = override.local_notes || '';
+    getEl('overrideActive').checked = override.is_active !== false;
+  }
+
+  function clearProfileForm() {
+    getEl('profileId').value = '';
+    getEl('profileLocalDefinition').value = '';
+    getEl('profileExpertSummary').value = '';
+    getEl('profileNotes').value = '';
+    getEl('profileActive').checked = true;
+  }
+
+  function clearOverrideForm() {
+    getEl('overrideId').value = '';
+    getEl('overrideDurNumber').value = '';
+    getEl('overrideStartOffset').value = '';
+    getEl('overrideEndOffset').value = '';
+    getEl('overrideLocalNotes').value = '';
+    getEl('overrideActive').checked = true;
+  }
+
+  function readProfileForm() {
+    return {
+      id: getEl('profileId').value.trim() || undefined,
+      station_id: getEl('profileStationId').value.trim(),
+      local_definition: getEl('profileLocalDefinition').value.trim(),
+      expert_summary: getEl('profileExpertSummary').value.trim(),
+      notes: getEl('profileNotes').value.trim(),
+      is_active: getEl('profileActive').checked
+    };
+  }
+
+  function readOverrideForm() {
+    return {
+      id: getEl('overrideId').value.trim() || undefined,
+      station_id: getEl('overrideStationId').value.trim(),
+      dur_number: Number(getEl('overrideDurNumber').value || 0),
+      start_offset_days: Number(getEl('overrideStartOffset').value || 0),
+      end_offset_days: Number(getEl('overrideEndOffset').value || 0),
+      local_notes: getEl('overrideLocalNotes').value.trim(),
+      is_active: getEl('overrideActive').checked
+    };
+  }
+
+  async function saveProfileForm() {
+    var status = getEl('profileStatus');
+    try {
+      var payload = readProfileForm();
+      if (!payload.station_id) throw new Error('station_id_required');
+      if (status) status.textContent = 'جاري الحفظ...';
+      var res = await apiFetch('/api/admin/station-dur-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('profile_save_failed');
+      var data = await res.json();
+      if (status) status.textContent = 'تم حفظ الملف المحلي.';
+      clearProfileForm();
+      await loadStationProfiles();
+      if (data.item) fillProfileForm(data.item);
+    } catch (err) {
+      if (status) status.textContent = 'فشل حفظ الملف: ' + (err && err.message ? err.message : 'error');
+    }
+  }
+
+  async function saveOverrideForm() {
+    var status = getEl('overrideStatus');
+    try {
+      var payload = readOverrideForm();
+      if (!payload.station_id) throw new Error('station_id_required');
+      if (status) status.textContent = 'جاري الحفظ...';
+      var res = await apiFetch('/api/admin/station-dur-overrides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('override_save_failed');
+      var data = await res.json();
+      if (status) status.textContent = 'تم حفظ التعديل المحلي.';
+      clearOverrideForm();
+      await loadStationOverrides();
+      if (data.item) fillOverrideForm(data.item);
+    } catch (err) {
+      if (status) status.textContent = 'فشل حفظ التعديل: ' + (err && err.message ? err.message : 'error');
+    }
+  }
+
+  function renderProfileTable() {
+    var body = getEl('stationProfilesBody');
+    if (!body) return;
+    body.innerHTML = stationProfilesCache.map(function (item, idx) {
+      var station = stationsCache.find(function (s) { return s.id === item.station_id; }) || {};
+      return '<tr><td>' + (idx + 1) + '</td>' +
+        '<td>' + (station.name || item.station_id || '--') + '</td>' +
+        '<td>' + (item.is_active !== false ? 'نشط' : 'معطل') + '</td>' +
+        '<td><button class="small-btn" data-action="edit-profile" data-id="' + (item.id || '') + '">اختر</button></td></tr>';
+    }).join('') || '<tr><td colspan="4" style="text-align:center;color:#8ea4ba">لا توجد ملفات محلية.</td></tr>';
+    body.querySelectorAll('button[data-action="edit-profile"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var item = stationProfilesCache.find(function (row) { return row.id === btn.getAttribute('data-id'); });
+        if (!item) return;
+        fillProfileForm(item);
+      });
+    });
+  }
+
+  function renderOverrideTable() {
+    var body = getEl('stationOverridesBody');
+    if (!body) return;
+    body.innerHTML = stationOverridesCache.map(function (item, idx) {
+      var station = stationsCache.find(function (s) { return s.id === item.station_id; }) || {};
+      return '<tr><td>' + (idx + 1) + '</td>' +
+        '<td>' + (station.name || item.station_id || '--') + '</td>' +
+        '<td>' + (item.dur_number || '--') + '</td>' +
+        '<td>' + (item.is_active !== false ? 'نشط' : 'معطل') + '</td>' +
+        '<td><button class="small-btn" data-action="edit-override" data-id="' + (item.id || '') + '">اختر</button></td></tr>';
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:#8ea4ba">لا توجد تعديلات محلية.</td></tr>';
+    body.querySelectorAll('button[data-action="edit-override"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var item = stationOverridesCache.find(function (row) { return row.id === btn.getAttribute('data-id'); });
+        if (!item) return;
+        fillOverrideForm(item);
+      });
+    });
+  }
+
+  function renderComparisonTable() {
+    var body = getEl('analysisResultsBody');
+    if (!body) return;
+    var stationId = getEl('analysisStationFilter') ? getEl('analysisStationFilter').value : '';
+    var durId = getEl('analysisDurFilter') ? getEl('analysisDurFilter').value : '';
+    var year = getEl('analysisYearFilter') ? getEl('analysisYearFilter').value : '';
+    var rows = annualComparisonsCache.slice();
+    if (stationId) rows = rows.filter(function (x) { return x.station_id === stationId; });
+    if (durId) rows = rows.filter(function (x) { return x.dur_id === durId; });
+    if (year) rows = rows.filter(function (x) { return String(x.year) === String(year); });
+    body.innerHTML = rows.map(function (row, idx) {
+      var station = stationsCache.find(function (s) { return s.id === row.station_id; }) || {};
+      var dur = dururCache.find(function (d) { return d.id === row.dur_id; }) || {};
+      return '<tr><td>' + (row.year || '--') + '</td><td>' + (station.name || row.station_id || '--') + '</td><td>' + (dur.name || row.dur_id || '--') + '</td><td>' + ((Number(row.match_score) * 100).toFixed(0) + '%') + '</td><td>' + (row.summary || '--') + '</td><td><button class="small-btn" data-action="edit-comparison" data-id="' + row.id + '">تعديل</button></td></tr>';
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا توجد نتائج.</td></tr>';
+    body.querySelectorAll('button[data-action="edit-comparison"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var cmp = annualComparisonsCache.find(function (row) { return row.id === btn.getAttribute('data-id'); });
+        if (!cmp) return;
+        fillComparisonForm(cmp);
+      });
+    });
+  }
+
+  function fillComparisonForm(comparison) {
+    getEl('comparisonId').value = comparison.id || '';
+    getEl('comparisonYear').value = comparison.year || new Date().getFullYear();
+    getEl('comparisonStationFilter').value = comparison.station_id || '';
+    getEl('comparisonDurFilter').value = comparison.dur_id || '';
+    getEl('analysisStationFilter').value = comparison.station_id || '';
+    getEl('analysisDurFilter').value = comparison.dur_id || '';
+    getEl('comparisonExpectedTraits').value = (Array.isArray(comparison.expected_traits) ? comparison.expected_traits.join('\n') : '');
+    getEl('comparisonObservedTraits').value = (Array.isArray(comparison.observed_traits) ? comparison.observed_traits.join('\n') : '');
+    getEl('comparisonMatchScore').value = comparison.match_score != null ? comparison.match_score : 0;
+    getEl('comparisonSummary').value = comparison.summary || '';
+    getEl('comparisonNotes').value = comparison.notes || '';
+    getEl('comparisonActive').checked = comparison.is_active !== false;
+  }
+
+  function clearComparisonForm() {
+    getEl('comparisonId').value = '';
+    getEl('comparisonYear').value = new Date().getFullYear();
+    getEl('comparisonStationFilter').value = '';
+    getEl('comparisonDurFilter').value = '';
+    getEl('comparisonExpectedTraits').value = '';
+    getEl('comparisonObservedTraits').value = '';
+    getEl('comparisonMatchScore').value = 0;
+    getEl('comparisonSummary').value = '';
+    getEl('comparisonNotes').value = '';
+    getEl('comparisonActive').checked = true;
+  }
+
+  function readComparisonForm() {
+    return {
+      id: getEl('comparisonId').value.trim() || undefined,
+      year: Number(getEl('comparisonYear').value || new Date().getFullYear()),
+      station_id: getEl('comparisonStationFilter').value || '',
+      dur_id: getEl('comparisonDurFilter').value || '',
+      expected_traits: String(getEl('comparisonExpectedTraits').value || '').split('\n').map(function (v) { return v.trim(); }).filter(Boolean),
+      observed_traits: String(getEl('comparisonObservedTraits').value || '').split('\n').map(function (v) { return v.trim(); }).filter(Boolean),
+      match_score: Number(getEl('comparisonMatchScore').value || 0),
+      summary: getEl('comparisonSummary').value.trim(),
+      notes: getEl('comparisonNotes').value.trim(),
+      is_active: getEl('comparisonActive').checked
+    };
+  }
+
+  async function saveComparisonForm() {
+    var status = getEl('comparisonStatus');
+    try {
+      var payload = readComparisonForm();
+      if (!payload.station_id) throw new Error('station_id_required');
+      if (!payload.dur_id) throw new Error('dur_id_required');
+      if (status) status.textContent = 'جاري الحفظ...';
+      var res = await apiFetch('/api/admin/annual-comparisons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('comparison_save_failed');
+      var data = await res.json();
+      if (status) status.textContent = 'تم حفظ المقارنة السنوية.';
+      clearComparisonForm();
+      await loadAnnualComparisons();
+      if (data.item) fillComparisonForm(data.item);
+    } catch (err) {
+      if (status) status.textContent = 'فشل حفظ المقارنة: ' + (err && err.message ? err.message : 'error');
+    }
+  }
+
+  function setComparisonOptions() {
+    var stationEl = getEl('comparisonStationFilter');
+    if (stationEl) {
+      stationEl.innerHTML = '<option value="">الكل</option>' + stationsCache.map(function (s) { return '<option value="' + (s.id || '') + '">' + (s.name || s.id || '--') + '</option>'; }).join('');
+    }
+    var durEl = getEl('comparisonDurFilter');
+    if (durEl) {
+      durEl.innerHTML = '<option value="">الكل</option>' + dururCache.map(function (d) { return '<option value="' + (d.id || '') + '">' + (d.name || d.dur_number || '--') + '</option>'; }).join('');
+    }
+  }
+
+  function renderReferenceStationsTable() {
+    var body = getEl('referenceStationsBody');
+    if (!body) return;
+    body.innerHTML = stationsCache.map(function (station, idx) {
+      return '<tr><td>' + (idx + 1) + '</td>' +
+        '<td>' + (station.name || '--') + '</td>' +
+        '<td>' + (station.station_role_type || '--') + '</td>' +
+        '<td>' + (station.primary_reference ? 'نعم' : 'لا') + '</td>' +
+        '<td>' + (station.reference_station_id || '--') + '</td>' +
+        '<td><button class="small-btn" data-action="select-ref" data-id="' + (station.id || '') + '">اختر</button></td></tr>';
+    }).join('');
+    body.querySelectorAll('button[data-action="select-ref"]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var station = stationsCache.find(function (s) { return s.id === btn.getAttribute('data-id'); });
+        if (!station) return;
+        selectedDururStationId = station.id;
+        getEl('refStRoleType').value = station.station_role_type || 'secondary_linked';
+        getEl('refStPrimaryReference').checked = !!station.primary_reference;
+        getEl('refStReferenceStation').value = station.reference_station_id || '';
+        getEl('refStLocalNotes').value = station.notes || '';
+        selectDururStation(station.id);
+      });
+    });
+  }
+
+  function renderDururAnalysisControls() {
+    renderAnalysisOptions();
+    renderAnalysisResults();
+  }
+
+  function updateDururStationInfoPanel() {
+    if (selectedDururStationId) {
+      selectDururStation(selectedDururStationId);
+    }
+  }
+
+  async function refreshAdminDururUI() {
+    renderDururTable();
+    renderSeasonEventsTable();
+    renderReferenceStationsTable();
+    renderAnalysisResults();
+    applyDururFilters();
   }
 
   function stationStatusBadge(status) {
@@ -1356,6 +2175,9 @@
       status: active ? 'active' : 'disabled',
       sort_order: Number(getEl('stSort').value || 0),
       default_radius: Number(getEl('stRadius').value || 0.02),
+      station_role_type: getEl('stRoleType') ? getEl('stRoleType').value : 'secondary_linked',
+      primary_reference: getEl('stPrimaryReference') ? getEl('stPrimaryReference').checked : false,
+      reference_station_id: getEl('stReferenceStation') ? getEl('stReferenceStation').value.trim() : '',
       notes: getEl('stNotes').value.trim(),
       assigned_members: splitCsv(getEl('stMembers').value)
     };
@@ -1375,6 +2197,9 @@
     getEl('stActive').checked = st.status !== 'disabled' && st.status !== 'archived';
     getEl('stSort').value = st.sort_order != null ? st.sort_order : 1;
     getEl('stRadius').value = st.default_radius != null ? st.default_radius : 0.02;
+    getEl('stRoleType').value = st.station_role_type || 'secondary_linked';
+    getEl('stPrimaryReference').checked = !!st.primary_reference;
+    getEl('stReferenceStation').value = st.reference_station_id || '';
     getEl('stNotes').value = st.notes || '';
     getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
     var hintEl = getEl('stNameAutoHint');
@@ -1566,6 +2391,9 @@
         }
       });
     });
+    renderReferenceStationsTable();
+    refreshDururMarkers();
+    updateDururStationInfoPanel();
   }
 
   async function saveStationFromForm() {
@@ -1986,6 +2814,60 @@
       });
     });
 
+    var dururTabButtons = [
+      {id:'dururDurTabBtn', tab:'dururDurTab'},
+      {id:'seasonEventsTabBtn', tab:'seasonEventsTab'},
+      {id:'referenceStationsTabBtn', tab:'referenceStationsTab'},
+      {id:'dururAnalysisTabBtn', tab:'dururAnalysisTab'}
+    ];
+    dururTabButtons.forEach(function (item) {
+      var btn = getEl(item.id);
+      if (btn) {
+        btn.addEventListener('click', function () {
+          setDururTab(item.tab);
+        });
+      }
+    });
+
+    ['dururStationTypeFilter','dururCurrentDurFilter','dururSeasonEventFilter'].forEach(function (id) {
+      var el = getEl(id);
+      if (el) el.addEventListener('change', applyDururFilters);
+    });
+
+    ['analysisStationFilter','analysisDurFilter','analysisYearFilter'].forEach(function (id) {
+      var el = getEl(id);
+      if (el) el.addEventListener('change', renderAnalysisResults);
+    });
+
+    var dururAnalysisBtn = getEl('loadDururAnalysisBtn');
+    if (dururAnalysisBtn) dururAnalysisBtn.addEventListener('click', renderAnalysisResults);
+
+    var saveDurBtn = getEl('saveDurBtn');
+    var clearDurBtn = getEl('clearDurBtn');
+    var saveEventBtn = getEl('saveEventBtn');
+    var clearEventBtn = getEl('clearEventBtn');
+    var saveStationTypeBtn = getEl('saveStationTypeBtn');
+    var saveProfileBtn = getEl('saveProfileBtn');
+    var clearProfileBtn = getEl('clearProfileBtn');
+    var saveOverrideBtn = getEl('saveOverrideBtn');
+    var clearOverrideBtn = getEl('clearOverrideBtn');
+    var saveComparisonBtn = getEl('saveComparisonBtn');
+    var clearComparisonBtn = getEl('clearComparisonBtn');
+    var loadAnalysisBtn = getEl('loadDururAnalysisBtn');
+
+    if (saveDurBtn) saveDurBtn.addEventListener('click', saveDurForm);
+    if (clearDurBtn) clearDurBtn.addEventListener('click', clearDurForm);
+    if (saveEventBtn) saveEventBtn.addEventListener('click', saveEventForm);
+    if (clearEventBtn) clearEventBtn.addEventListener('click', clearEventForm);
+    if (saveStationTypeBtn) saveStationTypeBtn.addEventListener('click', saveStationTypeUpdate);
+    if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveProfileForm);
+    if (clearProfileBtn) clearProfileBtn.addEventListener('click', clearProfileForm);
+    if (saveOverrideBtn) saveOverrideBtn.addEventListener('click', saveOverrideForm);
+    if (clearOverrideBtn) clearOverrideBtn.addEventListener('click', clearOverrideForm);
+    if (saveComparisonBtn) saveComparisonBtn.addEventListener('click', saveComparisonForm);
+    if (clearComparisonBtn) clearComparisonBtn.addEventListener('click', clearComparisonForm);
+    if (loadAnalysisBtn) loadAnalysisBtn.addEventListener('click', renderAnalysisResults);
+
     document.querySelectorAll('.time-filter-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (currentPeriod === btn.getAttribute('data-period')) return;
@@ -1996,11 +2878,8 @@
       });
     });
 
-    getEl('saveStationBtn').addEventListener('click', saveStationFromForm);
-    getEl('clearStationBtn').addEventListener('click', clearStationForm);
-    getEl('createUserBtn').addEventListener('click', createUserFromForm);
-    getEl('loadFeedbackBtn').addEventListener('click', function () { loadFeedback(); });
     initStationsAdminMap();
+    initDururAdminMap();
     initStationFormBindings();
 
     bindSettingsActions();

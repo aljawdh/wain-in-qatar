@@ -45,6 +45,125 @@ function getPathSegments(req) {
   return [];
 }
 
+function getCollectionKey(root) {
+  if (root === 'durur') return 'durur';
+  if (root === 'season-events') return 'season_events';
+  if (root === 'station-dur-profiles') return 'station_dur_profiles';
+  if (root === 'station-dur-overrides') return 'station_dur_overrides';
+  if (root === 'annual-comparisons') return 'annual_comparisons';
+  return null;
+}
+
+function normalizeDururInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('dur'), 80),
+    dur_number: Number.isFinite(Number(input.dur_number)) ? Number(input.dur_number) : Number(base.dur_number) || 0,
+    name: cleanString(input.name != null ? input.name : base.name, 120),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    days_count: Number.isFinite(Number(input.days_count)) ? Number(input.days_count) : Number(base.days_count) || 0,
+    gregorian_start_month: Number.isFinite(Number(input.gregorian_start_month)) ? Number(input.gregorian_start_month) : Number(base.gregorian_start_month) || 1,
+    gregorian_start_day: Number.isFinite(Number(input.gregorian_start_day)) ? Number(input.gregorian_start_day) : Number(base.gregorian_start_day) || 1,
+    gregorian_end_month: Number.isFinite(Number(input.gregorian_end_month)) ? Number(input.gregorian_end_month) : Number(base.gregorian_end_month) || 1,
+    gregorian_end_day: Number.isFinite(Number(input.gregorian_end_day)) ? Number(input.gregorian_end_day) : Number(base.gregorian_end_day) || 1,
+    description: cleanString(input.description != null ? input.description : base.description, 800),
+    heritage_meaning: cleanString(input.heritage_meaning != null ? input.heritage_meaning : base.heritage_meaning, 800),
+    weather_traits: Array.isArray(input.weather_traits) ? input.weather_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.weather_traits) ? base.weather_traits : []),
+    marine_traits: Array.isArray(input.marine_traits) ? input.marine_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.marine_traits) ? base.marine_traits : []),
+    fish_traits: Array.isArray(input.fish_traits) ? input.fish_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.fish_traits) ? base.fish_traits : []),
+    notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
+    created_at: base.created_at || nowIso(),
+    updated_at: nowIso()
+  };
+}
+
+function normalizeSeasonEventInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('season_event'), 80),
+    name: cleanString(input.name != null ? input.name : base.name, 120),
+    start_month: Number.isFinite(Number(input.start_month)) ? Number(input.start_month) : Number(base.start_month) || 1,
+    start_day: Number.isFinite(Number(input.start_day)) ? Number(input.start_day) : Number(base.start_day) || 1,
+    end_month: Number.isFinite(Number(input.end_month)) ? Number(input.end_month) : Number(base.end_month) || 1,
+    end_day: Number.isFinite(Number(input.end_day)) ? Number(input.end_day) : Number(base.end_day) || 1,
+    days_count: Number.isFinite(Number(input.days_count)) ? Number(input.days_count) : Number(base.days_count) || 0,
+    description: cleanString(input.description != null ? input.description : base.description, 800),
+    related_dur_ids: Array.isArray(input.related_dur_ids) ? input.related_dur_ids.map((v) => cleanString(v, 80)).filter(Boolean) : (Array.isArray(base.related_dur_ids) ? base.related_dur_ids : []),
+    traits: Array.isArray(input.traits) ? input.traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits) ? base.traits : []),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    created_at: base.created_at || nowIso(),
+    updated_at: nowIso()
+  };
+}
+
+function normalizeStationDurProfileInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('profile'), 80),
+    station_id: cleanString(input.station_id != null ? input.station_id : base.station_id, 80),
+    local_definition: cleanString(input.local_definition != null ? input.local_definition : base.local_definition, 1200),
+    expert_summary: cleanString(input.expert_summary != null ? input.expert_summary : base.expert_summary, 1200),
+    notes: cleanString(input.notes != null ? input.notes : base.notes, 1200),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    updated_at: nowIso(),
+    updated_by: cleanString(input.updated_by != null ? input.updated_by : base.updated_by, 120)
+  };
+}
+
+function normalizeStationDurOverrideInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('override'), 80),
+    station_id: cleanString(input.station_id != null ? input.station_id : base.station_id, 80),
+    dur_number: Number.isFinite(Number(input.dur_number)) ? Number(input.dur_number) : Number(base.dur_number) || 0,
+    start_offset_days: Number.isFinite(Number(input.start_offset_days)) ? Number(input.start_offset_days) : Number(base.start_offset_days) || 0,
+    end_offset_days: Number.isFinite(Number(input.end_offset_days)) ? Number(input.end_offset_days) : Number(base.end_offset_days) || 0,
+    local_notes: cleanString(input.local_notes != null ? input.local_notes : base.local_notes, 800),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    updated_at: nowIso(),
+    updated_by: cleanString(input.updated_by != null ? input.updated_by : base.updated_by, 120)
+  };
+}
+
+function normalizeAnnualComparisonInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('comparison'), 80),
+    year: Number.isFinite(Number(input.year)) ? Number(input.year) : Number(base.year) || new Date().getFullYear(),
+    station_id: cleanString(input.station_id != null ? input.station_id : base.station_id, 80),
+    dur_id: cleanString(input.dur_id != null ? input.dur_id : base.dur_id, 80),
+    expected_traits: Array.isArray(input.expected_traits) ? input.expected_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.expected_traits) ? base.expected_traits : []),
+    observed_traits: Array.isArray(input.observed_traits) ? input.observed_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.observed_traits) ? base.observed_traits : []),
+    match_score: Number.isFinite(Number(input.match_score)) ? Number(input.match_score) : Number(base.match_score) || 0,
+    summary: cleanString(input.summary != null ? input.summary : base.summary, 800),
+    notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    created_at: base.created_at || nowIso(),
+    updated_at: nowIso()
+  };
+}
+
+function sanitizeCollectionItem(root, item, existing) {
+  if (root === 'durur') return normalizeDururInput(item, existing);
+  if (root === 'season-events') return normalizeSeasonEventInput(item, existing);
+  if (root === 'station-dur-profiles') return normalizeStationDurProfileInput(item, existing);
+  if (root === 'station-dur-overrides') return normalizeStationDurOverrideInput(item, existing);
+  if (root === 'annual-comparisons') return normalizeAnnualComparisonInput(item, existing);
+  return item;
+}
+
+async function readCollection(root) {
+  const key = getCollectionKey(root);
+  if (!key) return null;
+  return await readJsonFile(key, []);
+}
+
+async function writeCollection(root, rows) {
+  const key = getCollectionKey(root);
+  if (!key) return null;
+  await writeJsonFile(key, rows);
+}
+
 module.exports = async function handler(req, res) {
   setNoCache(res);
 
@@ -186,6 +305,79 @@ module.exports = async function handler(req, res) {
 
     res.setHeader('Allow', 'PUT, DELETE, PATCH');
     return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  async function handleCollection(rootName) {
+    if (!rootName) return false;
+    const rows = await readCollection(rootName);
+    if (rows == null) return false;
+    if (!id) {
+      if (req.method === 'GET') {
+        const filtered = rows.filter(function (item) {
+          const stationId = cleanString(req.query && req.query.station_id, 80);
+          const year = cleanString(req.query && req.query.year, 20);
+          const durId = cleanString(req.query && req.query.dur_id, 80);
+          if (stationId && String(item.station_id || item.stationId || '') !== stationId) return false;
+          if (year && String(item.year || '') !== year) return false;
+          if (durId && String(item.dur_id || item.durId || '') !== durId) return false;
+          return true;
+        });
+        return res.status(200).json({ ok: true, total: filtered.length, items: filtered });
+      }
+      if (req.method === 'POST') {
+        try {
+          const body = parseBody(req);
+          const requestedId = cleanString(body.id, 80);
+          const existingIdx = requestedId ? rows.findIndex((item) => String(item.id) === requestedId) : -1;
+          const item = sanitizeCollectionItem(rootName, body, existingIdx >= 0 ? rows[existingIdx] : null);
+          if (existingIdx >= 0) {
+            rows[existingIdx] = item;
+            await writeCollection(rootName, rows);
+            await writeAudit(rootName + '_updated', actor, { item_id: item.id });
+            return res.status(200).json({ ok: true, item });
+          }
+          rows.push(item);
+          await writeCollection(rootName, rows);
+          await writeAudit(rootName + '_created', actor, { item_id: item.id });
+          return res.status(201).json({ ok: true, item });
+        } catch (err) {
+          return res.status(400).json({ error: err && err.message ? err.message : 'create_failed' });
+        }
+      }
+      res.setHeader('Allow', 'GET, POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+
+    const idx = rows.findIndex(function (item) { return String(item.id) === String(id); });
+    if (idx < 0) return res.status(404).json({ error: 'item_not_found' });
+
+    if (req.method === 'PUT') {
+      try {
+        const body = parseBody(req);
+        const updated = sanitizeCollectionItem(rootName, body, rows[idx]);
+        rows[idx] = updated;
+        await writeCollection(rootName, rows);
+        await writeAudit(rootName + '_updated', actor, { item_id: updated.id });
+        return res.status(200).json({ ok: true, item: updated });
+      } catch (err) {
+        return res.status(400).json({ error: err && err.message ? err.message : 'update_failed' });
+      }
+    }
+
+    if (req.method === 'DELETE') {
+      const deleted = rows.splice(idx, 1)[0];
+      await writeCollection(rootName, rows);
+      await writeAudit(rootName + '_deleted', actor, { item_id: deleted.id });
+      return res.status(200).json({ ok: true, deleted: true, item_id: deleted.id });
+    }
+
+    res.setHeader('Allow', 'GET, POST, PUT, DELETE');
+    return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  const collectionRoots = ['durur', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons'];
+  if (collectionRoots.includes(root)) {
+    return handleCollection(root);
   }
 
   if (root === 'users') {

@@ -15,7 +15,12 @@ const FILES = {
   feedback: 'feedback.json',
   audit: 'audit_logs.json',
   tracking: 'tracking.json',
-  catch_logs: 'catch_logs.json'
+  catch_logs: 'catch_logs.json',
+  durur: 'durur.json',
+  season_events: 'season_events.json',
+  station_dur_profiles: 'station_dur_profiles.json',
+  station_dur_overrides: 'station_dur_overrides.json',
+  annual_comparisons: 'annual_comparisons.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

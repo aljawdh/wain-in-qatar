@@ -64,6 +64,13 @@ function normalizeStationInput(input, existing) {
     tags: normalizeTags(input.tags != null ? input.tags : base.tags, category, featured),
     sort_order: Number.isFinite(Number(input.sort_order)) ? Number(input.sort_order) : (Number(base.sort_order) || 0),
     default_radius: Number.isFinite(Number(input.default_radius)) ? Number(input.default_radius) : (Number(base.default_radius) || 0.02),
+    station_role_type: (function () {
+      const v = cleanString(input.station_role_type != null ? input.station_role_type : base.station_role_type, 40).toLowerCase();
+      if (v === 'primary_reference' || v === 'secondary_linked' || v === 'latlon_band_station') return v;
+      return 'secondary_linked';
+    })(),
+    primary_reference: input.primary_reference != null ? !!input.primary_reference : !!base.primary_reference,
+    reference_station_id: cleanString(input.reference_station_id != null ? input.reference_station_id : base.reference_station_id, 80),
     notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
     added_from_field: input.added_from_field != null ? !!input.added_from_field : !!base.added_from_field,
     source_tag: cleanString(input.source_tag != null ? input.source_tag : base.source_tag, 40),

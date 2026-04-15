@@ -77,6 +77,24 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .st-water-unknown{background:rgba(255,214,127,.08);border:1px solid rgba(255,214,127,.24);color:#ffe7aa}
 .admin-switch{display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px}
 .admin-switch input{transform:scale(1.2)}
+.admin-tab-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.admin-tab-row button{flex:1;background:rgba(16,44,69,.9);border:1px solid rgba(255,255,255,.12);color:var(--txt2);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:.9rem}
+.admin-tab-row button.active{background:var(--accent);color:#fff;border-color:transparent}
+.durur-panel{background:rgba(10,33,50,.7);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-bottom:12px}
+.durur-panel h5{margin-bottom:10px;font-size:.95rem;color:#bfe9ff}
+.durur-panel .admin-field{margin-bottom:10px}
+.durur-map-row{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-bottom:12px}
+.durur-map-card{background:rgba(10,33,50,.85);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px}
+.durur-map-card h5{margin-bottom:10px;font-size:1rem;color:#bfe9ff}
+#dururAdminMap{height:380px;border-radius:12px;border:1px solid rgba(255,255,255,.14);overflow:hidden}
+.durur-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:.82rem;color:#c7d5e4}
+.legend-swatch{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid rgba(255,255,255,.14)}
+.durur-details{background:rgba(12,35,52,.88);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px}
+.durur-detail-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.durur-detail-row .admin-field{margin-bottom:0}
+.durur-tab-panel{display:none}
+.durur-tab-panel.active{display:block}
 .settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 .settings-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 12px;font-family:inherit;cursor:pointer}
 .settings-btn.secondary{background:#0f3d60;border:1px solid rgba(255,255,255,.15)}
@@ -154,6 +172,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <button class="admin-nav active" data-filter="all">الرئيسية</button>
           <button class="admin-nav" data-filter="users">المستخدمين</button>
           <button class="admin-nav" data-filter="stations">المحطات</button>
+          <button class="admin-nav" data-filter="durur">إدارة الدرور والمحطات المرجعية</button>
           <button class="admin-nav" data-filter="feedback">التقييمات</button>
           <button class="admin-nav" data-filter="analytics">التحليلات</button>
           <button class="admin-nav" data-filter="settings">الإعدادات</button>
@@ -320,6 +339,9 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-sliders" style="margin-left:6px"></i> خيارات متقدمة</summary>
               <div class="admin-form-grid" style="margin-top:10px">
                 <div class="admin-field"><label>ID (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
+                <div class="admin-field"><label>نوع المحطة</label><select id="stRoleType"><option value="primary_reference">رئيسية مرجعية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stPrimaryReference"><label for="stPrimaryReference">محطة رئيسية كبرى</label></div></div>
+                <div class="admin-field"><label>محطة مرجعية مرتبطة</label><input id="stReferenceStation" type="text" placeholder="st_001"></div>
                 <div class="admin-field"><label>Radius</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
                 <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
                 <input type="hidden" id="stFishingMode" value="coastal">
@@ -357,26 +379,187 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </div>
           </div>
 
+          <div class="admin-section admin-block" data-section="durur">
+            <h4><i class="fa-solid fa-globe"></i> إدارة الدرور والمحطات المرجعية</h4>
+            <div class="section-subtitle">لوحة إدارة الدرور والأحداث الموسمية والمحطات المرجعية مع خريطة تفاعلية وفلاتر سريعة.</div>
+            <div class="admin-tab-row" id="dururTabRow">
+              <button id="dururDurTabBtn" class="active" type="button">إدارة الدرور</button>
+              <button id="seasonEventsTabBtn" type="button">الأحداث الموسمية</button>
+              <button id="referenceStationsTabBtn" type="button">المحطات المرجعية</button>
+              <button id="dururAnalysisTabBtn" type="button">تحليل الدرور</button>
+            </div>
+            <div class="filter-box" style="margin-bottom:12px">
+              <div class="admin-form-grid">
+                <div class="admin-field"><label>نوع المحطة</label><select id="dururStationTypeFilter"><option value="all">الكل</option><option value="primary_reference">رئيسية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
+                <div class="admin-field"><label>الدر الحالي</label><select id="dururCurrentDurFilter"><option value="all">الكل</option></select></div>
+                <div class="admin-field"><label>حدث موسمي</label><select id="dururSeasonEventFilter"><option value="all">الكل</option></select></div>
+              </div>
+            </div>
+            <div class="durur-map-row">
+              <div class="durur-map-card">
+                <div class="durur-map-card-inner">
+                  <h5>الخريطة الإدارية</h5>
+                  <div id="dururAdminMap"></div>
+                  <div class="durur-legend">
+                    <div class="legend-item"><span class="legend-swatch" style="background:#ff5252"></span> الأحمر = محطة رئيسية مرجعية</div>
+                    <div class="legend-item"><span class="legend-swatch" style="background:#f8c146"></span> الأصفر = محطة تابعة</div>
+                    <div class="legend-item"><span class="legend-swatch" style="background:#ff8c00"></span> البرتقالي = محطة مرتبطة بخطوط</div>
+                  </div>
+                </div>
+              </div>
+              <div class="durur-details" id="dururStationInfo">
+                <h5>معلومات المحطة المحددة</h5>
+                <div id="dururStationInfoContent">اختر محطة من الخريطة لعرض تفاصيلها هنا.</div>
+              </div>
+            </div>
+
+            <div id="dururDurTab" class="durur-tab-panel active">
+              <div class="durur-panel">
+                <h5>تعريف الدر</h5>
+                <div class="admin-form-grid">
+                  <div class="admin-field"><label>ID</label><input id="durId" type="text" placeholder="dur_13"></div>
+                  <div class="admin-field"><label>رقم الدر</label><input id="durNumber" type="number" min="1"></div>
+                  <div class="admin-field full"><label>اسم الدر</label><input id="durName" type="text"></div>
+                  <div class="admin-field"><label>نشط</label><div class="admin-switch"><input type="checkbox" id="durActive" checked><label for="durActive">نعم</label></div></div>
+                  <div class="admin-field"><label>عدد الأيام</label><input id="durDaysCount" type="number" min="1"></div>
+                  <div class="admin-field"><label>بداية الدر</label><div style="display:flex;gap:6px"><input id="durStartMonth" type="number" min="1" max="12" placeholder="شهر"><input id="durStartDay" type="number" min="1" max="31" placeholder="يوم"></div></div>
+                  <div class="admin-field"><label>نهاية الدر</label><div style="display:flex;gap:6px"><input id="durEndMonth" type="number" min="1" max="12" placeholder="شهر"><input id="durEndDay" type="number" min="1" max="31" placeholder="يوم"></div></div>
+                  <div class="admin-field full"><label>وصف الدر</label><textarea id="durDescription"></textarea></div>
+                  <div class="admin-field full"><label>المعنى التراثي</label><textarea id="durHeritageMeaning"></textarea></div>
+                  <div class="admin-field full"><label>سمات الطقس (CSV)</label><input id="durWeatherTraits" type="text" placeholder="بارد,عاصف"></div>
+                  <div class="admin-field full"><label>سمات البحر (CSV)</label><input id="durMarineTraits" type="text" placeholder="هادئ,مضطرب"></div>
+                  <div class="admin-field full"><label>سمات السمك (CSV)</label><input id="durFishTraits" type="text" placeholder="سلمون,سردين"></div>
+                  <div class="admin-field full"><label>ملاحظات</label><textarea id="durNotes"></textarea></div>
+                </div>
+                <div class="settings-actions"><button class="settings-btn" id="saveDurBtn">حفظ الدر</button><button class="settings-btn secondary" id="clearDurBtn">تنظيف النموذج</button></div>
+                <div class="settings-status" id="durStatus"></div>
+              </div>
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>#</th><th>الاسم</th><th>رقم الدر</th><th>التواريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                  <tbody id="dururBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="seasonEventsTab" class="durur-tab-panel">
+              <div class="durur-panel">
+                <h5>إدارة الأحداث الموسمية</h5>
+                <div class="admin-form-grid">
+                  <div class="admin-field"><label>ID</label><input id="eventId" type="text" placeholder="season_event_01"></div>
+                  <div class="admin-field full"><label>اسم الحدث</label><input id="eventName" type="text"></div>
+                  <div class="admin-field"><label>نشط</label><div class="admin-switch"><input type="checkbox" id="eventActive" checked><label for="eventActive">نعم</label></div></div>
+                  <div class="admin-field"><label>بداية الحدث</label><div style="display:flex;gap:6px"><input id="eventStartMonth" type="number" min="1" max="12" placeholder="شهر"><input id="eventStartDay" type="number" min="1" max="31" placeholder="يوم"></div></div>
+                  <div class="admin-field"><label>نهاية الحدث</label><div style="display:flex;gap:6px"><input id="eventEndMonth" type="number" min="1" max="12" placeholder="شهر"><input id="eventEndDay" type="number" min="1" max="31" placeholder="يوم"></div></div>
+                  <div class="admin-field"><label>عدد الأيام</label><input id="eventDaysCount" type="number" min="1"></div>
+                  <div class="admin-field full"><label>أحداث مرتبطة بدرور</label><input id="eventRelatedDurIds" type="text" placeholder="dur_05,dur_06"></div>
+                  <div class="admin-field full"><label>سمات (CSV)</label><input id="eventTraits" type="text" placeholder="برد,رطوبة"></div>
+                  <div class="admin-field full"><label>الوصف</label><textarea id="eventDescription"></textarea></div>
+                </div>
+                <div class="settings-actions"><button class="settings-btn" id="saveEventBtn">حفظ الحدث</button><button class="settings-btn secondary" id="clearEventBtn">تنظيف النموذج</button></div>
+                <div class="settings-status" id="eventStatus"></div>
+              </div>
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>#</th><th>الحدث</th><th>التواريخ</th><th>مرتبط بدر</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                  <tbody id="seasonEventsBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="referenceStationsTab" class="durur-tab-panel">
+              <div class="durur-panel">
+                <h5>المحطات المرجعية</h5>
+                <div class="section-subtitle">يتم التحكم بالخرائط والأنواع هنا. اختر محطة لتعديل النوع أو الربط.</div>
+                <div class="admin-form-grid">
+                  <div class="admin-field full"><label>نوع المحطة</label><select id="refStRoleType"><option value="primary_reference">رئيسية مرجعية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
+                  <div class="admin-field"><label>مرجعية كبرى</label><div class="admin-switch"><input type="checkbox" id="refStPrimaryReference"><label for="refStPrimaryReference">نعم</label></div></div>
+                  <div class="admin-field full"><label>مرتبطة بمحطة</label><input id="refStReferenceStation" type="text" placeholder="st_001"></div>
+                  <div class="admin-field full"><label>ملاحظات محلية</label><textarea id="refStLocalNotes"></textarea></div>
+                </div>
+                <div class="settings-actions"><button class="settings-btn" id="saveStationTypeBtn">تحديث المحطة</button></div>
+                <div class="settings-status" id="stationTypeStatus"></div>
+              </div>
+              <div class="durur-panel">
+                <h5>الملف المحلي لدرور المحطة</h5>
+                <div class="admin-form-grid">
+                  <input type="hidden" id="profileId">
+                  <input type="hidden" id="profileStationId">
+                  <div class="admin-field full"><label>المحطة المحددة</label><input id="profileStationName" type="text" readonly></div>
+                  <div class="admin-field full"><label>المعرفة المحلية</label><textarea id="profileLocalDefinition"></textarea></div>
+                  <div class="admin-field full"><label>ملخص الخبراء</label><textarea id="profileExpertSummary"></textarea></div>
+                  <div class="admin-field full"><label>ملاحظات إضافية</label><textarea id="profileNotes"></textarea></div>
+                  <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="profileActive" checked><label for="profileActive">نشط</label></div></div>
+                </div>
+                <div class="settings-actions"><button class="settings-btn" id="saveProfileBtn">حفظ الملف المحلي</button><button class="settings-btn secondary" id="clearProfileBtn">تنظيف النموذج</button></div>
+                <div class="settings-status" id="profileStatus"></div>
+              </div>
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>#</th><th>المحطة</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                  <tbody id="stationProfilesBody"></tbody>
+                </table>
+              </div>
+              <div class="durur-panel">
+                <h5>تعديلات الدر المحلية</h5>
+                <div class="admin-form-grid">
+                  <input type="hidden" id="overrideId">
+                  <input type="hidden" id="overrideStationId">
+                  <div class="admin-field full"><label>المحطة المحددة</label><input id="overrideStationName" type="text" readonly></div>
+                  <div class="admin-field"><label>رقم الدر</label><input id="overrideDurNumber" type="number" min="1"></div>
+                  <div class="admin-field"><label>تعويض بداية (أيام)</label><input id="overrideStartOffset" type="number" step="1"></div>
+                  <div class="admin-field"><label>تعويض نهاية (أيام)</label><input id="overrideEndOffset" type="number" step="1"></div>
+                  <div class="admin-field full"><label>ملاحظات التعديل</label><textarea id="overrideLocalNotes"></textarea></div>
+                  <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="overrideActive" checked><label for="overrideActive">نشط</label></div></div>
+                </div>
+                <div class="settings-actions"><button class="settings-btn" id="saveOverrideBtn">حفظ التعديل المحلي</button><button class="settings-btn secondary" id="clearOverrideBtn">تنظيف النموذج</button></div>
+                <div class="settings-status" id="overrideStatus"></div>
+              </div>
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>#</th><th>المحطة</th><th>الدر</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+                  <tbody id="stationOverridesBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="dururAnalysisTab" class="durur-tab-panel">
+              <div class="durur-panel">
+                <h5>تحليل الدرور والمقارنات السنوية</h5>
+                <div class="admin-form-grid">
+                  <input type="hidden" id="comparisonId">
+                  <div class="admin-field"><label>السنة</label><input id="comparisonYear" type="number" min="2020" value="2026"></div>
+                  <div class="admin-field"><label>المحطة</label><select id="comparisonStationFilter"><option value="">الكل</option></select></div>
+                  <div class="admin-field"><label>الدر</label><select id="comparisonDurFilter"><option value="">الكل</option></select></div>
+                  <div class="admin-field full"><label>المتوقع</label><textarea id="comparisonExpectedTraits" placeholder="درجة الحرارة، الرياح، اتجاه الرياح، التيار، نشاط البحر، نجاح الصيد"></textarea></div>
+                  <div class="admin-field full"><label>الفعلي</label><textarea id="comparisonObservedTraits" placeholder="درجة الحرارة الفعلية، الرياح، التيار، نجاح الصيد"></textarea></div>
+                  <div class="admin-field"><label>درجة التطابق</label><input id="comparisonMatchScore" type="number" step="0.01" min="0" max="1" value="0"></div>
+                  <div class="admin-field full"><label>الملخص</label><textarea id="comparisonSummary"></textarea></div>
+                  <div class="admin-field full"><label>ملاحظات إضافية</label><textarea id="comparisonNotes"></textarea></div>
+                  <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="comparisonActive" checked><label for="comparisonActive">نشط</label></div></div>
+                </div>
+                <div class="settings-actions"><button class="settings-btn" id="saveComparisonBtn">حفظ المقارنة</button><button class="settings-btn secondary" id="clearComparisonBtn">تنظيف النموذج</button></div>
+                <div class="settings-status" id="comparisonStatus"></div>
+              </div>
+              <div class="durur-panel">
+                <h5>فلترة نتائج المقارنات</h5>
+                <div class="admin-form-grid">
+                  <div class="admin-field"><label>السنة</label><input id="analysisYearFilter" type="number" min="2020" value="2026"></div>
+                  <div class="admin-field"><label>المحطة</label><select id="analysisStationFilter"><option value="">الكل</option></select></div>
+                  <div class="admin-field"><label>الدر</label><select id="analysisDurFilter"><option value="">الكل</option></select></div>
+                  <div class="admin-field"><label>&nbsp;</label><button class="settings-btn secondary" id="loadDururAnalysisBtn">عرض</button></div>
+                </div>
+                <div class="settings-status" id="analysisStatus"></div>
+              </div>
+              <div class="table-wrap">
+                <table class="admin-table">
+                  <thead><tr><th>السنة</th><th>المحطة</th><th>الدر</th><th>التطابق</th><th>الملاحظات</th><th>الإجراء</th></tr></thead>
+                  <tbody id="analysisResultsBody"></tbody>
+                </table>
+              </div>
+            </div>
+
           <div class="admin-section admin-block" data-section="feedback">
-            <h4><i class="fa-solid fa-comment-dots"></i> Feedback</h4>
-            <div class="section-subtitle">فلترة وتدقيق تقييمات YES/NO اليومية مع عرض أسهل للنتائج.</div>
-            <div class="filter-box">
-            <div class="admin-form-grid" style="margin-top:0">
-              <div class="admin-field"><label>التاريخ</label><input id="fbDateFilter" type="date"></div>
-              <div class="admin-field"><label>المحطة</label><input id="fbStationFilter" type="text" placeholder="الدوحة"></div>
-              <div class="admin-field"><label>المستخدم</label><input id="fbUserFilter" type="text" placeholder="usr_..."></div>
-              <div class="admin-field"><label>&nbsp;</label><button class="settings-btn secondary" id="loadFeedbackBtn">تطبيق الفلاتر</button></div>
-            </div>
-            </div>
-            <div class="settings-status" id="feedbackStatusAdmin"></div>
-            <hr class="sep">
-            <div class="table-wrap">
-              <table class="admin-table">
-                <thead><tr><th>الوقت</th><th>المحطة</th><th>الإجابة</th><th>Score</th><th>User</th><th>إجراءات</th></tr></thead>
-                <tbody id="feedbackBody"></tbody>
-              </table>
-            </div>
-          </div>
 
           <div class="admin-section admin-block" data-section="settings">
             <h4><i class="fa-solid fa-sliders"></i> التحكم في المنصة</h4>

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "override_001",
+    "station_id": "st_001",
+    "dur_number": 2,
+    "start_offset_days": -1,
+    "end_offset_days": 2,
+    "local_notes": "في الدوحة يبدأ العقارب قبل يوم وينتهي بعد يومين بسبب دفء المياه.",
+    "is_active": true,
+    "updated_at": "2026-04-15T00:00:00.000Z",
+    "updated_by": "admin"
+  }
+]
