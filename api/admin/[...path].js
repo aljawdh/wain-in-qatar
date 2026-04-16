@@ -47,6 +47,7 @@ function getPathSegments(req) {
 
 function getCollectionKey(root) {
   if (root === 'durur') return 'durur';
+  if (root === 'durur-reference') return 'durur_reference_seed';
   if (root === 'season-events') return 'season_events';
   if (root === 'station-dur-profiles') return 'station_dur_profiles';
   if (root === 'station-dur-overrides') return 'station_dur_overrides';
@@ -110,6 +111,33 @@ function normalizeStationDurProfileInput(input, existing) {
   };
 }
 
+function normalizeDururReferenceInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('durref'), 80),
+    dur_number: Number.isFinite(Number(input.dur_number)) ? Number(input.dur_number) : Number(base.dur_number) || 0,
+    name_ar: cleanString(input.name_ar != null ? input.name_ar : base.name_ar, 120),
+    season_ar: cleanString(input.season_ar != null ? input.season_ar : base.season_ar, 120),
+    zodiac_ar: cleanString(input.zodiac_ar != null ? input.zodiac_ar : base.zodiac_ar, 120),
+    description: cleanString(input.description != null ? input.description : base.description, 800),
+    heritage_meaning: cleanString(input.heritage_meaning != null ? input.heritage_meaning : base.heritage_meaning, 800),
+    weather_traits: Array.isArray(input.weather_traits) ? input.weather_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.weather_traits) ? base.weather_traits : []),
+    marine_traits: Array.isArray(input.marine_traits) ? input.marine_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.marine_traits) ? base.marine_traits : []),
+    fish_traits: Array.isArray(input.fish_traits) ? input.fish_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.fish_traits) ? base.fish_traits : []),
+    general_traits: Array.isArray(input.general_traits) ? input.general_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.general_traits) ? base.general_traits : []),
+    related_events: Array.isArray(input.related_events) ? input.related_events.map((v) => cleanString(v, 80)).filter(Boolean) : (Array.isArray(base.related_events) ? base.related_events : []),
+    review_status: cleanString(input.review_status != null ? input.review_status : base.review_status || 'draft', 60),
+    notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
+    needs_expert_review: input.needs_expert_review != null ? !!input.needs_expert_review : !!base.needs_expert_review,
+    local_override_ready: input.local_override_ready != null ? !!input.local_override_ready : !!base.local_override_ready,
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    created_at: base.created_at || nowIso(),
+    updated_at: nowIso(),
+    reviewed_at: input.reviewed_at != null ? cleanString(input.reviewed_at, 40) : base.reviewed_at || null,
+    approved_at: input.approved_at != null ? cleanString(input.approved_at, 40) : base.approved_at || null
+  };
+}
+
 function normalizeStationDurOverrideInput(input, existing) {
   const base = existing || {};
   return {
@@ -145,6 +173,7 @@ function normalizeAnnualComparisonInput(input, existing) {
 
 function sanitizeCollectionItem(root, item, existing) {
   if (root === 'durur') return normalizeDururInput(item, existing);
+  if (root === 'durur-reference') return normalizeDururReferenceInput(item, existing);
   if (root === 'season-events') return normalizeSeasonEventInput(item, existing);
   if (root === 'station-dur-profiles') return normalizeStationDurProfileInput(item, existing);
   if (root === 'station-dur-overrides') return normalizeStationDurOverrideInput(item, existing);
@@ -155,12 +184,23 @@ function sanitizeCollectionItem(root, item, existing) {
 async function readCollection(root) {
   const key = getCollectionKey(root);
   if (!key) return null;
-  return await readJsonFile(key, []);
+  const data = await readJsonFile(key, []);
+  if (key === 'durur_reference_seed') {
+    if (data && Array.isArray(data.durur_master)) return data.durur_master;
+    return [];
+  }
+  return data;
 }
 
 async function writeCollection(root, rows) {
   const key = getCollectionKey(root);
   if (!key) return null;
+  if (key === 'durur_reference_seed') {
+    const existing = await readJsonFile(key, { metadata: {}, zodiac_seasons: {}, season_events: [], general_traits: [], durur_order: [], durur_master: [] });
+    const next = Object.assign({}, existing, { durur_master: rows });
+    await writeJsonFile(key, next);
+    return;
+  }
   await writeJsonFile(key, rows);
 }
 
@@ -375,7 +415,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
-  const collectionRoots = ['durur', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons'];
+  const collectionRoots = ['durur', 'durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons'];
   if (collectionRoots.includes(root)) {
     return handleCollection(root);
   }

@@ -20,6 +20,7 @@
   var latestSummaryCache = null;
   var latestFeedbackCache = [];
   var dururCache = [];
+  var dururReferenceCache = [];
   var seasonEventsCache = [];
   var stationProfilesCache = [];
   var stationOverridesCache = [];
@@ -117,6 +118,11 @@
 
   function getEl(id) {
     return document.getElementById(id);
+  }
+
+  function safeInput(value, maxLen) {
+    if (value == null) return '';
+    return String(value).trim().slice(0, maxLen || 1000);
   }
 
   function dateKey(d) {
@@ -761,6 +767,7 @@
       loadUsers(),
       loadFeedback(),
       loadDururData(),
+      loadDururReferenceData(),
       loadSeasonEvents(),
       loadStationProfiles(),
       loadStationOverrides(),
@@ -801,11 +808,11 @@
   }
 
   function setDururTab(tabId) {
-    ['dururDurTab', 'seasonEventsTab', 'referenceStationsTab', 'dururAnalysisTab'].forEach(function (id) {
+    ['dururDurTab', 'dururReferenceTab', 'seasonEventsTab', 'referenceStationsTab', 'dururAnalysisTab'].forEach(function (id) {
       var panel = getEl(id);
       if (panel) panel.classList.toggle('active', id === tabId);
     });
-    ['dururDurTabBtn', 'seasonEventsTabBtn', 'referenceStationsTabBtn', 'dururAnalysisTabBtn'].forEach(function (btnId) {
+    ['dururDurTabBtn', 'dururReferenceTabBtn', 'seasonEventsTabBtn', 'referenceStationsTabBtn', 'dururAnalysisTabBtn'].forEach(function (btnId) {
       var btn = getEl(btnId);
       if (btn) btn.classList.toggle('active', btnId === tabId + 'Btn');
     });
@@ -863,6 +870,197 @@
     } catch (e) {
       console.error('[durur] load failed', e);
     }
+  }
+
+  function getDururReferenceStatusLabel(status) {
+    if (status === 'approved') return 'معتمد';
+    if (status === 'reviewed') return 'مراجع';
+    if (status === 'draft') return 'مسودة';
+    return 'غير معروف';
+  }
+
+  function filterDururReferenceItems() {
+    var query = getEl('dururReferenceSearch') ? String(getEl('dururReferenceSearch').value || '').trim().toLowerCase() : '';
+    var status = getEl('dururReferenceStatusFilter') ? String(getEl('dururReferenceStatusFilter').value || 'all') : 'all';
+    var onlyReady = getEl('dururReferenceOverrideReady') ? getEl('dururReferenceOverrideReady').checked : false;
+    return dururReferenceCache.filter(function (item) {
+      if (status !== 'all' && String(item.review_status || 'draft') !== status) return false;
+      if (onlyReady && !item.local_override_ready) return false;
+      if (query) {
+        var text = '' + (item.name_ar || '') + ' ' + (item.description || '') + ' ' + (item.notes || '');
+        if (text.toLowerCase().indexOf(query) < 0) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderDururReferenceTable() {
+    var body = getEl('dururReferenceBody');
+    if (!body) return;
+    var rows = filterDururReferenceItems();
+    body.innerHTML = '';
+    rows.forEach(function (item, idx) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
+        '<td>' + (item.name_ar || '--') + '</td>' +
+        '<td>' + (item.dur_number || '--') + '</td>' +
+        '<td>' + getDururReferenceStatusLabel(item.review_status) + '</td>' +
+        '<td>' + ((item.local_override_ready || false) ? 'نعم' : 'لا') + '</td>' +
+        '<td><div class="inline-actions"><button class="small-btn" data-action="edit-durur-reference" data-id="' + (item.id || '') + '">تعديل</button><button class="small-btn danger" data-action="delete-durur-reference" data-id="' + (item.id || '') + '">حذف</button></div></td>';
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('button[data-action="edit-durur-reference"]').forEach(function (btn) {
+      btn.addEventListener('click', function () { fillDururReferenceForm(btn.getAttribute('data-id')); });
+    });
+    body.querySelectorAll('button[data-action="delete-durur-reference"]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        if (!window.confirm('حذف المرجع نهائياً؟')) return;
+        await apiFetch('/api/admin/durur-reference/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
+        await loadDururReferenceData();
+      });
+    });
+  }
+
+  function fillDururReferenceForm(id) {
+    var item = dururReferenceCache.find(function (row) { return row.id === id; });
+    if (!item) return;
+    if (getEl('dururReferenceId')) getEl('dururReferenceId').value = item.id || '';
+    if (getEl('dururReferenceNumber')) getEl('dururReferenceNumber').value = item.dur_number || '';
+    if (getEl('dururReferenceName')) getEl('dururReferenceName').value = item.name_ar || '';
+    if (getEl('dururReferenceSeason')) getEl('dururReferenceSeason').value = item.season_ar || '';
+    if (getEl('dururReferenceZodiac')) getEl('dururReferenceZodiac').value = item.zodiac_ar || '';
+    if (getEl('dururReferenceStatus')) getEl('dururReferenceStatus').value = item.review_status || 'draft';
+    if (getEl('dururReferenceExpertReview')) getEl('dururReferenceExpertReview').checked = !!item.needs_expert_review;
+    if (getEl('dururReferenceLocalReady')) getEl('dururReferenceLocalReady').checked = !!item.local_override_ready;
+    if (getEl('dururReferenceWeatherTraits')) getEl('dururReferenceWeatherTraits').value = Array.isArray(item.weather_traits) ? item.weather_traits.join(',') : '';
+    if (getEl('dururReferenceMarineTraits')) getEl('dururReferenceMarineTraits').value = Array.isArray(item.marine_traits) ? item.marine_traits.join(',') : '';
+    if (getEl('dururReferenceFishTraits')) getEl('dururReferenceFishTraits').value = Array.isArray(item.fish_traits) ? item.fish_traits.join(',') : '';
+    if (getEl('dururReferenceRelatedEvents')) getEl('dururReferenceRelatedEvents').value = Array.isArray(item.related_events) ? item.related_events.join(',') : '';
+    if (getEl('dururReferenceNotes')) getEl('dururReferenceNotes').value = item.notes || '';
+    setDururReferenceStatusMessage('جارٍ تحرير الدر المرجعي: ' + (item.name_ar || item.id || '--'), false);
+  }
+
+  function clearDururReferenceForm() {
+    if (getEl('dururReferenceId')) getEl('dururReferenceId').value = '';
+    if (getEl('dururReferenceNumber')) getEl('dururReferenceNumber').value = '';
+    if (getEl('dururReferenceName')) getEl('dururReferenceName').value = '';
+    if (getEl('dururReferenceSeason')) getEl('dururReferenceSeason').value = '';
+    if (getEl('dururReferenceZodiac')) getEl('dururReferenceZodiac').value = '';
+    if (getEl('dururReferenceStatus')) getEl('dururReferenceStatus').value = 'draft';
+    if (getEl('dururReferenceExpertReview')) getEl('dururReferenceExpertReview').checked = false;
+    if (getEl('dururReferenceLocalReady')) getEl('dururReferenceLocalReady').checked = false;
+    if (getEl('dururReferenceWeatherTraits')) getEl('dururReferenceWeatherTraits').value = '';
+    if (getEl('dururReferenceMarineTraits')) getEl('dururReferenceMarineTraits').value = '';
+    if (getEl('dururReferenceFishTraits')) getEl('dururReferenceFishTraits').value = '';
+    if (getEl('dururReferenceRelatedEvents')) getEl('dururReferenceRelatedEvents').value = '';
+    if (getEl('dururReferenceNotes')) getEl('dururReferenceNotes').value = '';
+    setDururReferenceStatusMessage('تم تفريغ النموذج.', false);
+  }
+
+  function readDururReferenceForm() {
+    return {
+      id: safeInput(getEl('dururReferenceId') ? getEl('dururReferenceId').value : '', 80),
+      dur_number: Number(getEl('dururReferenceNumber') ? getEl('dururReferenceNumber').value : 0) || 0,
+      name_ar: safeInput(getEl('dururReferenceName') ? getEl('dururReferenceName').value : '', 120),
+      season_ar: safeInput(getEl('dururReferenceSeason') ? getEl('dururReferenceSeason').value : '', 120),
+      zodiac_ar: safeInput(getEl('dururReferenceZodiac') ? getEl('dururReferenceZodiac').value : '', 120),
+      review_status: getEl('dururReferenceStatus') ? getEl('dururReferenceStatus').value : 'draft',
+      needs_expert_review: getEl('dururReferenceExpertReview') ? getEl('dururReferenceExpertReview').checked : false,
+      local_override_ready: getEl('dururReferenceLocalReady') ? getEl('dururReferenceLocalReady').checked : false,
+      weather_traits: (getEl('dururReferenceWeatherTraits') ? getEl('dururReferenceWeatherTraits').value : '').split(',').map(function (v) { return String(v || '').trim(); }).filter(Boolean),
+      marine_traits: (getEl('dururReferenceMarineTraits') ? getEl('dururReferenceMarineTraits').value : '').split(',').map(function (v) { return String(v || '').trim(); }).filter(Boolean),
+      fish_traits: (getEl('dururReferenceFishTraits') ? getEl('dururReferenceFishTraits').value : '').split(',').map(function (v) { return String(v || '').trim(); }).filter(Boolean),
+      related_events: (getEl('dururReferenceRelatedEvents') ? getEl('dururReferenceRelatedEvents').value : '').split(',').map(function (v) { return String(v || '').trim(); }).filter(Boolean),
+      notes: safeInput(getEl('dururReferenceNotes') ? getEl('dururReferenceNotes').value : '', 800),
+      is_active: true
+    };
+  }
+
+  function setDururReferenceStatusMessage(message, isError) {
+    var statusEl = getEl('dururReferenceStatusMessage');
+    if (!statusEl) return;
+    statusEl.textContent = message || '';
+    statusEl.style.color = isError ? '#d32f2f' : '#333';
+  }
+
+  async function loadDururReferenceData() {
+    try {
+      var res = await apiFetch('/api/admin/durur-reference', { method: 'GET' });
+      if (!res.ok) throw new Error('durur_reference_load_failed');
+      var data = await res.json();
+      dururReferenceCache = Array.isArray(data.items) ? data.items : [];
+      renderDururReferenceTable();
+    } catch (e) {
+      console.error('[durur-reference] load failed', e);
+      dururReferenceCache = [];
+    }
+  }
+
+  async function saveDururReferenceForm() {
+    try {
+      var payload = readDururReferenceForm();
+      var endpoint = '/api/admin/durur-reference';
+      if (payload.id) {
+        endpoint += '/' + encodeURIComponent(payload.id);
+      }
+      var method = payload.id ? 'PUT' : 'POST';
+      var res = await apiFetch(endpoint, { method: method, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('durur_reference_save_failed');
+      await loadDururReferenceData();
+      setDururReferenceStatusMessage('تم حفظ المرجع بنجاح.', false);
+    } catch (e) {
+      console.error('[durur-reference] save failed', e);
+      setDururReferenceStatusMessage('فشل حفظ المرجع.', true);
+    }
+  }
+
+  async function updateDururReferenceStatus(id, status) {
+    try {
+      var item = dururReferenceCache.find(function (row) { return row.id === id; });
+      if (!item) {
+        setDururReferenceStatusMessage('لم يتم العثور على در مرجعي للتحويل.', true);
+        return;
+      }
+      var payload = {
+        id: item.id,
+        dur_number: item.dur_number,
+        name_ar: item.name_ar,
+        season_ar: item.season_ar,
+        zodiac_ar: item.zodiac_ar,
+        description: item.description,
+        heritage_meaning: item.heritage_meaning,
+        weather_traits: item.weather_traits || [],
+        marine_traits: item.marine_traits || [],
+        fish_traits: item.fish_traits || [],
+        general_traits: item.general_traits || [],
+        related_events: item.related_events || [],
+        review_status: status,
+        notes: item.notes || '',
+        needs_expert_review: item.needs_expert_review || false,
+        local_override_ready: item.local_override_ready || false,
+        is_active: item.is_active != null ? item.is_active : true,
+        created_at: item.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        reviewed_at: status === 'reviewed' ? new Date().toISOString() : item.reviewed_at || null,
+        approved_at: status === 'approved' ? new Date().toISOString() : (status === 'draft' ? null : item.approved_at || null)
+      };
+      var res = await apiFetch('/api/admin/durur-reference/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('durur_reference_status_failed');
+      await loadDururReferenceData();
+      setDururReferenceStatusMessage('تم تحديث حالة المراجعة إلى ' + getDururReferenceStatusLabel(status) + '.', false);
+    } catch (e) {
+      console.error('[durur-reference] status update failed', e);
+      setDururReferenceStatusMessage('فشل تحديث حالة المراجعة.', true);
+    }
+  }
+
+  async function markSelectedDururReferenceStatus(status) {
+    var id = getEl('dururReferenceId') ? getEl('dururReferenceId').value : '';
+    if (!id) {
+      setDururReferenceStatusMessage('اختر در مرجعي أولاً.', true);
+      return;
+    }
+    await updateDururReferenceStatus(id, status);
   }
 
   async function loadSeasonEvents() {
@@ -2816,6 +3014,7 @@
 
     var dururTabButtons = [
       {id:'dururDurTabBtn', tab:'dururDurTab'},
+      {id:'dururReferenceTabBtn', tab:'dururReferenceTab'},
       {id:'seasonEventsTabBtn', tab:'seasonEventsTab'},
       {id:'referenceStationsTabBtn', tab:'referenceStationsTab'},
       {id:'dururAnalysisTabBtn', tab:'dururAnalysisTab'}
@@ -2833,6 +3032,25 @@
       var el = getEl(id);
       if (el) el.addEventListener('change', applyDururFilters);
     });
+
+    var dururReferenceSearch = getEl('dururReferenceSearch');
+    if (dururReferenceSearch) dururReferenceSearch.addEventListener('input', renderDururReferenceTable);
+    var dururReferenceStatusFilter = getEl('dururReferenceStatusFilter');
+    if (dururReferenceStatusFilter) dururReferenceStatusFilter.addEventListener('change', renderDururReferenceTable);
+    var dururReferenceOverrideReady = getEl('dururReferenceOverrideReady');
+    if (dururReferenceOverrideReady) dururReferenceOverrideReady.addEventListener('change', renderDururReferenceTable);
+
+    var saveDururReferenceBtn = getEl('saveDururReferenceBtn');
+    var clearDururReferenceBtn = getEl('clearDururReferenceBtn');
+    var markDururReferenceReviewedBtn = getEl('markDururReferenceReviewedBtn');
+    var markDururReferenceApprovedBtn = getEl('markDururReferenceApprovedBtn');
+    var resetDururReferenceDraftBtn = getEl('resetDururReferenceDraftBtn');
+
+    if (saveDururReferenceBtn) saveDururReferenceBtn.addEventListener('click', saveDururReferenceForm);
+    if (clearDururReferenceBtn) clearDururReferenceBtn.addEventListener('click', clearDururReferenceForm);
+    if (markDururReferenceReviewedBtn) markDururReferenceReviewedBtn.addEventListener('click', function () { markSelectedDururReferenceStatus('reviewed'); });
+    if (markDururReferenceApprovedBtn) markDururReferenceApprovedBtn.addEventListener('click', function () { markSelectedDururReferenceStatus('approved'); });
+    if (resetDururReferenceDraftBtn) resetDururReferenceDraftBtn.addEventListener('click', function () { markSelectedDururReferenceStatus('draft'); });
 
     ['analysisStationFilter','analysisDurFilter','analysisYearFilter'].forEach(function (id) {
       var el = getEl(id);

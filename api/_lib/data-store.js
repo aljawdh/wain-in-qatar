@@ -17,6 +17,7 @@ const FILES = {
   tracking: 'tracking.json',
   catch_logs: 'catch_logs.json',
   durur: 'durur.json',
+  durur_reference_seed: 'durur_reference_seed.json',
   season_events: 'season_events.json',
   station_dur_profiles: 'station_dur_profiles.json',
   station_dur_overrides: 'station_dur_overrides.json',

@@ -384,6 +384,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <div class="section-subtitle">لوحة إدارة الدرور والأحداث الموسمية والمحطات المرجعية مع خريطة تفاعلية وفلاتر سريعة.</div>
             <div class="admin-tab-row" id="dururTabRow">
               <button id="dururDurTabBtn" class="active" type="button">إدارة الدرور</button>
+              <button id="dururReferenceTabBtn" type="button">مراجعة المرجع</button>
               <button id="seasonEventsTabBtn" type="button">الأحداث الموسمية</button>
               <button id="referenceStationsTabBtn" type="button">المحطات المرجعية</button>
               <button id="dururAnalysisTabBtn" type="button">تحليل الدرور</button>
@@ -439,6 +440,56 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                   <thead><tr><th>#</th><th>الاسم</th><th>رقم الدر</th><th>التواريخ</th><th>الحالة</th><th>إجراءات</th></tr></thead>
                   <tbody id="dururBody"></tbody>
                 </table>
+              </div>
+            </div>
+
+            <div id="dururReferenceTab" class="durur-tab-panel">
+              <div class="durur-panel">
+                <h5>مراجعة مرجع الدرور</h5>
+                <div class="section-subtitle">تحكم في حالة مراجعة كل در مرجعي قبل اعتماده في النظام النهائي.</div>
+                <div class="admin-form-grid">
+                  <div class="admin-field"><label>بحث بالاسم</label><input id="dururReferenceSearch" type="text" placeholder="ابحث في أسماء الدرور"></div>
+                  <div class="admin-field"><label>حالة المراجعة</label><select id="dururReferenceStatusFilter"><option value="all">الكل</option><option value="draft">مسودة</option><option value="reviewed">مراجع</option><option value="approved">معتمد</option></select></div>
+                  <div class="admin-field"><label>جاهز للتعويض المحلي</label><div class="admin-switch"><input type="checkbox" id="dururReferenceOverrideReady"><label for="dururReferenceOverrideReady">نعم</label></div></div>
+                </div>
+              </div>
+              <div class="durur-map-row">
+                <div class="durur-map-card" style="flex:1;">
+                  <div class="table-wrap">
+                    <table class="admin-table">
+                      <thead><tr><th>#</th><th>الاسم</th><th>الدر</th><th>الحالة</th><th>جاهز محلي</th><th>إجراءات</th></tr></thead>
+                      <tbody id="dururReferenceBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="durur-details" style="flex:1;">
+                  <h5>تفاصيل الدر المرجعي</h5>
+                  <div class="admin-form-grid">
+                    <div class="admin-field"><label>ID</label><input id="dururReferenceId" type="text" placeholder="dur_01"></div>
+                    <div class="admin-field"><label>رقم الدر</label><input id="dururReferenceNumber" type="number" min="1"></div>
+                    <div class="admin-field full"><label>اسم الدر</label><input id="dururReferenceName" type="text"></div>
+                    <div class="admin-field"><label>الموسم</label><input id="dururReferenceSeason" type="text"></div>
+                    <div class="admin-field"><label>البروج</label><input id="dururReferenceZodiac" type="text"></div>
+                    <div class="admin-field"><label>حالة المراجعة</label><select id="dururReferenceStatus"><option value="draft">مسودة</option><option value="reviewed">مراجع</option><option value="approved">معتمد</option></select></div>
+                    <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="dururReferenceExpertReview"><label for="dururReferenceExpertReview">يحتاج مراجعة خبير</label></div></div>
+                    <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="dururReferenceLocalReady"><label for="dururReferenceLocalReady">جاهز تعريف محلي</label></div></div>
+                    <div class="admin-field full"><label>سمات الطقس (CSV)</label><input id="dururReferenceWeatherTraits" type="text" placeholder="برد,رطوبة"></div>
+                    <div class="admin-field full"><label>سمات البحر (CSV)</label><input id="dururReferenceMarineTraits" type="text" placeholder="هادئ,مضطرب"></div>
+                    <div class="admin-field full"><label>سمات السمك (CSV)</label><input id="dururReferenceFishTraits" type="text" placeholder="سلمون,سردين"></div>
+                    <div class="admin-field full"><label>الأحداث المرتبطة (CSV IDs)</label><input id="dururReferenceRelatedEvents" type="text" placeholder="event_suhail,event_habayeb"></div>
+                    <div class="admin-field full"><label>ملاحظات</label><textarea id="dururReferenceNotes"></textarea></div>
+                  </div>
+                  <div class="settings-actions">
+                    <button class="settings-btn" id="saveDururReferenceBtn">حفظ المرجع</button>
+                    <button class="settings-btn secondary" id="clearDururReferenceBtn">تفريغ النموذج</button>
+                  </div>
+                  <div class="settings-actions">
+                    <button class="settings-btn" id="markDururReferenceReviewedBtn">وضع كمراجع</button>
+                    <button class="settings-btn" id="markDururReferenceApprovedBtn">اعتماد</button>
+                    <button class="settings-btn secondary" id="resetDururReferenceDraftBtn">إعادة إلى مسودة</button>
+                  </div>
+                  <div class="settings-status" id="dururReferenceStatusMessage"></div>
+                </div>
               </div>
             </div>
 
