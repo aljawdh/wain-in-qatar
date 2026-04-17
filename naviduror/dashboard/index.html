@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NAVIDUROR Dashboard</title>
+  <link rel="stylesheet" href="/naviduror/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+eFZgW2v0FH0J0z0CszR2QibnY6aAac1A6qbu0L+I=" crossorigin="" />
+</head>
+<body>
+  <div class="naviduror-shell">
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-mark">N</div>
+        <div>
+          <div class="topbar-title">NAVIDUROR</div>
+          <div class="topbar-subtitle">نظام معايرة وتحليل الدرور</div>
+        </div>
+      </div>
+      <div class="toolbar-actions">
+        <div class="user-pill">
+          <span class="user-icon">👤</span>
+          <span id="currentUserName">المستخدم غير مسجل</span>
+        </div>
+        <button id="logoutBtn" class="secondary-btn">تسجيل خروج</button>
+      </div>
+    </header>
+
+    <section class="action-strip">
+      <div class="filter-group">
+        <label>نوع المحطة</label>
+        <select id="stationTypeFilter">
+          <option value="all">الكل</option>
+          <option value="primary_reference">رئيسية مرجعية</option>
+          <option value="secondary_linked">تابعة</option>
+          <option value="latlon_band_station">مرتبطة بخطوط</option>
+          <option value="active">نشطة</option>
+          <option value="inactive">غير نشطة</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>الدر الحالي</label>
+        <select id="durFilter"><option value="all">الكل</option></select>
+      </div>
+      <div class="filter-group">
+        <label>العام</label>
+        <select id="yearFilter"><option value="all">الكل</option></select>
+      </div>
+      <div class="filter-group">
+        <label>حدث موسمي</label>
+        <select id="seasonEventFilter"><option value="all">الكل</option></select>
+      </div>
+      <div class="filter-group search-group">
+        <label>بحث محطة</label>
+        <input id="stationSearch" type="search" placeholder="ابحث باسم المحطة...">
+      </div>
+      <button id="recalculateBtn" class="primary-btn">إعادة حساب</button>
+    </section>
+
+    <section class="map-panel">
+      <div class="map-meta-row">
+        <div class="meta-card"><span>المحطات</span><strong id="summaryStations">0</strong></div>
+        <div class="meta-card"><span>الدرور</span><strong id="summaryDurCount">0</strong></div>
+        <div class="meta-card"><span>الأحداث</span><strong id="summaryEvents">0</strong></div>
+        <div class="meta-card"><span>الدر الحالي اليوم</span><strong id="summaryTodayDur">...</strong></div>
+        <div class="meta-card"><span>المحطة المختارة</span><strong id="summarySelectedStation">لا توجد</strong></div>
+      </div>
+      <div id="navidurorMap" class="map-view"></div>
+      <div class="map-legend">
+        <div><span class="legend-chip red"></span> رئيسية مرجعية</div>
+        <div><span class="legend-chip yellow"></span> تابعة</div>
+        <div><span class="legend-chip orange"></span> مرتبطة بخطوط</div>
+      </div>
+    </section>
+
+    <section class="info-grid">
+      <article class="card card-wide" id="stationIdentityCard">
+        <div class="card-head"><h2>هوية المحطة</h2></div>
+        <div class="card-body" id="identityBody">اختر محطة من الخريطة لعرض البيانات.</div>
+      </article>
+      <article class="card" id="durCalibrationCard">
+        <div class="card-head"><h2>معايرة الدر</h2></div>
+        <div class="card-body">
+          <div class="form-row">
+            <label for="calibDurSelect">اختر الدر</label>
+            <select id="calibDurSelect"></select>
+          </div>
+          <div class="form-row split-row">
+            <div>
+              <label for="calibStartMonth">بداية الدر (شهر)</label>
+              <input id="calibStartMonth" type="number" min="1" max="12">
+            </div>
+            <div>
+              <label for="calibStartDay">بداية الدر (يوم)</label>
+              <input id="calibStartDay" type="number" min="1" max="31">
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="calibDaysCount">عدد أيام الدر</label>
+            <input id="calibDaysCount" type="number" min="1">
+          </div>
+          <div class="info-block" id="calibSummaryArea"></div>
+          <div class="button-row">
+            <button id="calibSaveBtn" class="primary-btn">حفظ المعايرة</button>
+            <button id="calibResetBtn" class="secondary-btn">إعادة ضبط</button>
+          </div>
+          <div id="calibStatus" class="status-line"></div>
+        </div>
+      </article>
+      <article class="card" id="traitsCard">
+        <div class="card-head"><h2>سمات الدر</h2></div>
+        <div class="card-body">
+          <div class="trait-group" data-group="general">
+            <div class="trait-head"><span>وصف عام</span><button class="small-btn" type="button" data-action="addTrait" data-group="general">إضافة</button></div>
+            <div id="traitGroup-general" class="trait-list"></div>
+            <input id="traitInput-general" class="trait-input" placeholder="أضف سمة عامة" type="text">
+          </div>
+          <div class="trait-group" data-group="weather">
+            <div class="trait-head"><span>سمات الطقس</span><button class="small-btn" type="button" data-action="addTrait" data-group="weather">إضافة</button></div>
+            <div id="traitGroup-weather" class="trait-list"></div>
+            <input id="traitInput-weather" class="trait-input" placeholder="أضف سمة طقس" type="text">
+          </div>
+          <div class="trait-group" data-group="marine">
+            <div class="trait-head"><span>سمات البحر</span><button class="small-btn" type="button" data-action="addTrait" data-group="marine">إضافة</button></div>
+            <div id="traitGroup-marine" class="trait-list"></div>
+            <input id="traitInput-marine" class="trait-input" placeholder="أضف سمة بحر" type="text">
+          </div>
+          <div class="trait-group" data-group="fish">
+            <div class="trait-head"><span>سمات الصيد</span><button class="small-btn" type="button" data-action="addTrait" data-group="fish">إضافة</button></div>
+            <div id="traitGroup-fish" class="trait-list"></div>
+            <input id="traitInput-fish" class="trait-input" placeholder="أضف سمة صيد" type="text">
+          </div>
+          <div class="trait-group" data-group="heritage">
+            <div class="trait-head"><span>إشارات محلية</span><button class="small-btn" type="button" data-action="addTrait" data-group="heritage">إضافة</button></div>
+            <div id="traitGroup-heritage" class="trait-list"></div>
+            <input id="traitInput-heritage" class="trait-input" placeholder="أضف ملاحظة محلية" type="text">
+          </div>
+        </div>
+      </article>
+      <article class="card" id="notesCard">
+        <div class="card-head"><h2>ملاحظات الخبراء</h2></div>
+        <div class="card-body">
+          <div class="form-row full-row">
+            <label for="expertLocalNotes">الملاحظات المحلية</label>
+            <textarea id="expertLocalNotes" rows="4" placeholder="ملاحظات من الميدان"></textarea>
+          </div>
+          <div class="form-row full-row">
+            <label for="expertSummaryNotes">ملاحظات الخبراء</label>
+            <textarea id="expertSummaryNotes" rows="4" placeholder="تفسير ومراجعة الدر"></textarea>
+          </div>
+          <div class="form-row full-row">
+            <label for="expertInterpretation">تفسير</label>
+            <textarea id="expertInterpretation" rows="3" placeholder="تفسير الدلائل الحالية"></textarea>
+          </div>
+          <div class="form-row full-row">
+            <label for="expertCorrectionNotes">ملاحظات التصحيح</label>
+            <textarea id="expertCorrectionNotes" rows="3" placeholder="أي حاجة لتعديل الدر"></textarea>
+          </div>
+        </div>
+      </article>
+      <article class="card card-wide" id="distributionCard">
+        <div class="card-head"><h2>معاينة التوزيع الجغرافي</h2></div>
+        <div class="card-body">
+          <div class="info-block" id="distributionSummary">التوزيع يعتمد على الموقع الجغرافي، النوع، والمحطة المرجعية.</div>
+          <div id="distributionPreview"></div>
+        </div>
+      </article>
+      <article class="card card-wide" id="validationCard">
+        <div class="card-head"><h2>التحقق السنوي</h2></div>
+        <div class="card-body">
+          <div class="info-row"><span>السنة المختارة:</span><strong id="validationYearLabel">...</strong></div>
+          <div class="info-row"><span>حالة التحقق:</span><strong id="validationStatusLabel">...</strong></div>
+          <div class="info-row"><span>درجة التطابق:</span><strong id="validationScoreLabel">...</strong></div>
+          <div class="validation-chips" id="validationTraitsExpected"></div>
+          <div class="validation-chips" id="validationTraitsObserved"></div>
+          <div class="info-block" id="validationSummaryText">اختر محطة وسنة لعرض التحليل.</div>
+          <div class="trend-block" id="validationTrend"></div>
+        </div>
+      </article>
+    </section>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/naviduror/dashboard.js"></script>
+</body>
+</html>
