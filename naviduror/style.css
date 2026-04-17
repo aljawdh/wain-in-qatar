@@ -140,7 +140,7 @@ button {
 
 .action-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
   gap: 10px;
   margin-bottom: 12px;
   align-items: end;
@@ -210,7 +210,7 @@ button {
 
 .map-view {
   width: 100%;
-  min-height: 640px;
+  height: clamp(420px, 52vh, 760px);
   border-radius: 16px;
   overflow: hidden;
 }
@@ -515,11 +515,11 @@ textarea {
 
 @media (max-width: 1100px) {
   .action-strip {
-    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
   }
 
   .filter-group.search-group {
-    grid-column: span 2;
+    grid-column: span 3;
   }
 
   #stationIdentityCard,
@@ -532,11 +532,25 @@ textarea {
   }
 }
 
+@media (max-width: 850px) {
+  .action-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-group.search-group {
+    grid-column: span 2;
+  }
+
+  .map-view {
+    height: clamp(380px, 50vh, 520px);
+  }
+}
+
 @media (max-width: 720px) {
   .topbar,
   .card,
   .map-panel {
-    padding: 16px;
+    padding: 12px;
   }
 
   .map-meta-row {
@@ -545,5 +559,17 @@ textarea {
 
   .action-strip {
     grid-template-columns: 1fr;
+  }
+
+  .map-view {
+    height: clamp(320px, 44vh, 440px);
+  }
+
+  .info-grid {
+    gap: 10px;
+  }
+
+  .card {
+    padding: 12px;
   }
 }

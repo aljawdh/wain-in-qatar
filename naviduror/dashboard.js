@@ -449,11 +449,14 @@
         controls.calibSummaryArea.textContent = 'انقر على محطة لمعايرة أو استخدم زر إعادة الحساب لبدء التقييم.';
       }
     });
+    map.whenReady(function () {
+      resizeMap();
+    });
   }
 
   function resizeMap() {
     if (map) {
-      map.invalidateSize();
+      map.invalidateSize(true);
     }
   }
 
@@ -592,6 +595,7 @@
       } else {
         map.setView([25.3, 51.3], 5);
       }
+      requestAnimationFrame(resizeMap);
     }
   }
 
