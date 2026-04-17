@@ -45,9 +45,9 @@ button {
 }
 
 .naviduror-shell {
-  width: min(1280px, 100%);
+  width: min(1180px, 100%);
   margin: 0 auto;
-  padding: 18px 16px 40px;
+  padding: 16px 14px 32px;
 }
 
 .topbar {
@@ -55,12 +55,12 @@ button {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-  padding: 18px 22px;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding: 14px 18px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow: var(--shadow);
 }
 
@@ -140,9 +140,9 @@ button {
 
 .action-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
   align-items: end;
 }
 
@@ -160,7 +160,7 @@ button {
 .filter-group input,
 .filter-group select {
   width: 100%;
-  min-height: 42px;
+  min-height: 38px;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -176,22 +176,22 @@ button {
   position: relative;
   background: var(--panel-strong);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow);
-  padding: 18px;
-  margin-bottom: 18px;
+  padding: 14px;
+  margin-bottom: 14px;
 }
 
 .map-meta-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .meta-card {
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 14px;
@@ -210,8 +210,8 @@ button {
 
 .map-view {
   width: 100%;
-  min-height: 520px;
-  border-radius: 18px;
+  min-height: 640px;
+  border-radius: 16px;
   overflow: hidden;
 }
 
@@ -242,15 +242,15 @@ button {
 .info-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 14px;
+  gap: 12px;
 }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: 14px;
 }
 
 .card-wide {
@@ -265,18 +265,18 @@ button {
 #validationCard { grid-column: span 8; }
 
 .card-head {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .card-head h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.98rem;
 }
 
 .card-body {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .form-row {

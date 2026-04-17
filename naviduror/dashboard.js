@@ -575,6 +575,24 @@
       marker.addTo(stationLayer);
     });
     updateHeaderSummary();
+
+    if (map) {
+      var visibleLayers = stationLayer.getLayers().filter(function (layer) {
+        return layer && typeof layer.getLatLng === 'function';
+      });
+      if (visibleLayers.length) {
+        var bounds = L.latLngBounds(visibleLayers.map(function (layer) {
+          return layer.getLatLng();
+        }));
+        if (visibleLayers.length === 1) {
+          map.setView(bounds.getCenter(), 7);
+        } else if (!selectedStation) {
+          map.fitBounds(bounds.pad(0.16), { maxZoom: 8 });
+        }
+      } else {
+        map.setView([25.3, 51.3], 5);
+      }
+    }
   }
 
   function getNearestPrimaryForStation(station) {
