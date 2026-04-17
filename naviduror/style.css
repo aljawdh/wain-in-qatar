@@ -246,9 +246,9 @@ button {
 
 .action-strip {
   display: grid;
-  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   align-items: end;
 }
 
@@ -266,16 +266,16 @@ button {
 .filter-group input,
 .filter-group select {
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text);
 }
 
 .filter-group.search-group {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .map-panel {
@@ -285,13 +285,13 @@ button {
   border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow);
-  padding: 14px;
+  padding: 12px;
   margin-bottom: 14px;
 }
 
 .map-meta-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  grid-template-columns: repeat(3, minmax(110px, 1fr));
   gap: 10px;
   margin-bottom: 12px;
 }
@@ -301,6 +301,7 @@ button {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 14px;
+  min-height: 84px;
 }
 
 .meta-card span {
@@ -316,89 +317,123 @@ button {
 
 .map-view {
   width: 100%;
-  height: clamp(420px, 52vh, 760px);
-  border-radius: 16px;
+  height: clamp(340px, 46vh, 620px);
+  border-radius: 14px;
   overflow: hidden;
 }
 
 .map-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px 14px;
-  margin-top: 14px;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.18);
+  gap: 10px;
+  padding: 8px 10px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.legend-chip {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-left: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+.dashboard-content {
+  display: grid;
+  gap: 14px;
 }
 
-.legend-chip.red { background: #ff5252; }
-.legend-chip.yellow { background: #f8c146; }
-.legend-chip.orange { background: #ff8c00; }
-
-.info-grid {
+.dashboard-top-row,
+.dashboard-bottom-row,
+.dashboard-aux-row {
   display: grid;
-  grid-template-columns: repeat(12, 1fr);
   gap: 12px;
+}
+
+.dashboard-top-row {
+  grid-template-columns: minmax(300px, 1.5fr) minmax(240px, 1fr);
+  align-items: start;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-bottom-row {
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+}
+
+.dashboard-aux-row {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.station-summary-card {
+  min-height: 220px;
+}
+
+.compact-card {
+  padding: 12px;
+}
+
+.compact-card .card-body,
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: var(--shadow);
-  padding: 14px;
+  padding: 12px;
 }
-
-.card-wide {
-  grid-column: span 12;
-}
-
-#stationIdentityCard { grid-column: span 4; }
-#durCalibrationCard { grid-column: span 4; }
-#traitsCard { grid-column: span 4; }
-#notesCard { grid-column: span 4; }
-#distributionCard { grid-column: span 8; }
-#validationCard { grid-column: span 8; }
 
 .card-head {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .card-head h2 {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 1rem;
 }
 
-.card-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.trait-group {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px;
 }
 
-.form-row {
+.trait-list {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.form-row.full-row {
-  width: 100%;
+.info-block {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.split-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.validation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 input[type="text"], input[type="password"], input[type="number"], input[type="search"], select, textarea {
@@ -412,6 +447,49 @@ input[type="text"], input[type="password"], input[type="number"], input[type="se
 
 textarea {
   resize: vertical;
+}
+
+@media (max-width: 980px) {
+  .naviduror-shell {
+    padding: 12px 12px 24px;
+  }
+
+  .topbar {
+    padding: 12px 14px;
+  }
+
+  .dashboard-top-row,
+  .dashboard-bottom-row,
+  .dashboard-aux-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .map-view {
+    height: clamp(320px, 42vh, 560px);
+  }
+}
+
+@media (max-width: 680px) {
+  .action-strip,
+  .nv-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 10px;
+  }
+
+  .map-view {
+    min-height: 280px;
+  }
 }
 
 .login-shell {
@@ -596,9 +674,6 @@ textarea {
   color: var(--muted);
   font-size: 0.95rem;
 }
-  gap: 10px;
-}
-
 .trend-block {
   padding: 14px 16px;
   border-radius: 16px;
@@ -621,16 +696,18 @@ textarea {
 
 @media (max-width: 1100px) {
   .nv-filter-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-  .nv-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .nv-compact-grid {
+  .dashboard-top-row,
+  .dashboard-bottom-row,
+  .dashboard-aux-row {
     grid-template-columns: 1fr;
   }
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .nv-map-view {
-    height: clamp(340px, 48vh, 520px);
+    height: clamp(320px, 50vh, 620px);
   }
 }
 
@@ -641,8 +718,13 @@ textarea {
   .nv-filter-panel {
     padding-bottom: 10px;
   }
+  .dashboard-top-row,
+  .dashboard-bottom-row,
+  .dashboard-aux-row {
+    grid-template-columns: 1fr;
+  }
   .nv-map-view {
-    height: clamp(340px, 45vh, 520px);
+    height: clamp(320px, 48vh, 560px);
   }
 }
 
@@ -650,21 +732,28 @@ textarea {
   .nv-dashboard {
     gap: 10px;
   }
+  .naviduror-shell {
+    width: 100%;
+    padding: 12px 10px 22px;
+  }
+  .topbar,
   .nv-filter-panel,
   .nv-map-panel,
   .nv-section-card {
     padding: 10px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
   .nv-filter-grid,
-  .nv-summary-grid,
-  .nv-field-grid {
+  .stats-grid,
+  .dashboard-top-row,
+  .dashboard-bottom-row,
+  .dashboard-aux-row {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
   }
   .nv-map-view {
-    height: 360px;
-    min-height: 360px;
+    height: 320px;
+    min-height: 320px;
     border-radius: 12px;
   }
   .nv-map-legend {
