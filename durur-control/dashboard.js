@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function initMap() {
-    if (!map || !mapElement) return;
+    if (map || !mapElement) return;
     map = L.map(mapElement, { zoomControl: true }).setView([24.7, 50.5], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
