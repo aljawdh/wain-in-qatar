@@ -247,9 +247,14 @@
   }
 
   function getStationCoords(station) {
+    if (!station) {
+      return { lat: NaN, lon: NaN };
+    }
+    var latValue = station.lat || station.latitude || (station.location && station.location.lat) || (station.latlng && station.latlng.lat) || (station.location && station.location.latitude) || null;
+    var lonValue = station.lon || station.longitude || (station.location && station.location.lng) || (station.latlng && station.latlng.lng) || (station.location && station.location.longitude) || station.lng || null;
     return {
-      lat: Number(station.lat || station.latitude || (station.location && station.location.lat) || station.latlng || 0),
-      lon: Number(station.lon || station.longitude || (station.location && station.location.lng) || station.lng || 0)
+      lat: Number(latValue),
+      lon: Number(lonValue)
     };
   }
 
@@ -474,11 +479,30 @@
 
   function createMap() {
     if (map) return;
+    var container = getEl('navidurorMap');
+    if (!container) {
+      if (document.readyState !== 'complete') {
+        window.addEventListener('load', createMap, { once: true });
+        return;
+      }
+      setTimeout(createMap, 50);
+      return;
+    }
+    if (!container.offsetWidth || !container.offsetHeight) {
+      requestAnimationFrame(function () {
+        setTimeout(createMap, 80);
+      });
+      return;
+    }
     map = L.map('navidurorMap', { zoomControl: true, attributionControl: false }).setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    var tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+    tileLayer.on('load', function () {
+      resizeMap();
+      setTimeout(resizeMap, 300);
+    });
     stationLayer = L.layerGroup().addTo(map);
     map.on('click', function (event) {
       if (controls.calibSummaryArea) {
@@ -491,10 +515,15 @@
     setTimeout(resizeMap, 300);
     window.addEventListener('resize', resizeMap);
     window.addEventListener('orientationchange', function () {
-      setTimeout(resizeMap, 300);
+      resizeMap();
+      setTimeout(resizeMap, 320);
     });
     map.whenReady(function () {
       resizeMap();
+      setTimeout(resizeMap, 300);
+      if (stations && stations.length) {
+        renderStationMarkers();
+      }
     });
   }
 
@@ -799,6 +828,7 @@
       marker.addTo(stationLayer);
     });
     updateHeaderSummary();
+    resizeMap();
 
     if (map) {
       var visibleLayers = stationLayer.getLayers().filter(function (layer) {
