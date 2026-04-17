@@ -25,13 +25,19 @@ document.addEventListener('DOMContentLoaded', function () {
   var map = null;
   var stations = [];
   var selectedStation = null;
-  var stationMarkers = [];
+  var stationMarkerLayer = null;
+  var stationMarkerMap = null;
 
   var stationInfoBody = document.getElementById('stationInfoBody');
-  var mapElement = document.getElementById('dururMap');
+  var mapElement = document.getElementById('stationMap');
 
   function formatValue(value) {
     return value ? value : 'غير معروف';
+  }
+
+  function getStationId(station) {
+    if (!station) return '';
+    return station.id || station.station_id || station.code || station.name || '';
   }
 
   function updateStationInfo() {
@@ -47,74 +53,61 @@ document.addEventListener('DOMContentLoaded', function () {
       '<div class="info-row"><span>station_id:</span><strong>' + formatValue(selectedStation.id || selectedStation.station_id || selectedStation.code) + '</strong></div>' +
       '<div class="info-row"><span>الدولة:</span><strong>' + formatValue(selectedStation.country) + '</strong></div>' +
       '<div class="info-row"><span>المنطقة:</span><strong>' + formatValue(selectedStation.region) + '</strong></div>' +
-      '<div class="info-row"><span>الإحداثيات:</span><strong>' + formatValue(selectedStation.lat) + ' , ' + formatValue(selectedStation.lon) + '</strong></div>' +
+      '<div class="info-row"><span>الإحداثيات:</span><strong>' + formatValue(selectedStation.lat || selectedStation.latitude || selectedStation.location?.lat || selectedStation.latlng) + ' , ' + formatValue(selectedStation.lon || selectedStation.longitude || selectedStation.location?.lng || selectedStation.lng) + '</strong></div>' +
       '<div class="info-row"><span>نوع المحطة:</span><strong>' + typeValue + '</strong></div>';
 
     stationInfoBody.innerHTML = info;
   }
 
-  function getMarkerColor(station) {
-    var typeValue = (station.station_role_type || station.type || station.stationType || '').toString();
-    if (typeValue === 'primary_reference') return '#ff5252';
-    if (typeValue === 'secondary_linked') return '#f8c146';
-    if (typeValue === 'latlon_band_station') return '#ff8c00';
-    return '#63d8ff';
+  function getMarkerStyle(station) {
+    var selected = selectedStation && String(getStationId(selectedStation)) === String(getStationId(station));
+    return {
+      radius: selected ? 9 : 6,
+      color: selected ? '#7ae2ff' : '#9ad9ff',
+      fillColor: selected ? '#27beff' : '#0f5f8f',
+      fillOpacity: selected ? 0.95 : 0.75,
+      weight: selected ? 2 : 1
+    };
   }
 
-  function clearMarkers() {
-    stationMarkers.forEach(function (entry) {
-      if (entry.marker && map) {
-        map.removeLayer(entry.marker);
-      }
-    });
-    stationMarkers = [];
+  function getStationCoords(station) {
+    return {
+      lat: Number(station.lat || station.latitude || (station.location && station.location.lat) || station.latlng),
+      lon: Number(station.lon || station.longitude || (station.location && station.location.lng) || station.lng)
+    };
   }
 
-  function handleStationClick(station, marker) {
+  function focusStationOnMap(station) {
+    if (!map || !station) return;
+    var coords = getStationCoords(station);
+    if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
+    map.flyTo([coords.lat, coords.lon], 8, { duration: 0.6 });
+    renderStationsOnMap();
+  }
+
+  function handleStationClick(station) {
     selectedStation = station;
-    stationMarkers.forEach(function (entry) {
-      entry.marker.setStyle({ weight: 1, radius: 8 });
-    });
-    marker.setStyle({ weight: 2, radius: 10 });
     updateStationInfo();
-    if (map && station.lat && station.lon) {
-      map.setView([station.lat, station.lon], Math.max(map.getZoom(), 8));
-    }
+    focusStationOnMap(station);
   }
 
   function renderStationsOnMap() {
-    if (!map || !Array.isArray(stations)) return;
-    clearMarkers();
+    if (!map || !stationMarkerLayer || !Array.isArray(stations)) return;
+    stationMarkerLayer.clearLayers();
+    stationMarkerMap = new Map();
 
     stations.forEach(function (station) {
-      var lat = Number(station.lat || station.latitude || (station.location && station.location.lat));
-      var lon = Number(station.lon || station.longitude || (station.location && station.location.lng));
-      if (!isFinite(lat) || !isFinite(lon)) return;
+      var coords = getStationCoords(station);
+      if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
 
-      var marker = L.circleMarker([lat, lon], {
-        radius: 8,
-        color: '#ffffff',
-        weight: 1,
-        fillColor: getMarkerColor(station),
-        fillOpacity: 0.95
-      }).addTo(map);
-
+      var marker = L.circleMarker([coords.lat, coords.lon], getMarkerStyle(station));
+      marker.bindPopup('<strong>' + formatValue(station.name || station.stationName || station.title) + '</strong><br>' + formatValue(station.country));
       marker.on('click', function () {
-        handleStationClick(station, marker);
+        handleStationClick(station);
       });
-      marker.bindTooltip(formatValue(station.name || station.stationName || station.title), {
-        direction: 'top',
-        offset: [0, -10],
-        opacity: 0.9
-      });
-
-      stationMarkers.push({ station: station, marker: marker });
+      marker.addTo(stationMarkerLayer);
+      stationMarkerMap.set(getStationId(station) || coords.lat + ',' + coords.lon, marker);
     });
-
-    if (stationMarkers.length) {
-      var group = L.featureGroup(stationMarkers.map(function (item) { return item.marker; }));
-      map.fitBounds(group.getBounds().pad(0.15));
-    }
   }
 
   function loadStations() {
@@ -134,11 +127,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function initMap() {
     if (map || !mapElement) return;
-    map = L.map(mapElement, { zoomControl: true }).setView([24.7, 50.5], 5);
+    map = L.map(mapElement, { zoomControl: true, attributionControl: false }).setView([24.7, 50.5], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      maxZoom: 19
     }).addTo(map);
+    stationMarkerLayer = L.layerGroup().addTo(map);
+    stationMarkerMap = new Map();
   }
 
   initMap();
