@@ -52,6 +52,10 @@ function getCollectionKey(root) {
   if (root === 'station-dur-profiles') return 'station_dur_profiles';
   if (root === 'station-dur-overrides') return 'station_dur_overrides';
   if (root === 'annual-comparisons') return 'annual_comparisons';
+  if (root === 'durur-master') return 'durur_master';
+  if (root === 'trait-dictionaries') return 'trait_dictionaries';
+  if (root === 'fish-season-tags') return 'fish_season_tags';
+  if (root === 'advice-basis-tags') return 'advice_basis_tags';
   return null;
 }
 
@@ -82,18 +86,102 @@ function normalizeSeasonEventInput(input, existing) {
   const base = existing || {};
   return {
     id: cleanString(base.id || input.id || createId('season_event'), 80),
-    name: cleanString(input.name != null ? input.name : base.name, 120),
-    start_month: Number.isFinite(Number(input.start_month)) ? Number(input.start_month) : Number(base.start_month) || 1,
-    start_day: Number.isFinite(Number(input.start_day)) ? Number(input.start_day) : Number(base.start_day) || 1,
-    end_month: Number.isFinite(Number(input.end_month)) ? Number(input.end_month) : Number(base.end_month) || 1,
-    end_day: Number.isFinite(Number(input.end_day)) ? Number(input.end_day) : Number(base.end_day) || 1,
-    days_count: Number.isFinite(Number(input.days_count)) ? Number(input.days_count) : Number(base.days_count) || 0,
-    description: cleanString(input.description != null ? input.description : base.description, 800),
+    name_ar: cleanString(input.name_ar != null ? input.name_ar : base.name_ar, 120),
+    name_en: cleanString(input.name_en != null ? input.name_en : base.name_en, 120),
+    category: cleanString(input.category != null ? input.category : base.category, 120),
+    description_ar: cleanString(input.description_ar != null ? input.description_ar : base.description_ar, 800),
+    description_en: cleanString(input.description_en != null ? input.description_en : base.description_en, 800),
+    start_hint: {
+      month: Number.isFinite(Number(input.start_hint?.month)) ? Number(input.start_hint.month) : (base.start_hint?.month ?? null),
+      day: Number.isFinite(Number(input.start_hint?.day)) ? Number(input.start_hint.day) : (base.start_hint?.day ?? null)
+    },
+    end_hint: {
+      month: Number.isFinite(Number(input.end_hint?.month)) ? Number(input.end_hint.month) : (base.end_hint?.month ?? null),
+      day: Number.isFinite(Number(input.end_hint?.day)) ? Number(input.end_hint.day) : (base.end_hint?.day ?? null)
+    },
+    days_count_hint: Number.isFinite(Number(input.days_count_hint)) ? Number(input.days_count_hint) : (Number(base.days_count_hint) || null),
     related_dur_ids: Array.isArray(input.related_dur_ids) ? input.related_dur_ids.map((v) => cleanString(v, 80)).filter(Boolean) : (Array.isArray(base.related_dur_ids) ? base.related_dur_ids : []),
-    traits: Array.isArray(input.traits) ? input.traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits) ? base.traits : []),
+    weather_traits: Array.isArray(input.weather_traits) ? input.weather_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.weather_traits) ? base.weather_traits : []),
+    marine_traits: Array.isArray(input.marine_traits) ? input.marine_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.marine_traits) ? base.marine_traits : []),
+    fish_traits: Array.isArray(input.fish_traits) ? input.fish_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.fish_traits) ? base.fish_traits : []),
     is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
     created_at: base.created_at || nowIso(),
     updated_at: nowIso()
+  };
+}
+
+function normalizeDururMasterInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('dur'), 80),
+    dur_number: Number.isFinite(Number(input.dur_number)) ? Number(input.dur_number) : Number(base.dur_number) || 0,
+    name_ar: cleanString(input.name_ar != null ? input.name_ar : base.name_ar, 120),
+    name_en: cleanString(input.name_en != null ? input.name_en : base.name_en, 120),
+    order_index: Number.isFinite(Number(input.order_index)) ? Number(input.order_index) : Number(base.order_index) || 0,
+    default_days_count: Number.isFinite(Number(input.default_days_count)) ? Number(input.default_days_count) : Number(base.default_days_count) || 13,
+    gregorian_window_hint: {
+      start_month: Number.isFinite(Number(input.gregorian_window_hint?.start_month)) ? Number(input.gregorian_window_hint.start_month) : (base.gregorian_window_hint?.start_month ?? null),
+      start_day: Number.isFinite(Number(input.gregorian_window_hint?.start_day)) ? Number(input.gregorian_window_hint.start_day) : (base.gregorian_window_hint?.start_day ?? null),
+      end_month: Number.isFinite(Number(input.gregorian_window_hint?.end_month)) ? Number(input.gregorian_window_hint.end_month) : (base.gregorian_window_hint?.end_month ?? null),
+      end_day: Number.isFinite(Number(input.gregorian_window_hint?.end_day)) ? Number(input.gregorian_window_hint.end_day) : (base.gregorian_window_hint?.end_day ?? null)
+    },
+    season_ar: cleanString(input.season_ar != null ? input.season_ar : base.season_ar, 120),
+    season_en: cleanString(input.season_en != null ? input.season_en : base.season_en, 120),
+    astronomical_marker_ar: cleanString(input.astronomical_marker_ar != null ? input.astronomical_marker_ar : base.astronomical_marker_ar, 120),
+    astronomical_marker_en: cleanString(input.astronomical_marker_en != null ? input.astronomical_marker_en : base.astronomical_marker_en, 120),
+    heritage_meaning_ar: cleanString(input.heritage_meaning_ar != null ? input.heritage_meaning_ar : base.heritage_meaning_ar, 800),
+    heritage_meaning_en: cleanString(input.heritage_meaning_en != null ? input.heritage_meaning_en : base.heritage_meaning_en, 800),
+    general_traits: Array.isArray(input.general_traits) ? input.general_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.general_traits) ? base.general_traits : []),
+    weather_traits: Array.isArray(input.weather_traits) ? input.weather_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.weather_traits) ? base.weather_traits : []),
+    marine_traits: Array.isArray(input.marine_traits) ? input.marine_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.marine_traits) ? base.marine_traits : []),
+    fish_traits: Array.isArray(input.fish_traits) ? input.fish_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.fish_traits) ? base.fish_traits : []),
+    related_event_ids: Array.isArray(input.related_event_ids) ? input.related_event_ids.map((v) => cleanString(v, 80)).filter(Boolean) : (Array.isArray(base.related_event_ids) ? base.related_event_ids : []),
+    notes_ar: cleanString(input.notes_ar != null ? input.notes_ar : base.notes_ar, 1200),
+    notes_en: cleanString(input.notes_en != null ? input.notes_en : base.notes_en, 1200),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    created_at: base.created_at || nowIso(),
+    updated_at: nowIso()
+  };
+}
+
+function normalizeTraitDictionaryInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('trait'), 80),
+    category: cleanString(input.category != null ? input.category : base.category, 120),
+    name_ar: cleanString(input.name_ar != null ? input.name_ar : base.name_ar, 120),
+    name_en: cleanString(input.name_en != null ? input.name_en : base.name_en, 120),
+    description_ar: cleanString(input.description_ar != null ? input.description_ar : base.description_ar, 800),
+    description_en: cleanString(input.description_en != null ? input.description_en : base.description_en, 800),
+    severity_hint: input.severity_hint != null ? cleanString(input.severity_hint, 60) : (base.severity_hint != null ? cleanString(base.severity_hint, 60) : null),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true)
+  };
+}
+
+function normalizeFishSeasonTagInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('fish_tag'), 80),
+    name_ar: cleanString(input.name_ar != null ? input.name_ar : base.name_ar, 120),
+    name_en: cleanString(input.name_en != null ? input.name_en : base.name_en, 120),
+    category: cleanString(input.category != null ? input.category : base.category, 120),
+    description_ar: cleanString(input.description_ar != null ? input.description_ar : base.description_ar, 800),
+    description_en: cleanString(input.description_en != null ? input.description_en : base.description_en, 800),
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true)
+  };
+}
+
+function normalizeAdviceBasisTagInput(input, existing) {
+  const base = existing || {};
+  return {
+    id: cleanString(base.id || input.id || createId('advice_basis'), 80),
+    category: cleanString(input.category != null ? input.category : base.category, 120),
+    name_ar: cleanString(input.name_ar != null ? input.name_ar : base.name_ar, 120),
+    name_en: cleanString(input.name_en != null ? input.name_en : base.name_en, 120),
+    description_ar: cleanString(input.description_ar != null ? input.description_ar : base.description_ar, 800),
+    description_en: cleanString(input.description_en != null ? input.description_en : base.description_en, 800),
+    priority: Number.isFinite(Number(input.priority)) ? Number(input.priority) : Number(base.priority) || 1,
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true)
   };
 }
 
@@ -113,7 +201,9 @@ function normalizeStationDurProfileInput(input, existing) {
     traits_weather: Array.isArray(input.traits_weather) ? input.traits_weather.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits_weather) ? base.traits_weather : []),
     traits_marine: Array.isArray(input.traits_marine) ? input.traits_marine.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits_marine) ? base.traits_marine : []),
     traits_fish: Array.isArray(input.traits_fish) ? input.traits_fish.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits_fish) ? base.traits_fish : []),
+    traits_fish_season: Array.isArray(input.traits_fish_season) ? input.traits_fish_season.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits_fish_season) ? base.traits_fish_season : []),
     traits_heritage: Array.isArray(input.traits_heritage) ? input.traits_heritage.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits_heritage) ? base.traits_heritage : []),
+    traits_seasonal_transition_traits: Array.isArray(input.traits_seasonal_transition_traits) ? input.traits_seasonal_transition_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.traits_seasonal_transition_traits) ? base.traits_seasonal_transition_traits : []),
     advice_tags: Array.isArray(input.advice_tags) ? input.advice_tags.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.advice_tags) ? base.advice_tags : []),
     notes_local: cleanString(input.notes_local != null ? input.notes_local : base.notes_local, 1200),
     notes_expert: cleanString(input.notes_expert != null ? input.notes_expert : base.notes_expert, 1200),
@@ -195,6 +285,10 @@ function sanitizeCollectionItem(root, item, existing) {
   if (root === 'station-dur-profiles') return normalizeStationDurProfileInput(item, existing);
   if (root === 'station-dur-overrides') return normalizeStationDurOverrideInput(item, existing);
   if (root === 'annual-comparisons') return normalizeAnnualComparisonInput(item, existing);
+  if (root === 'durur-master') return normalizeDururMasterInput(item, existing);
+  if (root === 'trait-dictionaries') return normalizeTraitDictionaryInput(item, existing);
+  if (root === 'fish-season-tags') return normalizeFishSeasonTagInput(item, existing);
+  if (root === 'advice-basis-tags') return normalizeAdviceBasisTagInput(item, existing);
   return item;
 }
 
@@ -432,7 +526,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
-  const collectionRoots = ['durur', 'durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons'];
+  const collectionRoots = ['durur', 'durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons', 'durur-master', 'trait-dictionaries', 'fish-season-tags', 'advice-basis-tags'];
   if (collectionRoots.includes(root)) {
     return handleCollection(root);
   }
