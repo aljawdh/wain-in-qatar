@@ -605,6 +605,105 @@
     return list.slice(0, limit || 6);
   }
 
+  function getStationReferenceId(station) {
+    if (!station) return '';
+    return String(station.reference_station_id || station.referenceStationId || station.reference_id || station.ref_station_id || '').trim();
+  }
+
+  function getStationPrimaryGroupId(station) {
+    if (!station) return '';
+    var stationId = getStationId(station);
+    var role = getStationRoleType(station);
+    if (role === 'primary_reference') return stationId;
+    var explicitRef = getStationReferenceId(station);
+    if (explicitRef) return explicitRef;
+    var nearest = getNearestPrimaryForStation(station);
+    return nearest && nearest.station ? getStationId(nearest.station) : '';
+  }
+
+  function getRelationBasisLabel(other, selected, selectedPrimaryId) {
+    var otherRefId = getStationReferenceId(other);
+    var otherPrimaryId = getStationPrimaryGroupId(other);
+    if (otherRefId && otherRefId === getStationId(selected)) return 'تابعة مباشرة';
+    if (selectedPrimaryId && otherPrimaryId && selectedPrimaryId === otherPrimaryId) return 'نفس المرجع الرئيسي';
+    if (getStationRoleType(other) === getStationRoleType(selected)) return 'نفس نوع الدور';
+    return 'قرب جغرافي';
+  }
+
+  function getCalibrationPreviewValues(calibration) {
+    if (!calibration) return null;
+    var dur = getDurById(calibration.durId) || getCurrentDurForDate(new Date());
+    var startMonth = parseNumber(calibration.startMonth, 0);
+    var startDay = parseNumber(calibration.startDay, 0);
+    var startDate = (startMonth && startDay) ? new Date(Date.UTC(currentYear, startMonth - 1, startDay, 0, 0, 0)) : getDurStartTimestamp(dur, currentYear) || new Date();
+    var daysCount = parseNumber(calibration.daysCount, dur ? parseNumber(dur.default_days_count, parseNumber(dur.days_count, 30)) : 30);
+    var endDate = new Date(startDate.getTime() + (Math.max(1, daysCount) * 24 * 60 * 60 * 1000));
+    var currentDate = new Date();
+    var daysRemaining = daysBetween(currentDate, endDate);
+    return {
+      dur: dur,
+      nextDur: getNextDur(dur),
+      startDate: startDate,
+      daysCount: daysCount,
+      daysRemaining: daysRemaining
+    };
+  }
+
+  function formatPreviewDate(date) {
+    if (!date || !(date instanceof Date) || !isFinite(date.getTime())) return '--';
+    return date.getUTCDate() + '/' + (date.getUTCMonth() + 1);
+  }
+
+  function getRelatedStations(selected, limit) {
+    if (!selected) return [];
+    var selectedId = getStationId(selected);
+    var selectedRole = getStationRoleType(selected);
+    var selectedRefId = getStationReferenceId(selected);
+    var selectedPrimaryId = getStationPrimaryGroupId(selected);
+    var selectedCoords = getStationCoords(selected);
+    var candidates = stations.filter(function (item) { return getStationId(item) !== selectedId; }).map(function (item) {
+      var role = item.role_type || getStationRoleType(item);
+      var distanceKm = getDistanceKm(selectedCoords, getStationCoords(item));
+      var otherRefId = getStationReferenceId(item);
+      var otherPrimaryId = getStationPrimaryGroupId(item);
+      var score = 0;
+      if (otherRefId && otherRefId === selectedId) score += 10;
+      if (selectedRefId && otherRefId && selectedRefId === otherRefId) score += 8;
+      if (selectedPrimaryId && otherPrimaryId && selectedPrimaryId === otherPrimaryId) score += 6;
+      if (selectedRole === 'primary_reference' && role === 'secondary_linked' && otherPrimaryId === selectedId) score += 5;
+      if (role === selectedRole) score += 2;
+      if (distanceKm <= 90) score += 1;
+      return {
+        station: item,
+        role: role,
+        distanceKm: distanceKm,
+        referenceId: otherRefId,
+        primaryId: otherPrimaryId,
+        score: score
+      };
+    });
+    var explicit = candidates.filter(function (item) {
+      return item.score >= 3;
+    });
+    if (!explicit.length) {
+      explicit = candidates.filter(function (item) {
+        return item.primaryId === selectedPrimaryId && selectedPrimaryId;
+      });
+    }
+    if (!explicit.length && selectedRole === 'primary_reference') {
+      explicit = candidates.filter(function (item) {
+        return item.role === 'secondary_linked' && item.distanceKm <= 90;
+      });
+    }
+    if (!explicit.length) {
+      return [];
+    }
+    return explicit.sort(function (a, b) {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.distanceKm - b.distanceKm;
+    }).slice(0, limit || 6);
+  }
+
   function getComparisonRecord(stationId, durId, year) {
     return comparisonsCache.find(function (record) {
       return record.station_id === stationId && record.dur_id === durId && Number(record.year) === Number(year);
@@ -821,22 +920,46 @@
   function renderDistributionPreview() {
     if (!controls.distributionPreview) return;
     if (!selectedStation) {
+      if (controls.distributionSummary) {
+        controls.distributionSummary.textContent = 'اختر محطة لعرض معاينة التوزيع الجغرافي.';
+      }
       controls.distributionPreview.innerHTML = '<p>اختر محطة لعرض تأثير المعايرة على المحطات الأخرى.</p>';
       return;
     }
-    var derived = getDerivedStations(selectedStation, 6);
-    if (!derived.length) {
+    var calibration = getStationCalibration(selectedStation);
+    var hasSavedCalibration = calibration && calibration.savedProfileId;
+    var related = getRelatedStations(selectedStation, 6);
+    if (!hasSavedCalibration) {
+      if (controls.distributionSummary) {
+        controls.distributionSummary.innerHTML = '<div class="distribution-summary-card"><div class="info-row"><span>المحطة المحددة:</span><strong>' + (selectedStation.name || getStationId(selectedStation)) + '</strong></div><div class="info-row"><span>دور المحطة:</span><strong>' + getRoleLabel(selectedStation.role_type || getStationRoleType(selectedStation)) + '</strong></div><div class="info-row"><span>عدد المحطات المرتبطة:</span><strong>0</strong></div></div>';
+      }
+      controls.distributionPreview.innerHTML = '<p>لم يتم حفظ معايرة لهذه المحطة بعد.</p>';
+      return;
+    }
+    var preview = getCalibrationPreviewValues(calibration);
+    if (!related.length) {
+      if (controls.distributionSummary) {
+        controls.distributionSummary.innerHTML = '<div class="distribution-summary-card"><div class="info-row"><span>المحطة المحددة:</span><strong>' + (selectedStation.name || getStationId(selectedStation)) + '</strong></div><div class="info-row"><span>الدور:</span><strong>' + getRoleLabel(selectedStation.role_type || getStationRoleType(selectedStation)) + '</strong></div><div class="info-row"><span>الدر المشتق:</span><strong>' + getDurLabel(preview.dur) + '</strong></div><div class="info-row"><span>بداية الدر:</span><strong>' + formatPreviewDate(preview.startDate) + '</strong></div><div class="info-row"><span>أيام الدر:</span><strong>' + preview.daysCount + '</strong></div><div class="info-row"><span>عدد المحطات المرتبطة:</span><strong>0</strong></div></div>';
+      }
       controls.distributionPreview.innerHTML = '<p>لا توجد محطات مرتبطة كافية للعرض.</p>';
       return;
     }
-    var html = '<div class="info-row" style="font-weight:700; margin-bottom:10px;"><span>المحطة</span><strong>الدور</strong></div>';
-    derived.forEach(function (item) {
-      var currentDur = getCurrentDurForDate(new Date());
-      var nextDur = getNextDur(currentDur);
-      html += '<div class="info-row"><span>' + (item.station.name || getStationId(item.station)) + '</span><strong>' + getRoleLabel(item.role) + '</strong></div>' +
-        '<div class="info-row" style="font-size:0.95rem; color:var(--muted);"><span>المسافة:</span><strong>' + item.distanceKm.toFixed(1) + ' كم</strong></div>';
-    });
-    controls.distributionPreview.innerHTML = html;
+    if (controls.distributionSummary) {
+      controls.distributionSummary.innerHTML = '<div class="distribution-summary-card"><div class="info-row"><span>المحطة المحددة:</span><strong>' + (selectedStation.name || getStationId(selectedStation)) + '</strong></div><div class="info-row"><span>الدور:</span><strong>' + getRoleLabel(selectedStation.role_type || getStationRoleType(selectedStation)) + '</strong></div><div class="info-row"><span>الدر المشتق:</span><strong>' + getDurLabel(preview.dur) + '</strong></div><div class="info-row"><span>بداية الدر:</span><strong>' + formatPreviewDate(preview.startDate) + '</strong></div><div class="info-row"><span>أيام الدر:</span><strong>' + preview.daysCount + '</strong></div><div class="info-row"><span>عدد المحطات المرتبطة:</span><strong>' + related.length + '</strong></div></div>';
+    }
+    var itemsHtml = related.map(function (item) {
+      var relationLabel = getRelationBasisLabel(item.station, selectedStation, getStationPrimaryGroupId(selectedStation));
+      return '<div class="distribution-preview-item">' +
+        '<div class="distribution-item-head"><div class="distribution-item-title">' + (item.station.name || getStationId(item.station)) + '</div><div class="distribution-item-role">' + getRoleLabel(item.role) + '</div></div>' +
+        '<div class="distribution-item-row"><span class="distribution-label">المعرف:</span><strong>' + getStationId(item.station) + '</strong></div>' +
+        '<div class="distribution-item-row"><span class="distribution-label">العلاقة:</span><strong>' + relationLabel + '</strong></div>' +
+        '<div class="distribution-item-row"><span class="distribution-label">الدر الحالي:</span><strong>' + getDurLabel(preview.dur) + '</strong></div>' +
+        '<div class="distribution-item-row"><span class="distribution-label">الدر التالي:</span><strong>' + getDurLabel(preview.nextDur) + '</strong></div>' +
+        '<div class="distribution-item-row"><span class="distribution-label">أيام حتى التالي:</span><strong>' + preview.daysRemaining + '</strong></div>' +
+        '<div class="distribution-item-row distribution-distance"><span>المسافة:</span><strong>' + item.distanceKm.toFixed(1) + ' كم</strong></div>' +
+        '</div>';
+    }).join('');
+    controls.distributionPreview.innerHTML = '<div class="distribution-preview-list">' + itemsHtml + '</div>';
   }
 
   function renderValidationPanel() {
