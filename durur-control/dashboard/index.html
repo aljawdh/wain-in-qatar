@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Durur Control</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+4P1D7b4tJ2oleZ7M5KKX0dGuN8s8S8UmtjM/ai3s=" crossorigin="" />
   <link rel="stylesheet" href="../style.css">
 </head>
 <body>
@@ -12,7 +13,7 @@
       <div class="topbar">
         <div>
           <h1>Durur Control</h1>
-          <p style="margin:4px 0 0; color: var(--muted);">لوحة تحكم مستقلة لإدارة الدرور والمحطات المرجعية.</p>
+          <p style="margin:4px 0 0; color: var(--muted);">لوحة تحكم مستقلة لخريطة المحطات.</p>
         </div>
         <div class="top-actions">
           <span class="user-pill">المستخدم: admin</span>
@@ -30,13 +31,21 @@
         </aside>
         <main class="main-panel">
           <div class="main-content">
-            <h2 class="section-title">Dashboard Ready</h2>
-            <div class="placeholder-block">هذه مساحة العرض الرئيسية. في المراحل التالية سيتم ربط المكونات الحقيقية مع البيانات.</div>
+            <div class="map-header">
+              <h2 class="section-title">خريطة المحطات</h2>
+              <p style="margin: 4px 0 0; color: var(--muted);">اضغط على أي محطة لعرض البيانات أسفل الخريطة.</p>
+            </div>
+            <div id="dururMap" class="map-frame"></div>
+            <div id="stationInfoCard" class="station-info-card">
+              <h3>معلومات المحطة</h3>
+              <div id="stationInfoBody" class="station-info-body">اختر محطة من الخريطة</div>
+            </div>
           </div>
         </main>
       </div>
     </div>
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="../dashboard.js"></script>
 </body>
 </html>

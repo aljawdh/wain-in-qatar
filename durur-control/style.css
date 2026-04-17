@@ -214,6 +214,71 @@ button {
   }
 }
 
+.map-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-frame {
+  width: 100%;
+  height: 560px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.14);
+  overflow: hidden;
+  margin-top: 18px;
+  background: #07121d;
+}
+
+.station-info-card {
+  margin-top: 20px;
+  padding: 24px;
+  background: rgba(10, 26, 43, .95);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+}
+
+.station-info-card h3 {
+  margin: 0 0 14px;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.station-info-body {
+  display: grid;
+  gap: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row span {
+  color: var(--muted);
+}
+
+.info-row strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .info-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 560px) {
   .topbar {
     flex-direction: column;
