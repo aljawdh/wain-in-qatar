@@ -3,7 +3,9 @@
   var AUTH_USER_KEY = 'naviduror_user';
 
   var map = null;
+  var tileLayer = null;
   var stationLayer = null;
+  var mapInitAttempts = 0;
   var DEFAULT_GULF_CENTER = [25.3, 51.3];
   var DEFAULT_GULF_ZOOM = 5;
   var stations = [];
@@ -250,8 +252,8 @@
     if (!station) {
       return { lat: NaN, lon: NaN };
     }
-    var latValue = station.lat || station.latitude || (station.location && station.location.lat) || (station.latlng && station.latlng.lat) || (station.location && station.location.latitude) || null;
-    var lonValue = station.lon || station.longitude || (station.location && station.location.lng) || (station.latlng && station.latlng.lng) || (station.location && station.location.longitude) || station.lng || null;
+    var latValue = station.lat != null ? station.lat : station.latitude != null ? station.latitude : station.lng == null && station.latlng && station.latlng.lat != null ? station.latlng.lat : station.location && station.location.lat != null ? station.location.lat : null;
+    var lonValue = station.lon != null ? station.lon : station.longitude != null ? station.longitude : station.latlng && station.latlng.lng != null ? station.latlng.lng : station.location && station.location.lng != null ? station.location.lng : station.lng != null ? station.lng : null;
     return {
       lat: Number(latValue),
       lon: Number(lonValue)
@@ -478,7 +480,6 @@
   }
 
   function createMap() {
-    if (map) return;
     var container = getEl('navidurorMap');
     if (!container) {
       if (document.readyState !== 'complete') {
@@ -488,20 +489,37 @@
       setTimeout(createMap, 50);
       return;
     }
+    if (map) {
+      try {
+        map.off();
+        map.remove();
+      } catch (e) {}
+      map = null;
+      tileLayer = null;
+      if (stationLayer && container) {
+        try {
+          if (map && map.hasLayer(stationLayer)) {
+            map.removeLayer(stationLayer);
+          }
+        } catch (e) {}
+        stationLayer = null;
+      }
+    }
     if (!container.offsetWidth || !container.offsetHeight) {
-      requestAnimationFrame(function () {
-        setTimeout(createMap, 80);
-      });
+      mapInitAttempts = (mapInitAttempts || 0) + 1;
+      if (mapInitAttempts <= 2) {
+        setTimeout(createMap, 120);
+      }
       return;
     }
+    mapInitAttempts = 0;
     map = L.map('navidurorMap', { zoomControl: true, attributionControl: false }).setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
-    var tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
     tileLayer.on('load', function () {
       resizeMap();
-      setTimeout(resizeMap, 300);
     });
     stationLayer = L.layerGroup().addTo(map);
     map.on('click', function (event) {
@@ -512,15 +530,12 @@
       openStationForm(null, event.latlng);
     });
     resizeMap();
-    setTimeout(resizeMap, 300);
     window.addEventListener('resize', resizeMap);
     window.addEventListener('orientationchange', function () {
       resizeMap();
-      setTimeout(resizeMap, 320);
     });
     map.whenReady(function () {
       resizeMap();
-      setTimeout(resizeMap, 300);
       if (stations && stations.length) {
         renderStationMarkers();
       }
@@ -529,13 +544,15 @@
 
   function resizeMap() {
     if (!map) return;
-    requestAnimationFrame(function () {
-      setTimeout(function () {
-        try {
-          map.invalidateSize(true);
-        } catch (e) {}
-      }, 120);
-    });
+    function invalidate() {
+      try {
+        map.invalidateSize(true);
+      } catch (e) {}
+    }
+    invalidate();
+    setTimeout(invalidate, 150);
+    setTimeout(invalidate, 400);
+    setTimeout(invalidate, 800);
   }
 
   function frameMapToStations(markerLayerOrGroup, selectedLatLng) {
@@ -814,8 +831,14 @@
   }
 
   function renderStationMarkers() {
-    if (!stationLayer) return;
-    stationLayer.clearLayers();
+    if (!map) return;
+    if (stationLayer) {
+      try {
+        map.removeLayer(stationLayer);
+      } catch (e) {}
+      stationLayer = null;
+    }
+    stationLayer = L.layerGroup().addTo(map);
     stations.filter(filterStation).forEach(function (station) {
       var coords = getStationCoords(station);
       if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
@@ -830,18 +853,16 @@
     updateHeaderSummary();
     resizeMap();
 
-    if (map) {
-      var visibleLayers = stationLayer.getLayers().filter(function (layer) {
-        return layer && typeof layer.getLatLng === 'function';
-      });
-      if (visibleLayers.length) {
-        frameMapToStations(stationLayer, selectedStation ? L.latLng(getStationCoords(selectedStation).lat, getStationCoords(selectedStation).lon) : null);
-      } else {
-        map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
-        resizeMap();
-        setTimeout(resizeMap, 300);
-      }
+    var visibleLayers = stationLayer.getLayers().filter(function (layer) {
+      return layer && typeof layer.getLatLng === 'function';
+    });
+    if (visibleLayers.length) {
+      frameMapToStations(stationLayer, selectedStation ? L.latLng(getStationCoords(selectedStation).lat, getStationCoords(selectedStation).lon) : null);
+      resizeMap();
+      return;
     }
+    map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+    resizeMap();
   }
 
   function getNearestPrimaryForStation(station) {
