@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+eFZgW2v0FH0J0z0CszR2QibnY6aAac1A6qbu0L+I=" crossorigin="" />
 </head>
 <body>
-  <div class="naviduror-shell">
+  <div class="naviduror-shell nv-dashboard">
     <header class="topbar">
       <div class="brand-group">
         <div class="brand-mark">N</div>
@@ -26,9 +26,10 @@
       </div>
     </header>
 
-    <section class="action-strip">
-      <div class="filter-group">
-        <label>نوع المحطة</label>
+    <section class="action-strip nv-filter-panel">
+      <div class="nv-filter-grid">
+        <div class="filter-group">
+          <label>نوع المحطة</label>
         <select id="stationTypeFilter">
           <option value="all">الكل</option>
           <option value="primary_reference">رئيسية مرجعية</option>
@@ -55,30 +56,34 @@
         <input id="stationSearch" type="search" placeholder="ابحث باسم المحطة...">
       </div>
       <button id="recalculateBtn" class="primary-btn">إعادة حساب</button>
-    </section>
-
-    <section class="map-panel">
-      <div id="navidurorMap" class="map-view"></div>
-      <div class="map-legend">
-        <div><span class="legend-chip red"></span> رئيسية مرجعية</div>
-        <div><span class="legend-chip yellow"></span> تابعة</div>
-        <div><span class="legend-chip orange"></span> مرتبطة بخطوط</div>
       </div>
     </section>
 
-    <section class="info-grid">
-      <div class="map-meta-row">
+    <section class="map-panel nv-map-panel">
+      <div class="nv-map-header">
+        <h2>الخريطة التشغيلية</h2>
+      </div>
+      <div id="navidurorMap" class="map-view nv-map-view"></div>
+      <div class="map-legend nv-map-legend nv-map-legend">
+        <span class="legend-item"><i class="dot dot-primary"></i> محطة رئيسية مرجعية</span>
+        <span class="legend-item"><i class="dot dot-secondary"></i> محطة تابعة</span>
+        <span class="legend-item"><i class="dot dot-band"></i> محطة مرتبطة بخطوط</span>
+      </div>
+    </section>
+
+    <section class="info-grid nv-below-map">
+      <div class="map-meta-row nv-summary-grid">
         <div class="meta-card"><span>المحطات</span><strong id="summaryStations">0</strong></div>
         <div class="meta-card"><span>الدرور</span><strong id="summaryDurCount">0</strong></div>
         <div class="meta-card"><span>الأحداث</span><strong id="summaryEvents">0</strong></div>
         <div class="meta-card"><span>الدر الحالي اليوم</span><strong id="summaryTodayDur">...</strong></div>
         <div class="meta-card"><span>المحطة المختارة</span><strong id="summarySelectedStation">لا توجد</strong></div>
       </div>
-      <article class="card card-wide" id="stationIdentityCard">
+      <article class="card card-wide nv-section-card" id="stationIdentityCard">
         <div class="card-head"><h2>هوية المحطة</h2></div>
         <div class="card-body" id="identityBody">اختر محطة من الخريطة لعرض البيانات.</div>
       </article>
-      <article class="card" id="durCalibrationCard">
+      <article class="card nv-section-card" id="durCalibrationCard">
         <div class="card-head"><h2>معايرة الدر</h2></div>
         <div class="card-body">
           <div class="form-row">
@@ -107,7 +112,7 @@
           <div id="calibStatus" class="status-line"></div>
         </div>
       </article>
-      <article class="card" id="traitsCard">
+      <article class="card nv-section-card" id="traitsCard">
         <div class="card-head"><h2>سمات الدر</h2></div>
         <div class="card-body">
           <div class="trait-group" data-group="general">
@@ -149,7 +154,7 @@
           </div>
         </div>
       </article>
-      <article class="card" id="notesCard">
+      <article class="card nv-section-card" id="notesCard">
         <div class="card-head"><h2>ملاحظات الخبراء</h2></div>
         <div class="card-body">
           <div class="form-row full-row">
@@ -170,14 +175,14 @@
           </div>
         </div>
       </article>
-      <article class="card card-wide" id="distributionCard">
+      <article class="card card-wide nv-section-card" id="distributionCard">
         <div class="card-head"><h2>معاينة التوزيع الجغرافي</h2></div>
         <div class="card-body">
           <div class="info-block" id="distributionSummary">التوزيع يعتمد على الموقع الجغرافي، النوع، والمحطة المرجعية.</div>
           <div id="distributionPreview"></div>
         </div>
       </article>
-      <article class="card card-wide" id="validationCard">
+      <article class="card card-wide nv-section-card" id="validationCard">
         <div class="card-head"><h2>التحقق السنوي</h2></div>
         <div class="card-body">
           <div class="info-row"><span>السنة المختارة:</span><strong id="validationYearLabel">...</strong></div>

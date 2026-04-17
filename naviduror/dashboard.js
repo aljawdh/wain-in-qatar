@@ -4,6 +4,8 @@
 
   var map = null;
   var stationLayer = null;
+  var DEFAULT_GULF_CENTER = [25.3, 51.3];
+  var DEFAULT_GULF_ZOOM = 5;
   var stations = [];
   var dururCache = [];
   var seasonEventsCache = [];
@@ -438,7 +440,7 @@
 
   function createMap() {
     if (map) return;
-    map = L.map('navidurorMap', { zoomControl: true, attributionControl: false }).setView([25.3, 51.3], 5);
+    map = L.map('navidurorMap', { zoomControl: true, attributionControl: false }).setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
@@ -449,15 +451,54 @@
         controls.calibSummaryArea.textContent = 'انقر على محطة لمعايرة أو استخدم زر إعادة الحساب لبدء التقييم.';
       }
     });
+    resizeMap();
+    setTimeout(resizeMap, 300);
+    window.addEventListener('resize', resizeMap);
+    window.addEventListener('orientationchange', function () {
+      setTimeout(resizeMap, 300);
+    });
     map.whenReady(function () {
       resizeMap();
     });
   }
 
   function resizeMap() {
-    if (map) {
-      map.invalidateSize(true);
+    if (!map) return;
+    requestAnimationFrame(function () {
+      setTimeout(function () {
+        try {
+          map.invalidateSize(true);
+        } catch (e) {}
+      }, 120);
+    });
+  }
+
+  function frameMapToStations(markerLayerOrGroup, selectedLatLng) {
+    if (!map) return;
+
+    if (selectedLatLng) {
+      map.setView(selectedLatLng, 8);
+      resizeMap();
+      setTimeout(resizeMap, 300);
+      return;
     }
+
+    try {
+      var bounds = markerLayerOrGroup && markerLayerOrGroup.getBounds ? markerLayerOrGroup.getBounds() : null;
+      if (bounds && bounds.isValid && bounds.isValid()) {
+        map.fitBounds(bounds, {
+          padding: [30, 30],
+          maxZoom: 7
+        });
+        resizeMap();
+        setTimeout(resizeMap, 300);
+        return;
+      }
+    } catch (e) {}
+
+    map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+    resizeMap();
+    setTimeout(resizeMap, 300);
   }
 
   function renderFilters() {
@@ -561,7 +602,9 @@
     if (!station || !map) return;
     var coords = getStationCoords(station);
     if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
-    map.flyTo([coords.lat, coords.lon], 8, { duration: 0.5 });
+    map.setView([coords.lat, coords.lon], 8);
+    resizeMap();
+    setTimeout(resizeMap, 300);
   }
 
   function renderStationMarkers() {
@@ -584,18 +627,12 @@
         return layer && typeof layer.getLatLng === 'function';
       });
       if (visibleLayers.length) {
-        var bounds = L.latLngBounds(visibleLayers.map(function (layer) {
-          return layer.getLatLng();
-        }));
-        if (visibleLayers.length === 1) {
-          map.setView(bounds.getCenter(), 7);
-        } else if (!selectedStation) {
-          map.fitBounds(bounds.pad(0.16), { maxZoom: 8 });
-        }
+        frameMapToStations(stationLayer, selectedStation ? L.latLng(getStationCoords(selectedStation).lat, getStationCoords(selectedStation).lon) : null);
       } else {
-        map.setView([25.3, 51.3], 5);
+        map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+        resizeMap();
+        setTimeout(resizeMap, 300);
       }
-      requestAnimationFrame(resizeMap);
     }
   }
 
