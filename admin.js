@@ -1237,6 +1237,16 @@
 
   function selectDururStation(stationId) {
     selectedDururStationId = stationId;
+    if (!stationId) {
+      if (dururStationMarkers.length) {
+        dururStationMarkers.forEach(function (entry) {
+          if (entry.marker) entry.marker.setStyle({ weight: 1, radius: 8 });
+        });
+      }
+      var target = getEl('dururStationInfoContent');
+      if (target) target.innerHTML = '<div class="durur-empty-state">اختر محطة من الخريطة لعرض معلوماتها هنا.</div>';
+      return;
+    }
     var station = stationsCache.find(function (s) { return s.id === stationId; });
     if (!station) return;
     if (dururAdminMap) {
