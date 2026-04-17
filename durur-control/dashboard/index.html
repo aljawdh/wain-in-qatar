@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Durur Control</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <div class="panel">
+      <div class="topbar">
+        <div>
+          <h1>Durur Control</h1>
+          <p style="margin:4px 0 0; color: var(--muted);">لوحة تحكم مستقلة لإدارة الدرور والمحطات المرجعية.</p>
+        </div>
+        <div class="top-actions">
+          <span class="user-pill">المستخدم: admin</span>
+          <button id="logoutBtn" class="button" style="background: transparent; color: var(--accent); border: 1px solid rgba(91,198,255,.25);">تسجيل خروج</button>
+        </div>
+      </div>
+      <div class="dashboard-layout">
+        <aside class="sidebar">
+          <nav>
+            <a href="#" class="active">المحطات</a>
+            <a href="#">الدرور</a>
+            <a href="#">الأحداث</a>
+            <a href="#">التحليل</a>
+          </nav>
+        </aside>
+        <main class="main-panel">
+          <div class="main-content">
+            <h2 class="section-title">Dashboard Ready</h2>
+            <div class="placeholder-block">هذه مساحة العرض الرئيسية. في المراحل التالية سيتم ربط المكونات الحقيقية مع البيانات.</div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <script src="../dashboard.js"></script>
+</body>
+</html>
