@@ -13,6 +13,26 @@
   var stationOverridesCache = [];
   var comparisonsCache = [];
   var selectedStation = null;
+  var tempStationMarker = null;
+  var editingStation = null;
+  var stationFormState = {
+    isNew: true,
+    originalId: '',
+    card: null,
+    id: null,
+    name: null,
+    lat: null,
+    lon: null,
+    country: null,
+    region: null,
+    roleType: null,
+    referenceId: null,
+    status: null,
+    notes: null,
+    saveBtn: null,
+    cancelBtn: null,
+    statusArea: null
+  };
   var availableTraits = {
     general: [],
     weather: [],
@@ -59,6 +79,20 @@
     validationTraitsObserved: getEl('validationTraitsObserved'),
     validationSummaryText: getEl('validationSummaryText'),
     validationTrend: getEl('validationTrend'),
+    stationFormCard: getEl('stationFormCard'),
+    stationFormId: getEl('stationFormId'),
+    stationFormName: getEl('stationFormName'),
+    stationFormLat: getEl('stationFormLat'),
+    stationFormLon: getEl('stationFormLon'),
+    stationFormCountry: getEl('stationFormCountry'),
+    stationFormRegion: getEl('stationFormRegion'),
+    stationFormRoleType: getEl('stationFormRoleType'),
+    stationFormReferenceId: getEl('stationFormReferenceId'),
+    stationFormStatus: getEl('stationFormStatus'),
+    stationFormNotes: getEl('stationFormNotes'),
+    stationFormSaveBtn: getEl('stationFormSaveBtn'),
+    stationFormCancelBtn: getEl('stationFormCancelBtn'),
+    stationFormFeedback: getEl('stationFormFeedback'),
     traitInputs: {
       general: getEl('traitInput-general'),
       weather: getEl('traitInput-weather'),
@@ -446,10 +480,12 @@
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
     stationLayer = L.layerGroup().addTo(map);
-    map.on('click', function () {
+    map.on('click', function (event) {
       if (controls.calibSummaryArea) {
         controls.calibSummaryArea.textContent = 'انقر على محطة لمعايرة أو استخدم زر إعادة الحساب لبدء التقييم.';
       }
+      if (!event || !event.latlng) return;
+      openStationForm(null, event.latlng);
     });
     resizeMap();
     setTimeout(resizeMap, 300);
@@ -523,6 +559,147 @@
         return '<option value="' + dur.id + '">' + getDurLabel(dur) + '</option>';
       }).join('');
     }
+    if (controls.stationFormCard) {
+      controls.stationFormCard.hidden = true;
+    }
+  }
+
+  function getStationFormPayload() {
+    return {
+      id: controls.stationFormId && String(controls.stationFormId.value || '').trim(),
+      name: controls.stationFormName && String(controls.stationFormName.value || '').trim(),
+      lat: parseNumber(controls.stationFormLat && controls.stationFormLat.value, null),
+      lon: parseNumber(controls.stationFormLon && controls.stationFormLon.value, null),
+      country: controls.stationFormCountry && String(controls.stationFormCountry.value || '').trim(),
+      region: controls.stationFormRegion && String(controls.stationFormRegion.value || '').trim(),
+      station_role_type: controls.stationFormRoleType && String(controls.stationFormRoleType.value || '').trim(),
+      reference_station_id: controls.stationFormReferenceId && String(controls.stationFormReferenceId.value || '').trim(),
+      status: controls.stationFormStatus && String(controls.stationFormStatus.value || '').trim(),
+      notes: controls.stationFormNotes && String(controls.stationFormNotes.value || '').trim()
+    };
+  }
+
+  function setStationFormMessage(message, type) {
+    if (!controls.stationFormFeedback) return;
+    controls.stationFormFeedback.textContent = message || '';
+    controls.stationFormFeedback.style.color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--success)' : 'var(--muted)';
+  }
+
+  function clearStationFormMessage() {
+    if (!controls.stationFormFeedback) return;
+    controls.stationFormFeedback.textContent = '';
+  }
+
+  function hideStationForm() {
+    if (controls.stationFormCard) {
+      controls.stationFormCard.hidden = true;
+    }
+    if (tempStationMarker && map) {
+      try {
+        map.removeLayer(tempStationMarker);
+      } catch (e) {}
+      tempStationMarker = null;
+    }
+    editingStation = null;
+  }
+
+  function openStationForm(station, latlng) {
+    if (!controls.stationFormCard) return;
+    clearStationFormMessage();
+    stationFormState.isNew = !station;
+    editingStation = station || null;
+    stationFormState.originalId = station ? getStationId(station) : '';
+
+    if (station) {
+      controls.stationFormId.value = station.id || '';
+      controls.stationFormName.value = station.name || '';
+      var coords = getStationCoords(station);
+      controls.stationFormLat.value = coords.lat || '';
+      controls.stationFormLon.value = coords.lon || '';
+      controls.stationFormCountry.value = station.country || '';
+      controls.stationFormRegion.value = station.region || '';
+      controls.stationFormRoleType.value = station.station_role_type || station.role_type || 'secondary_linked';
+      controls.stationFormReferenceId.value = station.reference_station_id || station.referenceStationId || '';
+      controls.stationFormStatus.value = station.status || 'active';
+      controls.stationFormNotes.value = station.notes || '';
+    } else {
+      controls.stationFormId.value = '';
+      controls.stationFormName.value = '';
+      controls.stationFormCountry.value = '';
+      controls.stationFormRegion.value = 'gulf';
+      controls.stationFormRoleType.value = 'secondary_linked';
+      controls.stationFormReferenceId.value = '';
+      controls.stationFormStatus.value = 'active';
+      controls.stationFormNotes.value = '';
+      if (latlng) {
+        controls.stationFormLat.value = latlng.lat || '';
+        controls.stationFormLon.value = latlng.lng || latlng.lon || '';
+      }
+    }
+
+    if (controls.stationFormCard) {
+      controls.stationFormCard.hidden = false;
+    }
+
+    if (tempStationMarker && map) {
+      try {
+        map.removeLayer(tempStationMarker);
+      } catch (e) {}
+      tempStationMarker = null;
+    }
+    if (!station && latlng && map) {
+      tempStationMarker = L.circleMarker([latlng.lat, latlng.lng], {
+        radius: 10,
+        color: '#00cc99',
+        fillColor: '#00ffb0',
+        fillOpacity: 0.8,
+        weight: 2
+      }).addTo(map);
+      map.setView([latlng.lat, latlng.lng], 8);
+    }
+  }
+
+  function saveStationForm() {
+    if (!controls.stationFormSaveBtn) return;
+    var payload = getStationFormPayload();
+    if (!payload.name || payload.lat == null || payload.lon == null) {
+      setStationFormMessage('الاسم والإحداثيات مطلوبان.', 'error');
+      return Promise.reject(new Error('validation_failed'));
+    }
+    var isNew = stationFormState.isNew;
+    var endpoint = isNew ? '/api/stations' : '/api/admin/stations/' + encodeURIComponent(stationFormState.originalId || payload.id);
+    var method = isNew ? 'POST' : 'PUT';
+    if (!isNew) {
+      payload.id = stationFormState.originalId || payload.id;
+    }
+    setStationFormMessage(isNew ? 'جارٍ إنشاء المحطة...' : 'جارٍ تحديث المحطة...', '');
+    return apiFetch(endpoint, { method: method, body: payload }).then(function (response) {
+      var station = response && (response.station || response.item || response);
+      if (!station) throw new Error('station_save_failed');
+      if (isNew) {
+        stations.push(station);
+      } else {
+        var idx = stations.findIndex(function (item) { return getStationId(item) === getStationId(station); });
+        if (idx >= 0) {
+          stations[idx] = station;
+        } else {
+          stations.push(station);
+        }
+      }
+      assignStationRoles();
+      renderStationMarkers();
+      selectStation(station);
+      setStationFormMessage('تم حفظ بيانات المحطة بنجاح.', 'success');
+      hideStationForm();
+      return station;
+    }).catch(function (error) {
+      var msg = 'فشل حفظ المحطة. تحقق من البيانات والصلاحيات.';
+      if (error && error.payload && error.payload.error) {
+        msg = String(error.payload.error);
+      }
+      setStationFormMessage(msg, 'error');
+      throw error;
+    });
   }
 
   function getCurrentDurSummary() {
@@ -617,6 +794,7 @@
       marker.bindTooltip('<strong>' + (station.name || 'محطة') + '</strong>', { direction: 'top', offset: [0, -9], opacity: 0.95 });
       marker.on('click', function () {
         selectStation(station);
+        openStationForm(station, coords);
       });
       marker.addTo(stationLayer);
     });
@@ -1364,6 +1542,18 @@
     }
     if (controls.calibResetBtn) {
       controls.calibResetBtn.addEventListener('click', resetCalibrationForm);
+    }
+    if (controls.stationFormSaveBtn) {
+      controls.stationFormSaveBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        saveStationForm().catch(function () {});
+      });
+    }
+    if (controls.stationFormCancelBtn) {
+      controls.stationFormCancelBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        hideStationForm();
+      });
     }
     document.querySelectorAll('[data-action="addTrait"]').forEach(function (button) {
       button.addEventListener('click', function (event) {

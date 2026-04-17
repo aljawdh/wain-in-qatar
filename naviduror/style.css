@@ -423,6 +423,39 @@ button {
   gap: 10px;
 }
 
+.station-form-card {
+  margin-top: 12px;
+}
+
+.station-form-card .form-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.station-form-card .form-row > div {
+  flex: 1;
+  min-width: 180px;
+}
+
+.station-form-card .station-form-status {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  min-height: 1.5rem;
+}
+
+.station-form-card input,
+.station-form-card select {
+  min-height: 44px;
+}
+
+@media (max-width: 760px) {
+  .station-form-card .form-row {
+    flex-direction: column;
+  }
+}
+
 .info-row {
   display: flex;
   justify-content: space-between;
