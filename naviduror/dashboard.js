@@ -519,6 +519,18 @@
       attributionControl: false
     });
 
+    setTimeout(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    }, 0);
+
+    setTimeout(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    }, 300);
+
+    setTimeout(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    }, 800);
+
     tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
@@ -554,6 +566,9 @@
     });
 
     map.whenReady(function () {
+      setTimeout(function () {
+        try { map.invalidateSize(true); } catch (e) {}
+      }, 200);
       resizeMap();
       if (stations && stations.length) {
         renderStationMarkers();
@@ -562,19 +577,20 @@
   }
 
   function resizeMap() {
-  if (!map) return;
-  requestAnimationFrame(function () {
+    if (!map) return;
+
+    requestAnimationFrame(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    });
+
     setTimeout(function () {
       try { map.invalidateSize(true); } catch (e) {}
-    }, 120);
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 350);
+    }, 250);
+
     setTimeout(function () {
       try { map.invalidateSize(true); } catch (e) {}
     }, 700);
-  });
-}
+  }
   function frameMapToStations(markerLayerOrGroup, selectedLatLng) {
     if (!map) return;
 
