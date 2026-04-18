@@ -280,6 +280,156 @@
     "is_active": true
   },
   {
+    "id": "trait_maritime_04",
+    "category": "marine",
+    "name_ar": "رياح شمالية قوية",
+    "name_en": "Strong northerly winds",
+    "description_ar": "رياح شمالية قوية تؤثر على سطح البحر وتزيد من اضطراب الأمواج.",
+    "description_en": "Strong northerly winds affecting sea surface and increasing wave turbulence.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_05",
+    "category": "marine",
+    "name_ar": "رياح شمالية متوسطة السرعة",
+    "name_en": "Moderate northerly winds",
+    "description_ar": "رياح شمالية متوسطة السرعة تضبط حالة البحر وتغير الشعور بالبرودة.",
+    "description_en": "Moderate northerly winds that shape sea conditions and alter perceived chill.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_06",
+    "category": "marine",
+    "name_ar": "رياح شمالية غربية متوسطة السرعة",
+    "name_en": "Moderate northwesterly winds",
+    "description_ar": "رياح شمالية غربية متوسطة السرعة تسهم في تكوين أمواج مستقرة نسبياً.",
+    "description_en": "Moderate northwesterly winds contributing to relatively steady wave formation.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_07",
+    "category": "marine",
+    "name_ar": "رياح النعايات شمالية قوية",
+    "name_en": "Strong Naayaat northerly winds",
+    "description_ar": "رياح شمالية قوية مصنفة ضمن نمط النعايات تؤثر بحدة على البحر.",
+    "description_en": "Strong northerly Naayaat pattern winds with a pronounced impact on the sea.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_08",
+    "category": "marine",
+    "name_ar": "هبايب سهيل",
+    "name_en": "Suhail breezes",
+    "description_ar": "هبايب سهيل المعروفة برياح شاطئية من الاتجاه الجنوبي تؤثر في حالة البحر.",
+    "description_en": "Suhail breezes, southern coastal winds known to shape sea conditions.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_09",
+    "category": "marine",
+    "name_ar": "رياح قوية تخفف الحر",
+    "name_en": "Strong cooling winds",
+    "description_ar": "رياح قوية تخفف الحرارة وتؤثر في نشاط البحر وراحة الصيادين.",
+    "description_en": "Strong cooling winds that ease heat and influence sea activity.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_10",
+    "category": "marine",
+    "name_ar": "رياح الإكذيب",
+    "name_en": "Ikzib winds",
+    "description_ar": "رياح الإكذيب المحلية التي تُحدث تغيرات مفاجئة في حالة البحر.",
+    "description_en": "Local Ikzib winds causing sudden shifts in sea conditions.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_11",
+    "category": "marine",
+    "name_ar": "رياح غير متوقعة",
+    "name_en": "Unexpected winds",
+    "description_ar": "رياح تظهر دون إنذار مسبق وتؤثر على استقرار البحر.",
+    "description_en": "Winds that arise without warning and disturb sea stability.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_12",
+    "category": "marine",
+    "name_ar": "رياح غير منتظمة الاتجاه",
+    "name_en": "Irregular directional winds",
+    "description_ar": "رياح ذات اتجاهات متقلبة تخلق حالة بحرية غير مستقرة.",
+    "description_en": "Winds with shifting directions that create unstable marine conditions.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_13",
+    "category": "marine",
+    "name_ar": "عواصف قوية",
+    "name_en": "Strong storms",
+    "description_ar": "عواصف بحرية قوية تزيد من اضطراب الأمواج وخطر الملاحة.",
+    "description_en": "Strong marine storms increasing wave turbulence and navigation risk.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_14",
+    "category": "marine",
+    "name_ar": "بحر متقلب",
+    "name_en": "Unstable sea",
+    "description_ar": "بحر متقلب مع موج متغير وضغط جوي غير ثابت.",
+    "description_en": "Unstable sea with shifting waves and variable atmospheric pressure.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_15",
+    "category": "marine",
+    "name_ar": "اضطراب البحر",
+    "name_en": "Sea disturbance",
+    "description_ar": "اضطراب البحر الذي يشير إلى حالة أمواج متقلبة وصعوبة الصيد.",
+    "description_en": "Sea disturbance indicating choppy waves and difficult fishing conditions.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_16",
+    "category": "marine",
+    "name_ar": "نشاط التيارات",
+    "name_en": "Current activity",
+    "description_ar": "نشاط التيارات البحرية يزيد من تغير مواقع الصيد وحركة المياه.",
+    "description_en": "Active sea currents that shift fishing locations and water movement.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_17",
+    "category": "marine",
+    "name_ar": "نشاط الموج",
+    "name_en": "Wave activity",
+    "description_ar": "نشاط الموج الذي يعبر عن ارتفاع وتغير شكل الأمواج.",
+    "description_en": "Wave activity reflecting wave height and changing wave patterns.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_18",
+    "category": "marine",
+    "name_ar": "اعتدال البحر",
+    "name_en": "Moderate sea",
+    "description_ar": "بحر معتدل مع أمواج خفيفة وظروف صيد مريحة.",
+    "description_en": "Moderate sea with gentle waves and comfortable fishing conditions.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
     "id": "trait_heritage_01",
     "category": "heritage_signs",
     "name_ar": "سهيل",
