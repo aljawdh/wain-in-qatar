@@ -684,11 +684,6 @@
         tempStationLayer.clearLayers();
       } catch (e) {}
     }
-    if (tempStationMarker && map) {
-      try {
-        map.removeLayer(tempStationMarker);
-      } catch (e) {}
-    }
     tempStationMarker = null;
     editingStation = null;
   }
@@ -742,12 +737,16 @@
     tempStationMarker = null;
     if (!station && latlng && map) {
       tempStationMarker = L.circleMarker([latlng.lat, latlng.lng], {
-        radius: 14,
-        color: '#00ffee',
-        fillColor: '#00bb88',
-        fillOpacity: 0.9,
-        weight: 3
+        radius: 18,
+        color: '#00ffff',
+        fillColor: '#00aaff',
+        fillOpacity: 1,
+        weight: 4,
+        opacity: 1
       }).addTo(tempStationLayer);
+      if (tempStationMarker && typeof tempStationMarker.bringToFront === 'function') {
+        tempStationMarker.bringToFront();
+      }
       console.log('[naviduror] temp pin placed', latlng);
       map.setView([latlng.lat, latlng.lng], 8);
     }
@@ -844,11 +843,12 @@
   function getStationStyle(station) {
     var isSelected = selectedStation && getStationId(station) === getStationId(selectedStation);
     return {
-      radius: isSelected ? 12 : 8,
-      color: isSelected ? '#ffffff' : '#1f2937',
+      radius: isSelected ? 14 : 11,
+      color: isSelected ? '#ffffff' : '#0f4f7d',
       fillColor: getRoleColor(station.role_type || getStationRoleType(station)),
-      fillOpacity: isSelected ? 0.95 : 0.82,
-      weight: isSelected ? 2 : 1
+      fillOpacity: isSelected ? 0.98 : 0.95,
+      weight: isSelected ? 3 : 2,
+      opacity: 1
     };
   }
 
@@ -903,13 +903,13 @@
         openStationForm(station, coords);
       });
       marker.addTo(stationLayer);
+      if (typeof marker.bringToFront === 'function') {
+        marker.bringToFront();
+      }
       validMarkers.push(marker);
     });
+    console.log('[naviduror] loaded station count', visibleStations.length, 'valid station count', validMarkers.length, 'marker render count', validMarkers.length);
     updateHeaderSummary();
-    if (!tileLayerLoaded && tileLayer) {
-      pendingMarkerRender = true;
-      return;
-    }
     resizeMap();
     if (selectedStation) {
       var selectedCoords = getStationCoords(selectedStation);
