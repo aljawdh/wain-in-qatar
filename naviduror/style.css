@@ -865,3 +865,25 @@ textarea {
   left: 0;
 }
 
+
+/* Leaflet tile image final safety fix */
+.leaflet-container img,
+.leaflet-container .leaflet-tile,
+.leaflet-container .leaflet-tile-container img,
+.leaflet-tile-pane img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.leaflet-container .leaflet-tile {
+  display: block !important;
+}
+
+.leaflet-container .leaflet-tile-pane {
+  z-index: 200;
+}
+
+.leaflet-container .leaflet-marker-pane {
+  z-index: 600;
+}
+
