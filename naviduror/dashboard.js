@@ -5,6 +5,8 @@
   var map = null;
   var tileLayer = null;
   var stationLayer = null;
+  var tileLayerLoaded = false;
+  var pendingMarkerRender = false;
   var mapInitAttempts = 0;
   var DEFAULT_GULF_CENTER = [25.3, 51.3];
   var DEFAULT_GULF_ZOOM = 5;
@@ -480,66 +482,84 @@
   }
 
   function createMap() {
-  var container = getEl('navidurorMap');
-  if (!container) return;
-
-  if (!container.offsetWidth || !container.offsetHeight) {
-    mapInitAttempts += 1;
-    if (mapInitAttempts <= 5) {
-      setTimeout(createMap, 180);
+    var container = getEl('navidurorMap');
+    if (!container) {
+      if (document.readyState !== 'complete') {
+        window.addEventListener('load', createMap, { once: true });
+        return;
+      }
+      setTimeout(createMap, 150);
+      return;
     }
-    return;
-  }
 
-  mapInitAttempts = 0;
+    if (!container.offsetWidth || !container.offsetHeight) {
+      mapInitAttempts += 1;
+      if (mapInitAttempts <= 5) {
+        setTimeout(createMap, 150);
+      }
+      return;
+    }
 
-  if (map) {
-    try {
-      map.off();
-      map.remove();
-    } catch (e) {}
-    map = null;
-  }
+    mapInitAttempts = 0;
+    tileLayerLoaded = false;
+    pendingMarkerRender = false;
 
-  map = L.map(container, {
-    zoomControl: true,
-    attributionControl: false
-  });
+    if (map) {
+      try {
+        map.off();
+        map.remove();
+      } catch (e) {}
+      map = null;
+      tileLayer = null;
+      stationLayer = null;
+    }
 
-  tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  });
+    map = L.map(container, {
+      zoomControl: true,
+      attributionControl: false
+    });
 
-  tileLayer.addTo(map);
-  tileLayer.on('load', function () {
+    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    tileLayer.on('load', function () {
+      tileLayerLoaded = true;
+      resizeMap();
+      if (pendingMarkerRender) {
+        pendingMarkerRender = false;
+        renderStationMarkers();
+      }
+    });
+
+    stationLayer = L.layerGroup().addTo(map);
+
+    map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+
+    map.on('click', function (event) {
+      if (!event || !event.latlng) return;
+      openStationForm(null, event.latlng);
+    });
+
     resizeMap();
-  });
-
-  stationLayer = L.layerGroup().addTo(map);
-
-  map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
-
-  map.on('click', function (event) {
-    if (!event || !event.latlng) return;
-    openStationForm(null, event.latlng);
-  });
-
-  resizeMap();
-  setTimeout(resizeMap, 250);
-  setTimeout(resizeMap, 600);
-
-  window.addEventListener('resize', resizeMap);
-  window.addEventListener('orientationchange', function () {
     setTimeout(resizeMap, 250);
     setTimeout(resizeMap, 600);
-  });
 
-  map.whenReady(function () {
-    resizeMap();
-    renderStationMarkers();
-  });
-}
+    window.addEventListener('resize', resizeMap);
+    window.addEventListener('orientationchange', function () {
+      resizeMap();
+      setTimeout(resizeMap, 250);
+      setTimeout(resizeMap, 600);
+    });
+
+    map.whenReady(function () {
+      resizeMap();
+      if (stations && stations.length) {
+        renderStationMarkers();
+      }
+    });
+  }
 
   function resizeMap() {
   if (!map) return;
@@ -559,7 +579,7 @@
     if (!map) return;
 
     if (selectedLatLng) {
-      map.setView(selectedLatLng, 8);
+      map.flyTo(selectedLatLng, 8, { duration: 0.5 });
       resizeMap();
       setTimeout(resizeMap, 300);
       return;
@@ -733,71 +753,7 @@
         }
       }
       assignStationRoles();
-      function renderStationMarkers() {
-  if (!map) return;
-
-  if (stationLayer) {
-    try {
-      stationLayer.clearLayers();
-      map.removeLayer(stationLayer);
-    } catch (e) {}
-  }
-
-  stationLayer = L.layerGroup().addTo(map);
-
-  var visibleStations = stations.filter(filterStation);
-  var validMarkers = [];
-
-  visibleStations.forEach(function (station) {
-    var coords = getStationCoords(station);
-    if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
-
-    var marker = L.circleMarker([coords.lat, coords.lon], getStationStyle(station));
-    marker.bindTooltip('<strong>' + (station.name || 'محطة') + '</strong>', {
-      direction: 'top',
-      offset: [0, -9],
-      opacity: 0.95
-    });
-
-    marker.on('click', function () {
-      selectStation(station);
-      openStationForm(station, { lat: coords.lat, lng: coords.lon });
-    });
-
-    marker.addTo(stationLayer);
-    validMarkers.push(marker);
-  });
-
-  updateHeaderSummary();
-
-  if (selectedStation) {
-    var selectedCoords = getStationCoords(selectedStation);
-    if (isFinite(selectedCoords.lat) && isFinite(selectedCoords.lon)) {
-      map.flyTo([selectedCoords.lat, selectedCoords.lon], 8, { duration: 0.5 });
-      resizeMap();
-      return;
-    }
-  }
-
-  if (validMarkers.length === 1) {
-    map.setView(validMarkers[0].getLatLng(), 8);
-    resizeMap();
-    return;
-  }
-
-  if (validMarkers.length > 1) {
-    var group = L.featureGroup(validMarkers);
-    map.fitBounds(group.getBounds(), {
-      padding: [30, 30],
-      maxZoom: 7
-    });
-    resizeMap();
-    return;
-  }
-
-  map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
-  resizeMap();
-}
+      renderStationMarkers();
       selectStation(station);
       setStationFormMessage('تم حفظ بيانات المحطة بنجاح.', 'success');
       hideStationForm();
@@ -875,13 +831,7 @@
     renderSelectedStationCards();
     renderDistributionPreview();
     renderValidationPanel();
-   function focusStation(station) {
-  if (!station || !map) return;
-  var coords = getStationCoords(station);
-  if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
-  map.flyTo([coords.lat, coords.lon], 8, { duration: 0.5 });
-  resizeMap();
-}
+    focusStation(station);
     loadStationCalibration(station).then(function () {
       renderSelectedStationCards();
       renderValidationPanel();
@@ -895,7 +845,7 @@
     if (!station || !map) return;
     var coords = getStationCoords(station);
     if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
-    map.setView([coords.lat, coords.lon], 8);
+    map.flyTo([coords.lat, coords.lon], 8, { duration: 0.5 });
     resizeMap();
     setTimeout(resizeMap, 300);
   }
@@ -909,7 +859,9 @@
       stationLayer = null;
     }
     stationLayer = L.layerGroup().addTo(map);
-    stations.filter(filterStation).forEach(function (station) {
+    var visibleStations = stations.filter(filterStation);
+    var validMarkers = [];
+    visibleStations.forEach(function (station) {
       var coords = getStationCoords(station);
       if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
       var marker = L.circleMarker([coords.lat, coords.lon], getStationStyle(station));
@@ -919,17 +871,37 @@
         openStationForm(station, coords);
       });
       marker.addTo(stationLayer);
+      validMarkers.push(marker);
     });
     updateHeaderSummary();
+    if (!tileLayerLoaded && tileLayer) {
+      pendingMarkerRender = true;
+      return;
+    }
     resizeMap();
-
-    var visibleLayers = stationLayer.getLayers().filter(function (layer) {
-      return layer && typeof layer.getLatLng === 'function';
-    });
-    if (visibleLayers.length) {
-      frameMapToStations(stationLayer, selectedStation ? L.latLng(getStationCoords(selectedStation).lat, getStationCoords(selectedStation).lon) : null);
+    if (selectedStation) {
+      var selectedCoords = getStationCoords(selectedStation);
+      if (isFinite(selectedCoords.lat) && isFinite(selectedCoords.lon)) {
+        map.flyTo([selectedCoords.lat, selectedCoords.lon], 8, { duration: 0.5 });
+        resizeMap();
+        return;
+      }
+    }
+    if (validMarkers.length === 1) {
+      map.flyTo(validMarkers[0].getLatLng(), 8, { duration: 0.5 });
       resizeMap();
       return;
+    }
+    if (validMarkers.length > 1) {
+      var bounds = L.featureGroup(validMarkers).getBounds();
+      if (bounds && bounds.isValid && bounds.isValid()) {
+        map.fitBounds(bounds, {
+          padding: [30, 30],
+          maxZoom: 7
+        });
+        resizeMap();
+        return;
+      }
     }
     map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
     resizeMap();
@@ -1748,3 +1720,4 @@
 
   initApp();
 })();
+
