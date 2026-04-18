@@ -381,6 +381,50 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </div>
             <div class="settings-status" id="stationsStatus"></div>
             <hr class="sep">
+
+            <!-- DURUR PROFILE SECTION -->
+            <details class="adv-options" style="margin:14px 0">
+              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-calendar-days" style="margin-left:6px"></i> ملف الدر (Durur Profile)</summary>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>الدر الحالي</label><select id="stDururSelect"><option value="">-- اختر دراً --</option></select></div>
+                <div class="admin-field"><label>تاريخ دخول الدر</label><input id="stDururEntryDate" type="date"></div>
+                <div class="admin-field"><label>الأيام المتبقية</label><input id="stDururDaysRemaining" type="number" readonly></div>
+                <div class="admin-field"><label>بداية الدر التالي</label><input id="stDururNextStart" type="date" readonly></div>
+              </div>
+
+              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
+                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">سمات الطقس (Weather Traits)</h5>
+                <div id="stDururWeatherTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
+              </div>
+
+              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
+                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">سمات بحرية (Marine Traits)</h5>
+                <div id="stDururMarineTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
+              </div>
+
+              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
+                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">الأحداث الموسمية (Seasonal Events)</h5>
+                <div id="stDururSeasonalTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
+              </div>
+
+              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
+                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">نشاط السمك (Fish Activity)</h5>
+                <div id="stDururFishTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
+              </div>
+
+              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
+                <label style="display:block;margin-bottom:8px;font-size:.88rem">ملاحظات الخبير (Expert Notes)</label>
+                <textarea id="stDururExpertNotes" style="width:100%;min-height:80px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:.88rem;font-family:inherit;resize:vertical"></textarea>
+              </div>
+
+              <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:8px;justify-content:flex-start">
+                <button type="button" id="stDururAnalyticsBtn" class="small-btn" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(92,225,255,.15);border:1px solid rgba(92,225,255,.3);border-radius:8px;cursor:pointer;color:#5ce1ff;font-weight:500;font-size:.85rem"><i class="fa-solid fa-chart-line"></i> عرض التحليلات</button>
+                <span id="stDururStatus" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem;margin-left:auto">--</span>
+              </div>
+            </details>
+            <!-- END DURUR PROFILE SECTION -->
+
+            <hr class="sep">
             <div class="table-wrap">
               <table class="admin-table">
                 <thead><tr><th>#</th><th>الاسم</th><th>المنطقة</th><th>الدولة</th><th>النوع البحري</th><th>الحالة</th><th>Radius</th><th>إجراءات</th></tr></thead>

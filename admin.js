@@ -22,6 +22,7 @@
   var dururCache = [];
   var dururReferenceCache = [];
   var seasonEventsCache = [];
+  var traitsCache = [];
   var stationProfilesCache = [];
   var stationOverridesCache = [];
   var annualComparisonsCache = [];
@@ -769,7 +770,9 @@
       renderSummarySection(),
       loadStations(),
       loadUsers(),
-      loadFeedback()
+      loadFeedback(),
+      loadDururData(),
+      loadTraits()
     ]);
   }
 
@@ -863,10 +866,29 @@
           return '<option value="' + (d.id || '') + '">' + (d.name || ('Dur ' + d.dur_number)) + '</option>';
         }).join('');
       }
+      // ── Populate station durur selector ──────────────────────────────────────
+      var stDururSelect = getEl('stDururSelect');
+      if (stDururSelect) {
+        stDururSelect.innerHTML = '<option value="">-- اختر دراً --</option>' + dururCache.slice().sort(function (a, b) { return Number(a.dur_number) - Number(b.dur_number); }).map(function (d) {
+          return '<option value="' + (d.id || '') + '">' + (d.name || ('Dur ' + d.dur_number)) + '</option>';
+        }).join('');
+      }
       renderDururTable();
       applyDururFilters();
     } catch (e) {
       console.error('[durur] load failed', e);
+    }
+  }
+
+  async function loadTraits() {
+    try {
+      var res = await apiFetch('/api/admin/trait-dictionaries', { method: 'GET' });
+      if (!res.ok) throw new Error('traits_load_failed');
+      var data = await res.json();
+      traitsCache = Array.isArray(data.items) ? data.items : [];
+      loadDururTraits();
+    } catch (e) {
+      console.error('[traits] load failed', e);
     }
   }
 
@@ -2364,12 +2386,31 @@
     getEl('stLat').addEventListener('input', function () { syncStationMapFromInputs(false); });
     getEl('stLon').addEventListener('input', function () { syncStationMapFromInputs(false); });
 
+    // ── Durur Profile Event Listeners ────────────────────────────────────────
+    var dururSel = getEl('stDururSelect');
+    if (dururSel) dururSel.addEventListener('change', calculateDururDates);
+
+    var entryDateEl = getEl('stDururEntryDate');
+    if (entryDateEl) entryDateEl.addEventListener('change', calculateDururDates);
+
+    var analyticsBtn = getEl('stDururAnalyticsBtn');
+    if (analyticsBtn) analyticsBtn.addEventListener('click', showDururAnalytics);
+
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
   }
 
   function readStationForm() {
     var active = !!getEl('stActive').checked;
+    var dururProfile = {
+      current_dur_id: getEl('stDururSelect').value.trim() || null,
+      dur_entry_date: getEl('stDururEntryDate').value || null,
+      weather_traits: readTraitCheckboxes('stDururWeatherTraits'),
+      marine_traits: readTraitCheckboxes('stDururMarineTraits'),
+      seasonal_traits: readTraitCheckboxes('stDururSeasonalTraits'),
+      fish_activity_traits: readTraitCheckboxes('stDururFishTraits'),
+      expert_notes: getEl('stDururExpertNotes').value.trim()
+    };
     return {
       id: getEl('stId').value.trim() || undefined,
       name: getEl('stName').value.trim(),
@@ -2385,8 +2426,20 @@
       primary_reference: getEl('stPrimaryReference') ? getEl('stPrimaryReference').checked : false,
       reference_station_id: getEl('stReferenceStation') ? getEl('stReferenceStation').value.trim() : '',
       notes: getEl('stNotes').value.trim(),
-      assigned_members: splitCsv(getEl('stMembers').value)
+      assigned_members: splitCsv(getEl('stMembers').value),
+      durur_profile: dururProfile
     };
+  }
+
+  function readTraitCheckboxes(containerId) {
+    var container = getEl(containerId);
+    if (!container) return [];
+    var checked = [];
+    Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).forEach(function (cb) {
+      var val = cb.getAttribute('data-trait-id');
+      if (val) checked.push(val);
+    });
+    return checked;
   }
 
   function fillStationForm(st, editMode) {
@@ -2424,6 +2477,37 @@
       if (mHint) mHint.style.display = 'none';
       setStationPlaceSuggestion('الموقع المختار: --');
     }
+
+    // ── Fill Durur Profile ──────────────────────────────────────────────────────
+    fillDururProfile(st.durur_profile || {});
+  }
+
+  function fillDururProfile(profile) {
+    var dururSel = getEl('stDururSelect');
+    if (dururSel) dururSel.value = profile.current_dur_id || '';
+
+    var entryDateEl = getEl('stDururEntryDate');
+    if (entryDateEl && profile.dur_entry_date) {
+      entryDateEl.value = profile.dur_entry_date;
+      calculateDururDates();
+    }
+
+    // Populate trait checkboxes
+    populateTraitCheckboxes('stDururWeatherTraits', profile.weather_traits || []);
+    populateTraitCheckboxes('stDururMarineTraits', profile.marine_traits || []);
+    populateTraitCheckboxes('stDururSeasonalTraits', profile.seasonal_traits || []);
+    populateTraitCheckboxes('stDururFishTraits', profile.fish_activity_traits || []);
+
+    getEl('stDururExpertNotes').value = profile.expert_notes || '';
+  }
+
+  function populateTraitCheckboxes(containerId, selectedIds) {
+    var container = getEl(containerId);
+    if (!container) return;
+    Array.from(container.querySelectorAll('input[type="checkbox"]')).forEach(function (cb) {
+      var traitId = cb.getAttribute('data-trait-id');
+      cb.checked = selectedIds.indexOf(traitId) >= 0;
+    });
   }
 
   function clearStationForm() {
@@ -2446,6 +2530,158 @@
     setWaterStatus('unknown', '');
   }
 
+  // ── Durur Profile Functions ───────────────────────────────────────────────
+
+  function calculateDururDates() {
+    var dururSel = getEl('stDururSelect');
+    var entryDateEl = getEl('stDururEntryDate');
+    if (!dururSel || !dururSel.value || !entryDateEl || !entryDateEl.value) {
+      getEl('stDururDaysRemaining').value = '';
+      getEl('stDururNextStart').value = '';
+      return;
+    }
+
+    var durur = dururCache.find(function (d) { return d.id === dururSel.value; });
+    if (!durur) return;
+
+    var entryDate = new Date(entryDateEl.value);
+    if (isNaN(entryDate.getTime())) return;
+
+    // Calculate end date of current durur period (gregorian)
+    var currentYear = entryDate.getFullYear();
+    var endDate = new Date(currentYear, durur.gregorian_end_month - 1, durur.gregorian_end_day);
+    
+    // If entry is after end date in same year, use next year
+    if (entryDate > endDate) {
+      currentYear += 1;
+      endDate = new Date(currentYear, durur.gregorian_end_month - 1, durur.gregorian_end_day);
+    }
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+    if (daysRemaining < 0) daysRemaining = 0;
+    
+    getEl('stDururDaysRemaining').value = daysRemaining;
+
+    // Calculate next durur start
+    var nextDururIndex = dururCache.findIndex(function (d) { return d.id === dururSel.value; }) + 1;
+    if (nextDururIndex >= dururCache.length) nextDururIndex = 0;
+    var nextDurur = dururCache[nextDururIndex];
+    
+    if (nextDurur) {
+      var nextStartDate = new Date(currentYear, nextDurur.gregorian_start_month - 1, nextDurur.gregorian_start_day);
+      if (nextStartDate <= today) {
+        nextStartDate = new Date(currentYear + 1, nextDurur.gregorian_start_month - 1, nextDurur.gregorian_start_day);
+      }
+      var nextStartStr = nextStartDate.toISOString().split('T')[0];
+      getEl('stDururNextStart').value = nextStartStr;
+    }
+  }
+
+  function loadDururTraits() {
+    // Clear existing checkboxes
+    ['stDururWeatherTraits', 'stDururMarineTraits', 'stDururSeasonalTraits', 'stDururFishTraits'].forEach(function (id) {
+      var el = getEl(id);
+      if (el) el.innerHTML = '';
+    });
+
+    // Load weather traits
+    var weatherTraits = traitsCache.filter(function (t) { return t.category === 'weather'; });
+    populateTraitContainer('stDururWeatherTraits', weatherTraits);
+
+    // Load marine traits
+    var marineTraits = traitsCache.filter(function (t) { return t.category === 'marine'; });
+    populateTraitContainer('stDururMarineTraits', marineTraits);
+
+    // Load seasonal traits
+    var seasonalTraits = seasonEventsCache;
+    populateSeasonEventContainer('stDururSeasonalTraits', seasonalTraits);
+
+    // Load fish activity traits (from durur fish_traits)
+    var fishTraits = [];
+    dururCache.forEach(function (d) {
+      (d.fish_traits || []).forEach(function (ft) {
+        if (!fishTraits.find(function (x) { return x === ft; })) {
+          fishTraits.push(ft);
+        }
+      });
+    });
+    populateFishTraitContainer('stDururFishTraits', fishTraits);
+  }
+
+  function populateTraitContainer(containerId, traits) {
+    var container = getEl(containerId);
+    if (!container) return;
+    traits.forEach(function (trait) {
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:6px';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.setAttribute('data-trait-id', trait.id);
+      cb.style.cursor = 'pointer';
+      var label = document.createElement('label');
+      label.style.cssText = 'cursor:pointer;font-size:.85rem;color:#c5d5e0;margin:0';
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + (trait.name_ar || trait.name || trait.id)));
+      div.appendChild(label);
+      container.appendChild(div);
+    });
+  }
+
+  function populateSeasonEventContainer(containerId, seasonEvents) {
+    var container = getEl(containerId);
+    if (!container) return;
+    seasonEvents.forEach(function (event) {
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:6px';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.setAttribute('data-trait-id', event.id);
+      cb.style.cursor = 'pointer';
+      var label = document.createElement('label');
+      label.style.cssText = 'cursor:pointer;font-size:.85rem;color:#c5d5e0;margin:0';
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + (event.name_ar || event.name || event.id)));
+      div.appendChild(label);
+      container.appendChild(div);
+    });
+  }
+
+  function populateFishTraitContainer(containerId, fishTraits) {
+    var container = getEl(containerId);
+    if (!container) return;
+    fishTraits.forEach(function (trait) {
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:6px';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.setAttribute('data-trait-id', trait);
+      cb.style.cursor = 'pointer';
+      var label = document.createElement('label');
+      label.style.cssText = 'cursor:pointer;font-size:.85rem;color:#c5d5e0;margin:0';
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' ' + trait));
+      div.appendChild(label);
+      container.appendChild(div);
+    });
+  }
+
+  function showDururAnalytics() {
+    var stationId = getEl('stId').value.trim();
+    if (!stationId) {
+      alert('يرجى حفظ المحطة أولاً قبل عرض التحليلات');
+      return;
+    }
+    var msg = 'Analytics for station: ' + stationId + '\n\n' +
+      'Ready for:\n' +
+      '- 1 month trend\n' +
+      '- 3 months trend\n' +
+      '- 6 months trend\n' +
+      '- 1 year trend\n\n' +
+      'Future: Weather validation matching actual vs expected conditions.';
+    alert(msg);
+  }
 
   // ── Region helpers ────────────────────────────────────────────────────────
 
