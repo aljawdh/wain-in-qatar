@@ -27,6 +27,8 @@
   var stationOverridesCache = [];
   var annualComparisonsCache = [];
   var stationValidationCache = {}; // per-station validation records: { station_id: [{period, expected_traits, observed_traits, score, status}] }
+  var _loadedDururProfileSnapshot = null;
+  var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
   var currentAnalyticsPeriod = '1y'; // default period
 
@@ -842,6 +844,88 @@
   function getSeasonEventsForDur(dur) {
     if (!dur) return [];
     return seasonEventsCache.filter(function (e) { return Array.isArray(e.related_dur_ids) && e.related_dur_ids.includes(dur.id); });
+  }
+
+  function normalizeTraitString(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function mapDururTraitNamesToIds(names, category) {
+    if (!Array.isArray(names) || names.length === 0) return [];
+    return names.reduce(function (result, name) {
+      if (!name) return result;
+      var normalized = normalizeTraitString(name);
+      var match = traitsCache.find(function (t) {
+        return t.category === category && (
+          normalizeTraitString(t.name_ar) === normalized ||
+          normalizeTraitString(t.name) === normalized ||
+          normalizeTraitString(t.name_en) === normalized
+        );
+      });
+      if (match && result.indexOf(match.id) < 0) {
+        result.push(match.id);
+      }
+      return result;
+    }, []);
+  }
+
+  function getDefaultDururProfileForStation(station) {
+    var profile = {
+      current_dur_id: null,
+      dur_entry_date: null,
+      weather_traits: [],
+      marine_traits: [],
+      seasonal_traits: [],
+      fish_activity_traits: [],
+      expert_notes: '',
+      source: 'auto',
+      is_overridden: false
+    };
+    var dur = getCurrentDurForDate(new Date());
+    if (!dur) return profile;
+
+    profile.current_dur_id = dur.id || null;
+    profile.dur_entry_date = new Date().toISOString().split('T')[0];
+    profile.weather_traits = mapDururTraitNamesToIds(dur.weather_traits || [], 'weather');
+    profile.marine_traits = mapDururTraitNamesToIds(dur.marine_traits || [], 'marine');
+    profile.seasonal_traits = getSeasonEventsForDur(dur).map(function (event) { return event.id; });
+    profile.fish_activity_traits = Array.isArray(dur.fish_traits) ? dur.fish_traits.slice() : [];
+    return profile;
+  }
+
+  function snapshotDururProfile(profile) {
+    return {
+      current_dur_id: profile.current_dur_id || '',
+      dur_entry_date: profile.dur_entry_date || '',
+      weather_traits: (profile.weather_traits || []).slice().sort(),
+      marine_traits: (profile.marine_traits || []).slice().sort(),
+      seasonal_traits: (profile.seasonal_traits || []).slice().sort(),
+      fish_activity_traits: (profile.fish_activity_traits || []).slice().sort(),
+      expert_notes: profile.expert_notes || '',
+      source: profile.source || '',
+      is_overridden: !!profile.is_overridden
+    };
+  }
+
+  function dururProfilesMatch(a, b) {
+    if (!a || !b) return false;
+    if (a.current_dur_id !== b.current_dur_id) return false;
+    if (a.dur_entry_date !== b.dur_entry_date) return false;
+    if (a.expert_notes !== b.expert_notes) return false;
+    if (a.source !== b.source) return false;
+    if (a.is_overridden !== b.is_overridden) return false;
+    var arraysEqual = function (x, y) {
+      if (!Array.isArray(x) || !Array.isArray(y)) return false;
+      if (x.length !== y.length) return false;
+      for (var i = 0; i < x.length; i += 1) {
+        if (x[i] !== y[i]) return false;
+      }
+      return true;
+    };
+    return arraysEqual(a.weather_traits, b.weather_traits) &&
+           arraysEqual(a.marine_traits, b.marine_traits) &&
+           arraysEqual(a.seasonal_traits, b.seasonal_traits) &&
+           arraysEqual(a.fish_activity_traits, b.fish_activity_traits);
   }
 
   function getComparisonForStationDur(station, dur) {
@@ -2421,6 +2505,17 @@
       fish_activity_traits: readTraitCheckboxes('stDururFishTraits'),
       expert_notes: getEl('stDururExpertNotes').value.trim()
     };
+    var currentProfile = snapshotDururProfile(dururProfile);
+    if (_loadedDururProfileSnapshot && !dururProfilesMatch(_loadedDururProfileSnapshot, currentProfile)) {
+      dururProfile.source = 'manual';
+      dururProfile.is_overridden = true;
+    } else if (_loadedDururProfileSnapshot) {
+      dururProfile.source = _loadedDururProfileSnapshot.source || (_currentDururProfileSource || 'auto');
+      dururProfile.is_overridden = !!_loadedDururProfileSnapshot.is_overridden;
+    } else {
+      dururProfile.source = _currentDururProfileSource || 'auto';
+      dururProfile.is_overridden = _currentDururProfileSource === 'manual';
+    }
     return {
       id: getEl('stId').value.trim() || undefined,
       name: getEl('stName').value.trim(),
@@ -2489,7 +2584,14 @@
     }
 
     // ── Fill Durur Profile ──────────────────────────────────────────────────────
-    fillDururProfile(st.durur_profile || {});
+    var dururProfile = st.durur_profile && Object.keys(st.durur_profile).length > 0 ? Object.assign({}, st.durur_profile) : getDefaultDururProfileForStation(st);
+    if (!st.durur_profile || Object.keys(st.durur_profile).length === 0) {
+      _currentDururProfileSource = 'auto';
+    } else {
+      _currentDururProfileSource = dururProfile.source || 'manual';
+    }
+    fillDururProfile(dururProfile);
+    _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
 
     // ── Initialize Analytics for this station ───────────────────────────────────
     if (st.id) {
