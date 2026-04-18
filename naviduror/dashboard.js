@@ -19,6 +19,19 @@
   var selectedStation = null;
   var tempStationMarker = null;
   var tempStationLayer = null;
+  var debugPanel = null;
+  var debugState = {
+    totalLoadedStations: 0,
+    totalVisibleStations: 0,
+    totalValidStations: 0,
+    totalRenderedMarkers: 0,
+    tileLayerLoaded: false,
+    selectedStationId: '',
+    lastClickLat: null,
+    lastClickLng: null,
+    tempPinActive: false,
+    firstStations: []
+  };
   var editingStation = null;
   var stationFormState = {
     isNew: true,
@@ -109,6 +122,37 @@
 
   function getEl(id) {
     return document.getElementById(id);
+  }
+
+  function ensureDebugPanel() {
+    if (debugPanel) return;
+    var container = getEl('navidurorMap');
+    if (!container || !container.parentNode) return;
+    debugPanel = document.createElement('div');
+    debugPanel.id = 'navidurorDebugPanel';
+    debugPanel.style.cssText = 'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #ffffff; background: rgba(0, 0, 0, 0.65); padding: 10px; border-radius: 12px; margin-bottom: 10px; max-width: 100%; line-height: 1.45; white-space: pre-wrap;';
+    container.parentNode.insertBefore(debugPanel, container);
+  }
+
+  function updateDebugPanel() {
+    if (!debugPanel) {
+      ensureDebugPanel();
+    }
+    if (!debugPanel) return;
+    var firstStationsText = debugState.firstStations.map(function (entry) {
+      return (entry.id || '<no-id>') + ' => (' + entry.lat + ', ' + entry.lon + ')';
+    }).join('\n');
+    debugPanel.textContent =
+      'loadedStations: ' + debugState.totalLoadedStations + '\n' +
+      'visibleStations: ' + debugState.totalVisibleStations + '\n' +
+      'validStations: ' + debugState.totalValidStations + '\n' +
+      'renderedMarkers: ' + debugState.totalRenderedMarkers + '\n' +
+      'tileLayerLoaded: ' + (debugState.tileLayerLoaded ? 'true' : 'false') + '\n' +
+      'selectedStationId: ' + (debugState.selectedStationId || '<none>') + '\n' +
+      'lastClickLat: ' + (debugState.lastClickLat != null ? debugState.lastClickLat : '<none>') + '\n' +
+      'lastClickLng: ' + (debugState.lastClickLng != null ? debugState.lastClickLng : '<none>') + '\n' +
+      'tempPinActive: ' + (debugState.tempPinActive ? 'yes' : 'no') + '\n' +
+      'first5Stations:\n' + (firstStationsText || '<none>');
   }
 
   function isAuthenticated() {
@@ -548,11 +592,17 @@
 
     stationLayer = L.layerGroup().addTo(map);
     tempStationLayer = L.layerGroup().addTo(map);
+    ensureDebugPanel();
+    updateDebugPanel();
 
     map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
 
     map.on('click', function (event) {
       if (!event || !event.latlng) return;
+      debugState.lastClickLat = event.latlng.lat;
+      debugState.lastClickLng = event.latlng.lng;
+      debugState.tempPinActive = true;
+      updateDebugPanel();
       console.log('[naviduror] map click received', event.latlng);
       openStationForm(null, event.latlng);
     });
@@ -685,6 +735,8 @@
       } catch (e) {}
     }
     tempStationMarker = null;
+    debugState.tempPinActive = false;
+    updateDebugPanel();
     editingStation = null;
   }
 
@@ -737,11 +789,11 @@
     tempStationMarker = null;
     if (!station && latlng && map) {
       tempStationMarker = L.circleMarker([latlng.lat, latlng.lng], {
-        radius: 18,
-        color: '#00ffff',
+        radius: 22,
+        color: '#00ffdd',
         fillColor: '#00aaff',
         fillOpacity: 1,
-        weight: 4,
+        weight: 5,
         opacity: 1
       }).addTo(tempStationLayer);
       if (tempStationMarker && typeof tempStationMarker.bringToFront === 'function') {
@@ -749,6 +801,8 @@
       }
       console.log('[naviduror] temp pin placed', latlng);
       map.setView([latlng.lat, latlng.lng], 8);
+      debugState.tempPinActive = true;
+      updateDebugPanel();
     }
   }
 
@@ -855,14 +909,17 @@
   function selectStation(station) {
     if (!station) return;
     selectedStation = station;
+    debugState.selectedStationId = getStationId(station);
     renderStationMarkers();
     renderSelectedStationCards();
     renderDistributionPreview();
     renderValidationPanel();
     focusStation(station);
+    updateDebugPanel();
     loadStationCalibration(station).then(function () {
       renderSelectedStationCards();
       renderValidationPanel();
+      updateDebugPanel();
     }).catch(function (error) {
       console.warn('[naviduror] loadStationCalibration failed', error);
       setCalibrationStatus('فشل تحميل معايرة المحطة من الخادم.', 'error');
@@ -908,7 +965,22 @@
       }
       validMarkers.push(marker);
     });
+    debugState.totalLoadedStations = stations.length;
+    debugState.totalVisibleStations = visibleStations.length;
+    debugState.totalValidStations = validMarkers.length;
+    debugState.totalRenderedMarkers = validMarkers.length;
+    debugState.tileLayerLoaded = !!tileLayerLoaded;
+    debugState.selectedStationId = selectedStation ? getStationId(selectedStation) : '';
+    debugState.firstStations = stations.slice(0, 5).map(function (station) {
+      var coords = getStationCoords(station);
+      return {
+        id: getStationId(station),
+        lat: coords.lat,
+        lon: coords.lon
+      };
+    });
     console.log('[naviduror] loaded station count', visibleStations.length, 'valid station count', validMarkers.length, 'marker render count', validMarkers.length);
+    updateDebugPanel();
     updateHeaderSummary();
     resizeMap();
     if (selectedStation) {
