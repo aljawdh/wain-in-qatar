@@ -2665,7 +2665,7 @@
     populateTraitCheckboxes('stDururMarineTraits', profile.marine_traits || []);
     populateTraitCheckboxes('stDururSeasonalTraits', profile.seasonal_traits || []);
     updateFishActivityOptions(profile.current_dur_id, profile.fish_activity_traits || []);
-    updateDurReferenceDisplay(profile.current_dur_id);
+    updateDurReferenceDisplay(profile.current_dur_id, profile.weather_traits || [], profile.marine_traits || [], profile.seasonal_traits || []);
 
     getEl('stDururExpertNotes').value = profile.expert_notes || '';
   }
@@ -2751,6 +2751,7 @@
       getEl('stDururNextStart').value = nextStartStr;
     }
     updateFishActivityOptions(dururSel.value);
+    updateDurReferenceDisplay(dururSel.value);
   }
 
   function loadDururTraits() {
@@ -2886,7 +2887,44 @@
     note.textContent = noteText;
   }
 
-  function updateDurReferenceDisplay(durId) {
+  function getSelectedTraitIds(containerId) {
+    var container = getEl(containerId);
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(function (cb) {
+      return cb.getAttribute('data-trait-id');
+    }).filter(function (id) { return id; });
+  }
+
+  function getSeasonEventsByIds(ids) {
+    if (!Array.isArray(ids)) return [];
+    return seasonEventsCache.filter(function (e) { return ids.indexOf(e.id) >= 0; });
+  }
+
+  function getTraitLabelsByIds(ids) {
+    if (!Array.isArray(ids)) return [];
+    return traitsCache.filter(function (t) { return ids.indexOf(t.id) >= 0; }).map(function (t) {
+      return t.name_ar || t.name || t.id;
+    });
+  }
+
+  function getDurReferenceTraitIds(dur, category) {
+    if (!dur || !Array.isArray(dur[category + '_traits'])) return [];
+    return mapDururTraitNamesToIds(dur[category + '_traits'], category).filter(function (id) { return id; });
+  }
+
+  function getDurReferenceTraitLabels(dur, category) {
+    if (!dur || !Array.isArray(dur[category + '_traits'])) return [];
+    var labels = dur[category + '_traits'].slice();
+    var ids = mapDururTraitNamesToIds(dur[category + '_traits'], category);
+    return labels.map(function (label, index) {
+      var id = ids[index];
+      if (!id) return label;
+      var trait = traitsCache.find(function (t) { return t.id === id; });
+      return trait ? (trait.name_ar || trait.name || label) : label;
+    }).filter(Boolean);
+  }
+
+  function updateDurReferenceDisplay(durId, manualWeatherIds, manualMarineIds, manualSeasonIds) {
     var dur = getDururById(durId);
     var noteId = 'stDururReferenceInfo';
     var container = getEl(noteId);
@@ -2909,6 +2947,49 @@
     if (dur.heritage_meaning_ar) details.push('المعنى التقليدي: ' + dur.heritage_meaning_ar);
     var description = dur.notes_ar || dur.description_ar || dur.description || '';
     if (description) details.push('الوصف: ' + description);
+
+    var referenceWeather = getDurReferenceTraitLabels(dur, 'weather');
+    var referenceWeatherIds = getDurReferenceTraitIds(dur, 'weather');
+    if (referenceWeather.length > 0) {
+      details.push('سمات الطقس المرجعية: ' + referenceWeather.join(', '));
+    } else {
+      details.push('لا توجد سمات طقس مرجعية.');
+    }
+
+    var referenceMarine = getDurReferenceTraitLabels(dur, 'marine');
+    var referenceMarineIds = getDurReferenceTraitIds(dur, 'marine');
+    if (referenceMarine.length > 0) {
+      details.push('سمات البحر المرجعية: ' + referenceMarine.join(', '));
+    } else {
+      details.push('لا توجد سمات بحرية مرجعية.');
+    }
+
+    var referenceEvents = getSeasonEventsForDur(dur);
+    if (referenceEvents.length > 0) {
+      details.push('الأحداث الموسمية المرجعية: ' + referenceEvents.map(function (e) { return e.name_ar || e.name || e.id; }).join(', '));
+    } else {
+      details.push('لا توجد أحداث موسمية مرجعية مرتبطة.');
+    }
+
+    var selectedManualWeather = Array.isArray(manualWeatherIds) ? manualWeatherIds : getSelectedTraitIds('stDururWeatherTraits');
+    var manualWeatherIdsOnly = selectedManualWeather.filter(function (id) { return referenceWeatherIds.indexOf(id) < 0; });
+    if (manualWeatherIdsOnly.length > 0) {
+      details.push('سمات الطقس اليدوية: ' + getTraitLabelsByIds(manualWeatherIdsOnly).join(', '));
+    }
+
+    var selectedManualMarine = Array.isArray(manualMarineIds) ? manualMarineIds : getSelectedTraitIds('stDururMarineTraits');
+    var manualMarineIdsOnly = selectedManualMarine.filter(function (id) { return referenceMarineIds.indexOf(id) < 0; });
+    if (manualMarineIdsOnly.length > 0) {
+      details.push('سمات البحر اليدوية: ' + getTraitLabelsByIds(manualMarineIdsOnly).join(', '));
+    }
+
+    var selectedManualSeason = Array.isArray(manualSeasonIds) ? manualSeasonIds : getSelectedTraitIds('stDururSeasonalTraits');
+    var manualSeasonIdsOnly = selectedManualSeason.filter(function (id) { return referenceEvents.every(function (e) { return e.id !== id; }); });
+    if (manualSeasonIdsOnly.length > 0) {
+      var manualEvents = getSeasonEventsByIds(manualSeasonIdsOnly);
+      details.push('الأحداث الموسمية اليدوية: ' + (manualEvents.length ? manualEvents.map(function (e) { return e.name_ar || e.name || e.id; }).join(', ') : manualSeasonIdsOnly.join(', ')));
+    }
+
     container.innerHTML = details.map(function (line) {
       return '<div>' + line + '</div>';
     }).join('');
@@ -2917,24 +2998,57 @@
   function ensureAnalyticsDurReferenceFields() {
     var container = getEl('stAnalyticsDerivedReading');
     if (!container) return;
-    ['stAnalyticsDurSeason', 'stAnalyticsDurMeaning', 'stAnalyticsDurDescription'].forEach(function (id) {
+    ['stAnalyticsDurSeason', 'stAnalyticsDurMeaning', 'stAnalyticsDurDescription', 'stAnalyticsDurWeather', 'stAnalyticsDurMarine', 'stAnalyticsDurEvents', 'stAnalyticsDurManualWeather', 'stAnalyticsDurManualMarine', 'stAnalyticsDurManualDurEvents'].forEach(function (id) {
       if (!getEl(id)) {
+        var label = 'الموسم:';
+        if (id === 'stAnalyticsDurMeaning') label = 'المعنى التقليدي:';
+        if (id === 'stAnalyticsDurDescription') label = 'الوصف:';
+        if (id === 'stAnalyticsDurWeather') label = 'سمات الطقس المرجعية:';
+        if (id === 'stAnalyticsDurMarine') label = 'سمات البحر المرجعية:';
+        if (id === 'stAnalyticsDurEvents') label = 'الأحداث الموسمية المرجعية:';
+        if (id === 'stAnalyticsDurManualWeather') label = 'سمات الطقس اليدوية:';
+        if (id === 'stAnalyticsDurManualMarine') label = 'سمات البحر اليدوية:';
+        if (id === 'stAnalyticsDurManualDurEvents') label = 'الأحداث الموسمية اليدوية:';
         var div = document.createElement('div');
-        div.innerHTML = '<strong style="color:#9fc1d7">' + (id === 'stAnalyticsDurSeason' ? 'الموسم:' : id === 'stAnalyticsDurMeaning' ? 'المعنى التقليدي:' : 'الوصف:') + '</strong> <span id="' + id + '">--</span>';
+        div.innerHTML = '<strong style="color:#9fc1d7">' + label + '</strong> <span id="' + id + '">--</span>';
         container.appendChild(div);
       }
     });
   }
 
-  function updateAnalyticsDurReferenceDisplay(dur) {
+  function updateAnalyticsDurReferenceDisplay(dur, manualWeatherIds, manualMarineIds, manualSeasonIds) {
     ensureAnalyticsDurReferenceFields();
     var seasonEl = getEl('stAnalyticsDurSeason');
     var meaningEl = getEl('stAnalyticsDurMeaning');
     var descriptionEl = getEl('stAnalyticsDurDescription');
-    if (!seasonEl || !meaningEl || !descriptionEl) return;
+    var weatherEl = getEl('stAnalyticsDurWeather');
+    var marineEl = getEl('stAnalyticsDurMarine');
+    var eventsEl = getEl('stAnalyticsDurEvents');
+    var manualWeatherEl = getEl('stAnalyticsDurManualWeather');
+    var manualMarineEl = getEl('stAnalyticsDurManualMarine');
+    var manualSeasonEl = getEl('stAnalyticsDurManualDurEvents');
+    if (!seasonEl || !meaningEl || !descriptionEl || !weatherEl || !marineEl || !eventsEl || !manualWeatherEl || !manualMarineEl || !manualSeasonEl) return;
     seasonEl.textContent = dur && dur.season_ar ? dur.season_ar : '--';
     meaningEl.textContent = dur && dur.heritage_meaning_ar ? dur.heritage_meaning_ar : '--';
     descriptionEl.textContent = dur ? (dur.notes_ar || dur.description_ar || dur.description || '--') : '--';
+
+    var referenceWeather = dur ? getDurReferenceTraitLabels(dur, 'weather') : [];
+    var referenceWeatherIds = dur ? getDurReferenceTraitIds(dur, 'weather') : [];
+    var referenceMarine = dur ? getDurReferenceTraitLabels(dur, 'marine') : [];
+    var referenceMarineIds = dur ? getDurReferenceTraitIds(dur, 'marine') : [];
+    var referenceEvents = dur ? getSeasonEventsForDur(dur) : [];
+
+    weatherEl.textContent = referenceWeather.length ? referenceWeather.join(', ') : '--';
+    marineEl.textContent = referenceMarine.length ? referenceMarine.join(', ') : '--';
+    eventsEl.textContent = referenceEvents.length ? referenceEvents.map(function (e) { return e.name_ar || e.name || e.id; }).join(', ') : '--';
+
+    var manualWeatherOnly = Array.isArray(manualWeatherIds) ? manualWeatherIds.filter(function (id) { return referenceWeatherIds.indexOf(id) < 0; }) : [];
+    var manualMarineOnly = Array.isArray(manualMarineIds) ? manualMarineIds.filter(function (id) { return referenceMarineIds.indexOf(id) < 0; }) : [];
+    var manualSeasonOnly = Array.isArray(manualSeasonIds) ? manualSeasonIds.filter(function (id) { return referenceEvents.every(function (e) { return e.id !== id; }); }) : [];
+
+    manualWeatherEl.textContent = manualWeatherOnly.length ? getTraitLabelsByIds(manualWeatherOnly).join(', ') : '--';
+    manualMarineEl.textContent = manualMarineOnly.length ? getTraitLabelsByIds(manualMarineOnly).join(', ') : '--';
+    manualSeasonEl.textContent = manualSeasonOnly.length ? getSeasonEventsByIds(manualSeasonOnly).map(function (e) { return e.name_ar || e.name || e.id; }).join(', ') : '--';
   }
 
   function getDururById(id) {
@@ -3064,7 +3178,7 @@
     getEl('stAnalyticsDaysRemaining').textContent = daysRemaining;
     var nextDurEl = getEl('stAnalyticsNextDur');
     if (nextDurEl) nextDurEl.textContent = nextDurName;
-    updateAnalyticsDurReferenceDisplay(staticDur);
+    updateAnalyticsDurReferenceDisplay(staticDur, profile.weather_traits || [], profile.marine_traits || [], profile.seasonal_traits || []);
 
     var traitsContainer = getEl('stAnalyticsExpectedTraits');
     if (traitsContainer) {

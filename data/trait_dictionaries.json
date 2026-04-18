@@ -2,7 +2,7 @@
   {
     "id": "trait_weather_01",
     "category": "weather",
-    "name_ar": "حار وجاف",
+    "name_ar": "جو حار وجاف",
     "name_en": "Hot and dry weather",
     "description_ar": "جو شديد الحرارة مع رطوبة منخفضة ويزيد من حاجات السلامة البحرية.",
     "description_en": "Intense heat with low humidity, increasing marine safety concerns.",
@@ -87,6 +87,136 @@
     "description_ar": "انخفاض مفاجئ في الحرارة يمهد لفترة أكثر اعتدالاً.",
     "description_en": "A sudden drop in heat that leads to a more moderate period.",
     "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_10",
+    "category": "weather",
+    "name_ar": "مشمس حار",
+    "name_en": "Sunny hot weather",
+    "description_ar": "نهار مشمس مع ارتفاع ملحوظ في الحرارة.",
+    "description_en": "Sunny day with noticeable heat increase.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_11",
+    "category": "weather",
+    "name_ar": "اعتدال الجو ليلاً",
+    "name_en": "Cool night moderation",
+    "description_ar": "هطول ليلي معتدل وراحة بعد يوم حار.",
+    "description_en": "A moderate nighttime condition offering relief after a hot day.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_12",
+    "category": "weather",
+    "name_ar": "جو دافئ",
+    "name_en": "Warm weather",
+    "description_ar": "طقس دافئ معتدل يشمل شعوراً مريحاً نسبيًا.",
+    "description_en": "Warm and relatively comfortable weather.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_13",
+    "category": "weather",
+    "name_ar": "ارتفاع نسبي للحرارة",
+    "name_en": "Relative heat increase",
+    "description_ar": "ارتفاع في الحرارة دون أن يصل إلى درجات حرارة قصوى.",
+    "description_en": "A relative increase in heat without reaching extreme levels.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_14",
+    "category": "weather",
+    "name_ar": "جو شديد البرودة",
+    "name_en": "Severely cold weather",
+    "description_ar": "درجات حرارة منخفضة جداً تؤدي إلى شعور ببرودة شديدة.",
+    "description_en": "Very low temperatures producing intense cold sensation.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_15",
+    "category": "weather",
+    "name_ar": "جو بارد",
+    "name_en": "Cold weather",
+    "description_ar": "طقس بارد يسبب حاجة لملابس دافئة.",
+    "description_en": "Cold weather requiring warm clothing.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_16",
+    "category": "weather",
+    "name_ar": "جو متقلب",
+    "name_en": "Variable weather",
+    "description_ar": "حالة جوية تتغير بسرعة بين السحب والشمس.",
+    "description_en": "Weather that shifts quickly between clouds and sun.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_17",
+    "category": "weather",
+    "name_ar": "جو غير مستقر",
+    "name_en": "Unstable weather",
+    "description_ar": "تغيرات جوية مفاجئة ومخاطر زخات أو رياح متقلبة.",
+    "description_en": "Sudden weather changes with showers or shifting winds.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_18",
+    "category": "weather",
+    "name_ar": "شدة القيظ",
+    "name_en": "Peak summer heat",
+    "description_ar": "فترة ذروة الحرارة الصيفية التي تزيد من الإحساس بالحر.",
+    "description_en": "The peak summer heat period increasing heat discomfort.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_19",
+    "category": "weather",
+    "name_ar": "التغير الخريفي",
+    "name_en": "Autumnal change",
+    "description_ar": "بداية تغيرات الخريف في درجات الحرارة والرياح.",
+    "description_en": "The beginning of autumn changes in temperature and wind.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_20",
+    "category": "weather",
+    "name_ar": "التغير الشتوي",
+    "name_en": "Winter change",
+    "description_ar": "الانتقال إلى برودة أكثر وبرودة ليلية أكبر.",
+    "description_en": "The shift to colder, more pronounced winter chill.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_21",
+    "category": "weather",
+    "name_ar": "التحول الربيعي",
+    "name_en": "Spring transition",
+    "description_ar": "تغيرات ربيعية في الطقس مع تذبذب الحرارة والرياح.",
+    "description_en": "Spring weather changes with fluctuating temperature and wind.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_22",
+    "category": "weather",
+    "name_ar": "التحول الصيفي",
+    "name_en": "Summer transition",
+    "description_ar": "انتقال إلى أجواء صيفية أكثر حرارة وجفافاً.",
+    "description_en": "A transition into hotter, drier summer conditions.",
+    "severity_hint": "medium",
     "is_active": true
   },
   {
