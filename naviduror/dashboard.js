@@ -18,6 +18,7 @@
   var comparisonsCache = [];
   var selectedStation = null;
   var tempStationMarker = null;
+  var tempStationLayer = null;
   var editingStation = null;
   var stationFormState = {
     isNew: true,
@@ -546,11 +547,13 @@
     });
 
     stationLayer = L.layerGroup().addTo(map);
+    tempStationLayer = L.layerGroup().addTo(map);
 
     map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
 
     map.on('click', function (event) {
       if (!event || !event.latlng) return;
+      console.log('[naviduror] map click received', event.latlng);
       openStationForm(null, event.latlng);
     });
 
@@ -676,12 +679,17 @@
     if (controls.stationFormCard) {
       controls.stationFormCard.hidden = true;
     }
+    if (tempStationLayer && map) {
+      try {
+        tempStationLayer.clearLayers();
+      } catch (e) {}
+    }
     if (tempStationMarker && map) {
       try {
         map.removeLayer(tempStationMarker);
       } catch (e) {}
-      tempStationMarker = null;
     }
+    tempStationMarker = null;
     editingStation = null;
   }
 
@@ -721,22 +729,26 @@
 
     if (controls.stationFormCard) {
       controls.stationFormCard.hidden = false;
+      try {
+        controls.stationFormCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (e) {}
     }
 
-    if (tempStationMarker && map) {
+    if (tempStationLayer && map) {
       try {
-        map.removeLayer(tempStationMarker);
+        tempStationLayer.clearLayers();
       } catch (e) {}
-      tempStationMarker = null;
     }
+    tempStationMarker = null;
     if (!station && latlng && map) {
       tempStationMarker = L.circleMarker([latlng.lat, latlng.lng], {
-        radius: 10,
-        color: '#00cc99',
-        fillColor: '#00ffb0',
-        fillOpacity: 0.8,
-        weight: 2
-      }).addTo(map);
+        radius: 14,
+        color: '#00ffee',
+        fillColor: '#00bb88',
+        fillOpacity: 0.9,
+        weight: 3
+      }).addTo(tempStationLayer);
+      console.log('[naviduror] temp pin placed', latlng);
       map.setView([latlng.lat, latlng.lng], 8);
     }
   }
@@ -882,7 +894,11 @@
       if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
       var marker = L.circleMarker([coords.lat, coords.lon], getStationStyle(station));
       marker.bindTooltip('<strong>' + (station.name || 'محطة') + '</strong>', { direction: 'top', offset: [0, -9], opacity: 0.95 });
-      marker.on('click', function () {
+      marker.on('click', function (event) {
+        if (event && event.originalEvent) {
+          event.originalEvent.stopPropagation();
+        }
+        console.log('[naviduror] station marker clicked', getStationId(station));
         selectStation(station);
         openStationForm(station, coords);
       });
