@@ -512,35 +512,40 @@
       stationLayer = null;
     }
 
-    map = L.map(container, {
-      zoomControl: true,
-      attributionControl: false
-    });
+    setTimeout(function () {
+      map = L.map(container, {
+        zoomControl: true,
+        attributionControl: false
+      });
 
-    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+      tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
 
-    stationLayer = L.layerGroup().addTo(map);
-    tempStationLayer = L.layerGroup().addTo(map);
+      stationLayer = L.layerGroup().addTo(map);
+      tempStationLayer = L.layerGroup().addTo(map);
 
-    map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+      map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
 
-    map.on('click', function (event) {
-      if (!event || !event.latlng) return;
-      openStationForm(null, event.latlng);
-    });
+      map.on('click', function (event) {
+        if (!event || !event.latlng) return;
+        openStationForm(null, event.latlng);
+      });
 
-    window.addEventListener('orientationchange', function () {
-      resizeMap();
-      setTimeout(resizeMap, 250);
-    });
+      window.addEventListener('orientationchange', function () {
+        resizeMap();
+      });
 
-    map.whenReady(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-      setTimeout(resizeMap, 250);
-    });
+      map.whenReady(function () {
+        setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 200);
+        setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 500);
+        setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 1000);
+      });
+
+      setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 300);
+      setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 800);
+    }, 100);
   }
 
   function resizeMap() {
