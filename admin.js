@@ -928,11 +928,20 @@
            arraysEqual(a.fish_activity_traits, b.fish_activity_traits);
   }
 
-  function getComparisonForStationDur(station, dur) {
-    if (!station || !dur) return null;
-    return annualComparisonsCache.find(function (row) {
-      return row.station_id === station.id && row.dur_id === dur.id;
-    }) || null;
+  function getAnalyticsHistory(stationId, period) {
+    // period: '1m', '3m', '6m', '1y'
+    var monthsBack;
+    if (period === '1m') monthsBack = 1;
+    else if (period === '3m') monthsBack = 3;
+    else if (period === '6m') monthsBack = 6;
+    else if (period === '1y') monthsBack = 12;
+    else return Promise.reject(new Error('Invalid period'));
+    var now = new Date();
+    var startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    var query = 'station_id=' + encodeURIComponent(stationId) + '&start_date=' + encodeURIComponent(startDate.toISOString().split('T')[0]);
+    return apiFetch('/api/admin/analytics-history?' + query, { method: 'GET' })
+      .then(function (res) { return res.json(); })
+      .then(function (data) { return Array.isArray(data.items) ? data.items : []; });
   }
 
   async function loadDururData() {
@@ -2790,6 +2799,70 @@
     });
   }
 
+  function getDururById(id) {
+    if (!id) return null;
+    return dururCache.find(function (d) { return d.id === id; }) || null;
+  }
+
+  function getOrderedActiveDururs() {
+    return dururCache.slice().filter(function (d) { return d.is_active !== false; }).sort(function (a, b) {
+      return Number(a.dur_number) - Number(b.dur_number);
+    });
+  }
+
+  function getNextDurur(currentDur) {
+    var list = getOrderedActiveDururs();
+    if (!currentDur || !list.length) return null;
+    var index = list.findIndex(function (d) { return d.id === currentDur.id; });
+    if (index < 0) return list[0] || null;
+    return list[(index + 1) % list.length] || null;
+  }
+
+  function safeParseYmd(value) {
+    if (!value) return null;
+    var date = new Date(value);
+    if (isNaN(date.getTime())) return null;
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  function formatYmd(date) {
+    return date ? date.toISOString().split('T')[0] : '--';
+  }
+
+  function getDurEndDate(dur, entryDate) {
+    if (!dur || !entryDate || !dur.gregorian_end_month || !dur.gregorian_end_day) return null;
+    var year = entryDate.getFullYear();
+    var endDate = new Date(year, dur.gregorian_end_month - 1, dur.gregorian_end_day);
+    if (entryDate > endDate) {
+      endDate = new Date(year + 1, dur.gregorian_end_month - 1, dur.gregorian_end_day);
+    }
+    endDate.setHours(0, 0, 0, 0);
+    return endDate;
+  }
+
+  function getDaysDifference(targetDate) {
+    if (!targetDate) return null;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.ceil((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  function getNextDurStartDate(currentDur) {
+    var nextDur = getNextDurur(currentDur);
+    if (!nextDur || !nextDur.gregorian_start_month || !nextDur.gregorian_start_day) return null;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var year = today.getFullYear();
+    var nextStart = new Date(year, nextDur.gregorian_start_month - 1, nextDur.gregorian_start_day);
+    nextStart.setHours(0, 0, 0, 0);
+    if (nextStart <= today) {
+      nextStart = new Date(year + 1, nextDur.gregorian_start_month - 1, nextDur.gregorian_start_day);
+      nextStart.setHours(0, 0, 0, 0);
+    }
+    return nextStart;
+  }
+
   function showDururAnalytics() {
     var stationId = getEl('stId').value.trim();
     if (!stationId) {
@@ -2800,64 +2873,189 @@
     renderStationAnalytics();
   }
 
-  function renderStationAnalytics() {
+  async function renderStationAnalytics() {
     var stationId = currentAnalyzedStationId;
     if (!stationId) return;
 
     var station = stationsCache.find(function (s) { return s.id === stationId; });
-    if (!station || !station.durur_profile) {
-      getEl('stAnalyticsMsg').textContent = 'لا توجد بيانات درور';
+    if (!station) {
+      getEl('stAnalyticsMsg').textContent = 'لا توجد بيانات المحطة';
       return;
     }
 
-    var profile = station.durur_profile;
-    var durur = dururCache.find(function (d) { return d.id === profile.current_dur_id; });
+    var profile = station.durur_profile || {};
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var currentDur = getDururById(profile.current_dur_id) || getCurrentDurForDate(today);
+    if (!currentDur) {
+      getEl('stAnalyticsMsg').textContent = 'لا يوجد در حالياً';
+      return;
+    }
 
-    // Render derived reading block
-    var durName = durur ? (durur.name || 'Dur ' + durur.dur_number) : '--';
-    getEl('stAnalyticsDurName').textContent = durName;
-    getEl('stAnalyticsDurEntryDate').textContent = profile.dur_entry_date || '--';
-    getEl('stAnalyticsDaysRemaining').textContent = (getEl('stDururDaysRemaining').value || '--') + ' days';
-    
+    var nextDur = getNextDurur(currentDur);
+    var entryDate = safeParseYmd(profile.dur_entry_date);
+    var currentDurName = currentDur.name || ('Dur ' + currentDur.dur_number);
+    var currentDurNumber = currentDur.dur_number != null ? String(currentDur.dur_number) : '--';
+    var currentEntryDateText = entryDate ? formatYmd(entryDate) : '--';
+    var currentEndDate = getDurEndDate(currentDur, entryDate);
+    var daysRemaining = currentEndDate != null ? Math.max(0, getDaysDifference(currentEndDate)) + ' days' : '--';
+
+    var nextDurName = nextDur ? (nextDur.name || ('Dur ' + nextDur.dur_number)) : '--';
+    var nextDurNumber = nextDur && nextDur.dur_number != null ? String(nextDur.dur_number) : '--';
+    var nextStartDate = nextDur ? getNextDurStartDate(currentDur) : null;
+    var nextStartText = formatYmd(nextStartDate);
+    var daysUntilNext = nextStartDate != null ? Math.max(0, getDaysDifference(nextStartDate)) + ' days' : '--';
+    var transitionNote = nextDur ? 'الانتقال من ' + currentDurName + ' إلى ' + nextDurName : '--';
+
+    var expectedTraits = Array.isArray(currentDur.weather_traits) ? currentDur.weather_traits.slice() : [];
+    var marineTraits = Array.isArray(currentDur.marine_traits) ? currentDur.marine_traits.slice() : [];
+    var fishTraits = Array.isArray(currentDur.fish_traits) ? currentDur.fish_traits.slice() : [];
+
+    getEl('stAnalyticsDurName').textContent = currentDurName;
+    getEl('stAnalyticsDurEntryDate').textContent = currentEntryDateText;
+    getEl('stAnalyticsDaysRemaining').textContent = daysRemaining;
     var nextDurEl = getEl('stAnalyticsNextDur');
-    nextDurEl.textContent = getEl('stDururNextStart').value || '--';
-
-    // Render expected traits
-    var expectedTraits = [];
-    (profile.weather_traits || []).forEach(function (tid) {
-      var t = traitsCache.find(function (tr) { return tr.id === tid; });
-      if (t) expectedTraits.push(t.name_ar || t.name);
-    });
-    (profile.marine_traits || []).forEach(function (tid) {
-      var t = traitsCache.find(function (tr) { return tr.id === tid; });
-      if (t) expectedTraits.push(t.name_ar || t.name);
-    });
-    (profile.seasonal_traits || []).forEach(function (tid) {
-      var se = seasonEventsCache.find(function (s) { return s.id === tid; });
-      if (se) expectedTraits.push(se.name_ar || se.name);
-    });
-    (profile.fish_activity_traits || []).forEach(function (fish) {
-      expectedTraits.push(fish);
-    });
+    if (nextDurEl) nextDurEl.textContent = nextDurName;
 
     var traitsContainer = getEl('stAnalyticsExpectedTraits');
-    traitsContainer.innerHTML = expectedTraits.length > 0 
-      ? expectedTraits.map(function (t) {
-          return '<span style="display:inline-block;padding:4px 8px;background:rgba(92,225,255,.2);border:1px solid rgba(92,225,255,.3);border-radius:6px;color:#5ce1ff">' + t + '</span>';
-        }).join('')
-      : '<span style="color:#9fc1d7">-- لا توجد سمات --</span>';
+    if (traitsContainer) {
+      traitsContainer.innerHTML = expectedTraits.length > 0
+        ? expectedTraits.map(function (t) {
+            return '<span style="display:inline-block;padding:4px 8px;background:rgba(92,225,255,.2);border:1px solid rgba(92,225,255,.3);border-radius:6px;color:#5ce1ff">' + t + '</span>';
+          }).join('')
+        : '<span style="color:#9fc1d7">-- لا توجد سمات --</span>';
+    }
 
-    // Render expert notes
     getEl('stAnalyticsExpertNotes').textContent = profile.expert_notes || '-- لا توجد ملاحظات --';
 
-    // Render validation structure
+    var analysisHtml =
+      '<div style="line-height:1.5;">' +
+      '<strong>Current reading</strong><br>' +
+      'Current dur name: ' + currentDurName + '<br>' +
+      'Current dur number: ' + currentDurNumber + '<br>' +
+      'Current dur entry/start date: ' + currentEntryDateText + '<br>' +
+      'Days remaining until current dur ends: ' + daysRemaining + '<br>' +
+      'Current dur expected traits summary: ' + (expectedTraits.length ? expectedTraits.join(', ') : '--') + '<br>' +
+      'Current dur sea/marine relationship summary: ' + (marineTraits.length ? marineTraits.join(', ') : '--') + '<br>' +
+      'Current dur fish activity summary: ' + (fishTraits.length ? fishTraits.join(', ') : '--') + '<br><br>' +
+      '<strong>Next reading</strong><br>' +
+      'Next dur name: ' + nextDurName + '<br>' +
+      'Next dur number: ' + nextDurNumber + '<br>' +
+      'Next dur start date: ' + nextStartText + '<br>' +
+      'Days until next dur starts: ' + daysUntilNext + '<br>' +
+      'Transition note from current dur to next dur: ' + transitionNote +
+      '</div>';
+
+    // Load historical analytics
+    var historyRecords = [];
+    try {
+      historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
+      historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
+    } catch (err) {
+      console.error('Failed to load analytics history:', err);
+    }
+
+    var historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
+    if (historyRecords.length === 0) {
+      historyHtml += 'No historical records found for this period.';
+    } else {
+      var totalRecords = historyRecords.length;
+      var avgMatch = historyRecords.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / totalRecords;
+      var highestMatch = Math.max.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
+      var lowestMatch = Math.min.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
+      var latestRecord = historyRecords[0];
+      historyHtml +=
+        'Total records analyzed: ' + totalRecords + '<br>' +
+        'Average match percentage: ' + avgMatch.toFixed(1) + '%<br>' +
+        'Highest match percentage: ' + highestMatch.toFixed(1) + '%<br>' +
+        'Lowest match percentage: ' + lowestMatch.toFixed(1) + '%<br>' +
+        'Latest validation status: ' + latestRecord.validation_status + '<br>' +
+        'Latest checked_at: ' + new Date(latestRecord.checked_at).toLocaleString() + '<br><br>' +
+        '<strong>Historical Records</strong><br>';
+      historyRecords.forEach(function (record) {
+        historyHtml +=
+          'Checked at: ' + new Date(record.checked_at).toLocaleString() + '<br>' +
+          'Current dur name: ' + record.current_dur_name + '<br>' +
+          'Current dur id: ' + record.current_dur_id + '<br>' +
+          'Match percentage: ' + record.match_percentage.toFixed(1) + '%<br>' +
+          'Validation status: ' + record.validation_status + '<br>' +
+          'Matching traits: ' + (record.matching_traits && record.matching_traits.length ? record.matching_traits.join(', ') : '--') + '<br><br>';
+      });
+
+      // Year-vs-year comparison
+      var yearGroups = {};
+      historyRecords.forEach(function (record) {
+        var year = record.year;
+        if (!yearGroups[year]) {
+          yearGroups[year] = [];
+        }
+        yearGroups[year].push(record);
+      });
+      var years = Object.keys(yearGroups).sort(function (a, b) { return Number(b) - Number(a); });
+      if (years.length === 0) {
+        // already handled
+      } else if (years.length === 1) {
+        historyHtml += '<strong>Year-vs-Year Comparison</strong><br>';
+        historyHtml += 'Only one year of data available. Year-vs-year comparison requires data from multiple years.<br>';
+        var year = years[0];
+        var records = yearGroups[year];
+        var total = records.length;
+        var avg = records.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / total;
+        var highest = Math.max.apply(null, records.map(function (r) { return r.match_percentage; }));
+        var lowest = Math.min.apply(null, records.map(function (r) { return r.match_percentage; }));
+        var latest = records[0];
+        historyHtml +=
+          'Year: ' + year + '<br>' +
+          'Total records: ' + total + '<br>' +
+          'Average match percentage: ' + avg.toFixed(1) + '%<br>' +
+          'Highest match percentage: ' + highest.toFixed(1) + '%<br>' +
+          'Lowest match percentage: ' + lowest.toFixed(1) + '%<br>' +
+          'Latest validation status: ' + latest.validation_status + '<br>';
+      } else {
+        historyHtml += '<br><strong>Year-vs-Year Comparison</strong><br>';
+        years.forEach(function (year) {
+          var records = yearGroups[year];
+          var total = records.length;
+          var avg = records.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / total;
+          var highest = Math.max.apply(null, records.map(function (r) { return r.match_percentage; }));
+          var lowest = Math.min.apply(null, records.map(function (r) { return r.match_percentage; }));
+          var latest = records[0];
+          historyHtml +=
+            '<strong>Year ' + year + ':</strong><br>' +
+            'Total records: ' + total + '<br>' +
+            'Average match percentage: ' + avg.toFixed(1) + '%<br>' +
+            'Highest match percentage: ' + highest.toFixed(1) + '%<br>' +
+            'Lowest match percentage: ' + lowest.toFixed(1) + '%<br>' +
+            'Latest validation status: ' + latest.validation_status + '<br><br>';
+        });
+        // Cross-year
+        var yearAvgs = years.map(function (year) {
+          var records = yearGroups[year];
+          var avg = records.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / records.length;
+          return { year: year, avg: avg };
+        });
+        var bestYear = yearAvgs.reduce(function (best, curr) { return curr.avg > best.avg ? curr : best; });
+        var worstYear = yearAvgs.reduce(function (worst, curr) { return curr.avg < worst.avg ? curr : worst; });
+        var latestYear = yearAvgs[0];
+        var prevYear = yearAvgs[1];
+        var change = prevYear ? latestYear.avg - prevYear.avg : 0;
+        var changeDesc = prevYear ? (change > 1 ? 'improved' : change < -1 ? 'declined' : 'stayed similar') : 'N/A';
+        historyHtml +=
+          '<strong>Cross-Year Insights:</strong><br>' +
+          'Best year by average match: ' + bestYear.year + ' (' + bestYear.avg.toFixed(1) + '%)<br>' +
+          'Worst year by average match: ' + worstYear.year + ' (' + worstYear.avg.toFixed(1) + '%)<br>' +
+          'Change between latest and previous year: ' + (prevYear ? change.toFixed(1) + '%' : 'N/A') + '<br>' +
+          'Accuracy trend: ' + changeDesc + '<br>';
+      }
+    }
+
+    getEl('stAnalyticsMsg').innerHTML = analysisHtml + historyHtml;
+
     var validation = buildValidationObject(stationId, profile);
     getEl('stAnalyticsExpectedCount').textContent = expectedTraits.length + ' trait(s)';
     getEl('stAnalyticsObservedCount').textContent = (validation.observed_traits || []).length + ' trait(s) (جاهز للبيانات)';
     getEl('stAnalyticsScore').textContent = validation.validation_score || '-- (محجوزة)';
     getEl('stAnalyticsStatus').textContent = validation.validation_status || 'pending_observation';
-
-    getEl('stAnalyticsMsg').textContent = 'تم التحديث — جاهز لبيانات الطقس الحقيقية';
   }
 
   function buildValidationObject(stationId, dururProfile) {
@@ -2950,6 +3148,30 @@
         if (percentage >= 70) status = 'متطابق';
         else if (percentage >= 40) status = 'متوسط';
         else status = 'ضعيف';
+        var durur = getDururById(profile.current_dur_id);
+        var record = {
+          station_id: currentAnalyzedStationId,
+          checked_at: new Date().toISOString(),
+          year: new Date().getFullYear(),
+          month: new Date().getMonth() + 1,
+          current_dur_id: profile.current_dur_id,
+          current_dur_name: durur ? (durur.name || 'Dur ' + durur.dur_number) : '',
+          expected_traits: expectedTraits,
+          observed_traits: observedTraits,
+          matching_traits: matching,
+          match_percentage: percentage,
+          validation_status: status,
+          profile_source: profile.source || 'auto',
+          is_overridden: !!profile.is_overridden,
+          notes: profile.expert_notes || ''
+        };
+        apiFetch('/api/admin/analytics-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record)
+        }).catch(function (err) {
+          console.error('Failed to save analytics history:', err);
+        });
         getEl('stAnalyticsMsg').textContent = 'Expected traits: ' + expectedTraits.join(', ') + ', Observed traits: ' + observedTraits.join(', ') + ', Matching traits: ' + matching.join(', ') + ', Match percentage: ' + percentage.toFixed(0) + '%, Validation status: ' + status;
       })
       .catch(function (err) {
