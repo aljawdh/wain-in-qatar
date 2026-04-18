@@ -838,52 +838,22 @@ textarea {
   }
 }
 
-/* Leaflet tile safety fix */
+/* Minimal safe Leaflet patch */
 .leaflet-container {
   overflow: hidden;
 }
 
-/* FIX LEAFLET (reset to safe defaults) */
-.leaflet-container {
-  overflow: hidden;
-}
-
-.leaflet-tile {
-  width: 256px !important;
-  height: 256px !important;
-}
-
-.leaflet-pane,
-.leaflet-tile-pane,
-.leaflet-overlay-pane,
-.leaflet-shadow-pane,
-.leaflet-marker-pane,
-.leaflet-tooltip-pane,
-.leaflet-popup-pane {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-
-/* Leaflet tile image final safety fix */
-.leaflet-container img,
-.leaflet-container .leaflet-tile,
-.leaflet-container .leaflet-tile-container img,
-.leaflet-tile-pane img {
+.leaflet-container img {
   max-width: none !important;
   max-height: none !important;
 }
 
-.leaflet-container .leaflet-tile {
-  display: block !important;
+#navidurorMap {
+  width: 100%;
+  min-height: 360px;
 }
 
-.leaflet-container .leaflet-tile-pane {
-  z-index: 200;
-}
-
-.leaflet-container .leaflet-marker-pane {
-  z-index: 600;
+#navidurorMap.leaflet-container {
+  background: #08131d;
 }
 
