@@ -59,85 +59,94 @@
       </div>
     </section>
 
-    <section class="map-panel nv-map-panel">
-      <div class="nv-map-header">
-        <h2>الخريطة التشغيلية</h2>
+    <section class="map-panel" id="mapPanel">
+  <div class="map-header">
+    <h2>الخريطة التشغيلية</h2>
+  </div>
+
+  <div id="navidurorMap" class="map-view"></div>
+
+  <div class="map-legend">
+    <span class="legend-item"><i class="dot dot-primary"></i> محطة رئيسية مرجعية</span>
+    <span class="legend-item"><i class="dot dot-secondary"></i> محطة تابعة</span>
+    <span class="legend-item"><i class="dot dot-band"></i> محطة مرتبطة بخطوط</span>
+  </div>
+</section>
+
+<article class="card station-form-card" id="stationFormCard" hidden>
+  <div class="card-head"><h2>إضافة / تعديل محطة</h2></div>
+  <div class="card-body">
+    <div class="form-row split-row">
+      <div>
+        <label for="stationFormId">معرف المحطة</label>
+        <input id="stationFormId" type="text" placeholder="معرف فريد">
       </div>
-      <div id="navidurorMap" class="map-view nv-map-view"></div>
-      <div class="map-legend nv-map-legend nv-map-legend">
-        <span class="legend-item"><i class="dot dot-primary"></i> محطة رئيسية مرجعية</span>
-        <span class="legend-item"><i class="dot dot-secondary"></i> محطة تابعة</span>
-        <span class="legend-item"><i class="dot dot-band"></i> محطة مرتبطة بخطوط</span>
+      <div>
+        <label for="stationFormName">اسم المحطة</label>
+        <input id="stationFormName" type="text" placeholder="اسم المحطة">
       </div>
-      <article class="card station-form-card nv-section-card" id="stationFormCard" hidden>
-        <div class="card-head"><h2>إضافة / تعديل محطة</h2></div>
-        <div class="card-body">
-          <div class="form-row split-row">
-            <div>
-              <label for="stationFormId">معرف المحطة</label>
-              <input id="stationFormId" type="text" placeholder="معرف فريد">
-            </div>
-            <div>
-              <label for="stationFormName">اسم المحطة</label>
-              <input id="stationFormName" type="text" placeholder="اسم المحطة">
-            </div>
-          </div>
-          <div class="form-row split-row">
-            <div>
-              <label for="stationFormLat">خط العرض</label>
-              <input id="stationFormLat" type="number" step="0.00001" placeholder="Latitude">
-            </div>
-            <div>
-              <label for="stationFormLon">خط الطول</label>
-              <input id="stationFormLon" type="number" step="0.00001" placeholder="Longitude">
-            </div>
-          </div>
-          <div class="form-row split-row">
-            <div>
-              <label for="stationFormCountry">الدولة</label>
-              <input id="stationFormCountry" type="text" placeholder="Country">
-            </div>
-            <div>
-              <label for="stationFormRegion">المنطقة</label>
-              <input id="stationFormRegion" type="text" placeholder="Region">
-            </div>
-          </div>
-          <div class="form-row split-row">
-            <div>
-              <label for="stationFormRoleType">نوع المحطة</label>
-              <select id="stationFormRoleType">
-                <option value="primary_reference">رئيسية مرجعية</option>
-                <option value="secondary_linked">تابعة</option>
-                <option value="latlon_band_station">مرتبطة بخطوط</option>
-              </select>
-            </div>
-            <div>
-              <label for="stationFormReferenceId">محطة مرجعية مرتبطة</label>
-              <input id="stationFormReferenceId" type="text" placeholder="معرف المحطة المرجعية">
-            </div>
-          </div>
-          <div class="form-row split-row">
-            <div>
-              <label for="stationFormStatus">الحالة</label>
-              <select id="stationFormStatus">
-                <option value="active">نشطة</option>
-                <option value="disabled">معطلة</option>
-                <option value="archived">مؤرشفة</option>
-              </select>
-            </div>
-            <div>
-              <label for="stationFormNotes">ملاحظات</label>
-              <input id="stationFormNotes" type="text" placeholder="ملاحظات قصيرة">
-            </div>
-          </div>
-          <div class="button-row">
-            <button id="stationFormSaveBtn" class="primary-btn">حفظ المحطة</button>
-            <button id="stationFormCancelBtn" class="secondary-btn" type="button">إلغاء</button>
-          </div>
-          <div class="info-block station-form-status" id="stationFormFeedback"></div>
-        </div>
-      </article>
-    </section>
+    </div>
+
+    <div class="form-row split-row">
+      <div>
+        <label for="stationFormLat">خط العرض</label>
+        <input id="stationFormLat" type="number" step="0.00001" placeholder="Latitude">
+      </div>
+      <div>
+        <label for="stationFormLon">خط الطول</label>
+        <input id="stationFormLon" type="number" step="0.00001" placeholder="Longitude">
+      </div>
+    </div>
+
+    <div class="form-row split-row">
+      <div>
+        <label for="stationFormCountry">الدولة</label>
+        <input id="stationFormCountry" type="text" placeholder="Country">
+      </div>
+      <div>
+        <label for="stationFormRegion">المنطقة</label>
+        <input id="stationFormRegion" type="text" placeholder="Region">
+      </div>
+    </div>
+
+    <div class="form-row split-row">
+      <div>
+        <label for="stationFormRoleType">نوع المحطة</label>
+        <select id="stationFormRoleType">
+          <option value="primary_reference">رئيسية مرجعية</option>
+          <option value="secondary_linked">تابعة</option>
+          <option value="latlon_band_station">مرتبطة بخطوط</option>
+        </select>
+      </div>
+      <div>
+        <label for="stationFormReferenceId">محطة مرجعية مرتبطة</label>
+        <input id="stationFormReferenceId" type="text" placeholder="معرف المحطة المرجعية">
+      </div>
+    </div>
+
+    <div class="form-row split-row">
+      <div>
+        <label for="stationFormStatus">الحالة</label>
+        <select id="stationFormStatus">
+          <option value="active">نشطة</option>
+          <option value="disabled">معطلة</option>
+          <option value="archived">مؤرشفة</option>
+        </select>
+      </div>
+      <div>
+        <label for="stationFormNotes">ملاحظات</label>
+        <input id="stationFormNotes" type="text" placeholder="ملاحظات قصيرة">
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button id="stationFormSaveBtn" class="primary-btn">حفظ المحطة</button>
+      <button id="stationFormCancelBtn" class="secondary-btn" type="button">إلغاء</button>
+    </div>
+
+    <div class="info-block station-form-status" id="stationFormFeedback"></div>
+  </div>
+</article>
 
     <section class="dashboard-content">
       <div class="dashboard-top-row">

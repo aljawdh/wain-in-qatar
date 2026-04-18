@@ -480,81 +480,81 @@
   }
 
   function createMap() {
-    var container = getEl('navidurorMap');
-    if (!container) {
-      if (document.readyState !== 'complete') {
-        window.addEventListener('load', createMap, { once: true });
-        return;
-      }
-      setTimeout(createMap, 50);
-      return;
+  var container = getEl('navidurorMap');
+  if (!container) return;
+
+  if (!container.offsetWidth || !container.offsetHeight) {
+    mapInitAttempts += 1;
+    if (mapInitAttempts <= 5) {
+      setTimeout(createMap, 180);
     }
-    if (map) {
-      try {
-        map.off();
-        map.remove();
-      } catch (e) {}
-      map = null;
-      tileLayer = null;
-      if (stationLayer && container) {
-        try {
-          if (map && map.hasLayer(stationLayer)) {
-            map.removeLayer(stationLayer);
-          }
-        } catch (e) {}
-        stationLayer = null;
-      }
-    }
-    if (!container.offsetWidth || !container.offsetHeight) {
-      mapInitAttempts = (mapInitAttempts || 0) + 1;
-      if (mapInitAttempts <= 2) {
-        setTimeout(createMap, 120);
-      }
-      return;
-    }
-    mapInitAttempts = 0;
-    map = L.map('navidurorMap', { zoomControl: true, attributionControl: false }).setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
-    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-    tileLayer.on('load', function () {
-      resizeMap();
-    });
-    stationLayer = L.layerGroup().addTo(map);
-    map.on('click', function (event) {
-      if (controls.calibSummaryArea) {
-        controls.calibSummaryArea.textContent = 'انقر على محطة لمعايرة أو استخدم زر إعادة الحساب لبدء التقييم.';
-      }
-      if (!event || !event.latlng) return;
-      openStationForm(null, event.latlng);
-    });
-    resizeMap();
-    window.addEventListener('resize', resizeMap);
-    window.addEventListener('orientationchange', function () {
-      resizeMap();
-    });
-    map.whenReady(function () {
-      resizeMap();
-      if (stations && stations.length) {
-        renderStationMarkers();
-      }
-    });
+    return;
   }
+
+  mapInitAttempts = 0;
+
+  if (map) {
+    try {
+      map.off();
+      map.remove();
+    } catch (e) {}
+    map = null;
+  }
+
+  map = L.map(container, {
+    zoomControl: true,
+    attributionControl: false
+  });
+
+  tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  });
+
+  tileLayer.addTo(map);
+  tileLayer.on('load', function () {
+    resizeMap();
+  });
+
+  stationLayer = L.layerGroup().addTo(map);
+
+  map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+
+  map.on('click', function (event) {
+    if (!event || !event.latlng) return;
+    openStationForm(null, event.latlng);
+  });
+
+  resizeMap();
+  setTimeout(resizeMap, 250);
+  setTimeout(resizeMap, 600);
+
+  window.addEventListener('resize', resizeMap);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(resizeMap, 250);
+    setTimeout(resizeMap, 600);
+  });
+
+  map.whenReady(function () {
+    resizeMap();
+    renderStationMarkers();
+  });
+}
 
   function resizeMap() {
-    if (!map) return;
-    function invalidate() {
-      try {
-        map.invalidateSize(true);
-      } catch (e) {}
-    }
-    invalidate();
-    setTimeout(invalidate, 150);
-    setTimeout(invalidate, 400);
-    setTimeout(invalidate, 800);
-  }
-
+  if (!map) return;
+  requestAnimationFrame(function () {
+    setTimeout(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    }, 120);
+    setTimeout(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    }, 350);
+    setTimeout(function () {
+      try { map.invalidateSize(true); } catch (e) {}
+    }, 700);
+  });
+}
   function frameMapToStations(markerLayerOrGroup, selectedLatLng) {
     if (!map) return;
 
@@ -733,7 +733,71 @@
         }
       }
       assignStationRoles();
-      renderStationMarkers();
+      function renderStationMarkers() {
+  if (!map) return;
+
+  if (stationLayer) {
+    try {
+      stationLayer.clearLayers();
+      map.removeLayer(stationLayer);
+    } catch (e) {}
+  }
+
+  stationLayer = L.layerGroup().addTo(map);
+
+  var visibleStations = stations.filter(filterStation);
+  var validMarkers = [];
+
+  visibleStations.forEach(function (station) {
+    var coords = getStationCoords(station);
+    if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
+
+    var marker = L.circleMarker([coords.lat, coords.lon], getStationStyle(station));
+    marker.bindTooltip('<strong>' + (station.name || 'محطة') + '</strong>', {
+      direction: 'top',
+      offset: [0, -9],
+      opacity: 0.95
+    });
+
+    marker.on('click', function () {
+      selectStation(station);
+      openStationForm(station, { lat: coords.lat, lng: coords.lon });
+    });
+
+    marker.addTo(stationLayer);
+    validMarkers.push(marker);
+  });
+
+  updateHeaderSummary();
+
+  if (selectedStation) {
+    var selectedCoords = getStationCoords(selectedStation);
+    if (isFinite(selectedCoords.lat) && isFinite(selectedCoords.lon)) {
+      map.flyTo([selectedCoords.lat, selectedCoords.lon], 8, { duration: 0.5 });
+      resizeMap();
+      return;
+    }
+  }
+
+  if (validMarkers.length === 1) {
+    map.setView(validMarkers[0].getLatLng(), 8);
+    resizeMap();
+    return;
+  }
+
+  if (validMarkers.length > 1) {
+    var group = L.featureGroup(validMarkers);
+    map.fitBounds(group.getBounds(), {
+      padding: [30, 30],
+      maxZoom: 7
+    });
+    resizeMap();
+    return;
+  }
+
+  map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
+  resizeMap();
+}
       selectStation(station);
       setStationFormMessage('تم حفظ بيانات المحطة بنجاح.', 'success');
       hideStationForm();
@@ -811,7 +875,13 @@
     renderSelectedStationCards();
     renderDistributionPreview();
     renderValidationPanel();
-    focusStation(station);
+   function focusStation(station) {
+  if (!station || !map) return;
+  var coords = getStationCoords(station);
+  if (!isFinite(coords.lat) || !isFinite(coords.lon)) return;
+  map.flyTo([coords.lat, coords.lon], 8, { duration: 0.5 });
+  resizeMap();
+}
     loadStationCalibration(station).then(function () {
       renderSelectedStationCards();
       renderValidationPanel();
