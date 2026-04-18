@@ -833,5 +833,27 @@ textarea {
   }
 }
 
+/* Leaflet tile image final safety fix */
+.leaflet-container {
+  overflow: hidden;
+}
+
+.leaflet-container img,
+.leaflet-container .leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+}
+
+.leaflet-tile {
+  visibility: inherit !important;
+}
+
+#navidurorMap,
+#navidurorMap.leaflet-container {
+  transform: none !important;
+}
+
 
 
