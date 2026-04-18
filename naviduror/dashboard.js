@@ -638,17 +638,32 @@
 
     map.whenReady(function () {
       setTimeout(function () {
-        try { map.invalidateSize(true); } catch (e) {}
-      }, 200);
-      resizeMap();
-      if (stations && stations.length) {
-        renderStationMarkers();
-      }
+        try {
+          map.invalidateSize(true);
+        } catch (e) {}
+      }, 300);
     });
 
     setTimeout(function () {
       resizeMap();
     }, 500);
+
+    setTimeout(function () {
+      if (!map) return;
+
+      try {
+        map.invalidateSize(true);
+        map.setView([25.3, 51.3], 5);
+      } catch (e) {}
+    }, 1000);
+
+    setTimeout(function () {
+      if (!map) return;
+
+      try {
+        map.invalidateSize(true);
+      } catch (e) {}
+    }, 2000);
   }
 
   function resizeMap() {
