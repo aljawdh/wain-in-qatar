@@ -53,11 +53,35 @@
   margin-bottom: 10px;
 }
 
-.nv-map-view {
+.map-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.map-card__header {
+  margin-bottom: 12px;
+}
+
+.map-card__inner {
+  display: block;
+}
+
+.map-card__frame {
   width: 100%;
-  height: clamp(320px, 50vh, 600px);
-  min-height: 320px;
+  height: 420px;
+  min-height: 420px;
+  position: relative;
   overflow: hidden;
+  border-radius: 14px;
+  background: #08131d;
+}
+
+.naviduror-map {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .nv-map-legend {
@@ -413,12 +437,6 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .map-view {
-    width: 100%;
-    height: 420px;
-    min-height: 420px;
-    position: relative;
-  }
 }
 
 @media (max-width: 680px) {
@@ -433,13 +451,6 @@ textarea {
 
   .card {
     padding: 10px;
-  }
-
-  .map-view {
-    width: 100%;
-    height: 420px;
-    min-height: 420px;
-    position: relative;
   }
 }
 
@@ -657,9 +668,6 @@ textarea {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .nv-map-view {
-    height: clamp(320px, 50vh, 620px);
-  }
 }
 
 @media (max-width: 850px) {
@@ -673,9 +681,6 @@ textarea {
   .dashboard-bottom-row,
   .dashboard-aux-row {
     grid-template-columns: 1fr;
-  }
-  .nv-map-view {
-    height: clamp(320px, 48vh, 560px);
   }
 }
 
@@ -702,11 +707,6 @@ textarea {
     grid-template-columns: 1fr;
     gap: 10px;
   }
-  .nv-map-view {
-    height: 320px;
-    min-height: 320px;
-    border-radius: 12px;
-  }
   .nv-map-legend {
     gap: 8px 10px;
     font-size: 12px;
@@ -731,16 +731,6 @@ textarea {
   margin-bottom: 10px;
 }
 
-.map-view {
-  width: 100%;
-  height: 420px;
-  min-height: 420px;
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  background: #08131d;
-}
-
 .map-legend {
   display: flex;
   flex-wrap: wrap;
@@ -763,24 +753,12 @@ textarea {
 }
 
 @media (max-width: 980px) {
-  .map-view {
-    width: 100%;
-    height: 420px;
-    min-height: 420px;
-  }
 }
 
 @media (max-width: 720px) {
   .map-panel,
   .station-form-card {
     padding: 10px;
-    border-radius: 12px;
-  }
-
-  .map-view {
-    width: 100%;
-    height: 420px;
-    min-height: 420px;
     border-radius: 12px;
   }
 }
