@@ -1,32 +1,389 @@
 [
   {
     "id": "season_event_01",
-    "name": "موسم صيد اللؤلؤ",
-    "start_month": 2,
-    "start_day": 10,
-    "end_month": 2,
-    "end_day": 25,
-    "days_count": 16,
-    "description": "حدث موسمي مرتبط بفترة العقارب، يؤثر على حركة الصيادين والطقس.",
-    "related_dur_ids": ["dur_02"],
-    "traits": ["رياح شمالية", "أمواج متوسطة", "رطوبة عالية"],
+    "name_ar": "سهيل",
+    "name_en": "Suhail",
+    "category": "seasonal_marker",
+    "description_ar": "مرحلة ملاحية معروفة ببداية تغير الرياح وظهور سهيل.",
+    "description_en": "A navigational stage marked by wind changes and the appearance of Suhail.",
+    "start_hint": {
+      "month": 8,
+      "day": 15
+    },
+    "end_hint": {
+      "month": 9,
+      "day": 15
+    },
+    "days_count_hint": 31,
+    "related_dur_ids": [
+      "dur_26",
+      "dur_27"
+    ],
+    "weather_traits": [
+      "جو حار وجاف",
+      "رياح متغيرة"
+    ],
+    "marine_traits": [
+      "تيار ضعيف",
+      "مياه دافئة"
+    ],
+    "fish_traits": [
+      "كنعد",
+      "شعم"
+    ],
     "is_active": true,
-    "created_at": "2026-04-15T00:00:00.000Z",
-    "updated_at": "2026-04-15T00:00:00.000Z"
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "سهيل",
+    "description": "مرحلة ملاحية معروفة ببداية تغير الرياح وظهور سهيل."
   },
   {
     "id": "season_event_02",
-    "name": "عاصفة الخليج الربيعية",
-    "start_month": 3,
-    "start_day": 20,
-    "end_month": 4,
-    "end_day": 5,
-    "days_count": 17,
-    "description": "مرحلة أيام العواصف البحرية في نهاية العقارب وبداية الحميم.",
-    "related_dur_ids": ["dur_02", "dur_03"],
-    "traits": ["رياح قوية", "أمواج عالية", "انخفاض الرؤية"],
+    "name_ar": "هبايب",
+    "name_en": "Habayeb",
+    "category": "seasonal_marker",
+    "description_ar": "فترة رطوبة متصاعدة وأمطار متفرقة قبل الصيف الكامل.",
+    "description_en": "A period of rising humidity and scattered rains before full summer.",
+    "start_hint": {
+      "month": 6,
+      "day": 5
+    },
+    "end_hint": {
+      "month": 7,
+      "day": 5
+    },
+    "days_count_hint": 30,
+    "related_dur_ids": [
+      "dur_08",
+      "dur_09"
+    ],
+    "weather_traits": [
+      "رطوبة عالية",
+      "غيوم متفرقة"
+    ],
+    "marine_traits": [
+      "مياه دافئة",
+      "تيار أبطأ"
+    ],
+    "fish_traits": [
+      "بوري",
+      "شعم"
+    ],
     "is_active": true,
-    "created_at": "2026-04-15T00:00:00.000Z",
-    "updated_at": "2026-04-15T00:00:00.000Z"
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "هبايب",
+    "description": "فترة رطوبة متصاعدة وأمطار متفرقة قبل الصيف الكامل."
+  },
+  {
+    "id": "season_event_03",
+    "name_ar": "الوسمي",
+    "name_en": "Al-Wasmi",
+    "category": "seasonal_marker",
+    "description_ar": "مرحلة منتصف الصيف الحارة التي تحمل تغيرات وارتفاعاً في الرطوبة.",
+    "description_en": "A midsummer phase with heat and increasing humidity.",
+    "start_hint": {
+      "month": 9,
+      "day": 20
+    },
+    "end_hint": {
+      "month": 10,
+      "day": 20
+    },
+    "days_count_hint": 30,
+    "related_dur_ids": [
+      "dur_12",
+      "dur_13"
+    ],
+    "weather_traits": [
+      "جو حار",
+      "رطوبة عالية"
+    ],
+    "marine_traits": [
+      "مياه معتدلة",
+      "تيار متغير"
+    ],
+    "fish_traits": [
+      "تونة",
+      "مرجان"
+    ],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "الوسمي",
+    "description": "مرحلة منتصف الصيف الحارة التي تحمل تغيرات وارتفاعاً في الرطوبة."
+  },
+  {
+    "id": "season_event_04",
+    "name_ar": "برد العيايز",
+    "name_en": "Bard Al-Ayayiz",
+    "category": "transition",
+    "description_ar": "منعطف برد قوي يسبق تحسناً تدريجياً في الطقس.",
+    "description_en": "A strong cold turn that precedes gradual weather improvement.",
+    "start_hint": {
+      "month": 2,
+      "day": 10
+    },
+    "end_hint": {
+      "month": 2,
+      "day": 25
+    },
+    "days_count_hint": 16,
+    "related_dur_ids": [
+      "dur_02",
+      "dur_03",
+      "dur_15",
+      "dur_16"
+    ],
+    "weather_traits": [
+      "رياح شمالية قوية",
+      "جو شديد البرودة"
+    ],
+    "marine_traits": [
+      "تيار قوي",
+      "أمواج عالية"
+    ],
+    "fish_traits": [
+      "كنعد"
+    ],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "برد العيايز",
+    "description": "منعطف برد قوي يسبق تحسناً تدريجياً في الطقس."
+  },
+  {
+    "id": "season_event_05",
+    "name_ar": "تحول الشتاء",
+    "name_en": "Winter transition",
+    "category": "transition",
+    "description_ar": "مرحلة الانتقال من الحدة الشتوية إلى بداية التخفيف.",
+    "description_en": "The transition from severe winter to gradual relief.",
+    "start_hint": {
+      "month": 1,
+      "day": 25
+    },
+    "end_hint": {
+      "month": 2,
+      "day": 15
+    },
+    "days_count_hint": 22,
+    "related_dur_ids": [
+      "dur_01",
+      "dur_02",
+      "dur_03",
+      "dur_04"
+    ],
+    "weather_traits": [
+      "برودة شديدة",
+      "رياح شمالية"
+    ],
+    "marine_traits": [
+      "أمواج منخفضة",
+      "تيار متقطع"
+    ],
+    "fish_traits": [
+      "الجرجور",
+      "الماكريل"
+    ],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "تحول الشتاء",
+    "description": "مرحلة الانتقال من الحدة الشتوية إلى بداية التخفيف."
+  },
+  {
+    "id": "season_event_06",
+    "name_ar": "التحول الربيعي",
+    "name_en": "Spring transition",
+    "category": "transition",
+    "description_ar": "مرحلة بدء التغيرات الربيعية في الرياح والبحر.",
+    "description_en": "The start of spring changes in wind and sea conditions.",
+    "start_hint": {
+      "month": 3,
+      "day": 20
+    },
+    "end_hint": {
+      "month": 4,
+      "day": 10
+    },
+    "days_count_hint": 22,
+    "related_dur_ids": [
+      "dur_05",
+      "dur_06",
+      "dur_07",
+      "dur_23",
+      "dur_24"
+    ],
+    "weather_traits": [
+      "أمطار خفيفة",
+      "رياح متقلبة"
+    ],
+    "marine_traits": [
+      "تيار متغير",
+      "مياه أدفأ"
+    ],
+    "fish_traits": [
+      "بوري",
+      "شعم"
+    ],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "التحول الربيعي",
+    "description": "مرحلة بدء التغيرات الربيعية في الرياح والبحر."
+  },
+  {
+    "id": "season_event_07",
+    "name_ar": "ذروة القيض",
+    "name_en": "Qayd peak",
+    "category": "seasonal_marker",
+    "description_ar": "مرحلة ذروة الصيف الحارّة التي تسبق تحول الرياح لاحقاً.",
+    "description_en": "The peak summer phase preceding later wind transition.",
+    "start_hint": {
+      "month": 7,
+      "day": 10
+    },
+    "end_hint": {
+      "month": 8,
+      "day": 10
+    },
+    "days_count_hint": 31,
+    "related_dur_ids": [
+      "dur_09",
+      "dur_10",
+      "dur_11",
+      "dur_27",
+      "dur_28"
+    ],
+    "weather_traits": [
+      "جو حار وجاف",
+      "رطوبة عالية"
+    ],
+    "marine_traits": [
+      "تيار ضعيف",
+      "أمواج عالية"
+    ],
+    "fish_traits": [
+      "كينعد",
+      "شعم"
+    ],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "ذروة القيض",
+    "description": "مرحلة ذروة الصيف الحارّة التي تسبق تحول الرياح لاحقاً."
+  },
+  {
+    "id": "season_event_08",
+    "name_ar": "أمطار الوسمي",
+    "name_en": "Al-Wasmi rains",
+    "category": "marine_event",
+    "description_ar": "فترة هطول في أواخر الصيف تؤثر على وظيفية البحر.",
+    "description_en": "A later summer rain period affecting marine dynamics.",
+    "start_hint": {
+      "month": 10,
+      "day": 1
+    },
+    "end_hint": {
+      "month": 10,
+      "day": 20
+    },
+    "days_count_hint": 20,
+    "related_dur_ids": [
+      "dur_12",
+      "dur_13",
+      "dur_14"
+    ],
+    "weather_traits": [
+      "أمطار متقطعة",
+      "رطوبة عالية"
+    ],
+    "marine_traits": [
+      "تيار متغير",
+      "مياه أبرد"
+    ],
+    "fish_traits": [
+      "تونة",
+      "مرجان"
+    ],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "أمطار الوسمي",
+    "description": "فترة هطول في أواخر الصيف تؤثر على وظيفية البحر."
+  },
+  {
+    "id": "season_event_09",
+    "name_ar": "بارح الشمال",
+    "name_en": "Barih Al-Shamal",
+    "category": "heritage_marker",
+    "description_ar": "نسق رياح شمالية يشير إلى موجة برد أو تغير بحري حاد.",
+    "description_en": "A northern wind pattern signaling a cold wave or sharp marine change.",
+    "start_hint": {
+      "month": 2,
+      "day": 20
+    },
+    "end_hint": {
+      "month": 3,
+      "day": 10
+    },
+    "days_count_hint": 19,
+    "related_dur_ids": [
+      "dur_02",
+      "dur_03",
+      "dur_19",
+      "dur_20"
+    ],
+    "weather_traits": [
+      "رياح شمالية قوية",
+      "برودة متزايدة"
+    ],
+    "marine_traits": [
+      "أمواج ارتفاع",
+      "تيار قوي"
+    ],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "بارح الشمال",
+    "description": "نسق رياح شمالية يشير إلى موجة برد أو تغير بحري حاد."
+  },
+  {
+    "id": "season_event_10",
+    "name_ar": "غياب الثريا",
+    "name_en": "Ghayab Al-Thurayya",
+    "category": "heritage_marker",
+    "description_ar": "علامة سماوية تعبر عن انتقال في دورة الجو والماء.",
+    "description_en": "A celestial marker signifying a transition in weather and sea cycles.",
+    "start_hint": {
+      "month": 3,
+      "day": 5
+    },
+    "end_hint": {
+      "month": 3,
+      "day": 25
+    },
+    "days_count_hint": 21,
+    "related_dur_ids": [
+      "dur_03",
+      "dur_04",
+      "dur_05"
+    ],
+    "weather_traits": [
+      "جو متقلب",
+      "سماء صافية متقطعة"
+    ],
+    "marine_traits": [
+      "تيار خفيف",
+      "تغير في الأمواج"
+    ],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "غياب الثريا",
+    "description": "علامة سماوية تعبر عن انتقال في دورة الجو والماء."
   }
 ]

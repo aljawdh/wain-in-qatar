@@ -1,0 +1,192 @@
+[
+  {
+    "id": "trait_weather_01",
+    "category": "weather",
+    "name_ar": "حار وجاف",
+    "name_en": "Hot and dry weather",
+    "description_ar": "جو شديد الحرارة مع رطوبة منخفضة ويزيد من حاجات السلامة البحرية.",
+    "description_en": "Intense heat with low humidity, increasing marine safety concerns.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_02",
+    "category": "weather",
+    "name_ar": "رياح شمالية قوية",
+    "name_en": "Strong northern winds",
+    "description_ar": "رياح باردة ومتجهة من الشمال تؤثر بقوة على البحر.",
+    "description_en": "Cold north winds that strongly affect sea conditions.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_03",
+    "category": "weather",
+    "name_ar": "رياح شمالية غربية معتدلة",
+    "name_en": "Moderate northwestern winds",
+    "description_ar": "رياح متوسطة السرعة تأتي من اتجاه شمالي غربي وتدفع الأمواج بثبات.",
+    "description_en": "Moderate northwestern winds that steadily drive waves.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_04",
+    "category": "weather",
+    "name_ar": "طقس غير مستقر",
+    "name_en": "Unstable weather",
+    "description_ar": "تحولات سريعة في الحالة الجوية مع احتمال أمطار ورياح متغيرة.",
+    "description_en": "Rapid weather shifts with possible rain and changing winds.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_05",
+    "category": "weather",
+    "name_ar": "جو غائم",
+    "name_en": "Cloudy weather",
+    "description_ar": "غطاء سحابي يؤثر على الرؤية ويحمل احتمال هطول.",
+    "description_en": "Cloud cover that affects visibility and may carry precipitation.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_06",
+    "category": "weather",
+    "name_ar": "أمطار غزيرة",
+    "name_en": "Heavy rain",
+    "description_ar": "هطول مطري كثيف يؤدي إلى انخفاض الرؤية وتغير مستويات المياه.",
+    "description_en": "Intense rainfall that lowers visibility and changes water levels.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_07",
+    "category": "weather",
+    "name_ar": "أمطار خفيفة",
+    "name_en": "Light rain",
+    "description_ar": "هطول منخفض الشدة يمكن أن يغير ظروف الصيد دون تعطيل كامل.",
+    "description_en": "Low-intensity rain that can alter fishing conditions without full disruption.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_08",
+    "category": "weather",
+    "name_ar": "رطوبة عالية",
+    "name_en": "High humidity",
+    "description_ar": "رطوبة مرتفعة في الهواء تزيد الإحساس بالحر وتؤثر على الراحة.",
+    "description_en": "Elevated air humidity that increases heat discomfort and impacts conditions.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_weather_09",
+    "category": "weather",
+    "name_ar": "انكسار الحر",
+    "name_en": "Heat break / seasonal relief",
+    "description_ar": "انخفاض مفاجئ في الحرارة يمهد لفترة أكثر اعتدالاً.",
+    "description_en": "A sudden drop in heat that leads to a more moderate period.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_seasonal_transition_01",
+    "category": "seasonal_transition_traits",
+    "name_ar": "التحول الربيعي",
+    "name_en": "Spring transition",
+    "description_ar": "مرحلة انتقالية بين الشتاء والربيع تحمل تغيرات في الرياح ودرجة الحرارة.",
+    "description_en": "A transition between winter and spring with wind and temperature shifts.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_seasonal_transition_02",
+    "category": "seasonal_transition_traits",
+    "name_ar": "التحول الشتوي",
+    "name_en": "Winter transition",
+    "description_ar": "مرحلة يتجه فيها الجو إلى التبريد ويزداد احتمال الرياح الشمالية.",
+    "description_en": "A phase moving toward cooling with increased northern wind likelihood.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_seasonal_transition_03",
+    "category": "seasonal_transition_traits",
+    "name_ar": "التحول الصيفي",
+    "name_en": "Summer transition",
+    "description_ar": "مرحلة بداية الحرارة العالية وانتقال الرياح إلى نمط القيظ.",
+    "description_en": "The onset of high heat and the shift to Qayd wind patterns.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_01",
+    "category": "marine",
+    "name_ar": "بحر هادئ",
+    "name_en": "Calm sea",
+    "description_ar": "سطح البحر المستقر مع أمواج قليلة وسهولة الحركة.",
+    "description_en": "Stable sea surface with small waves and easy navigation.",
+    "severity_hint": "low",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_02",
+    "category": "marine",
+    "name_ar": "بحر مضطرب",
+    "name_en": "Rough sea",
+    "description_ar": "أمواج عالية وسطح متقلب يزيد من تحديات الصيد والسلامة.",
+    "description_en": "High waves and choppy surface increase fishing and safety challenges.",
+    "severity_hint": "high",
+    "is_active": true
+  },
+  {
+    "id": "trait_maritime_03",
+    "category": "marine",
+    "name_ar": "تيار متغير",
+    "name_en": "Variable current",
+    "description_ar": "تيار بحري غير ثابت يؤثر على مواقع الصيد وحركة الشباك.",
+    "description_en": "Unsteady sea current affecting fishing locations and gear movement.",
+    "severity_hint": "medium",
+    "is_active": true
+  },
+  {
+    "id": "trait_heritage_01",
+    "category": "heritage_signs",
+    "name_ar": "سهيل",
+    "name_en": "Suhail",
+    "description_ar": "علامة موسمية معروفة ببداية تغيرات الرياح الصيفية.",
+    "description_en": "A seasonal marker known for the start of summer wind changes.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_heritage_02",
+    "category": "heritage_signs",
+    "name_ar": "هبايب",
+    "name_en": "Habayeb",
+    "description_ar": "فترة رطوبة متزايدة وقدوم أمطار قبل الصيف الكامل.",
+    "description_en": "A period of rising humidity and rains before full summer.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_heritage_03",
+    "category": "heritage_signs",
+    "name_ar": "الوسمي",
+    "name_en": "Al-Wasmi",
+    "description_ar": "مرحلة منتصف الصيف الحارة التي تحمل تغيرات جوية مفاجئة.",
+    "description_en": "A midsummer phase carrying sudden weather changes.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_heritage_04",
+    "category": "heritage_signs",
+    "name_ar": "برد العيايز",
+    "name_en": "Bard Al-Ayayiz",
+    "description_ar": "منعطف برد قوي يسبق تحسناً تدريجياً في الطقس.",
+    "description_en": "A strong cold turn preceding gradual weather improvement.",
+    "severity_hint": null,
+    "is_active": true
+  }
+]

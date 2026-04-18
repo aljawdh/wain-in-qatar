@@ -26,7 +26,10 @@
   var stationProfilesCache = [];
   var stationOverridesCache = [];
   var annualComparisonsCache = [];
-  var currentPeriod = 'all';
+  var stationValidationCache = {}; // per-station validation records: { station_id: [{period, expected_traits, observed_traits, score, status}] }
+  var currentAnalyzedStationId = null; // currently viewed station in analytics panel
+  var currentAnalyticsPeriod = '1y'; // default period
+
   var stationsAdminMap = null;
   var dururAdminMap = null;
   var stationAdminMarker = null;
@@ -2396,6 +2399,13 @@
     var analyticsBtn = getEl('stDururAnalyticsBtn');
     if (analyticsBtn) analyticsBtn.addEventListener('click', showDururAnalytics);
 
+    // ── Analytics Panel Event Listeners ──────────────────────────────────────
+    var periodSel = getEl('stAnalyticsPeriod');
+    if (periodSel) periodSel.addEventListener('change', onAnalyticsPeriodChange);
+
+    var refreshBtn = getEl('stAnalyticsRefreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', onAnalyticsRefresh);
+
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
   }
@@ -2480,6 +2490,13 @@
 
     // ── Fill Durur Profile ──────────────────────────────────────────────────────
     fillDururProfile(st.durur_profile || {});
+
+    // ── Initialize Analytics for this station ───────────────────────────────────
+    if (st.id) {
+      currentAnalyzedStationId = st.id;
+      currentAnalyticsPeriod = '1y';
+      renderStationAnalytics();
+    }
   }
 
   function fillDururProfile(profile) {
@@ -2528,6 +2545,10 @@
     waterCheckState.result = 'unknown';
     if (_waterCheckTimer) { clearTimeout(_waterCheckTimer); _waterCheckTimer = null; }
     setWaterStatus('unknown', '');
+    
+    // Clear analytics panel
+    currentAnalyzedStationId = null;
+    getEl('stAnalyticsMsg').textContent = 'جاهز';
   }
 
   // ── Durur Profile Functions ───────────────────────────────────────────────
@@ -2673,14 +2694,117 @@
       alert('يرجى حفظ المحطة أولاً قبل عرض التحليلات');
       return;
     }
-    var msg = 'Analytics for station: ' + stationId + '\n\n' +
-      'Ready for:\n' +
-      '- 1 month trend\n' +
-      '- 3 months trend\n' +
-      '- 6 months trend\n' +
-      '- 1 year trend\n\n' +
-      'Future: Weather validation matching actual vs expected conditions.';
-    alert(msg);
+    currentAnalyzedStationId = stationId;
+    renderStationAnalytics();
+  }
+
+  function renderStationAnalytics() {
+    var stationId = currentAnalyzedStationId;
+    if (!stationId) return;
+
+    var station = stationsCache.find(function (s) { return s.id === stationId; });
+    if (!station || !station.durur_profile) {
+      getEl('stAnalyticsMsg').textContent = 'لا توجد بيانات درور';
+      return;
+    }
+
+    var profile = station.durur_profile;
+    var durur = dururCache.find(function (d) { return d.id === profile.current_dur_id; });
+
+    // Render derived reading block
+    var durName = durur ? (durur.name || 'Dur ' + durur.dur_number) : '--';
+    getEl('stAnalyticsDurName').textContent = durName;
+    getEl('stAnalyticsDurEntryDate').textContent = profile.dur_entry_date || '--';
+    getEl('stAnalyticsDaysRemaining').textContent = (getEl('stDururDaysRemaining').value || '--') + ' days';
+    
+    var nextDurEl = getEl('stAnalyticsNextDur');
+    nextDurEl.textContent = getEl('stDururNextStart').value || '--';
+
+    // Render expected traits
+    var expectedTraits = [];
+    (profile.weather_traits || []).forEach(function (tid) {
+      var t = traitsCache.find(function (tr) { return tr.id === tid; });
+      if (t) expectedTraits.push(t.name_ar || t.name);
+    });
+    (profile.marine_traits || []).forEach(function (tid) {
+      var t = traitsCache.find(function (tr) { return tr.id === tid; });
+      if (t) expectedTraits.push(t.name_ar || t.name);
+    });
+    (profile.seasonal_traits || []).forEach(function (tid) {
+      var se = seasonEventsCache.find(function (s) { return s.id === tid; });
+      if (se) expectedTraits.push(se.name_ar || se.name);
+    });
+    (profile.fish_activity_traits || []).forEach(function (fish) {
+      expectedTraits.push(fish);
+    });
+
+    var traitsContainer = getEl('stAnalyticsExpectedTraits');
+    traitsContainer.innerHTML = expectedTraits.length > 0 
+      ? expectedTraits.map(function (t) {
+          return '<span style="display:inline-block;padding:4px 8px;background:rgba(92,225,255,.2);border:1px solid rgba(92,225,255,.3);border-radius:6px;color:#5ce1ff">' + t + '</span>';
+        }).join('')
+      : '<span style="color:#9fc1d7">-- لا توجد سمات --</span>';
+
+    // Render expert notes
+    getEl('stAnalyticsExpertNotes').textContent = profile.expert_notes || '-- لا توجد ملاحظات --';
+
+    // Render validation structure
+    var validation = buildValidationObject(stationId, profile);
+    getEl('stAnalyticsExpectedCount').textContent = expectedTraits.length + ' trait(s)';
+    getEl('stAnalyticsObservedCount').textContent = (validation.observed_traits || []).length + ' trait(s) (جاهز للبيانات)';
+    getEl('stAnalyticsScore').textContent = validation.validation_score || '-- (محجوزة)';
+    getEl('stAnalyticsStatus').textContent = validation.validation_status || 'pending_observation';
+
+    getEl('stAnalyticsMsg').textContent = 'تم التحديث — جاهز لبيانات الطقس الحقيقية';
+  }
+
+  function buildValidationObject(stationId, dururProfile) {
+    // Initialize validation cache for station if not exists
+    if (!stationValidationCache[stationId]) {
+      stationValidationCache[stationId] = [];
+    }
+
+    var period = currentAnalyticsPeriod || '1y';
+    var existingVal = stationValidationCache[stationId].find(function (v) {
+      return v.period === period && v.current_dur_id === dururProfile.current_dur_id;
+    });
+
+    if (existingVal) return existingVal;
+
+    // Create new validation object
+    var expectedTraits = [];
+    expectedTraits = expectedTraits.concat(dururProfile.weather_traits || []);
+    expectedTraits = expectedTraits.concat(dururProfile.marine_traits || []);
+    expectedTraits = expectedTraits.concat(dururProfile.seasonal_traits || []);
+    expectedTraits = expectedTraits.concat(dururProfile.fish_activity_traits || []);
+
+    var validation = {
+      station_id: stationId,
+      period: period,
+      current_dur_id: dururProfile.current_dur_id,
+      expected_traits: expectedTraits,
+      observed_traits: [], // PLACEHOLDER: will be populated by real weather data
+      validation_score: null, // PLACEHOLDER: calculated when observed_traits available
+      validation_status: 'not evaluated', // not evaluated | ready | matched | diverged | incomplete
+      last_checked_at: new Date().toISOString()
+    };
+
+    stationValidationCache[stationId].push(validation);
+    return validation;
+  }
+
+  function onAnalyticsPeriodChange() {
+    currentAnalyticsPeriod = getEl('stAnalyticsPeriod').value || '1y';
+    renderStationAnalytics();
+  }
+
+  function onAnalyticsRefresh() {
+    if (!currentAnalyzedStationId) {
+      getEl('stAnalyticsMsg').textContent = 'لا توجد محطة محددة';
+      return;
+    }
+    renderStationAnalytics();
+    fetchStationWeather(currentAnalyzedStationId);
   }
 
   // ── Region helpers ────────────────────────────────────────────────────────

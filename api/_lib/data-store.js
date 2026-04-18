@@ -21,7 +21,11 @@ const FILES = {
   season_events: 'season_events.json',
   station_dur_profiles: 'station_dur_profiles.json',
   station_dur_overrides: 'station_dur_overrides.json',
-  annual_comparisons: 'annual_comparisons.json'
+  annual_comparisons: 'annual_comparisons.json',
+  durur_master: 'durur_master.json',
+  trait_dictionaries: 'trait_dictionaries.json',
+  fish_season_tags: 'fish_season_tags.json',
+  advice_basis_tags: 'advice_basis_tags.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

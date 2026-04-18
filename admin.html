@@ -424,6 +424,84 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </details>
             <!-- END DURUR PROFILE SECTION -->
 
+            <!-- STATION ANALYTICS SECTION -->
+            <details class="adv-options" style="margin:14px 0">
+              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-chart-line" style="margin-left:6px"></i> تحليل المحطة (Station Analytics)</summary>
+              
+              <!-- Period Selector -->
+              <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <label style="font-size:.85rem;color:#c5d5e0;margin:0">الفترة الزمنية:</label>
+                <select id="stAnalyticsPeriod" style="background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 10px;font-size:.85rem;cursor:pointer">
+                  <option value="1m">1 شهر</option>
+                  <option value="3m">3 أشهر</option>
+                  <option value="6m">6 أشهر</option>
+                  <option value="1y" selected>سنة واحدة</option>
+                </select>
+              </div>
+
+              <!-- Derived Station Reading Block -->
+              <div style="margin-top:12px;padding:12px;background:rgba(92,225,255,.08);border:1px solid rgba(92,225,255,.2);border-radius:10px">
+                <h5 style="margin:0 0 10px;font-size:.9rem;color:#5ce1ff;font-weight:600">📖 قراءة الدر المتوقعة (Expected Durur Reading)</h5>
+                <div id="stAnalyticsDerivedReading" style="display:grid;gap:8px;font-size:.85rem;color:#c5d5e0">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div><strong style="color:#9fc1d7">الدر الحالي:</strong> <span id="stAnalyticsDurName">--</span></div>
+                    <div><strong style="color:#9fc1d7">تاريخ الدخول:</strong> <span id="stAnalyticsDurEntryDate">--</span></div>
+                    <div><strong style="color:#9fc1d7">الأيام المتبقية:</strong> <span id="stAnalyticsDaysRemaining">--</span></div>
+                    <div><strong style="color:#9fc1d7">الدر التالي:</strong> <span id="stAnalyticsNextDur">--</span></div>
+                  </div>
+                  <div style="border-top:1px solid rgba(92,225,255,.15);padding-top:8px">
+                    <div style="margin-bottom:6px"><strong style="color:#c5d5e0">السمات المتوقعة:</strong></div>
+                    <div id="stAnalyticsExpectedTraits" style="display:flex;flex-wrap:wrap;gap:6px;font-size:.8rem"><!-- populated by JS --></div>
+                  </div>
+                  <div style="border-top:1px solid rgba(92,225,255,.15);padding-top:8px">
+                    <div style="margin-bottom:6px"><strong style="color:#c5d5e0">ملاحظات الخبير:</strong></div>
+                    <div id="stAnalyticsExpertNotes" style="color:#9fc1d7;font-size:.8rem;font-style:italic;line-height:1.4">-- لا توجد ملاحظات --</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Validation Structure Block -->
+              <div style="margin-top:12px;padding:12px;background:rgba(255,185,0,.08);border:1px solid rgba(255,185,0,.2);border-radius:10px">
+                <h5 style="margin:0 0 10px;font-size:.9rem;color:#ffe7aa;font-weight:600">⚖️ هيكل التحقق (Validation Structure)</h5>
+                <div id="stAnalyticsValidation" style="display:grid;gap:8px;font-size:.85rem;color:#c5d5e0">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div><strong style="color:#9fc1d7">السمات المتوقعة:</strong><br><span id="stAnalyticsExpectedCount" style="font-size:.9rem;color:#ffe7aa">0 traits</span></div>
+                    <div><strong style="color:#9fc1d7">السمات المرصودة:</strong><br><span id="stAnalyticsObservedCount" style="font-size:.9rem;color:#ffe7aa">0 traits (جاهز للبيانات الحقيقية)</span></div>
+                  </div>
+                  <div style="border-top:1px solid rgba(255,185,0,.15);padding-top:8px">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                      <div><strong style="color:#9fc1d7">نسبة المطابقة:</strong><br><span id="stAnalyticsScore" style="font-size:.9rem;color:#ffe7aa">-- (محجوزة)</span></div>
+                      <div><strong style="color:#9fc1d7">حالة التحقق:</strong><br><span id="stAnalyticsStatus" style="font-size:.9rem;color:#ffe7aa">pending_observation</span></div>
+                    </div>
+                  </div>
+                  <div style="border-top:1px solid rgba(255,185,0,.15);padding-top:8px;font-size:.8rem;color:#9fc1d7">
+                    <strong>ملاحظة:</strong> تنتظر البيانات المرصودة الحقيقية من مصادر الطقس والبحر لحساب نسبة المطابقة
+                  </div>
+                </div>
+              </div>
+
+              <!-- Current Weather Status -->
+              <div style="margin-top:12px;padding:12px;background:rgba(38,194,129,.08);border:1px solid rgba(38,194,129,.2);border-radius:10px">
+                <h5 style="margin:0 0 10px;font-size:.9rem;color:#26c281;font-weight:600">🌤️ الحالة الجوية الحالية (Current Weather)</h5>
+                <div id="stAnalyticsWeather" style="display:grid;gap:6px;font-size:.85rem;color:#c5d5e0">
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div><strong style="color:#9fc1d7">درجة الحرارة:</strong><br><span id="stWeatherTemp">-- °C</span></div>
+                    <div><strong style="color:#9fc1d7">سرعة الرياح:</strong><br><span id="stWeatherWindSpeed">-- km/h</span></div>
+                    <div><strong style="color:#9fc1d7">اتجاه الرياح:</strong><br><span id="stWeatherWindDir">--°</span></div>
+                    <div><strong style="color:#9fc1d7">ارتفاع الأمواج:</strong><br><span id="stWeatherWaveHeight">-- m</span></div>
+                    <div><strong style="color:#9fc1d7">حرارة سطح البحر:</strong><br><span id="stWeatherSeaTemp">-- °C</span></div>
+                    <div><strong style="color:#9fc1d7">آخر تحديث:</strong><br><span id="stWeatherLastUpdate">--</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:8px;justify-content:flex-start">
+                <button type="button" id="stAnalyticsRefreshBtn" class="small-btn" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(255,185,0,.15);border:1px solid rgba(255,185,0,.3);border-radius:8px;cursor:pointer;color:#ffe7aa;font-weight:500;font-size:.85rem"><i class="fa-solid fa-rotate-right"></i> تحديث</button>
+                <span id="stAnalyticsMsg" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem;margin-left:auto">جاهز</span>
+              </div>
+            </details>
+            <!-- END STATION ANALYTICS SECTION -->
+
             <hr class="sep">
             <div class="table-wrap">
               <table class="admin-table">

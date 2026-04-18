@@ -1,0 +1,74 @@
+[
+  {
+    "id": "fish_tag_01",
+    "name_ar": "موسم تكاثر الربيع",
+    "name_en": "Spring reproduction",
+    "category": "reproduction",
+    "description_ar": "نافذة تُشجّع تكاثر الأنواع البحرية في بداية الربيع.",
+    "description_en": "A window that promotes marine species reproduction in early spring.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_02",
+    "name_ar": "ذروة نشاط الكنعد",
+    "name_en": "Horse mackerel peak",
+    "category": "activity",
+    "description_ar": "فترة ذروة نشاط الكنعد على السطح ومحيط السواحل.",
+    "description_en": "A peak period for horse mackerel activity near the surface and coast.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_03",
+    "name_ar": "النشاط الشتوي للسمك",
+    "name_en": "Winter fish activity",
+    "category": "activity",
+    "description_ar": "نافذة الصيد المرتبطة بتنوع الأسماك الشتوية والتوزيع البارد.",
+    "description_en": "Fishing window tied to winter fish diversity and cold distribution.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_04",
+    "name_ar": "إنتاجية بعد الأمطار",
+    "name_en": "Post-rain productivity",
+    "category": "productivity",
+    "description_ar": "تحسن صيد السمك بعد فترة الأمطار بسبب تنشيط الغذاء البحري.",
+    "description_en": "Improved catch after rain due to marine food activation.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_05",
+    "name_ar": "نشاط الأسماك السطحية",
+    "name_en": "Surface fish activity",
+    "category": "activity",
+    "description_ar": "فترة يقرب فيها الأسماك السطحية أكثر من الشاطئ.",
+    "description_en": "A period when surface fish come closer to the shore.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_06",
+    "name_ar": "تكاثر الشعاب المرجانية",
+    "name_en": "Reef reproduction",
+    "category": "reproduction",
+    "description_ar": "نافذة مناسبة لتكاثر الكائنات المرجانية والأسماك القاعية.",
+    "description_en": "A suitable window for coral life and bottom fish reproduction.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_07",
+    "name_ar": "ركود الصيد الساحلي",
+    "name_en": "Coastal aggregation",
+    "category": "activity",
+    "description_ar": "فترة تجمع الأسماك بالقرب من الشاطئ لمناطق الصيد الساحلي.",
+    "description_en": "A period of fish aggregation near the shore for coastal fishing.",
+    "is_active": true
+  },
+  {
+    "id": "fish_tag_08",
+    "name_ar": "كتلة السمك المفتوح",
+    "name_en": "Pelagic run",
+    "category": "activity",
+    "description_ar": "مرحلة زيادة نشاط الأسماك السطحية المفتوحة في البحر.",
+    "description_en": "A stage of increased open-sea pelagic fish activity.",
+    "is_active": true
+  }
+]

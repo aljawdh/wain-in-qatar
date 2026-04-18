@@ -1,0 +1,102 @@
+[
+  {
+    "id": "advice_basis_01",
+    "category": "calm_conditions",
+    "name_ar": "ظروف هادئة",
+    "name_en": "Calm conditions",
+    "description_ar": "طقس مستقر وبحر هادئ مناسب للصيد الوقائي.",
+    "description_en": "Stable weather and calm seas suitable for precautionary fishing.",
+    "priority": 5,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_02",
+    "category": "unstable_weather",
+    "name_ar": "طقس غير مستقر",
+    "name_en": "Unstable weather",
+    "description_ar": "تغير سريع في الحالة الجوية يتطلب اليقظة والتخطيط.",
+    "description_en": "Rapid weather changes requiring alertness and planning.",
+    "priority": 3,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_03",
+    "category": "high_wind_caution",
+    "name_ar": "توجيه الرياح القوية",
+    "name_en": "High wind caution",
+    "description_ar": "رياح قوية يمكن أن تؤثر على سلامة الزوارق وسرعة الصيد.",
+    "description_en": "Strong winds can affect vessel safety and fishing speed.",
+    "priority": 1,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_04",
+    "category": "rain_caution",
+    "name_ar": "حوْذَر المطر",
+    "name_en": "Rain-related caution",
+    "description_ar": "هطول المطر قد يغير الرؤية ويؤثر على التحركات البحرية.",
+    "description_en": "Rainfall can alter visibility and impact marine movements.",
+    "priority": 2,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_05",
+    "category": "heat_caution",
+    "name_ar": "تحذير الحرارة",
+    "name_en": "Heat-related caution",
+    "description_ar": "ارتفاع درجة الحرارة يرفع مخاطر الإجهاد الحراري خلال الصيد.",
+    "description_en": "High heat increases the risk of heat stress during fishing.",
+    "priority": 2,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_06",
+    "category": "seasonal_opportunity",
+    "name_ar": "فرصة موسمية",
+    "name_en": "Seasonal opportunity",
+    "description_ar": "فترة من الموسم تدعم الصيد أو الإنتاج البحري بشكل أفضل.",
+    "description_en": "A period of the season that supports better fishing or marine productivity.",
+    "priority": 4,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_07",
+    "category": "fish_activity_support",
+    "name_ar": "دعم نشاط الأسماك",
+    "name_en": "Fish activity support",
+    "description_ar": "عوامل تشير إلى زيادة احتمالية ظهور الأسماك ونشاطها.",
+    "description_en": "Factors that indicate higher likelihood of fish presence and activity.",
+    "priority": 4,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_08",
+    "category": "visibility_caution",
+    "name_ar": "تحذير انخفاض الرؤية",
+    "name_en": "Reduced visibility caution",
+    "description_ar": "ظروف تخفيض الرؤية مثل الضباب أو الأمطار الثقيلة.",
+    "description_en": "Conditions that reduce visibility such as fog or heavy rain.",
+    "priority": 2,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_09",
+    "category": "rough_sea_caution",
+    "name_ar": "تحذير البحر القاسي",
+    "name_en": "Rough sea caution",
+    "description_ar": "أمواج غير مستقرة تزيد صعوبة وسلامة الرحلة البحرية.",
+    "description_en": "Unsteady waves increase difficulty and safety risks for maritime travel.",
+    "priority": 1,
+    "is_active": true
+  },
+  {
+    "id": "advice_basis_10",
+    "category": "transition_notice",
+    "name_ar": "إشعار تحول موسمي",
+    "name_en": "Seasonal transition notice",
+    "description_ar": "نقطة موسم تشير إلى تغير عام في الحالة الجوية أو البحرية.",
+    "description_en": "A seasonal point signaling a general change in weather or marine conditions.",
+    "priority": 3,
+    "is_active": true
+  }
+]
