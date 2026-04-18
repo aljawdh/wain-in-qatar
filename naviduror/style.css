@@ -842,3 +842,26 @@ textarea {
 .leaflet-container {
   overflow: hidden;
 }
+
+/* FIX LEAFLET (reset to safe defaults) */
+.leaflet-container {
+  overflow: hidden;
+}
+
+.leaflet-tile {
+  width: 256px !important;
+  height: 256px !important;
+}
+
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
