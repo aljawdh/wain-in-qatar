@@ -5,8 +5,6 @@
   var map = null;
   var tileLayer = null;
   var stationLayer = null;
-  var tileLayerLoaded = false;
-  var pendingMarkerRender = false;
   var mapInitAttempts = 0;
   var DEFAULT_GULF_CENTER = [25.3, 51.3];
   var DEFAULT_GULF_ZOOM = 5;
@@ -19,19 +17,6 @@
   var selectedStation = null;
   var tempStationMarker = null;
   var tempStationLayer = null;
-  var debugPanel = null;
-  var debugState = {
-    totalLoadedStations: 0,
-    totalVisibleStations: 0,
-    totalValidStations: 0,
-    totalRenderedMarkers: 0,
-    tileLayerLoaded: false,
-    selectedStationId: '',
-    lastClickLat: null,
-    lastClickLng: null,
-    tempPinActive: false,
-    firstStations: []
-  };
   var editingStation = null;
   var stationFormState = {
     isNew: true,
@@ -124,36 +109,6 @@
     return document.getElementById(id);
   }
 
-  function ensureDebugPanel() {
-    if (debugPanel) return;
-    var container = getEl('navidurorMap');
-    if (!container || !container.parentNode) return;
-    debugPanel = document.createElement('div');
-    debugPanel.id = 'navidurorDebugPanel';
-    debugPanel.style.cssText = 'font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: #ffffff; background: rgba(0, 0, 0, 0.65); padding: 10px; border-radius: 12px; margin-bottom: 10px; max-width: 100%; line-height: 1.45; white-space: pre-wrap;';
-    container.parentNode.insertBefore(debugPanel, container);
-  }
-
-  function updateDebugPanel() {
-    if (!debugPanel) {
-      ensureDebugPanel();
-    }
-    if (!debugPanel) return;
-    var firstStationsText = debugState.firstStations.map(function (entry) {
-      return (entry.id || '<no-id>') + ' => (' + entry.lat + ', ' + entry.lon + ')';
-    }).join('\n');
-    debugPanel.textContent =
-      'loadedStations: ' + debugState.totalLoadedStations + '\n' +
-      'visibleStations: ' + debugState.totalVisibleStations + '\n' +
-      'validStations: ' + debugState.totalValidStations + '\n' +
-      'renderedMarkers: ' + debugState.totalRenderedMarkers + '\n' +
-      'tileLayerLoaded: ' + (debugState.tileLayerLoaded ? 'true' : 'false') + '\n' +
-      'selectedStationId: ' + (debugState.selectedStationId || '<none>') + '\n' +
-      'lastClickLat: ' + (debugState.lastClickLat != null ? debugState.lastClickLat : '<none>') + '\n' +
-      'lastClickLng: ' + (debugState.lastClickLng != null ? debugState.lastClickLng : '<none>') + '\n' +
-      'tempPinActive: ' + (debugState.tempPinActive ? 'yes' : 'no') + '\n' +
-      'first5Stations:\n' + (firstStationsText || '<none>');
-  }
 
   function isAuthenticated() {
     return !!localStorage.getItem(AUTH_TOKEN_KEY);
@@ -546,8 +501,6 @@
     }
 
     mapInitAttempts = 0;
-    tileLayerLoaded = false;
-    pendingMarkerRender = false;
 
     if (map) {
       try {
@@ -564,122 +517,35 @@
       attributionControl: false
     });
 
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 0);
-
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 300);
-
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 800);
-
     tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    tileLayer.on('load', function () {
-      tileLayerLoaded = true;
-      resizeMap();
-      if (pendingMarkerRender) {
-        pendingMarkerRender = false;
-        renderStationMarkers();
-      }
-    });
-
     stationLayer = L.layerGroup().addTo(map);
     tempStationLayer = L.layerGroup().addTo(map);
-    ensureDebugPanel();
-    updateDebugPanel();
 
     map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
 
-    setTimeout(function () {
-      try {
-        map.invalidateSize(true);
-      } catch (e) {}
-    }, 300);
-
-    setTimeout(function () {
-      try {
-        map.invalidateSize(true);
-      } catch (e) {}
-    }, 800);
-
-    setTimeout(function () {
-      try {
-        map.invalidateSize(true);
-      } catch (e) {}
-    }, 1500);
-
     map.on('click', function (event) {
       if (!event || !event.latlng) return;
-      debugState.lastClickLat = event.latlng.lat;
-      debugState.lastClickLng = event.latlng.lng;
-      debugState.tempPinActive = true;
-      updateDebugPanel();
-      console.log('[naviduror] map click received', event.latlng);
       openStationForm(null, event.latlng);
     });
 
-    resizeMap();
-    setTimeout(resizeMap, 250);
-    setTimeout(resizeMap, 600);
-
-    window.addEventListener('resize', resizeMap);
     window.addEventListener('orientationchange', function () {
       resizeMap();
       setTimeout(resizeMap, 250);
-      setTimeout(resizeMap, 600);
     });
 
     map.whenReady(function () {
-      setTimeout(function () {
-        try {
-          map.invalidateSize(true);
-        } catch (e) {}
-      }, 300);
+      try { map.invalidateSize(true); } catch (e) {}
+      setTimeout(resizeMap, 250);
     });
-
-    setTimeout(function () {
-      resizeMap();
-    }, 500);
-
-    setTimeout(function () {
-      if (!map) return;
-
-      try {
-        map.invalidateSize(true);
-        map.setView([25.3, 51.3], 5);
-      } catch (e) {}
-    }, 1000);
-
-    setTimeout(function () {
-      if (!map) return;
-
-      try {
-        map.invalidateSize(true);
-      } catch (e) {}
-    }, 2000);
   }
 
   function resizeMap() {
     if (!map) return;
-
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 100);
-
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 400);
-
-    setTimeout(function () {
-      try { map.invalidateSize(true); } catch (e) {}
-    }, 900);
+    try { map.invalidateSize(true); } catch (e) {}
   }
   function frameMapToStations(markerLayerOrGroup, selectedLatLng) {
     if (!map) return;
@@ -772,8 +638,6 @@
       } catch (e) {}
     }
     tempStationMarker = null;
-    debugState.tempPinActive = false;
-    updateDebugPanel();
     editingStation = null;
   }
 
@@ -836,10 +700,7 @@
       if (tempStationMarker && typeof tempStationMarker.bringToFront === 'function') {
         tempStationMarker.bringToFront();
       }
-      console.log('[naviduror] temp pin placed', latlng);
       map.setView([latlng.lat, latlng.lng], 8);
-      debugState.tempPinActive = true;
-      updateDebugPanel();
     }
   }
 
@@ -946,17 +807,14 @@
   function selectStation(station) {
     if (!station) return;
     selectedStation = station;
-    debugState.selectedStationId = getStationId(station);
     renderStationMarkers();
     renderSelectedStationCards();
     renderDistributionPreview();
     renderValidationPanel();
     focusStation(station);
-    updateDebugPanel();
     loadStationCalibration(station).then(function () {
       renderSelectedStationCards();
       renderValidationPanel();
-      updateDebugPanel();
     }).catch(function (error) {
       console.warn('[naviduror] loadStationCalibration failed', error);
       setCalibrationStatus('فشل تحميل معايرة المحطة من الخادم.', 'error');
@@ -989,10 +847,14 @@
       var marker = L.circleMarker([coords.lat, coords.lon], getStationStyle(station));
       marker.bindTooltip('<strong>' + (station.name || 'محطة') + '</strong>', { direction: 'top', offset: [0, -9], opacity: 0.95 });
       marker.on('click', function (event) {
-        if (event && event.originalEvent) {
-          event.originalEvent.stopPropagation();
+        if (event) {
+          if (event.originalEvent && typeof event.originalEvent.stopPropagation === 'function') {
+            event.originalEvent.stopPropagation();
+          }
+          if (typeof event.stopPropagation === 'function') {
+            event.stopPropagation();
+          }
         }
-        console.log('[naviduror] station marker clicked', getStationId(station));
         selectStation(station);
         openStationForm(station, coords);
       });
@@ -1002,22 +864,6 @@
       }
       validMarkers.push(marker);
     });
-    debugState.totalLoadedStations = stations.length;
-    debugState.totalVisibleStations = visibleStations.length;
-    debugState.totalValidStations = validMarkers.length;
-    debugState.totalRenderedMarkers = validMarkers.length;
-    debugState.tileLayerLoaded = !!tileLayerLoaded;
-    debugState.selectedStationId = selectedStation ? getStationId(selectedStation) : '';
-    debugState.firstStations = stations.slice(0, 5).map(function (station) {
-      var coords = getStationCoords(station);
-      return {
-        id: getStationId(station),
-        lat: coords.lat,
-        lon: coords.lon
-      };
-    });
-    console.log('[naviduror] loaded station count', visibleStations.length, 'valid station count', validMarkers.length, 'marker render count', validMarkers.length);
-    updateDebugPanel();
     updateHeaderSummary();
     resizeMap();
     if (selectedStation) {
