@@ -162,6 +162,10 @@
   }
 
   function setAdminDataFilter(filter) {
+    if (filter === 'durur') {
+      console.warn('[admin] disabled durur section access attempt');
+      return;
+    }
     adminDataFilter = filter || 'all';
     document.querySelectorAll('.admin-block').forEach(function (block) {
       var section = block.getAttribute('data-section');
@@ -765,13 +769,7 @@
       renderSummarySection(),
       loadStations(),
       loadUsers(),
-      loadFeedback(),
-      loadDururData(),
-      loadDururReferenceData(),
-      loadSeasonEvents(),
-      loadStationProfiles(),
-      loadStationOverrides(),
-      loadAnnualComparisons()
+      loadFeedback()
     ]);
   }
 

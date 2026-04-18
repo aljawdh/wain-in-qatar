@@ -3,155 +3,51 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Durur Control</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+4P1D7b4tJ2oleZ7M5KKX0dGuN8s8S8UmtjM/ai3s=" crossorigin="" />
-  <link rel="stylesheet" href="/durur-control/style.css">
+  <title>Durur Control معطل</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, sans-serif;
+      background: #08101c;
+      color: #e9f4ff;
+    }
+    .notice-card {
+      max-width: 520px;
+      padding: 28px;
+      text-align: center;
+      border-radius: 24px;
+      background: rgba(8,16,28,0.92);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.18);
+    }
+    .notice-card h1 {
+      margin: 0 0 16px;
+      font-size: 1.75rem;
+    }
+    .notice-card p {
+      margin: 0 0 24px;
+      color: #9bb3ca;
+      line-height: 1.7;
+    }
+    .notice-card a {
+      display: inline-block;
+      padding: 12px 22px;
+      border-radius: 999px;
+      background: #5bc6ff;
+      color: #041017;
+      text-decoration: none;
+      font-weight: 700;
+    }
+  </style>
 </head>
 <body>
-  <div class="page-shell">
-    <div class="panel dashboard-panel">
-      <div class="topbar">
-        <div>
-          <h1>Durur Control</h1>
-          <p style="margin:4px 0 0; color: var(--muted);">نظام مستقل لإدارة المحطات، الدورات، والأحداث.</p>
-        </div>
-        <div class="top-actions">
-          <span class="user-pill">المستخدم: admin</span>
-          <button id="logoutBtn" class="button" style="background: transparent; color: var(--accent); border: 1px solid rgba(91,198,255,.25);">تسجيل خروج</button>
-        </div>
-      </div>
-
-      <div class="dashboard-layout">
-        <aside class="sidebar">
-          <div class="sidebar-block">
-            <h3>التنقل السريع</h3>
-            <nav>
-              <a href="#map" class="active">المحطات</a>
-              <a href="#dur">الدرور</a>
-              <a href="#events">الأحداث</a>
-              <a href="#analysis">التحليل</a>
-            </nav>
-          </div>
-
-          <div class="sidebar-block">
-            <h3>فلترة الخريطة</h3>
-            <div class="filter-item">
-              <label for="stationSearch">بحث محطات</label>
-              <input id="stationSearch" type="search" placeholder="ابحث باسم المحطة أو الدولة">
-            </div>
-            <div class="filter-item">
-              <label for="stationTypeFilter">نوع المحطة</label>
-              <select id="stationTypeFilter">
-                <option value="all">الكل</option>
-                <option value="primary_reference">رئيسية</option>
-                <option value="secondary_linked">تابعة</option>
-                <option value="latlon_band_station">مرتبطة</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="sidebar-block">
-            <h3>إحصاءات سريعة</h3>
-            <div class="stat-card sidebar-stat">
-              <span>عدد المحطات</span>
-              <strong id="summaryStations">0</strong>
-            </div>
-            <div class="stat-card sidebar-stat">
-              <span>الدر الحالي</span>
-              <strong id="summaryDurCount">0</strong>
-            </div>
-            <div class="stat-card sidebar-stat">
-              <span>عدد الأحداث</span>
-              <strong id="summaryEvents">0</strong>
-            </div>
-          </div>
-        </aside>
-
-        <main class="main-panel">
-          <div class="main-content">
-            <div class="section-head" id="map">
-              <div>
-                <h2 class="section-title">خريطة المشروع</h2>
-                <p style="margin:4px 0 0; color: var(--muted);">عرض بصري للمحطات مع مرشحات الدرور والأحداث.</p>
-              </div>
-            </div>
-
-            <div class="filter-row">
-              <div class="filter-item">
-                <label for="durFilter">الدور الحالي</label>
-                <select id="durFilter">
-                  <option value="all">الكل</option>
-                </select>
-              </div>
-              <div class="filter-item">
-                <label for="seasonEventFilter">الحدث الموسمي</label>
-                <select id="seasonEventFilter">
-                  <option value="all">الكل</option>
-                </select>
-              </div>
-              <div class="filter-item">
-                <label for="stationStatusFilter">حالة المحطة</label>
-                <select id="stationStatusFilter">
-                  <option value="all">الكل</option>
-                  <option value="active">نشطة</option>
-                  <option value="inactive">غير نشطة</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="summary-grid">
-              <div class="stat-card">
-                <span>محطات مرئية</span>
-                <strong id="visibleStations">0</strong>
-              </div>
-              <div class="stat-card">
-                <span>موقع مختار</span>
-                <strong id="summarySelectedStation">لا توجد</strong>
-              </div>
-              <div class="stat-card">
-                <span>الدر الحالي اليوم</span>
-                <strong id="summaryTodayDur">--</strong>
-              </div>
-            </div>
-
-            <div id="stationMap" class="map-frame"></div>
-
-            <div class="station-info-card" id="stationInfoCard">
-              <div class="station-card-header">
-                <div>
-                  <h3 id="stationInfoTitle">معلومات المحطة</h3>
-                  <p id="stationInfoSubtitle" style="margin:4px 0 0; color: var(--muted);">اختر محطة من الخريطة لعرض مزيد من التفاصيل.</p>
-                </div>
-                <div class="toggle-tags" id="stationRoleBadge">---</div>
-              </div>
-
-              <div class="tab-row" role="tablist">
-                <button type="button" class="tab-btn active" data-tab="overview">الأساسية</button>
-                <button type="button" class="tab-btn" data-tab="dur">الدور</button>
-                <button type="button" class="tab-btn" data-tab="events">الأحداث</button>
-                <button type="button" class="tab-btn" data-tab="knowledge">المعرفة</button>
-              </div>
-
-              <div id="overviewPanel" class="tab-panel active">
-                <div id="stationOverview" class="station-info-body">اختر محطة من الخريطة</div>
-              </div>
-              <div id="durPanel" class="tab-panel">
-                <div id="stationDurOverview" class="station-info-body"></div>
-              </div>
-              <div id="eventsPanel" class="tab-panel">
-                <div id="stationEventOverview" class="station-info-body"></div>
-              </div>
-              <div id="knowledgePanel" class="tab-panel">
-                <div id="stationKnowledgeOverview" class="station-info-body"></div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    </div>
+  <div class="notice-card">
+    <h1>Durur Control معطل</h1>
+    <p>تم تعطيل النظام القديم durur-control. استخدم NAVIDUROR فقط لإدارة المحطات والدورات.</p>
+    <a href="/naviduror/dashboard">اذهب إلى NAVIDUROR</a>
   </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="/durur-control/dashboard.js"></script>
 </body>
 </html>

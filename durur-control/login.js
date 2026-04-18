@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
+  window.location.href = '/naviduror/dashboard';
+  return;
+
   var loginBtn = document.getElementById('loginBtn');
   var usernameInput = document.getElementById('username');
   var passwordInput = document.getElementById('password');

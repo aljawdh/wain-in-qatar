@@ -1,4 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
+  window.location.href = '/naviduror/dashboard';
+  return;
+
   try {
     var isAuth = sessionStorage.getItem('durur-control-authenticated') === 'true';
     if (!isAuth) {
