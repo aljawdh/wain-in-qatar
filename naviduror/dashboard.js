@@ -597,6 +597,24 @@
 
     map.setView(DEFAULT_GULF_CENTER, DEFAULT_GULF_ZOOM);
 
+    setTimeout(function () {
+      try {
+        map.invalidateSize(true);
+      } catch (e) {}
+    }, 300);
+
+    setTimeout(function () {
+      try {
+        map.invalidateSize(true);
+      } catch (e) {}
+    }, 800);
+
+    setTimeout(function () {
+      try {
+        map.invalidateSize(true);
+      } catch (e) {}
+    }, 1500);
+
     map.on('click', function (event) {
       if (!event || !event.latlng) return;
       debugState.lastClickLat = event.latlng.lat;
@@ -627,22 +645,26 @@
         renderStationMarkers();
       }
     });
+
+    setTimeout(function () {
+      resizeMap();
+    }, 500);
   }
 
   function resizeMap() {
     if (!map) return;
 
-    requestAnimationFrame(function () {
+    setTimeout(function () {
       try { map.invalidateSize(true); } catch (e) {}
-    });
+    }, 100);
 
     setTimeout(function () {
       try { map.invalidateSize(true); } catch (e) {}
-    }, 250);
+    }, 400);
 
     setTimeout(function () {
       try { map.invalidateSize(true); } catch (e) {}
-    }, 700);
+    }, 900);
   }
   function frameMapToStations(markerLayerOrGroup, selectedLatLng) {
     if (!map) return;
