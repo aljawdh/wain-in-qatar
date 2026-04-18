@@ -80,6 +80,45 @@
     return COUNTRY_NAME_ALIASES[t] || t;
   }
 
+  function calculateSuhailStart(lat) {
+    var base = new Date(2026, 7, 15); // August 15, 2026
+    var offsetDays = Math.floor((25 - lat) * 2); // Adjust days based on latitude deviation from 25°N
+    base.setDate(base.getDate() + offsetDays);
+    return base;
+  }
+
+  function generateDururTimeline(suhailStart) {
+    var durur = [];
+    for (var i = 1; i <= 28; i++) {
+      var start = new Date(suhailStart);
+      start.setDate(start.getDate() + (i - 1) * 13);
+      var end = new Date(start);
+      end.setDate(end.getDate() + 12);
+      durur.push({
+        id: 'dur_' + String(i).padStart(2, '0'),
+        dur_number: i,
+        name: 'Dur ' + i,
+        start_date: start,
+        end_date: end
+      });
+    }
+    return durur;
+  }
+
+  function getCurrentDurForStation(station) {
+    if (!station || !Number.isFinite(station.lat)) return null;
+    var suhailStart = calculateSuhailStart(station.lat);
+    var timeline = generateDururTimeline(suhailStart);
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (var i = 0; i < timeline.length; i++) {
+      if (today >= timeline[i].start_date && today <= timeline[i].end_date) {
+        return timeline[i];
+      }
+    }
+    return null;
+  }
+
   // Automatically infer coastal/deep from geographic position.
   // This is stored as station metadata only; the live analysis engine
   // always overrides it with the real per-station tidal decision.
@@ -879,10 +918,10 @@
       seasonal_traits: [],
       fish_activity_traits: [],
       expert_notes: '',
-      source: 'auto',
+      source: 'system',
       is_overridden: false
     };
-    var dur = getCurrentDurForDate(new Date());
+    var dur = getCurrentDurForStation(station);
     if (!dur) return profile;
 
     profile.current_dur_id = dur.id || null;
@@ -2887,11 +2926,18 @@
     var profile = station.durur_profile || {};
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var currentDur = getDururById(profile.current_dur_id) || getCurrentDurForDate(today);
+    var currentDur;
+    if (profile.source === 'manual' && profile.is_overridden) {
+      currentDur = getDururById(profile.current_dur_id);
+    } else {
+      currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
+    }
     if (!currentDur) {
       getEl('stAnalyticsMsg').textContent = 'لا يوجد در حالياً';
       return;
     }
+
+    var staticDur = getDururById(currentDur.id);
 
     var nextDur = getNextDurur(currentDur);
     var entryDate = safeParseYmd(profile.dur_entry_date);
@@ -2908,9 +2954,9 @@
     var daysUntilNext = nextStartDate != null ? Math.max(0, getDaysDifference(nextStartDate)) + ' days' : '--';
     var transitionNote = nextDur ? 'الانتقال من ' + currentDurName + ' إلى ' + nextDurName : '--';
 
-    var expectedTraits = Array.isArray(currentDur.weather_traits) ? currentDur.weather_traits.slice() : [];
-    var marineTraits = Array.isArray(currentDur.marine_traits) ? currentDur.marine_traits.slice() : [];
-    var fishTraits = Array.isArray(currentDur.fish_traits) ? currentDur.fish_traits.slice() : [];
+    var expectedTraits = Array.isArray(staticDur.weather_traits) ? staticDur.weather_traits.slice() : [];
+    var marineTraits = Array.isArray(staticDur.marine_traits) ? staticDur.marine_traits.slice() : [];
+    var fishTraits = Array.isArray(staticDur.fish_traits) ? staticDur.fish_traits.slice() : [];
     var observedTraits = currentWeatherState && currentWeatherState.station_id === stationId ? getObservedTraitsFromWeather(currentWeatherState) : [];
 
     getEl('stAnalyticsDurName').textContent = currentDurName;
