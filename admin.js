@@ -31,6 +31,7 @@
   var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
   var currentAnalyticsPeriod = '1y'; // default period
+  var currentWeatherState = null;
 
   var stationsAdminMap = null;
   var dururAdminMap = null;
@@ -2910,6 +2911,7 @@
     var expectedTraits = Array.isArray(currentDur.weather_traits) ? currentDur.weather_traits.slice() : [];
     var marineTraits = Array.isArray(currentDur.marine_traits) ? currentDur.marine_traits.slice() : [];
     var fishTraits = Array.isArray(currentDur.fish_traits) ? currentDur.fish_traits.slice() : [];
+    var observedTraits = currentWeatherState && currentWeatherState.station_id === stationId ? getObservedTraitsFromWeather(currentWeatherState) : [];
 
     getEl('stAnalyticsDurName').textContent = currentDurName;
     getEl('stAnalyticsDurEntryDate').textContent = currentEntryDateText;
@@ -2937,7 +2939,11 @@
       'Days remaining until current dur ends: ' + daysRemaining + '<br>' +
       'Current dur expected traits summary: ' + (expectedTraits.length ? expectedTraits.join(', ') : '--') + '<br>' +
       'Current dur sea/marine relationship summary: ' + (marineTraits.length ? marineTraits.join(', ') : '--') + '<br>' +
-      'Current dur fish activity summary: ' + (fishTraits.length ? fishTraits.join(', ') : '--') + '<br><br>' +
+      'Current dur fish activity summary: ' + (fishTraits.length ? fishTraits.join(', ') : '--') + '<br>' +
+      'Weather temperature: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.temperature_2m + '°C' : '--') + '<br>' +
+      'Weather wind speed: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_speed_10m + ' km/h' : '--') + '<br>' +
+      'Weather wind direction: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_direction_10m + '°' : '--') + '<br>' +
+      'Observed traits: ' + (observedTraits.length ? observedTraits.join(', ') : '--') + '<br><br>' +
       '<strong>Next reading</strong><br>' +
       'Next dur name: ' + nextDurName + '<br>' +
       'Next dur number: ' + nextDurNumber + '<br>' +
@@ -3069,24 +3075,49 @@
       return v.period === period && v.current_dur_id === dururProfile.current_dur_id;
     });
 
-    if (existingVal) return existingVal;
-
-    // Create new validation object
     var expectedTraits = [];
     expectedTraits = expectedTraits.concat(dururProfile.weather_traits || []);
     expectedTraits = expectedTraits.concat(dururProfile.marine_traits || []);
     expectedTraits = expectedTraits.concat(dururProfile.seasonal_traits || []);
     expectedTraits = expectedTraits.concat(dururProfile.fish_activity_traits || []);
+    expectedTraits = Array.from(new Set(expectedTraits));
+
+    var useCurrentWeather = currentWeatherState && currentAnalyzedStationId === stationId;
+    var observedTraits = useCurrentWeather ? getObservedTraitsFromWeather(currentWeatherState) : [];
+    var matchingTraits = useCurrentWeather ? observedTraits.filter(function (t) { return expectedTraits.includes(t); }) : [];
+    var percentage = null;
+    var status = 'pending_observation';
+    if (useCurrentWeather) {
+      if (expectedTraits.length === 0) {
+        status = 'no_expected_traits';
+      } else {
+        percentage = (matchingTraits.length / expectedTraits.length) * 100;
+        if (percentage >= 70) status = 'متطابق';
+        else if (percentage >= 40) status = 'متوسط';
+        else status = 'ضعيف';
+      }
+    }
+
+    if (existingVal) {
+      existingVal.expected_traits = expectedTraits;
+      existingVal.observed_traits = observedTraits;
+      existingVal.matching_traits = matchingTraits;
+      existingVal.validation_score = percentage;
+      existingVal.validation_status = status;
+      existingVal.last_checked_at = useCurrentWeather ? currentWeatherState.checked_at : existingVal.last_checked_at;
+      return existingVal;
+    }
 
     var validation = {
       station_id: stationId,
       period: period,
       current_dur_id: dururProfile.current_dur_id,
       expected_traits: expectedTraits,
-      observed_traits: [], // PLACEHOLDER: will be populated by real weather data
-      validation_score: null, // PLACEHOLDER: calculated when observed_traits available
-      validation_status: 'not evaluated', // not evaluated | ready | matched | diverged | incomplete
-      last_checked_at: new Date().toISOString()
+      observed_traits: observedTraits,
+      matching_traits: matchingTraits,
+      validation_score: percentage,
+      validation_status: status,
+      last_checked_at: useCurrentWeather ? currentWeatherState.checked_at : new Date().toISOString()
     };
 
     stationValidationCache[stationId].push(validation);
@@ -3108,6 +3139,7 @@
       getEl('stAnalyticsMsg').textContent = 'لا توجد إحداثيات للمحطة';
       return;
     }
+    getEl('stAnalyticsMsg').textContent = 'جاري جلب الطقس...';
     var lat = station.lat;
     var lon = station.lon;
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,wind_speed_10m,wind_direction_10m';
@@ -3117,65 +3149,18 @@
         var temp = data.current.temperature_2m;
         var windSpeed = data.current.wind_speed_10m;
         var windDir = data.current.wind_direction_10m;
-        var observedTraits = [];
-        if (temp >= 30) observedTraits.push('hot');
-        else if (temp < 20) observedTraits.push('cool');
-        if (windSpeed >= 20) observedTraits.push('strong_wind');
-        else if (windSpeed < 10) observedTraits.push('calm_wind');
-        var dir = windDir;
-        if ((dir >= 315 && dir <= 360) || (dir >= 0 && dir <= 45)) observedTraits.push('north_wind');
-        else if (dir > 45 && dir <= 135) observedTraits.push('east_wind');
-        else if (dir > 135 && dir <= 225) observedTraits.push('south_wind');
-        else if (dir > 225 && dir <= 315) observedTraits.push('west_wind');
-        var profile = station.durur_profile;
-        if (!profile) {
-          getEl('stAnalyticsMsg').textContent = 'لا توجد سمات متوقعة';
-          return;
-        }
-        var expectedTraits = [];
-        expectedTraits = expectedTraits.concat(profile.weather_traits || []);
-        expectedTraits = expectedTraits.concat(profile.marine_traits || []);
-        expectedTraits = expectedTraits.concat(profile.seasonal_traits || []);
-        expectedTraits = expectedTraits.concat(profile.fish_activity_traits || []);
-        expectedTraits = [...new Set(expectedTraits)];
-        if (expectedTraits.length === 0) {
-          getEl('stAnalyticsMsg').textContent = 'لا توجد سمات متوقعة';
-          return;
-        }
-        var matching = observedTraits.filter(function (t) { return expectedTraits.includes(t); });
-        var percentage = (matching.length / expectedTraits.length) * 100;
-        var status;
-        if (percentage >= 70) status = 'متطابق';
-        else if (percentage >= 40) status = 'متوسط';
-        else status = 'ضعيف';
-        var durur = getDururById(profile.current_dur_id);
-        var record = {
+        currentWeatherState = {
           station_id: currentAnalyzedStationId,
-          checked_at: new Date().toISOString(),
-          year: new Date().getFullYear(),
-          month: new Date().getMonth() + 1,
-          current_dur_id: profile.current_dur_id,
-          current_dur_name: durur ? (durur.name || 'Dur ' + durur.dur_number) : '',
-          expected_traits: expectedTraits,
-          observed_traits: observedTraits,
-          matching_traits: matching,
-          match_percentage: percentage,
-          validation_status: status,
-          profile_source: profile.source || 'auto',
-          is_overridden: !!profile.is_overridden,
-          notes: profile.expert_notes || ''
+          temperature_2m: temp,
+          wind_speed_10m: windSpeed,
+          wind_direction_10m: windDir,
+          checked_at: new Date().toISOString()
         };
-        apiFetch('/api/admin/analytics-history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(record)
-        }).catch(function (err) {
-          console.error('Failed to save analytics history:', err);
-        });
-        getEl('stAnalyticsMsg').textContent = 'Expected traits: ' + expectedTraits.join(', ') + ', Observed traits: ' + observedTraits.join(', ') + ', Matching traits: ' + matching.join(', ') + ', Match percentage: ' + percentage.toFixed(0) + '%, Validation status: ' + status;
+        renderStationAnalytics();
       })
       .catch(function (err) {
-        getEl('stAnalyticsMsg').textContent = 'Error fetching weather: ' + err.message;
+        getEl('stAnalyticsMsg').textContent = 'فشل جلب الطقس';
+        console.error('Weather fetch failed:', err);
       });
   }
 
