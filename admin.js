@@ -2664,7 +2664,8 @@
     populateTraitCheckboxes('stDururWeatherTraits', profile.weather_traits || []);
     populateTraitCheckboxes('stDururMarineTraits', profile.marine_traits || []);
     populateTraitCheckboxes('stDururSeasonalTraits', profile.seasonal_traits || []);
-    populateTraitCheckboxes('stDururFishTraits', profile.fish_activity_traits || []);
+    updateFishActivityOptions(profile.current_dur_id, profile.fish_activity_traits || []);
+    updateDurReferenceDisplay(profile.current_dur_id);
 
     getEl('stDururExpertNotes').value = profile.expert_notes || '';
   }
@@ -2749,6 +2750,7 @@
       var nextStartStr = nextStartDate.toISOString().split('T')[0];
       getEl('stDururNextStart').value = nextStartStr;
     }
+    updateFishActivityOptions(dururSel.value);
   }
 
   function loadDururTraits() {
@@ -2837,6 +2839,102 @@
       div.appendChild(label);
       container.appendChild(div);
     });
+  }
+
+  function getSelectedFishActivityTraits() {
+    var container = getEl('stDururFishTraits');
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(function (cb) {
+      return cb.getAttribute('data-trait-id');
+    }).filter(function (v) { return v; });
+  }
+
+  function getFishTraitsForDur(durId) {
+    var dur = getDururById(durId);
+    return dur && Array.isArray(dur.fish_traits) ? dur.fish_traits.slice() : [];
+  }
+
+  function updateFishActivityOptions(durId, manualTraits) {
+    var container = getEl('stDururFishTraits');
+    if (!container) return;
+    var selectedTraits = Array.isArray(manualTraits) ? manualTraits.slice() : getSelectedFishActivityTraits();
+    var defaultTraits = getFishTraitsForDur(durId);
+    var combinedTraits = defaultTraits.slice();
+    selectedTraits.forEach(function (trait) {
+      if (combinedTraits.indexOf(trait) < 0) {
+        combinedTraits.push(trait);
+      }
+    });
+
+    container.innerHTML = '';
+    populateFishTraitContainer('stDururFishTraits', combinedTraits);
+    populateTraitCheckboxes('stDururFishTraits', selectedTraits);
+
+    var noteId = 'stDururFishTraitNote';
+    var note = getEl(noteId);
+    if (!note) {
+      note = document.createElement('div');
+      note.id = noteId;
+      note.style.cssText = 'font-size:.78rem;color:#9fc1d7;margin-top:8px;line-height:1.4';
+      if (container.parentNode) container.parentNode.insertBefore(note, container.nextSibling);
+    }
+    var noteText = 'السمك الافتراضي من المرجع: ' + (defaultTraits.length ? defaultTraits.join(', ') : '--');
+    var manualOnly = selectedTraits.filter(function (trait) { return defaultTraits.indexOf(trait) < 0; });
+    if (manualOnly.length > 0) {
+      noteText += ' | القيم اليدوية: ' + manualOnly.join(', ');
+    }
+    note.textContent = noteText;
+  }
+
+  function updateDurReferenceDisplay(durId) {
+    var dur = getDururById(durId);
+    var noteId = 'stDururReferenceInfo';
+    var container = getEl(noteId);
+    if (!container) {
+      var statusNode = getEl('stDururStatus');
+      if (!statusNode || !statusNode.parentNode) return;
+      container = document.createElement('div');
+      container.id = noteId;
+      container.style.cssText = 'margin-top:10px;font-size:.84rem;color:#9fc1d7;line-height:1.5';
+      statusNode.parentNode.insertBefore(container, statusNode.parentNode.nextSibling);
+    }
+    if (!dur) {
+      container.innerHTML = '<div>معلومات الدر المرجعية غير متاحة.</div>';
+      return;
+    }
+    var details = [];
+    details.push('اسم الدر: ' + (dur.name_ar || dur.name || '--'));
+    details.push('رقم الدر: ' + (dur.dur_number != null ? dur.dur_number : '--'));
+    if (dur.season_ar) details.push('الموسم: ' + dur.season_ar);
+    if (dur.heritage_meaning_ar) details.push('المعنى التقليدي: ' + dur.heritage_meaning_ar);
+    var description = dur.notes_ar || dur.description_ar || dur.description || '';
+    if (description) details.push('الوصف: ' + description);
+    container.innerHTML = details.map(function (line) {
+      return '<div>' + line + '</div>';
+    }).join('');
+  }
+
+  function ensureAnalyticsDurReferenceFields() {
+    var container = getEl('stAnalyticsDerivedReading');
+    if (!container) return;
+    ['stAnalyticsDurSeason', 'stAnalyticsDurMeaning', 'stAnalyticsDurDescription'].forEach(function (id) {
+      if (!getEl(id)) {
+        var div = document.createElement('div');
+        div.innerHTML = '<strong style="color:#9fc1d7">' + (id === 'stAnalyticsDurSeason' ? 'الموسم:' : id === 'stAnalyticsDurMeaning' ? 'المعنى التقليدي:' : 'الوصف:') + '</strong> <span id="' + id + '">--</span>';
+        container.appendChild(div);
+      }
+    });
+  }
+
+  function updateAnalyticsDurReferenceDisplay(dur) {
+    ensureAnalyticsDurReferenceFields();
+    var seasonEl = getEl('stAnalyticsDurSeason');
+    var meaningEl = getEl('stAnalyticsDurMeaning');
+    var descriptionEl = getEl('stAnalyticsDurDescription');
+    if (!seasonEl || !meaningEl || !descriptionEl) return;
+    seasonEl.textContent = dur && dur.season_ar ? dur.season_ar : '--';
+    meaningEl.textContent = dur && dur.heritage_meaning_ar ? dur.heritage_meaning_ar : '--';
+    descriptionEl.textContent = dur ? (dur.notes_ar || dur.description_ar || dur.description || '--') : '--';
   }
 
   function getDururById(id) {
@@ -2957,6 +3055,8 @@
     var expectedTraits = Array.isArray(staticDur.weather_traits) ? staticDur.weather_traits.slice() : [];
     var marineTraits = Array.isArray(staticDur.marine_traits) ? staticDur.marine_traits.slice() : [];
     var fishTraits = Array.isArray(staticDur.fish_traits) ? staticDur.fish_traits.slice() : [];
+    var profileFishTraits = Array.isArray(profile.fish_activity_traits) ? profile.fish_activity_traits.slice() : [];
+    var manualFishTraits = profileFishTraits.filter(function (trait) { return fishTraits.indexOf(trait) < 0; });
     var observedTraits = currentWeatherState && currentWeatherState.station_id === stationId ? getObservedTraitsFromWeather(currentWeatherState) : [];
 
     getEl('stAnalyticsDurName').textContent = currentDurName;
@@ -2964,6 +3064,7 @@
     getEl('stAnalyticsDaysRemaining').textContent = daysRemaining;
     var nextDurEl = getEl('stAnalyticsNextDur');
     if (nextDurEl) nextDurEl.textContent = nextDurName;
+    updateAnalyticsDurReferenceDisplay(staticDur);
 
     var traitsContainer = getEl('stAnalyticsExpectedTraits');
     if (traitsContainer) {
@@ -2984,8 +3085,13 @@
       'Current dur entry/start date: ' + currentEntryDateText + '<br>' +
       'Days remaining until current dur ends: ' + daysRemaining + '<br>' +
       'Current dur expected traits summary: ' + (expectedTraits.length ? expectedTraits.join(', ') : '--') + '<br>' +
+      'Current dur season: ' + (staticDur && staticDur.season_ar ? staticDur.season_ar : '--') + '<br>' +
+      'Current dur heritage meaning: ' + (staticDur && staticDur.heritage_meaning_ar ? staticDur.heritage_meaning_ar : '--') + '<br>' +
+      'Current dur description: ' + (staticDur ? (staticDur.notes_ar || staticDur.description_ar || staticDur.description || '--') : '--') + '<br>' +
       'Current dur sea/marine relationship summary: ' + (marineTraits.length ? marineTraits.join(', ') : '--') + '<br>' +
       'Current dur fish activity summary: ' + (fishTraits.length ? fishTraits.join(', ') : '--') + '<br>' +
+      'Profile fish activity values: ' + (profileFishTraits.length ? profileFishTraits.join(', ') : '--') + '<br>' +
+      (manualFishTraits.length ? 'Manual fish activity overrides: ' + manualFishTraits.join(', ') + '<br>' : '') +
       'Weather temperature: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.temperature_2m + '°C' : '--') + '<br>' +
       'Weather wind speed: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_speed_10m + ' km/h' : '--') + '<br>' +
       'Weather wind direction: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_direction_10m + '°' : '--') + '<br>' +
