@@ -2803,8 +2803,56 @@
       getEl('stAnalyticsMsg').textContent = 'لا توجد محطة محددة';
       return;
     }
-    renderStationAnalytics();
-    fetchStationWeather(currentAnalyzedStationId);
+    var station = stationsCache.find(function (s) { return s.id === currentAnalyzedStationId; });
+    if (!station || !station.lat || !station.lon) {
+      getEl('stAnalyticsMsg').textContent = 'لا توجد إحداثيات للمحطة';
+      return;
+    }
+    var lat = station.lat;
+    var lon = station.lon;
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,wind_speed_10m,wind_direction_10m';
+    fetch(url)
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var temp = data.current.temperature_2m;
+        var windSpeed = data.current.wind_speed_10m;
+        var windDir = data.current.wind_direction_10m;
+        var observedTraits = [];
+        if (temp >= 30) observedTraits.push('hot');
+        else if (temp < 20) observedTraits.push('cool');
+        if (windSpeed >= 20) observedTraits.push('strong_wind');
+        else if (windSpeed < 10) observedTraits.push('calm_wind');
+        var dir = windDir;
+        if ((dir >= 315 && dir <= 360) || (dir >= 0 && dir <= 45)) observedTraits.push('north_wind');
+        else if (dir > 45 && dir <= 135) observedTraits.push('east_wind');
+        else if (dir > 135 && dir <= 225) observedTraits.push('south_wind');
+        else if (dir > 225 && dir <= 315) observedTraits.push('west_wind');
+        var profile = station.durur_profile;
+        if (!profile) {
+          getEl('stAnalyticsMsg').textContent = 'لا توجد سمات متوقعة';
+          return;
+        }
+        var expectedTraits = [];
+        expectedTraits = expectedTraits.concat(profile.weather_traits || []);
+        expectedTraits = expectedTraits.concat(profile.marine_traits || []);
+        expectedTraits = expectedTraits.concat(profile.seasonal_traits || []);
+        expectedTraits = expectedTraits.concat(profile.fish_activity_traits || []);
+        expectedTraits = [...new Set(expectedTraits)];
+        if (expectedTraits.length === 0) {
+          getEl('stAnalyticsMsg').textContent = 'لا توجد سمات متوقعة';
+          return;
+        }
+        var matching = observedTraits.filter(function (t) { return expectedTraits.includes(t); });
+        var percentage = (matching.length / expectedTraits.length) * 100;
+        var status;
+        if (percentage >= 70) status = 'متطابق';
+        else if (percentage >= 40) status = 'متوسط';
+        else status = 'ضعيف';
+        getEl('stAnalyticsMsg').textContent = 'Expected traits: ' + expectedTraits.join(', ') + ', Observed traits: ' + observedTraits.join(', ') + ', Matching traits: ' + matching.join(', ') + ', Match percentage: ' + percentage.toFixed(0) + '%, Validation status: ' + status;
+      })
+      .catch(function (err) {
+        getEl('stAnalyticsMsg').textContent = 'Error fetching weather: ' + err.message;
+      });
   }
 
   // ── Region helpers ────────────────────────────────────────────────────────
