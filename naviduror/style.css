@@ -770,6 +770,7 @@ textarea {
   padding: 12px;
   margin-bottom: 12px;
   min-height: 360px;
+  overflow: visible !important;
 }
 
 .map-header {
@@ -781,13 +782,10 @@ textarea {
 
 .map-view {
   width: 100%;
-  min-height: 360px;
-  height: 46vh;
-  max-height: 620px;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #08131d;
-  display: block;
+  height: 420px;
+  min-height: 420px;
+  position: relative;
+  overflow: visible !important;
 }
 
 .map-legend {
@@ -855,5 +853,11 @@ textarea {
 
 #navidurorMap.leaflet-container {
   background: #08131d;
+}
+
+#navidurorMap {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
