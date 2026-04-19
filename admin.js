@@ -3279,104 +3279,45 @@
     var historyRecords = [];
     var historyHtml = '';
     if (currentAnalyticsPeriod !== 'now') {
+      historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
       try {
         historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
         historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
+        if (historyRecords.length === 0) {
+          historyHtml += 'No historical records found for this period.';
+        } else {
+          historyHtml += '<hr style="margin:12px 0;border-color:rgba(255,255,255,0.08)">';
+          historyHtml += '<div style="font-weight:bold;margin-bottom:6px">📊 السجل التاريخي (' + currentAnalyticsPeriod + ')</div>';
+          // Aggregate counts per year
+          var yearlyCounts = {};
+          historyRecords.forEach(function (rec) {
+            var year = rec.date.slice(0, 4);
+            if (!yearlyCounts[year]) yearlyCounts[year] = 0;
+            yearlyCounts[year] += 1;
+          });
+          historyHtml += '<div style="margin-bottom:6px">📅 عدد القراءات لكل سنة:</div>';
+          Object.keys(yearlyCounts).sort().forEach(function (year) {
+            historyHtml += '<div style="font-size:0.85rem;color:#cfe6ff">• ' + year + ': ' + yearlyCounts[year] + ' قراءة</div>';
+          });
+          // Raw list (last 5)
+          historyHtml += '<div style="margin-top:8px">🧾 آخر القراءات:</div>';
+          historyRecords.slice(-5).forEach(function (rec) {
+            historyHtml += '<div style="font-size:0.8rem;color:#9fb3c8">• ' + rec.date + '</div>';
+          });
+          // Year comparison
+          var years = Object.keys(yearlyCounts).sort();
+          if (years.length >= 2) {
+            var lastYear = years[years.length - 1];
+            var prevYear = years[years.length - 2];
+            var diff = yearlyCounts[lastYear] - yearlyCounts[prevYear];
+            historyHtml += '<div style="margin-top:8px;font-size:0.85rem;color:#ffd27f">';
+            historyHtml += '📈 مقارنة: ' + lastYear + ' مقابل ' + prevYear + ' = ' + (diff >= 0 ? '+' : '') + diff;
+            historyHtml += '</div>';
+          }
+        }
       } catch (err) {
         console.error('Failed to load analytics history:', err);
-      }
-
-      historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
-      if (historyRecords.length === 0) {
-        historyHtml += 'No historical records found for this period.';
-      } else {
-      var totalRecords = historyRecords.length;
-      var avgMatch = historyRecords.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / totalRecords;
-      var highestMatch = Math.max.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
-      var lowestMatch = Math.min.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
-      var latestRecord = historyRecords[0];
-      historyHtml +=
-        'Total records analyzed: ' + totalRecords + '<br>' +
-        'Average match percentage: ' + avgMatch.toFixed(1) + '%<br>' +
-        'Highest match percentage: ' + highestMatch.toFixed(1) + '%<br>' +
-        'Lowest match percentage: ' + lowestMatch.toFixed(1) + '%<br>' +
-        'Latest validation status: ' + latestRecord.validation_status + '<br>' +
-        'Latest checked_at: ' + new Date(latestRecord.checked_at).toLocaleString() + '<br><br>' +
-        '<strong>Historical Records</strong><br>';
-      historyRecords.forEach(function (record) {
-        historyHtml +=
-          'Checked at: ' + new Date(record.checked_at).toLocaleString() + '<br>' +
-          'Current dur name: ' + record.current_dur_name + '<br>' +
-          'Current dur id: ' + record.current_dur_id + '<br>' +
-          'Match percentage: ' + record.match_percentage.toFixed(1) + '%<br>' +
-          'Validation status: ' + record.validation_status + '<br>' +
-          'Matching traits: ' + (record.matching_traits && record.matching_traits.length ? record.matching_traits.join(', ') : '--') + '<br><br>';
-      });
-
-      // Year-vs-year comparison
-      var yearGroups = {};
-      historyRecords.forEach(function (record) {
-        var year = record.year;
-        if (!yearGroups[year]) {
-          yearGroups[year] = [];
-        }
-        yearGroups[year].push(record);
-      });
-      var years = Object.keys(yearGroups).sort(function (a, b) { return Number(b) - Number(a); });
-      if (years.length === 0) {
-        // already handled
-      } else if (years.length === 1) {
-        historyHtml += '<strong>Year-vs-Year Comparison</strong><br>';
-        historyHtml += 'Only one year of data available. Year-vs-year comparison requires data from multiple years.<br>';
-        var year = years[0];
-        var records = yearGroups[year];
-        var total = records.length;
-        var avg = records.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / total;
-        var highest = Math.max.apply(null, records.map(function (r) { return r.match_percentage; }));
-        var lowest = Math.min.apply(null, records.map(function (r) { return r.match_percentage; }));
-        var latest = records[0];
-        historyHtml +=
-          'Year: ' + year + '<br>' +
-          'Total records: ' + total + '<br>' +
-          'Average match percentage: ' + avg.toFixed(1) + '%<br>' +
-          'Highest match percentage: ' + highest.toFixed(1) + '%<br>' +
-          'Lowest match percentage: ' + lowest.toFixed(1) + '%<br>' +
-          'Latest validation status: ' + latest.validation_status + '<br>';
-      } else {
-        historyHtml += '<br><strong>Year-vs-Year Comparison</strong><br>';
-        years.forEach(function (year) {
-          var records = yearGroups[year];
-          var total = records.length;
-          var avg = records.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / total;
-          var highest = Math.max.apply(null, records.map(function (r) { return r.match_percentage; }));
-          var lowest = Math.min.apply(null, records.map(function (r) { return r.match_percentage; }));
-          var latest = records[0];
-          historyHtml +=
-            '<strong>Year ' + year + ':</strong><br>' +
-            'Total records: ' + total + '<br>' +
-            'Average match percentage: ' + avg.toFixed(1) + '%<br>' +
-            'Highest match percentage: ' + highest.toFixed(1) + '%<br>' +
-            'Lowest match percentage: ' + lowest.toFixed(1) + '%<br>' +
-            'Latest validation status: ' + latest.validation_status + '<br><br>';
-        });
-        // Cross-year
-        var yearAvgs = years.map(function (year) {
-          var records = yearGroups[year];
-          var avg = records.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / records.length;
-          return { year: year, avg: avg };
-        });
-        var bestYear = yearAvgs.reduce(function (best, curr) { return curr.avg > best.avg ? curr : best; });
-        var worstYear = yearAvgs.reduce(function (worst, curr) { return curr.avg < worst.avg ? curr : worst; });
-        var latestYear = yearAvgs[0];
-        var prevYear = yearAvgs[1];
-        var change = prevYear ? latestYear.avg - prevYear.avg : 0;
-        var changeDesc = prevYear ? (change > 1 ? 'improved' : change < -1 ? 'declined' : 'stayed similar') : 'N/A';
-        historyHtml +=
-          '<strong>Cross-Year Insights:</strong><br>' +
-          'Best year by average match: ' + bestYear.year + ' (' + bestYear.avg.toFixed(1) + '%)<br>' +
-          'Worst year by average match: ' + worstYear.year + ' (' + worstYear.avg.toFixed(1) + '%)<br>' +
-          'Change between latest and previous year: ' + (prevYear ? change.toFixed(1) + '%' : 'N/A') + '<br>' +
-          'Accuracy trend: ' + changeDesc + '<br>';
+        historyHtml += '<div style="color:#ff9b9b">⚠️ فشل تحميل السجل التاريخي</div>';
       }
     }
 
