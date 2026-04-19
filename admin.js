@@ -3181,36 +3181,11 @@
     renderStationAnalytics();
   }
 
-  function getConfidenceMeta(score) {
-    var n = Number(score || 0);
-    if (n >= 75) return { label: 'High', cls: 'high' };
-    if (n >= 50) return { label: 'Medium', cls: 'medium' };
-    return { label: 'Low', cls: 'low' };
-  }
-
-  async function fetchPublicLiveAnalysisBundle(station) {
-    var lat = Number(station && station.lat);
-    var lon = Number(station && station.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      throw new Error('station_coords_missing');
+  async function fetchSharedLiveAnalysisBundle(station) {
+    if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationLiveSummary !== 'function') {
+      throw new Error('shared_live_engine_unavailable');
     }
-    // Same live engine used by public station click flow (index.html -> fetchHotspotForStation).
-    var hotspotUrl = '/api/fishing-engine?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&debug=true';
-    var hotspotRes = await fetch(hotspotUrl, { method: 'GET' });
-    if (!hotspotRes.ok) throw new Error('live_analysis_http_' + hotspotRes.status);
-    var hotspot = await hotspotRes.json();
-    var best = hotspot && hotspot.best_spot ? hotspot.best_spot : {};
-    var data = hotspot && hotspot.data ? hotspot.data : {};
-    var confidence = getConfidenceMeta(best.score != null ? best.score : 0);
-    return {
-      score: best.score != null ? best.score : null,
-      zone: best.zone || '--',
-      recommendation: best.recommendation || '--',
-      confidence_label: confidence.label,
-      current: data.current != null ? data.current : null,
-      temp: data.temp != null ? data.temp : null,
-      wave: data.wave != null ? data.wave : null
-    };
+    return window.NavidurLiveAnalysis.getStationLiveSummary(station);
   }
 
   async function renderStationAnalytics() {
@@ -3284,7 +3259,7 @@
     var liveNow = null;
     if (currentAnalyticsPeriod === 'now') {
       try {
-        liveNow = await fetchPublicLiveAnalysisBundle(station);
+        liveNow = await fetchSharedLiveAnalysisBundle(station);
         currentWeatherState = {
           station_id: stationId,
           temperature_2m: liveNow.temp,

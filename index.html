@@ -1056,6 +1056,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <script src="/shared/navidur-live-analysis.js"></script>
   <script>
     const COUNTRY_TIMEZONES = {
       'قطر': 'Asia/Qatar',
@@ -3247,10 +3248,10 @@
     }
 
     async function fetchHotspotForStation(station) {
-      const url = '/api/fishing-engine?lat=' + encodeURIComponent(station.lat) + '&lon=' + encodeURIComponent(station.lng) + '&debug=true';
-      const response = await fetch(url, { method: 'GET' });
-      if (!response.ok) throw new Error('hotspot_http_' + response.status);
-      return response.json();
+      if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getHotspotForStation !== 'function') {
+        throw new Error('shared_live_engine_unavailable');
+      }
+      return window.NavidurLiveAnalysis.getHotspotForStation(station);
     }
 
     function initStationMap() {
