@@ -3181,6 +3181,38 @@
     renderStationAnalytics();
   }
 
+  function getConfidenceMeta(score) {
+    var n = Number(score || 0);
+    if (n >= 75) return { label: 'High', cls: 'high' };
+    if (n >= 50) return { label: 'Medium', cls: 'medium' };
+    return { label: 'Low', cls: 'low' };
+  }
+
+  async function fetchPublicLiveAnalysisBundle(station) {
+    var lat = Number(station && station.lat);
+    var lon = Number(station && station.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      throw new Error('station_coords_missing');
+    }
+    // Same live engine used by public station click flow (index.html -> fetchHotspotForStation).
+    var hotspotUrl = '/api/fishing-engine?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&debug=true';
+    var hotspotRes = await fetch(hotspotUrl, { method: 'GET' });
+    if (!hotspotRes.ok) throw new Error('live_analysis_http_' + hotspotRes.status);
+    var hotspot = await hotspotRes.json();
+    var best = hotspot && hotspot.best_spot ? hotspot.best_spot : {};
+    var data = hotspot && hotspot.data ? hotspot.data : {};
+    var confidence = getConfidenceMeta(best.score != null ? best.score : 0);
+    return {
+      score: best.score != null ? best.score : null,
+      zone: best.zone || '--',
+      recommendation: best.recommendation || '--',
+      confidence_label: confidence.label,
+      current: data.current != null ? data.current : null,
+      temp: data.temp != null ? data.temp : null,
+      wave: data.wave != null ? data.wave : null
+    };
+  }
+
   async function renderStationAnalytics() {
     var stationId =
   currentAnalyzedStationId ||
@@ -3248,6 +3280,28 @@
     var profileFishTraits = Array.isArray(profile.fish_activity_traits) ? profile.fish_activity_traits.slice() : [];
     var manualFishTraits = profileFishTraits.filter(function (trait) { return fishTraits.indexOf(trait) < 0; });
     var observedTraits = currentWeatherState && currentWeatherState.station_id === stationId ? getObservedTraitsFromWeather(currentWeatherState) : [];
+
+    var liveNow = null;
+    if (currentAnalyticsPeriod === 'now') {
+      try {
+        liveNow = await fetchPublicLiveAnalysisBundle(station);
+        currentWeatherState = {
+          station_id: stationId,
+          temperature_2m: liveNow.temp,
+          wind_speed_10m: currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_speed_10m : null,
+          wind_direction_10m: currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_direction_10m : null,
+          wave_height: liveNow.wave,
+          checked_at: new Date().toISOString(),
+          source: 'public_live_engine'
+        };
+        getEl('stWeatherTemp').textContent = (liveNow.temp != null ? liveNow.temp : '--') + ' °C';
+        getEl('stWeatherWaveHeight').textContent = (liveNow.wave != null ? liveNow.wave : '--') + ' m';
+        getEl('stWeatherLastUpdate').textContent = new Date().toLocaleString();
+        observedTraits = getObservedTraitsFromWeather(currentWeatherState);
+      } catch (_liveErr) {
+        // Keep render resilient; live panel still shows current dur data.
+      }
+    }
 
     getEl('stAnalyticsDurName').textContent = currentDurName;
     getEl('stAnalyticsDurEntryDate').textContent = currentEntryDateText;
@@ -3340,7 +3394,25 @@
       }
     }
 
-    getEl('stAnalyticsMsg').innerHTML = analysisHtml + historyHtml;
+    if (currentAnalyticsPeriod === 'now') {
+      var liveReadingLine = '';
+      if (liveNow) {
+        liveReadingLine =
+          '<br><br><strong>Live NAVIDUR (public engine)</strong><br>' +
+          'Confidence: ' + (liveNow.confidence_label || '--') + '<br>' +
+          'Zone: ' + (liveNow.zone || '--') + '<br>' +
+          'Score: ' + (liveNow.score != null ? liveNow.score : '--') + '<br>' +
+          'Recommendation: ' + (liveNow.recommendation || '--') + '<br>' +
+          'Current: ' + (liveNow.current != null ? liveNow.current : '--') + '<br>' +
+          'Sea temp: ' + (liveNow.temp != null ? liveNow.temp : '--') + '°C<br>' +
+          'Wave: ' + (liveNow.wave != null ? liveNow.wave : '--') + ' m';
+      } else {
+        liveReadingLine = '<br><br><strong>Live NAVIDUR (public engine)</strong><br>تعذر تحميل القراءة الحية حالياً.';
+      }
+      getEl('stAnalyticsMsg').innerHTML = analysisHtml + liveReadingLine;
+    } else {
+      getEl('stAnalyticsMsg').innerHTML = analysisHtml + historyHtml;
+    }
 
     var validation = buildValidationObject(stationId, profile);
     getEl('stAnalyticsExpectedCount').textContent = expectedTraits.length + ' trait(s)';
@@ -3419,34 +3491,11 @@
       getEl('stAnalyticsMsg').textContent = 'لا توجد محطة محددة';
       return;
     }
-    var station = stationsCache.find(function (s) { return s.id === currentAnalyzedStationId; });
-    if (!station || !station.lat || !station.lon) {
-      getEl('stAnalyticsMsg').textContent = 'لا توجد إحداثيات للمحطة';
-      return;
-    }
-    getEl('stAnalyticsMsg').textContent = 'جاري جلب الطقس...';
-    var lat = station.lat;
-    var lon = station.lon;
-    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,wind_speed_10m,wind_direction_10m';
-    fetch(url)
-      .then(function (res) { return res.json(); })
-      .then(function (data) {
-        var temp = data.current.temperature_2m;
-        var windSpeed = data.current.wind_speed_10m;
-        var windDir = data.current.wind_direction_10m;
-        currentWeatherState = {
-          station_id: currentAnalyzedStationId,
-          temperature_2m: temp,
-          wind_speed_10m: windSpeed,
-          wind_direction_10m: windDir,
-          checked_at: new Date().toISOString()
-        };
-        renderStationAnalytics();
-      })
-      .catch(function (err) {
-        getEl('stAnalyticsMsg').textContent = 'فشل جلب الطقس';
-        console.error('Weather fetch failed:', err);
-      });
+    currentAnalyticsPeriod = 'now';
+    var periodSel = getEl('stAnalyticsPeriod');
+    if (periodSel) periodSel.value = 'now';
+    getEl('stAnalyticsMsg').textContent = 'جاري تحديث القراءة الحية...';
+    renderStationAnalytics();
   }
 
   // ── Region helpers ────────────────────────────────────────────────────────
