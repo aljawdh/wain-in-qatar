@@ -30,7 +30,7 @@
   var _loadedDururProfileSnapshot = null;
   var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
-  var currentAnalyticsPeriod = '1y'; // default period
+  var currentAnalyticsPeriod = 'now'; // default period
   var currentWeatherState = null;
 
   var stationsAdminMap = null;
@@ -2648,7 +2648,7 @@
     // ── Initialize Analytics for this station ───────────────────────────────────
     if (st.id) {
       currentAnalyzedStationId = st.id;
-      currentAnalyticsPeriod = '1y';
+      currentAnalyticsPeriod = 'now';
       renderStationAnalytics();
     }
   }
