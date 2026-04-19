@@ -3171,11 +3171,20 @@
 
   async function renderStationAnalytics() {
     var stationId = currentAnalyzedStationId;
-    if (!stationId) return;
+    if (!stationId) {
+      if (currentAnalyticsPeriod === 'now') {
+        getEl('stAnalyticsMsg').textContent = 'لا توجد قراءة حالية جاهزة لهذه المحطة';
+      }
+      return;
+    }
 
     var station = stationsCache.find(function (s) { return s.id === stationId; });
     if (!station) {
-      getEl('stAnalyticsMsg').textContent = 'لا توجد بيانات المحطة';
+      if (currentAnalyticsPeriod === 'now') {
+        getEl('stAnalyticsMsg').textContent = 'لا توجد قراءة حالية جاهزة لهذه المحطة';
+      } else {
+        getEl('stAnalyticsMsg').textContent = 'لا توجد بيانات المحطة';
+      }
       return;
     }
 
@@ -3189,7 +3198,11 @@
       currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
     }
     if (!currentDur) {
-      getEl('stAnalyticsMsg').textContent = 'لا يوجد در حالياً';
+      if (currentAnalyticsPeriod === 'now') {
+        getEl('stAnalyticsMsg').textContent = 'لا توجد قراءة حالية جاهزة لهذه المحطة';
+      } else {
+        getEl('stAnalyticsMsg').textContent = 'لا يوجد در حالياً';
+      }
       return;
     }
 
@@ -3264,17 +3277,19 @@
 
     // Load historical analytics
     var historyRecords = [];
-    try {
-      historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
-      historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
-    } catch (err) {
-      console.error('Failed to load analytics history:', err);
-    }
+    var historyHtml = '';
+    if (currentAnalyticsPeriod !== 'now') {
+      try {
+        historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
+        historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
+      } catch (err) {
+        console.error('Failed to load analytics history:', err);
+      }
 
-    var historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
-    if (historyRecords.length === 0) {
-      historyHtml += 'No historical records found for this period.';
-    } else {
+      historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
+      if (historyRecords.length === 0) {
+        historyHtml += 'No historical records found for this period.';
+      } else {
       var totalRecords = historyRecords.length;
       var avgMatch = historyRecords.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / totalRecords;
       var highestMatch = Math.max.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
