@@ -30,7 +30,7 @@
   var _loadedDururProfileSnapshot = null;
   var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
-  var currentAnalyticsPeriod = 'now'; // default mode: real-time current reading
+  var currentAnalyticsPeriod = '1y'; // default period
   var currentWeatherState = null;
 
   var stationsAdminMap = null;
@@ -2648,7 +2648,7 @@
     // ── Initialize Analytics for this station ───────────────────────────────────
     if (st.id) {
       currentAnalyzedStationId = st.id;
-      currentAnalyticsPeriod = 'now';
+      currentAnalyticsPeriod = '1y';
       renderStationAnalytics();
     }
   }
@@ -3262,56 +3262,55 @@
       'Transition note from current dur to next dur: ' + transitionNote +
       '</div>';
 
-    // Load historical analytics (skip for 'now' mode)
+    // Load historical analytics
     var historyRecords = [];
-    var historyHtml = '';
-    if (currentAnalyticsPeriod !== 'now') {
-      try {
-        historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
-        historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
-      } catch (err) {
-        console.error('Failed to load analytics history:', err);
-      }
-      historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
-      if (historyRecords.length === 0) {
-        historyHtml += 'No historical records found for this period.';
-      } else {
-        var totalRecords = historyRecords.length;
-        var avgMatch = historyRecords.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / totalRecords;
-        var highestMatch = Math.max.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
-        var lowestMatch = Math.min.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
-        var latestRecord = historyRecords[0];
-        historyHtml +=
-          'Total records analyzed: ' + totalRecords + '<br>' +
-          'Average match percentage: ' + avgMatch.toFixed(1) + '%<br>' +
-          'Highest match percentage: ' + highestMatch.toFixed(1) + '%<br>' +
-          'Lowest match percentage: ' + lowestMatch.toFixed(1) + '%<br>' +
-          'Latest validation status: ' + latestRecord.validation_status + '<br>' +
-          'Latest checked_at: ' + new Date(latestRecord.checked_at).toLocaleString() + '<br><br>' +
-          '<strong>Historical Records</strong><br>';
-        historyRecords.forEach(function (record) {
-          historyHtml +=
-            'Checked at: ' + new Date(record.checked_at).toLocaleString() + '<br>' +
-            'Current dur name: ' + record.current_dur_name + '<br>' +
-            'Current dur id: ' + record.current_dur_id + '<br>' +
-            'Match percentage: ' + record.match_percentage.toFixed(1) + '%<br>' +
-            'Validation status: ' + record.validation_status + '<br>' +
-            'Matching traits: ' + (record.matching_traits && record.matching_traits.length ? record.matching_traits.join(', ') : '--') + '<br><br>';
-        });
+    try {
+      historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
+      historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
+    } catch (err) {
+      console.error('Failed to load analytics history:', err);
+    }
 
-        // Year-vs-year comparison
-        var yearGroups = {};
-        historyRecords.forEach(function (record) {
-          var year = record.year;
-          if (!yearGroups[year]) {
-            yearGroups[year] = [];
-          }
-          yearGroups[year].push(record);
-        });
-        var years = Object.keys(yearGroups).sort(function (a, b) { return Number(b) - Number(a); });
-        if (years.length === 0) {
-          // already handled
-        } else if (years.length === 1) {
+    var historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
+    if (historyRecords.length === 0) {
+      historyHtml += 'No historical records found for this period.';
+    } else {
+      var totalRecords = historyRecords.length;
+      var avgMatch = historyRecords.reduce(function (sum, r) { return sum + r.match_percentage; }, 0) / totalRecords;
+      var highestMatch = Math.max.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
+      var lowestMatch = Math.min.apply(null, historyRecords.map(function (r) { return r.match_percentage; }));
+      var latestRecord = historyRecords[0];
+      historyHtml +=
+        'Total records analyzed: ' + totalRecords + '<br>' +
+        'Average match percentage: ' + avgMatch.toFixed(1) + '%<br>' +
+        'Highest match percentage: ' + highestMatch.toFixed(1) + '%<br>' +
+        'Lowest match percentage: ' + lowestMatch.toFixed(1) + '%<br>' +
+        'Latest validation status: ' + latestRecord.validation_status + '<br>' +
+        'Latest checked_at: ' + new Date(latestRecord.checked_at).toLocaleString() + '<br><br>' +
+        '<strong>Historical Records</strong><br>';
+      historyRecords.forEach(function (record) {
+        historyHtml +=
+          'Checked at: ' + new Date(record.checked_at).toLocaleString() + '<br>' +
+          'Current dur name: ' + record.current_dur_name + '<br>' +
+          'Current dur id: ' + record.current_dur_id + '<br>' +
+          'Match percentage: ' + record.match_percentage.toFixed(1) + '%<br>' +
+          'Validation status: ' + record.validation_status + '<br>' +
+          'Matching traits: ' + (record.matching_traits && record.matching_traits.length ? record.matching_traits.join(', ') : '--') + '<br><br>';
+      });
+
+      // Year-vs-year comparison
+      var yearGroups = {};
+      historyRecords.forEach(function (record) {
+        var year = record.year;
+        if (!yearGroups[year]) {
+          yearGroups[year] = [];
+        }
+        yearGroups[year].push(record);
+      });
+      var years = Object.keys(yearGroups).sort(function (a, b) { return Number(b) - Number(a); });
+      if (years.length === 0) {
+        // already handled
+      } else if (years.length === 1) {
         historyHtml += '<strong>Year-vs-Year Comparison</strong><br>';
         historyHtml += 'Only one year of data available. Year-vs-year comparison requires data from multiple years.<br>';
         var year = years[0];
@@ -3436,7 +3435,7 @@
   }
 
   function onAnalyticsPeriodChange() {
-    currentAnalyticsPeriod = getEl('stAnalyticsPeriod').value || 'now';
+    currentAnalyticsPeriod = getEl('stAnalyticsPeriod').value || '1y';
     renderStationAnalytics();
   }
 
