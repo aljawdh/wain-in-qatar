@@ -2600,6 +2600,9 @@
   }
 
   function fillStationForm(st, editMode) {
+    currentStationId = st.id;
+    currentAnalyzedStationId = st.id;
+
     _stationEditMode = (editMode !== false);
     _stationNameUserEdited = false;
     getEl('stId').value = st.id || '';
@@ -3170,8 +3173,15 @@
   }
 
   async function renderStationAnalytics() {
-    var stationId = currentAnalyzedStationId;
-    if (!stationId) {
+    var stationId =
+  currentStationId ||
+  currentAnalyzedStationId ||
+  (getEl('stId') ? getEl('stId').value : '') ||
+  '';
+  currentStationId = stationId;
+  currentAnalyzedStationId = stationId;
+
+  if (!stationId) {
       if (currentAnalyticsPeriod === 'now') {
         getEl('stAnalyticsMsg').textContent = 'لا توجد قراءة حالية جاهزة لهذه المحطة';
       }
