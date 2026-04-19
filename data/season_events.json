@@ -385,5 +385,161 @@
     "updated_at": "2026-04-16T00:00:00.000Z",
     "name": "غياب الثريا",
     "description": "علامة سماوية تعبر عن انتقال في دورة الجو والماء."
+  },
+  {
+    "id": "season_event_11",
+    "name_ar": "بدايات الكنة",
+    "name_en": "Beginnings of Kanna",
+    "category": "seasonal_marker",
+    "description_ar": "بداية فترة تغير الرياح والأحوال الجوية المعروفة بالكنة.",
+    "description_en": "The start of the Kanna wind and weather change period.",
+    "start_hint": {
+      "month": 5,
+      "day": 1
+    },
+    "end_hint": {
+      "month": 5,
+      "day": 15
+    },
+    "days_count_hint": 14,
+    "related_dur_ids": [],
+    "weather_traits": ["رياح متغيرة", "رطوبة متزايدة"],
+    "marine_traits": ["بحر مضطرب", "تيار متغير"],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "بدايات الكنة",
+    "description": "بداية فترة تغير الرياح والأحوال الجوية المعروفة بالكنة."
+  },
+  {
+    "id": "season_event_12",
+    "name_ar": "برد الشتاء",
+    "name_en": "Winter cold",
+    "category": "seasonal_marker",
+    "description_ar": "فترة البرد الشديد في فصل الشتاء.",
+    "description_en": "The period of intense cold in winter.",
+    "start_hint": {
+      "month": 12,
+      "day": 21
+    },
+    "end_hint": {
+      "month": 2,
+      "day": 20
+    },
+    "days_count_hint": 60,
+    "related_dur_ids": [],
+    "weather_traits": ["جو بارد"],
+    "marine_traits": ["بحر مضطرب"],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "برد الشتاء",
+    "description": "فترة البرد الشديد في فصل الشتاء."
+  },
+  {
+    "id": "season_event_13",
+    "name_ar": "شدة القيظ",
+    "name_en": "Intense heat",
+    "category": "seasonal_marker",
+    "description_ar": "فترة شدة الحر في الصيف.",
+    "description_en": "The period of intense heat in summer.",
+    "start_hint": {
+      "month": 7,
+      "day": 1
+    },
+    "end_hint": {
+      "month": 8,
+      "day": 31
+    },
+    "days_count_hint": 50,
+    "related_dur_ids": [],
+    "weather_traits": ["جو حار جداً"],
+    "marine_traits": [],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "شدة القيظ",
+    "description": "فترة شدة الحر في الصيف."
+  },
+  {
+    "id": "season_event_14",
+    "name_ar": "أربعين المريعي",
+    "name_en": "Forty Days of Mareiyi",
+    "category": "seasonal_marker",
+    "description_ar": "فترة من أربعين يوماً مرتبطة بالتغيرات الموسمية.",
+    "description_en": "A forty-day period associated with seasonal changes.",
+    "start_hint": {
+      "month": 4,
+      "day": 20
+    },
+    "end_hint": {
+      "month": 5,
+      "day": 30
+    },
+    "days_count_hint": 40,
+    "related_dur_ids": [],
+    "weather_traits": [],
+    "marine_traits": [],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "أربعين المريعي",
+    "description": "فترة من أربعين يوماً مرتبطة بالتغيرات الموسمية."
+  },
+  {
+    "id": "season_event_15",
+    "name_ar": "نوء المقدم",
+    "name_en": "Star of Muqaddam",
+    "category": "transition",
+    "description_ar": "علامة فلكية ترتبط بتغيرات موسمية تقليدية معروفة.",
+    "description_en": "An astronomical marker linked to traditional seasonal changes.",
+    "start_hint": {
+      "month": 6,
+      "day": 22
+    },
+    "end_hint": {
+      "month": 7,
+      "day": 5
+    },
+    "days_count_hint": 13,
+    "related_dur_ids": [],
+    "weather_traits": [],
+    "marine_traits": [],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "نوء المقدم",
+    "description": "علامة فلكية ترتبط بتغيرات موسمية تقليدية معروفة."
+  },
+  {
+    "id": "season_event_16",
+    "name_ar": "نوء المؤخر",
+    "name_en": "Star of Muakhkhar",
+    "category": "transition",
+    "description_ar": "علامة فلكية تتبع نوء المقدم في دورة الأنواء التقليدية.",
+    "description_en": "An astronomical marker following Muqaddam in the traditional star cycle.",
+    "start_hint": {
+      "month": 8,
+      "day": 5
+    },
+    "end_hint": {
+      "month": 8,
+      "day": 18
+    },
+    "days_count_hint": 13,
+    "related_dur_ids": [],
+    "weather_traits": [],
+    "marine_traits": [],
+    "fish_traits": [],
+    "is_active": true,
+    "created_at": "2026-04-16T00:00:00.000Z",
+    "updated_at": "2026-04-16T00:00:00.000Z",
+    "name": "نوء المؤخر",
+    "description": "علامة فلكية تتبع نوء المقدم في دورة الأنواء التقليدية."
   }
 ]

@@ -939,6 +939,7 @@
       dur_entry_date: profile.dur_entry_date || '',
       weather_traits: (profile.weather_traits || []).slice().sort(),
       marine_traits: (profile.marine_traits || []).slice().sort(),
+      general_traits: (profile.general_traits || []).slice().sort(),
       seasonal_traits: (profile.seasonal_traits || []).slice().sort(),
       fish_activity_traits: (profile.fish_activity_traits || []).slice().sort(),
       expert_notes: profile.expert_notes || '',
@@ -964,6 +965,7 @@
     };
     return arraysEqual(a.weather_traits, b.weather_traits) &&
            arraysEqual(a.marine_traits, b.marine_traits) &&
+           arraysEqual(a.general_traits, b.general_traits) &&
            arraysEqual(a.seasonal_traits, b.seasonal_traits) &&
            arraysEqual(a.fish_activity_traits, b.fish_activity_traits);
   }
@@ -2550,6 +2552,7 @@
       dur_entry_date: getEl('stDururEntryDate').value || null,
       weather_traits: readTraitCheckboxes('stDururWeatherTraits'),
       marine_traits: readTraitCheckboxes('stDururMarineTraits'),
+      general_traits: readTraitCheckboxes('stDururGeneralTraits'),
       seasonal_traits: readTraitCheckboxes('stDururSeasonalTraits'),
       fish_activity_traits: readTraitCheckboxes('stDururFishTraits'),
       expert_notes: getEl('stDururExpertNotes').value.trim()
@@ -2663,9 +2666,10 @@
     // Populate trait checkboxes
     populateTraitCheckboxes('stDururWeatherTraits', profile.weather_traits || []);
     populateTraitCheckboxes('stDururMarineTraits', profile.marine_traits || []);
+    populateTraitCheckboxes('stDururGeneralTraits', profile.general_traits || []);
     populateTraitCheckboxes('stDururSeasonalTraits', profile.seasonal_traits || []);
     updateFishActivityOptions(profile.current_dur_id, profile.fish_activity_traits || []);
-    updateDurReferenceDisplay(profile.current_dur_id, profile.weather_traits || [], profile.marine_traits || [], profile.seasonal_traits || []);
+    updateDurReferenceDisplay(profile.current_dur_id, profile.weather_traits || [], profile.marine_traits || [], profile.general_traits || [], profile.seasonal_traits || []);
 
     getEl('stDururExpertNotes').value = profile.expert_notes || '';
   }
@@ -2768,6 +2772,10 @@
     // Load marine traits
     var marineTraits = traitsCache.filter(function (t) { return t.category === 'marine'; });
     populateTraitContainer('stDururMarineTraits', marineTraits);
+
+    // Load general transition traits
+    var generalTraits = traitsCache.filter(function (t) { return t.category === 'general'; });
+    populateTraitContainer('stDururGeneralTraits', generalTraits);
 
     // Load seasonal traits
     var seasonalTraits = seasonEventsCache;
@@ -2964,6 +2972,14 @@
       details.push('لا توجد سمات بحرية مرجعية.');
     }
 
+    var referenceGeneral = getDurReferenceTraitLabels(dur, 'general');
+    var referenceGeneralIds = getDurReferenceTraitIds(dur, 'general');
+    if (referenceGeneral.length > 0) {
+      details.push('سمات عامة مرجعية: ' + referenceGeneral.join(', '));
+    } else {
+      details.push('لا توجد سمات عامة مرجعية.');
+    }
+
     var referenceEvents = getSeasonEventsForDur(dur);
     if (referenceEvents.length > 0) {
       details.push('الأحداث الموسمية المرجعية: ' + referenceEvents.map(function (e) { return e.name_ar || e.name || e.id; }).join(', '));
@@ -2981,6 +2997,12 @@
     var manualMarineIdsOnly = selectedManualMarine.filter(function (id) { return referenceMarineIds.indexOf(id) < 0; });
     if (manualMarineIdsOnly.length > 0) {
       details.push('سمات البحر اليدوية: ' + getTraitLabelsByIds(manualMarineIdsOnly).join(', '));
+    }
+
+    var selectedManualGeneral = Array.isArray(manualGeneralIds) ? manualGeneralIds : getSelectedTraitIds('stDururGeneralTraits');
+    var manualGeneralIdsOnly = selectedManualGeneral.filter(function (id) { return referenceGeneralIds.indexOf(id) < 0; });
+    if (manualGeneralIdsOnly.length > 0) {
+      details.push('سمات عامة يدوية: ' + getTraitLabelsByIds(manualGeneralIdsOnly).join(', '));
     }
 
     var selectedManualSeason = Array.isArray(manualSeasonIds) ? manualSeasonIds : getSelectedTraitIds('stDururSeasonalTraits');

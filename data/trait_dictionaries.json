@@ -430,6 +430,86 @@
     "is_active": true
   },
   {
+    "id": "trait_general_01",
+    "category": "general",
+    "name_ar": "تغير موسمي",
+    "name_en": "Seasonal change",
+    "description_ar": "تحول ملموس في أنماط الطقس والبحر بين الفصول.",
+    "description_en": "Tangible shifts in weather and sea patterns between seasons.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_02",
+    "category": "general",
+    "name_ar": "انتقال فصلي",
+    "name_en": "Seasonal transition",
+    "description_ar": "مرحلة انتقالية بين فصلين تتسم بعدم الاستقرار.",
+    "description_en": "A transitional phase between seasons marked by instability.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_03",
+    "category": "general",
+    "name_ar": "ذروة الأمطار",
+    "name_en": "Peak rainfall",
+    "description_ar": "فترة ذروة الهطول المطري في السنة الموسمية.",
+    "description_en": "Peak rainfall period during the seasonal year.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_04",
+    "category": "general",
+    "name_ar": "بداية الدفء",
+    "name_en": "Start of warmth",
+    "description_ar": "بداية انتقال درجات الحرارة نحو الارتفاع.",
+    "description_en": "The beginning of temperature rise.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_05",
+    "category": "general",
+    "name_ar": "بداية البرودة",
+    "name_en": "Start of cold",
+    "description_ar": "بداية انخفاض درجات الحرارة.",
+    "description_en": "The beginning of temperature drop.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_06",
+    "category": "general",
+    "name_ar": "موسم تكاثر الأسماك",
+    "name_en": "Fish breeding season",
+    "description_ar": "الفترة التي يزداد فيها نشاط تكاثر الأسماك.",
+    "description_en": "The period when fish breeding activity increases.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_07",
+    "category": "general",
+    "name_ar": "ذروة نشاط الصيد",
+    "name_en": "Peak fishing activity",
+    "description_ar": "الفترة التي يصل فيها نشاط الصيد إلى أعلى مستوياته.",
+    "description_en": "The period when fishing activity reaches its peak.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
+    "id": "trait_general_08",
+    "category": "general",
+    "name_ar": "ضعف نشاط الصيد",
+    "name_en": "Weak fishing activity",
+    "description_ar": "الفترة التي يكون فيها نشاط الصيد منخفضاً.",
+    "description_en": "The period when fishing activity is low.",
+    "severity_hint": null,
+    "is_active": true
+  },
+  {
     "id": "trait_heritage_01",
     "category": "heritage_signs",
     "name_ar": "سهيل",
