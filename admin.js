@@ -2536,6 +2536,12 @@
 
     // ── Analytics Panel Event Listeners ──────────────────────────────────────
     var periodSel = getEl('stAnalyticsPeriod');
+    if (periodSel && !periodSel.querySelector('option[value="now"]')) {
+      var nowOpt = document.createElement('option');
+      nowOpt.value = 'now';
+      nowOpt.textContent = 'الآن';
+      periodSel.insertBefore(nowOpt, periodSel.firstChild || null);
+    }
     if (periodSel) periodSel.addEventListener('change', onAnalyticsPeriodChange);
 
     var refreshBtn = getEl('stAnalyticsRefreshBtn');
@@ -2652,6 +2658,8 @@
     if (st.id) {
       currentAnalyzedStationId = st.id;
       currentAnalyticsPeriod = 'now';
+      var periodSel = getEl('stAnalyticsPeriod');
+      if (periodSel) periodSel.value = 'now';
       renderStationAnalytics();
     }
   }
