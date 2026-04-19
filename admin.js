@@ -2706,6 +2706,7 @@
     setWaterStatus('unknown', '');
     
     // Clear analytics panel
+    currentStationId = null;
     currentAnalyzedStationId = null;
     getEl('stAnalyticsMsg').textContent = 'جاهز';
   }
@@ -3174,9 +3175,9 @@
 
   async function renderStationAnalytics() {
     var stationId =
-  currentStationId ||
   currentAnalyzedStationId ||
   (getEl('stId') ? getEl('stId').value : '') ||
+  currentStationId ||
   '';
   currentStationId = stationId;
   currentAnalyzedStationId = stationId;
