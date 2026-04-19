@@ -2388,6 +2388,11 @@
         weight: 2
       }).addTo(stationsAdminMap);
       m.bindTooltip((hasGulf ? '⚠ ' : '') + st.name + (st.region ? ' (' + st.region + ')' : '') + ' — ' + (st.country || ''), { permanent: false, direction: 'top' });
+      m.on('click', function (e) {
+        if (e) L.DomEvent.stop(e);
+        fillStationForm(st, true);
+        selectStationForAnalysis(st);
+      });
       allStationMarkersList.push({ id: st.id, marker: m });
     });
   }
@@ -2605,10 +2610,25 @@
     return checked;
   }
 
-  function fillStationForm(st, editMode) {
-    currentStationId = st.id;
-    currentAnalyzedStationId = st.id;
+  function selectStationForAnalysis(station) {
+    if (!station || !station.id) return;
 
+    currentStationId = station.id;
+    currentAnalyzedStationId = station.id;
+    currentAnalyticsPeriod = 'now';
+
+    if (getEl('stId')) {
+      getEl('stId').value = station.id;
+    }
+
+    if (getEl('stAnalyticsPeriod')) {
+      getEl('stAnalyticsPeriod').value = 'now';
+    }
+
+    renderStationAnalytics();
+  }
+
+  function fillStationForm(st, editMode) {
     _stationEditMode = (editMode !== false);
     _stationNameUserEdited = false;
     getEl('stId').value = st.id || '';
@@ -2654,14 +2674,6 @@
     fillDururProfile(dururProfile);
     _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
 
-    // ── Initialize Analytics for this station ───────────────────────────────────
-    if (st.id) {
-      currentAnalyzedStationId = st.id;
-      currentAnalyticsPeriod = 'now';
-      var periodSel = getEl('stAnalyticsPeriod');
-      if (periodSel) periodSel.value = 'now';
-      renderStationAnalytics();
-    }
   }
 
   function fillDururProfile(profile) {
@@ -3237,17 +3249,12 @@
     var nextDur = getNextDurur(currentDur);
     var entryDate = safeParseYmd(profile.dur_entry_date);
     var currentDurName = currentDur.name || ('Dur ' + currentDur.dur_number);
-    var currentDurNumber = currentDur.dur_number != null ? String(currentDur.dur_number) : '--';
     var currentEntryDateText = entryDate ? formatYmd(entryDate) : '--';
     var currentEndDate = getDurEndDate(currentDur, entryDate);
     var daysRemaining = currentEndDate != null ? Math.max(0, getDaysDifference(currentEndDate)) + ' days' : '--';
 
     var nextDurName = nextDur ? (nextDur.name || ('Dur ' + nextDur.dur_number)) : '--';
-    var nextDurNumber = nextDur && nextDur.dur_number != null ? String(nextDur.dur_number) : '--';
     var nextStartDate = nextDur ? getNextDurStartDate(currentDur) : null;
-    var nextStartText = formatYmd(nextStartDate);
-    var daysUntilNext = nextStartDate != null ? Math.max(0, getDaysDifference(nextStartDate)) + ' days' : '--';
-    var transitionNote = nextDur ? 'الانتقال من ' + currentDurName + ' إلى ' + nextDurName : '--';
 
     var expectedTraits = Array.isArray(staticDur.weather_traits) ? staticDur.weather_traits.slice() : [];
     var marineTraits = Array.isArray(staticDur.marine_traits) ? staticDur.marine_traits.slice() : [];
@@ -3296,97 +3303,20 @@
 
     getEl('stAnalyticsExpertNotes').textContent = profile.expert_notes || '-- لا توجد ملاحظات --';
 
-    var analysisHtml =
-      '<div style="line-height:1.5;">' +
-      '<strong>Current reading</strong><br>' +
-      'Current dur name: ' + currentDurName + '<br>' +
-      'Current dur number: ' + currentDurNumber + '<br>' +
-      'Current dur entry/start date: ' + currentEntryDateText + '<br>' +
-      'Days remaining until current dur ends: ' + daysRemaining + '<br>' +
-      'Current dur expected traits summary: ' + (expectedTraits.length ? expectedTraits.join(', ') : '--') + '<br>' +
-      'Current dur season: ' + (staticDur && staticDur.season_ar ? staticDur.season_ar : '--') + '<br>' +
-      'Current dur heritage meaning: ' + (staticDur && staticDur.heritage_meaning_ar ? staticDur.heritage_meaning_ar : '--') + '<br>' +
-      'Current dur description: ' + (staticDur ? (staticDur.notes_ar || staticDur.description_ar || staticDur.description || '--') : '--') + '<br>' +
-      'Current dur sea/marine relationship summary: ' + (marineTraits.length ? marineTraits.join(', ') : '--') + '<br>' +
-      'Current dur fish activity summary: ' + (fishTraits.length ? fishTraits.join(', ') : '--') + '<br>' +
-      'Profile fish activity values: ' + (profileFishTraits.length ? profileFishTraits.join(', ') : '--') + '<br>' +
-      (manualFishTraits.length ? 'Manual fish activity overrides: ' + manualFishTraits.join(', ') + '<br>' : '') +
-      'Weather temperature: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.temperature_2m + '°C' : '--') + '<br>' +
-      'Weather wind speed: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_speed_10m + ' km/h' : '--') + '<br>' +
-      'Weather wind direction: ' + (currentWeatherState && currentWeatherState.station_id === stationId ? currentWeatherState.wind_direction_10m + '°' : '--') + '<br>' +
-      'Observed traits: ' + (observedTraits.length ? observedTraits.join(', ') : '--') + '<br><br>' +
-      '<strong>Next reading</strong><br>' +
-      'Next dur name: ' + nextDurName + '<br>' +
-      'Next dur number: ' + nextDurNumber + '<br>' +
-      'Next dur start date: ' + nextStartText + '<br>' +
-      'Days until next dur starts: ' + daysUntilNext + '<br>' +
-      'Transition note from current dur to next dur: ' + transitionNote +
-      '</div>';
-
-    // Load historical analytics
-    var historyRecords = [];
-    var historyHtml = '';
-    if (currentAnalyticsPeriod !== 'now') {
-      historyHtml = '<br><br><strong>Historical Analytics (' + currentAnalyticsPeriod + ')</strong><br>';
-      try {
-        historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
-        historyRecords.sort(function (a, b) { return new Date(b.checked_at) - new Date(a.checked_at); });
-        if (historyRecords.length === 0) {
-          historyHtml += 'No historical records found for this period.';
-        } else {
-          historyHtml += '<hr style="margin:12px 0;border-color:rgba(255,255,255,0.08)">';
-          historyHtml += '<div style="font-weight:bold;margin-bottom:6px">📊 السجل التاريخي (' + currentAnalyticsPeriod + ')</div>';
-          // Aggregate counts per year
-          var yearlyCounts = {};
-          historyRecords.forEach(function (rec) {
-            var year = rec.date.slice(0, 4);
-            if (!yearlyCounts[year]) yearlyCounts[year] = 0;
-            yearlyCounts[year] += 1;
-          });
-          historyHtml += '<div style="margin-bottom:6px">📅 عدد القراءات لكل سنة:</div>';
-          Object.keys(yearlyCounts).sort().forEach(function (year) {
-            historyHtml += '<div style="font-size:0.85rem;color:#cfe6ff">• ' + year + ': ' + yearlyCounts[year] + ' قراءة</div>';
-          });
-          // Raw list (last 5)
-          historyHtml += '<div style="margin-top:8px">🧾 آخر القراءات:</div>';
-          historyRecords.slice(-5).forEach(function (rec) {
-            historyHtml += '<div style="font-size:0.8rem;color:#9fb3c8">• ' + rec.date + '</div>';
-          });
-          // Year comparison
-          var years = Object.keys(yearlyCounts).sort();
-          if (years.length >= 2) {
-            var lastYear = years[years.length - 1];
-            var prevYear = years[years.length - 2];
-            var diff = yearlyCounts[lastYear] - yearlyCounts[prevYear];
-            historyHtml += '<div style="margin-top:8px;font-size:0.85rem;color:#ffd27f">';
-            historyHtml += '📈 مقارنة: ' + lastYear + ' مقابل ' + prevYear + ' = ' + (diff >= 0 ? '+' : '') + diff;
-            historyHtml += '</div>';
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load analytics history:', err);
-        historyHtml += '<div style="color:#ff9b9b">⚠️ فشل تحميل السجل التاريخي</div>';
-      }
-    }
-
+    // Keep a single admin-facing analytics display path (official cards/blocks only).
     if (currentAnalyticsPeriod === 'now') {
-      var liveReadingLine = '';
-      if (liveNow) {
-        liveReadingLine =
-          '<br><br><strong>Live NAVIDUR (public engine)</strong><br>' +
-          'Confidence: ' + (liveNow.confidence_label || '--') + '<br>' +
-          'Zone: ' + (liveNow.zone || '--') + '<br>' +
-          'Score: ' + (liveNow.score != null ? liveNow.score : '--') + '<br>' +
-          'Recommendation: ' + (liveNow.recommendation || '--') + '<br>' +
-          'Current: ' + (liveNow.current != null ? liveNow.current : '--') + '<br>' +
-          'Sea temp: ' + (liveNow.temp != null ? liveNow.temp : '--') + '°C<br>' +
-          'Wave: ' + (liveNow.wave != null ? liveNow.wave : '--') + ' m';
-      } else {
-        liveReadingLine = '<br><br><strong>Live NAVIDUR (public engine)</strong><br>تعذر تحميل القراءة الحية حالياً.';
-      }
-      getEl('stAnalyticsMsg').innerHTML = analysisHtml + liveReadingLine;
+      getEl('stAnalyticsMsg').textContent = liveNow
+        ? 'تم تحديث القراءة الحية للمحطة.'
+        : 'تعذر تحميل القراءة الحية حالياً.';
     } else {
-      getEl('stAnalyticsMsg').innerHTML = analysisHtml + historyHtml;
+      var historyCount = 0;
+      try {
+        var historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
+        historyCount = Array.isArray(historyRecords) ? historyRecords.length : 0;
+      } catch (_historyErr) {
+        historyCount = 0;
+      }
+      getEl('stAnalyticsMsg').textContent = 'تم تحميل السجل التاريخي (' + currentAnalyticsPeriod + ') بعدد ' + historyCount + ' قراءة.';
     }
 
     var validation = buildValidationObject(stationId, profile);
@@ -3590,6 +3520,7 @@
 
         if (action === 'edit') {
           fillStationForm(station);
+          selectStationForAnalysis(station);
           return;
         }
 
