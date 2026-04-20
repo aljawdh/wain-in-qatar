@@ -112,6 +112,20 @@ function normalizeSeasonEventInput(input, existing) {
 
 function normalizeDururMasterInput(input, existing) {
   const base = existing || {};
+  const phasesInput = Array.isArray(input.phases) ? input.phases : (Array.isArray(base.phases) ? base.phases : []);
+  const fallbackDefaultDays = Number.isFinite(Number(input.default_days_count)) ? Number(input.default_days_count) : Number(base.default_days_count) || 13;
+  const fallbackPhaseSource = phasesInput.length ? phasesInput : [{
+    phase_id: ((base.id || input.id || 'dur') + '_phase_01'),
+    start_day: 1,
+    end_day: fallbackDefaultDays,
+    title_ar: '',
+    general_traits: Array.isArray(input.general_traits) ? input.general_traits : (Array.isArray(base.general_traits) ? base.general_traits : []),
+    weather_traits: Array.isArray(input.weather_traits) ? input.weather_traits : (Array.isArray(base.weather_traits) ? base.weather_traits : []),
+    marine_traits: Array.isArray(input.marine_traits) ? input.marine_traits : (Array.isArray(base.marine_traits) ? base.marine_traits : []),
+    fish_traits: Array.isArray(input.fish_traits) ? input.fish_traits : (Array.isArray(base.fish_traits) ? base.fish_traits : []),
+    related_event_ids: Array.isArray(input.related_event_ids) ? input.related_event_ids : (Array.isArray(base.related_event_ids) ? base.related_event_ids : []),
+    notes_ar: input.notes_ar != null ? input.notes_ar : base.notes_ar
+  }];
   return {
     id: cleanString(base.id || input.id || createId('dur'), 80),
     dur_number: Number.isFinite(Number(input.dur_number)) ? Number(input.dur_number) : Number(base.dur_number) || 0,
@@ -131,6 +145,8 @@ function normalizeDururMasterInput(input, existing) {
     astronomical_marker_en: cleanString(input.astronomical_marker_en != null ? input.astronomical_marker_en : base.astronomical_marker_en, 120),
     heritage_meaning_ar: cleanString(input.heritage_meaning_ar != null ? input.heritage_meaning_ar : base.heritage_meaning_ar, 800),
     heritage_meaning_en: cleanString(input.heritage_meaning_en != null ? input.heritage_meaning_en : base.heritage_meaning_en, 800),
+    description_ar: cleanString(input.description_ar != null ? input.description_ar : base.description_ar, 1200),
+    description_en: cleanString(input.description_en != null ? input.description_en : base.description_en, 1200),
     general_traits: Array.isArray(input.general_traits) ? input.general_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.general_traits) ? base.general_traits : []),
     weather_traits: Array.isArray(input.weather_traits) ? input.weather_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.weather_traits) ? base.weather_traits : []),
     marine_traits: Array.isArray(input.marine_traits) ? input.marine_traits.map((v) => cleanString(v, 120)).filter(Boolean) : (Array.isArray(base.marine_traits) ? base.marine_traits : []),
@@ -138,6 +154,18 @@ function normalizeDururMasterInput(input, existing) {
     related_event_ids: Array.isArray(input.related_event_ids) ? input.related_event_ids.map((v) => cleanString(v, 80)).filter(Boolean) : (Array.isArray(base.related_event_ids) ? base.related_event_ids : []),
     notes_ar: cleanString(input.notes_ar != null ? input.notes_ar : base.notes_ar, 1200),
     notes_en: cleanString(input.notes_en != null ? input.notes_en : base.notes_en, 1200),
+    phases: fallbackPhaseSource.map((phase, index) => ({
+      phase_id: cleanString(phase && phase.phase_id ? phase.phase_id : ((base.id || input.id || 'dur') + '_phase_' + String(index + 1).padStart(2, '0')), 80),
+      start_day: Number.isFinite(Number(phase && phase.start_day)) ? Number(phase.start_day) : 1,
+      end_day: Number.isFinite(Number(phase && phase.end_day)) ? Number(phase.end_day) : fallbackDefaultDays,
+      title_ar: cleanString(phase && phase.title_ar, 200),
+      general_traits: Array.isArray(phase && phase.general_traits) ? phase.general_traits.map((v) => cleanString(v, 120)).filter(Boolean) : [],
+      weather_traits: Array.isArray(phase && phase.weather_traits) ? phase.weather_traits.map((v) => cleanString(v, 120)).filter(Boolean) : [],
+      marine_traits: Array.isArray(phase && phase.marine_traits) ? phase.marine_traits.map((v) => cleanString(v, 120)).filter(Boolean) : [],
+      fish_traits: Array.isArray(phase && phase.fish_traits) ? phase.fish_traits.map((v) => cleanString(v, 120)).filter(Boolean) : [],
+      related_event_ids: Array.isArray(phase && phase.related_event_ids) ? phase.related_event_ids.map((v) => cleanString(v, 80)).filter(Boolean) : [],
+      notes_ar: cleanString(phase && phase.notes_ar, 1200)
+    })),
     is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
     created_at: base.created_at || nowIso(),
     updated_at: nowIso()

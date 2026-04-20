@@ -145,15 +145,69 @@
     });
   }
 
+  function sortDurPhases(phases) {
+    return toArray(phases).slice().sort(function (a, b) {
+      var aStart = Number(a && a.start_day || 0);
+      var bStart = Number(b && b.start_day || 0);
+      if (aStart !== bStart) return aStart - bStart;
+      return Number(a && a.end_day || 0) - Number(b && b.end_day || 0);
+    });
+  }
+
+  function normalizeDurPhase(phase, durRow, index, defaultDays) {
+    var item = phase || {};
+    var startDay = Math.max(1, toNumber(item.start_day) || 1);
+    var endDay = Math.max(startDay, toNumber(item.end_day) || defaultDays || startDay);
+    return {
+      phase_id: normalizeString(item.phase_id) || (normalizeString(durRow && durRow.id) ? (normalizeString(durRow.id) + '_phase_' + String(index + 1).padStart(2, '0')) : ''),
+      start_day: startDay,
+      end_day: endDay,
+      title_ar: normalizeString(item.title_ar),
+      general_traits: normalizeStringArray(item.general_traits),
+      weather_traits: normalizeStringArray(item.weather_traits),
+      marine_traits: normalizeStringArray(item.marine_traits),
+      fish_traits: normalizeStringArray(item.fish_traits),
+      related_event_ids: uniqueStrings(item.related_event_ids || []),
+      notes_ar: normalizeString(item.notes_ar)
+    };
+  }
+
+  function buildDefaultDurPhase(durRow, defaultDays) {
+    return normalizeDurPhase({
+      phase_id: normalizeString(durRow && durRow.id) ? (normalizeString(durRow.id) + '_phase_01') : '',
+      start_day: 1,
+      end_day: defaultDays,
+      title_ar: '',
+      general_traits: durRow && durRow.general_traits || [],
+      weather_traits: durRow && durRow.weather_traits || [],
+      marine_traits: durRow && durRow.marine_traits || [],
+      fish_traits: durRow && durRow.fish_traits || [],
+      related_event_ids: durRow && durRow.related_event_ids || [],
+      notes_ar: durRow && durRow.notes_ar || ''
+    }, durRow, 0, defaultDays);
+  }
+
+  function normalizeDurPhases(values, durRow, defaultDays) {
+    var phases = sortDurPhases(values).map(function (phase, index) {
+      return normalizeDurPhase(phase, durRow, index, defaultDays);
+    }).filter(function (phase) {
+      return phase.start_day >= 1 && phase.end_day >= phase.start_day;
+    });
+    return phases.length ? phases : [buildDefaultDurPhase(durRow, defaultDays)];
+  }
+
   function normalizeDurRow(row) {
     var item = row || {};
-    return {
+    var defaultDaysCount = toNumber(item.default_days_count != null ? item.default_days_count : item.days_count) || DEFAULT_DURUR_LENGTH_DAYS;
+    var baseRow = {
       id: normalizeString(item.id),
       dur_number: toNumber(item.dur_number),
       order_index: toNumber(item.order_index != null ? item.order_index : item.dur_number),
-      default_days_count: toNumber(item.default_days_count != null ? item.default_days_count : item.days_count) || DEFAULT_DURUR_LENGTH_DAYS,
+      default_days_count: defaultDaysCount,
       season_ar: normalizeString(item.season_ar || item.season),
       season_en: normalizeString(item.season_en),
+      astronomical_marker_ar: normalizeString(item.astronomical_marker_ar || item.zodiac_ar),
+      astronomical_marker_en: normalizeString(item.astronomical_marker_en || item.zodiac_en),
       zodiac_ar: normalizeString(item.astronomical_marker_ar || item.zodiac_ar),
       zodiac_en: normalizeString(item.astronomical_marker_en || item.zodiac_en),
       name_ar: normalizeString(item.name_ar || item.name),
@@ -171,6 +225,8 @@
       related_event_ids: uniqueStrings([].concat(item.related_event_ids || [], item.related_events || [])),
       is_active: item.is_active !== false
     };
+    baseRow.phases = normalizeDurPhases(item.phases, baseRow, defaultDaysCount);
+    return baseRow;
   }
 
   function getSeasonKeyFromDate(date) {
@@ -265,6 +321,19 @@
     }) || null;
   }
 
+  function resolveActiveDurPhase(durRow, dayInPeriod) {
+    var phases = sortDurPhases(durRow && durRow.phases);
+    if (!phases.length) return null;
+    var maxDay = Math.max(1, toNumber(durRow && durRow.default_days_count) || phases[phases.length - 1].end_day || 1);
+    var day = clamp(toNumber(dayInPeriod) || 1, 1, maxDay);
+    for (var i = 0; i < phases.length; i += 1) {
+      if (day >= phases[i].start_day && day <= phases[i].end_day) return phases[i];
+    }
+    return phases.find(function (phase) {
+      return day < phase.start_day;
+    }) || phases[phases.length - 1];
+  }
+
   function buildDurTimeline(referenceData, station, analysisDate, runtimeOverride) {
     var durRows = sortDurRows(referenceData && referenceData.durur_reference);
     if (!durRows.length) return { current: null, next: null };
@@ -326,19 +395,30 @@
     return date >= start && date <= end;
   }
 
-  function resolveSeasonalEvents(referenceData, durRow, analysisDate, runtimeOverride) {
+  function resolveReferenceSeasonalEvents(referenceData, durRow, analysisDate, explicitEventIds, includeDurLinked) {
     var targetDurId = normalizeString(durRow && durRow.id);
-    var overrideEventIds = uniqueStrings([].concat(
-      toArray(durRow && durRow.related_event_ids),
-      toArray(runtimeOverride && runtimeOverride.season_event_ids),
-      toArray(runtimeOverride && runtimeOverride.seasonal_event_ids)
-    ));
+    var resolvedEventIds = uniqueStrings([].concat(explicitEventIds || []));
 
     return toArray(referenceData && referenceData.seasonal_events).filter(function (item) {
       if (!item || item.is_active === false) return false;
-      if (overrideEventIds.length && overrideEventIds.indexOf(normalizeString(item.id)) >= 0) return true;
+      if (resolvedEventIds.length && resolvedEventIds.indexOf(normalizeString(item.id)) >= 0) return true;
       var related = normalizeStringArray(item.related_dur_ids);
-      if (targetDurId && related.indexOf(targetDurId) >= 0) return true;
+      if (includeDurLinked && targetDurId && related.indexOf(targetDurId) >= 0) return true;
+      return false;
+    });
+  }
+
+  function resolveSeasonalEvents(referenceData, durRow, analysisDate, runtimeOverride, activePhase) {
+    var directEvents = resolveReferenceSeasonalEvents(referenceData, durRow, analysisDate, uniqueStrings([].concat(
+      toArray(durRow && durRow.related_event_ids),
+      toArray(activePhase && activePhase.related_event_ids),
+      toArray(runtimeOverride && runtimeOverride.season_event_ids),
+      toArray(runtimeOverride && runtimeOverride.seasonal_event_ids)
+    )), true);
+    var directIds = uniqueStrings(directEvents.map(function (item) { return normalizeString(item && item.id); }));
+    var dateMatchedEvents = toArray(referenceData && referenceData.seasonal_events).filter(function (item) {
+      if (!item || item.is_active === false) return false;
+      if (directIds.indexOf(normalizeString(item.id)) >= 0) return false;
       return dateRangeContains(
         analysisDate,
         toNumber(item.start_hint && item.start_hint.month),
@@ -347,6 +427,7 @@
         toNumber(item.end_hint && item.end_hint.day)
       );
     });
+    return directEvents.concat(dateMatchedEvents);
   }
 
   function resolveLiveEnvironment(liveInputs) {
@@ -396,7 +477,7 @@
     return environment.current_speed_ms >= 0.6 ? 'LOAD' : 'FASAD';
   }
 
-  function collectReferenceTraits(referenceData, durRow, durReference, stationProfile, seasonalEvents, runtimeOverride) {
+  function collectReferenceTraits(referenceData, durRow, activePhase, stationProfile, seasonalEvents, runtimeOverride) {
     var weatherTraits = [];
     var marineTraits = [];
     var seasonalTraits = [];
@@ -404,22 +485,22 @@
     var generalTraits = [];
 
     weatherTraits = weatherTraits.concat(durRow && durRow.weather_traits || []);
-    weatherTraits = weatherTraits.concat(durReference && durReference.weather_traits || []);
+    weatherTraits = weatherTraits.concat(activePhase && activePhase.weather_traits || []);
     weatherTraits = weatherTraits.concat(stationProfile && stationProfile.traits_weather || []);
     weatherTraits = weatherTraits.concat(runtimeOverride && runtimeOverride.weather_traits || []);
 
     marineTraits = marineTraits.concat(durRow && durRow.marine_traits || []);
-    marineTraits = marineTraits.concat(durReference && durReference.marine_traits || []);
+    marineTraits = marineTraits.concat(activePhase && activePhase.marine_traits || []);
     marineTraits = marineTraits.concat(stationProfile && stationProfile.traits_marine || []);
     marineTraits = marineTraits.concat(runtimeOverride && runtimeOverride.marine_traits || []);
 
     fishTraits = fishTraits.concat(durRow && durRow.fish_traits || []);
-    fishTraits = fishTraits.concat(durReference && durReference.fish_traits || []);
+    fishTraits = fishTraits.concat(activePhase && activePhase.fish_traits || []);
     fishTraits = fishTraits.concat(stationProfile && stationProfile.traits_fish || []);
     fishTraits = fishTraits.concat(runtimeOverride && runtimeOverride.fish_traits || []);
 
     generalTraits = generalTraits.concat(durRow && durRow.general_traits || []);
-    generalTraits = generalTraits.concat(durReference && durReference.general_traits || []);
+    generalTraits = generalTraits.concat(activePhase && activePhase.general_traits || []);
     seasonalTraits = seasonalTraits.concat(stationProfile && stationProfile.traits_seasonal_transition_traits || []);
     seasonalTraits = seasonalTraits.concat(runtimeOverride && runtimeOverride.seasonal_traits || []);
 
@@ -439,8 +520,21 @@
     };
   }
 
-  function buildDurReferenceMetadata(durRow, nextDur, traitBundle, seasonalEvents) {
+  function mapSeasonalEventMetadata(seasonalEvents) {
+    return toArray(seasonalEvents).map(function (eventItem) {
+      return {
+        id: normalizeString(eventItem && eventItem.id),
+        name_ar: normalizeString(eventItem && (eventItem.name_ar || eventItem.name)),
+        name_en: normalizeString(eventItem && eventItem.name_en),
+        description_ar: normalizeString(eventItem && (eventItem.description_ar || eventItem.description)),
+        description_en: normalizeString(eventItem && eventItem.description_en)
+      };
+    });
+  }
+
+  function buildDurReferenceMetadata(durRow, nextDur, seasonalEvents) {
     if (!durRow) return null;
+    var eventMetadata = mapSeasonalEventMetadata(seasonalEvents);
     return {
       id: normalizeString(durRow.id),
       dur_number: toNumber(durRow.dur_number),
@@ -449,32 +543,64 @@
       name_en: normalizeString(durRow.name_en),
       season_ar: normalizeString(durRow.season_ar),
       season_en: normalizeString(durRow.season_en),
+      astronomical_marker_ar: normalizeString(durRow.astronomical_marker_ar || durRow.zodiac_ar),
+      astronomical_marker_en: normalizeString(durRow.astronomical_marker_en || durRow.zodiac_en),
       zodiac_ar: normalizeString(durRow.zodiac_ar),
       zodiac_en: normalizeString(durRow.zodiac_en),
+      default_days_count: toNumber(durRow.default_days_count),
       heritage_meaning_ar: normalizeString(durRow.heritage_meaning_ar),
       heritage_meaning_en: normalizeString(durRow.heritage_meaning_en),
       description_ar: normalizeString(durRow.description_ar),
       description_en: normalizeString(durRow.description_en),
       notes_ar: normalizeString(durRow.notes_ar),
       notes_en: normalizeString(durRow.notes_en),
-      general_traits: uniqueStrings(traitBundle && traitBundle.general_traits || []),
-      weather_traits: uniqueStrings(traitBundle && traitBundle.weather_traits || []),
-      marine_traits: uniqueStrings(traitBundle && traitBundle.marine_traits || []),
-      fish_traits: uniqueStrings(traitBundle && traitBundle.fish_traits || []),
-      seasonal_event_names: uniqueStrings((seasonalEvents || []).map(function (eventItem) {
-        return normalizeString(eventItem && (eventItem.name_ar || eventItem.name || eventItem.name_en));
-      })),
-      seasonal_events: toArray(seasonalEvents).map(function (eventItem) {
+      is_active: durRow.is_active !== false,
+      general_traits: uniqueStrings(durRow.general_traits || []),
+      weather_traits: uniqueStrings(durRow.weather_traits || []),
+      marine_traits: uniqueStrings(durRow.marine_traits || []),
+      fish_traits: uniqueStrings(durRow.fish_traits || []),
+      related_event_ids: uniqueStrings(durRow.related_event_ids || []),
+      phases: toArray(durRow.phases).map(function (phase) {
         return {
-          id: normalizeString(eventItem && eventItem.id),
-          name_ar: normalizeString(eventItem && (eventItem.name_ar || eventItem.name)),
-          name_en: normalizeString(eventItem && eventItem.name_en),
-          description_ar: normalizeString(eventItem && (eventItem.description_ar || eventItem.description)),
-          description_en: normalizeString(eventItem && eventItem.description_en)
+          phase_id: normalizeString(phase && phase.phase_id),
+          start_day: toNumber(phase && phase.start_day),
+          end_day: toNumber(phase && phase.end_day),
+          title_ar: normalizeString(phase && phase.title_ar),
+          general_traits: uniqueStrings(phase && phase.general_traits || []),
+          weather_traits: uniqueStrings(phase && phase.weather_traits || []),
+          marine_traits: uniqueStrings(phase && phase.marine_traits || []),
+          fish_traits: uniqueStrings(phase && phase.fish_traits || []),
+          related_event_ids: uniqueStrings(phase && phase.related_event_ids || []),
+          notes_ar: normalizeString(phase && phase.notes_ar)
         };
       }),
+      seasonal_event_names: uniqueStrings(eventMetadata.map(function (eventItem) {
+        return normalizeString(eventItem && (eventItem.name_ar || eventItem.name || eventItem.name_en));
+      })),
+      seasonal_events: eventMetadata,
       next_period_id: normalizeString(nextDur && nextDur.durRow && nextDur.durRow.id),
       next_period_name: normalizeString(nextDur && nextDur.durRow && (nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en))
+    };
+  }
+
+  function buildActivePhaseReferenceMetadata(activePhase, seasonalEvents) {
+    if (!activePhase) return null;
+    var eventMetadata = mapSeasonalEventMetadata(seasonalEvents);
+    return {
+      phase_id: normalizeString(activePhase.phase_id),
+      start_day: toNumber(activePhase.start_day),
+      end_day: toNumber(activePhase.end_day),
+      title_ar: normalizeString(activePhase.title_ar),
+      general_traits: uniqueStrings(activePhase.general_traits || []),
+      weather_traits: uniqueStrings(activePhase.weather_traits || []),
+      marine_traits: uniqueStrings(activePhase.marine_traits || []),
+      fish_traits: uniqueStrings(activePhase.fish_traits || []),
+      related_event_ids: uniqueStrings(activePhase.related_event_ids || []),
+      notes_ar: normalizeString(activePhase.notes_ar),
+      seasonal_event_names: uniqueStrings(eventMetadata.map(function (eventItem) {
+        return normalizeString(eventItem && (eventItem.name_ar || eventItem.name || eventItem.name_en));
+      })),
+      seasonal_events: eventMetadata
     };
   }
 
@@ -611,17 +737,11 @@
 
   function normalizeReferenceData(referenceData) {
     var source = referenceData || {};
-    var dururReference = sortDurRows(
-      (source.durur_master && source.durur_master.length ? source.durur_master : null) ||
-      source.durur ||
-      source.durur_reference ||
-      (source.durur_reference_seed && source.durur_reference_seed.durur_master) ||
-      []
-    ).map(normalizeDurRow);
+    var dururReference = sortDurRows(source.durur_master || []).map(normalizeDurRow);
 
     return {
       durur_reference: dururReference,
-      durur_order: toArray(source.durur_order || (source.durur_reference_seed && source.durur_reference_seed.durur_order)),
+      durur_order: dururReference.map(function (item) { return item.name_ar; }).filter(Boolean),
       traits_reference: toArray(source.traits_reference || source.trait_dictionaries),
       seasonal_events: toArray(source.seasonal_events || source.season_events),
       fish_reference: toArray(source.fish_reference || source.fish_species),
@@ -657,24 +777,38 @@
     var durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
     var currentDur = durInfo.current;
     var nextDur = durInfo.next;
-    var durReference = findDurReference(referenceData, currentDur && currentDur.durRow);
     var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
-    var seasonalEvents = resolveSeasonalEvents(referenceData, currentDur && currentDur.durRow, analysisDate, runtimeOverride);
+    var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
+    var activePhase = resolveActiveDurPhase(currentDur && currentDur.durRow, dayInPeriod);
+    var baseReferenceEvents = resolveReferenceSeasonalEvents(
+      referenceData,
+      currentDur && currentDur.durRow,
+      analysisDate,
+      currentDur && currentDur.durRow && currentDur.durRow.related_event_ids,
+      true
+    );
+    var activePhaseEvents = resolveReferenceSeasonalEvents(
+      referenceData,
+      currentDur && currentDur.durRow,
+      analysisDate,
+      activePhase && activePhase.related_event_ids,
+      false
+    );
+    var seasonalEvents = resolveSeasonalEvents(referenceData, currentDur && currentDur.durRow, analysisDate, runtimeOverride, activePhase);
     var traitBundle = collectReferenceTraits(
       referenceData,
       currentDur && currentDur.durRow,
-      durReference,
+      activePhase,
       stationProfile,
       seasonalEvents,
       runtimeOverride
     );
-    var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
     var durReferenceMetadata = buildDurReferenceMetadata(
-      currentDur && currentDur.durRow ? currentDur.durRow : durReference,
+      currentDur && currentDur.durRow,
       nextDur,
-      traitBundle,
-      seasonalEvents
+      baseReferenceEvents
     );
+    var activePhaseReferenceMetadata = buildActivePhaseReferenceMetadata(activePhase, activePhaseEvents);
 
     var fishing = buildFishingDecision(
       referenceData,
@@ -700,7 +834,9 @@
         next_period_name: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en) : '',
         days_remaining: currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null,
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
-        reference: durReferenceMetadata
+        reference: durReferenceMetadata,
+        active_phase_id: normalizeString(activePhase && activePhase.phase_id),
+        active_phase_reference: activePhaseReferenceMetadata
       },
       environment: {
         temp_c: liveEnvironment.temp_c,
