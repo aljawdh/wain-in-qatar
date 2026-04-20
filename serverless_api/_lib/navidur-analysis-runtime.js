@@ -29,7 +29,16 @@ function normalizeRequestedStation(body, stations) {
     lat: lat,
     lon: lon,
     country: cleanString(raw.country, 80),
-    region: cleanString(raw.region, 80)
+    region: cleanString(raw.region, 80),
+    station_role_type: cleanString(raw.station_role_type, 40),
+    reference_station_id: cleanString(raw.reference_station_id, 80),
+    is_reference_station: !!raw.is_reference_station,
+    reference_priority: toNumber(raw.reference_priority),
+    latitude_band_key: cleanString(raw.latitude_band_key, 80),
+    manual_suhail_anchor_date: cleanString(raw.manual_suhail_anchor_date, 20),
+    manual_cycle_start_date: cleanString(raw.manual_cycle_start_date, 20),
+    is_verified: !!raw.is_verified,
+    calibration_notes: cleanString(raw.calibration_notes, 1200)
   };
 }
 

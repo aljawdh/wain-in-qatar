@@ -133,6 +133,188 @@
     return getStationSuhailAnchorDate(station, year - 1);
   }
 
+  function normalizeLatitudeBandKey(value) {
+    return normalizeString(value).toLowerCase();
+  }
+
+  function normalizeStationRecord(station) {
+    var item = station || {};
+    var referencePriority = toNumber(item.reference_priority);
+    return {
+      id: normalizeString(item.id) || null,
+      name: normalizeString(item.name),
+      lat: toNumber(item.lat),
+      lon: toNumber(item.lon != null ? item.lon : item.lng),
+      country: normalizeString(item.country),
+      region: normalizeString(item.region),
+      station_role_type: normalizeString(item.station_role_type),
+      reference_station_id: normalizeString(item.reference_station_id),
+      is_reference_station: !!item.is_reference_station,
+      reference_priority: referencePriority != null ? referencePriority : null,
+      latitude_band_key: normalizeString(item.latitude_band_key),
+      manual_suhail_anchor_date: normalizeString(item.manual_suhail_anchor_date),
+      manual_cycle_start_date: normalizeString(item.manual_cycle_start_date),
+      is_verified: !!item.is_verified,
+      calibration_notes: normalizeString(item.calibration_notes)
+    };
+  }
+
+  function parseIsoDateOnly(value) {
+    var raw = normalizeString(value);
+    if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+    var date = new Date(raw + 'T00:00:00.000Z');
+    if (Number.isNaN(date.getTime())) return null;
+    return startOfUtcDay(date);
+  }
+
+  function rebaseIsoDateToYear(value, year) {
+    var date = parseIsoDateOnly(value);
+    if (!date) return null;
+    return createUtcDate(year, date.getUTCMonth() + 1, date.getUTCDate());
+  }
+
+  function buildManualCalibrationForYear(station, year) {
+    var manualAnchor = rebaseIsoDateToYear(station && station.manual_suhail_anchor_date, year);
+    var manualCycleStart = rebaseIsoDateToYear(station && station.manual_cycle_start_date, year);
+    if (!manualAnchor && manualCycleStart) manualAnchor = addDays(manualCycleStart, DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
+    if (!manualCycleStart && manualAnchor) manualCycleStart = addDays(manualAnchor, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
+    if (!manualAnchor || !manualCycleStart) return null;
+    return {
+      anchor: manualAnchor,
+      cycleStart: manualCycleStart
+    };
+  }
+
+  function getStationEngineTiming(station, analysisDate) {
+    var anchor = getRelevantSuhailAnchor(station, analysisDate);
+    return {
+      anchor: anchor,
+      cycleStart: addDays(anchor, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS)
+    };
+  }
+
+  function getStationManualCalibrationTiming(station, analysisDate) {
+    if (!station || (!station.manual_suhail_anchor_date && !station.manual_cycle_start_date)) return null;
+    var year = analysisDate.getUTCFullYear();
+    var currentCycle = buildManualCalibrationForYear(station, year);
+    if (!currentCycle) return null;
+    if (analysisDate >= currentCycle.cycleStart) return currentCycle;
+    return buildManualCalibrationForYear(station, year - 1) || currentCycle;
+  }
+
+  function isVerifiedReferenceStation(station) {
+    return !!(station && station.is_reference_station && station.is_verified && (station.manual_suhail_anchor_date || station.manual_cycle_start_date));
+  }
+
+  function findStoredStation(referenceData, stationInput) {
+    var stationId = normalizeString(stationInput && stationInput.id);
+    if (!stationId) return null;
+    return toArray(referenceData && referenceData.stations).find(function (station) {
+      return normalizeString(station && station.id) === stationId;
+    }) || null;
+  }
+
+  function getTimingSourceLabel(source) {
+    if (source === 'calibrated_reference_anchor') return 'مرجع يدوي معتمد';
+    if (source === 'nearest_reference_station') return 'محطة مرجعية قريبة';
+    return 'المحرك الأساسي';
+  }
+
+  function pickCalibrationReferenceStation(referenceData, station) {
+    var stationId = normalizeString(station && station.id);
+    var explicitReferenceId = normalizeString(station && station.reference_station_id);
+    var targetLat = toNumber(station && station.lat);
+    var targetBandKey = normalizeLatitudeBandKey(station && station.latitude_band_key);
+    var candidates = toArray(referenceData && referenceData.stations).filter(function (item) {
+      return item && normalizeString(item.id) !== stationId && isVerifiedReferenceStation(item);
+    });
+    if (!candidates.length) return null;
+    if (explicitReferenceId) {
+      var explicitMatch = candidates.find(function (item) {
+        return normalizeString(item.id) === explicitReferenceId;
+      });
+      if (explicitMatch) {
+        return { station: explicitMatch, selection_reason: 'linked_reference_station' };
+      }
+    }
+    var bandCandidates = targetBandKey ? candidates.filter(function (item) {
+      return normalizeLatitudeBandKey(item.latitude_band_key) === targetBandKey;
+    }) : [];
+    var pool = bandCandidates.length ? bandCandidates : candidates;
+    pool = pool.slice().sort(function (a, b) {
+      var aPriority = toNumber(a && a.reference_priority);
+      var bPriority = toNumber(b && b.reference_priority);
+      if (aPriority == null) aPriority = 999999;
+      if (bPriority == null) bPriority = 999999;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      var aLat = toNumber(a && a.lat);
+      var bLat = toNumber(b && b.lat);
+      var aDistance = targetLat == null || aLat == null ? 999999 : Math.abs(aLat - targetLat);
+      var bDistance = targetLat == null || bLat == null ? 999999 : Math.abs(bLat - targetLat);
+      if (aDistance !== bDistance) return aDistance - bDistance;
+      return normalizeString(a && a.name).localeCompare(normalizeString(b && b.name), 'ar');
+    });
+    return {
+      station: pool[0],
+      selection_reason: bandCandidates.length ? 'latitude_band_key' : 'nearest_latitude'
+    };
+  }
+
+  function applyCalibrationFromReference(station, referenceStation, analysisDate, selectionReason) {
+    var targetBaseTiming = getStationEngineTiming(station, analysisDate);
+    var referenceBaseTiming = getStationEngineTiming(referenceStation, analysisDate);
+    var referenceManualTiming = getStationManualCalibrationTiming(referenceStation, analysisDate);
+    if (!referenceManualTiming) return null;
+    var deltaDays = getDaysBetween(referenceBaseTiming.cycleStart, referenceManualTiming.cycleStart);
+    return {
+      anchor: addDays(targetBaseTiming.anchor, deltaDays),
+      cycleStart: addDays(targetBaseTiming.cycleStart, deltaDays),
+      source: 'nearest_reference_station',
+      source_label_ar: getTimingSourceLabel('nearest_reference_station'),
+      referenceStation: referenceStation,
+      latitudeBandKey: normalizeString(referenceStation.latitude_band_key) || normalizeString(station.latitude_band_key) || null,
+      selection_reason: selectionReason || 'nearest_latitude',
+      deltaDays: deltaDays,
+      baseAnchor: targetBaseTiming.anchor
+    };
+  }
+
+  function resolveTimingCalibration(referenceData, station, analysisDate) {
+    var baseTiming = getStationEngineTiming(station, analysisDate);
+    if (isVerifiedReferenceStation(station)) {
+      var manualTiming = getStationManualCalibrationTiming(station, analysisDate);
+      if (manualTiming) {
+        return {
+          anchor: manualTiming.anchor,
+          cycleStart: manualTiming.cycleStart,
+          source: 'calibrated_reference_anchor',
+          source_label_ar: getTimingSourceLabel('calibrated_reference_anchor'),
+          referenceStation: station,
+          latitudeBandKey: normalizeString(station.latitude_band_key) || null,
+          selection_reason: 'self',
+          deltaDays: getDaysBetween(baseTiming.cycleStart, manualTiming.cycleStart),
+          baseAnchor: baseTiming.anchor
+        };
+      }
+    }
+    var selectedReference = pickCalibrationReferenceStation(referenceData, station);
+    if (selectedReference && selectedReference.station) {
+      var propagated = applyCalibrationFromReference(station, selectedReference.station, analysisDate, selectedReference.selection_reason);
+      if (propagated) return propagated;
+    }
+    return {
+      anchor: baseTiming.anchor,
+      cycleStart: baseTiming.cycleStart,
+      source: 'pure_engine',
+      source_label_ar: getTimingSourceLabel('pure_engine'),
+      referenceStation: null,
+      latitudeBandKey: normalizeString(station.latitude_band_key) || null,
+      selection_reason: 'engine_only',
+      deltaDays: 0,
+      baseAnchor: baseTiming.anchor
+    };
+  }
+
   function getDaysBetween(start, end) {
     return Math.floor((end.getTime() - start.getTime()) / 86400000);
   }
@@ -415,9 +597,10 @@
     var durRows = sortDurRows(referenceData && referenceData.durur_reference);
     if (!durRows.length) return { current: null, next: null };
 
-    var suhailStart = getRelevantSuhailAnchor(station, analysisDate);
+    var timingCalibration = resolveTimingCalibration(referenceData, station, analysisDate);
+    var suhailStart = timingCalibration.anchor;
     var seasonKey = getSeasonKeyFromDate(analysisDate);
-    var cycleStart = addDays(suhailStart, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
+    var cycleStart = timingCalibration.cycleStart || addDays(suhailStart, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
     var cursor = cycleStart;
 
     var timeline = durRows.map(function (durRow, index) {
@@ -456,7 +639,14 @@
       next: next,
       timeline: timeline,
       suhail_anchor: suhailStart,
-      cycle_start: timeline[0] ? timeline[0].start : cycleStart
+      cycle_start: timeline[0] ? timeline[0].start : cycleStart,
+      timing_source: timingCalibration.source,
+      timing_source_label_ar: timingCalibration.source_label_ar,
+      calibration_reference_station: timingCalibration.referenceStation || null,
+      calibration_latitude_band_key: timingCalibration.latitudeBandKey || null,
+      calibration_selection_reason: timingCalibration.selection_reason || '',
+      calibration_delta_days: timingCalibration.deltaDays != null ? timingCalibration.deltaDays : 0,
+      base_suhail_anchor: timingCalibration.baseAnchor || suhailStart
     };
   }
 
@@ -821,6 +1011,7 @@
     var dururReference = sortDurRows(source.durur_master || []).map(normalizeDurRow);
 
     return {
+      stations: toArray(source.stations).map(normalizeStationRecord),
       durur_reference: dururReference,
       durur_order: dururReference.map(function (item) { return item.name_ar; }).filter(Boolean),
       traits_reference: toArray(source.traits_reference || source.trait_dictionaries),
@@ -842,14 +1033,8 @@
     var options = params || {};
     var referenceData = normalizeReferenceData(options.reference_data);
     var stationInput = options.station || {};
-    var station = {
-      id: normalizeString(stationInput.id) || null,
-      name: normalizeString(stationInput.name),
-      lat: toNumber(stationInput.lat),
-      lon: toNumber(stationInput.lon != null ? stationInput.lon : stationInput.lng),
-      country: normalizeString(stationInput.country),
-      region: normalizeString(stationInput.region)
-    };
+    var storedStation = findStoredStation(referenceData, stationInput);
+    var station = normalizeStationRecord(Object.assign({}, storedStation || {}, stationInput || {}));
 
     var analysisDateTime = parseAnalysisDateTime(options.datetime);
     var analysisDate = startOfUtcDay(analysisDateTime);
@@ -922,6 +1107,15 @@
         next_period_name: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en) : '',
         days_remaining: currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null,
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
+        base_suhail_anchor_date: durInfo && durInfo.base_suhail_anchor ? durInfo.base_suhail_anchor.toISOString().slice(0, 10) : '',
+        cycle_start_date: durInfo && durInfo.cycle_start ? durInfo.cycle_start.toISOString().slice(0, 10) : '',
+        timing_source: normalizeString(durInfo && durInfo.timing_source),
+        timing_source_label_ar: normalizeString(durInfo && durInfo.timing_source_label_ar),
+        calibration_reference_station_id: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.id),
+        calibration_reference_station_name: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.name),
+        calibration_latitude_band_key: normalizeString(durInfo && durInfo.calibration_latitude_band_key),
+        calibration_selection_reason: normalizeString(durInfo && durInfo.calibration_selection_reason),
+        calibration_delta_days: toNumber(durInfo && durInfo.calibration_delta_days),
         reference: durReferenceMetadata,
         active_phase_id: normalizeString(activePhase && activePhase.phase_id),
         active_phase_reference: activePhaseReferenceMetadata,

@@ -351,7 +351,13 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div class="admin-field"><label>المعرف التقني (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
                 <div class="admin-field"><label>نوع المحطة</label><select id="stRoleType"><option value="primary_reference">رئيسية مرجعية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
                 <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stPrimaryReference"><label for="stPrimaryReference">محطة رئيسية كبرى</label></div></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stIsReferenceStation"><label for="stIsReferenceStation">محطة مرجعية</label></div></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stIsVerified"><label for="stIsVerified">مرجع موثق</label></div></div>
                 <div class="admin-field"><label>محطة مرجعية مرتبطة</label><input id="stReferenceStation" type="text" placeholder="st_001"></div>
+                <div class="admin-field"><label>أولوية المرجع</label><input id="stReferencePriority" type="number" step="1" placeholder="1"></div>
+                <div class="admin-field"><label>مفتاح حزام العرض</label><input id="stLatitudeBandKey" type="text" placeholder="gulf_band_north"></div>
+                <div class="admin-field"><label>مرساة سهيل اليدوية</label><input id="stManualSuhailAnchorDate" type="date"></div>
+                <div class="admin-field"><label>بداية الدورة اليدوية</label><input id="stManualCycleStartDate" type="date"></div>
                 <div class="admin-field"><label>نطاق العرض</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
                 <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
                 <input type="hidden" id="stFishingMode" value="coastal">
@@ -359,6 +365,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
                 <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
                 <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stActive" checked><label for="stActive">Active</label></div></div>
+                <div class="admin-field full"><label>ملاحظات المعايرة</label><textarea id="stCalibrationNotes"></textarea></div>
                 <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
               </div>
             </details>
@@ -381,50 +388,28 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </div>
             <div class="settings-status" id="stationsStatus"></div>
             <hr class="sep">
+            <div style="display:flex;justify-content:flex-end;margin:0 0 10px">
+              <label style="display:inline-flex;align-items:center;gap:8px;font-size:.85rem;color:#ffd0d0;background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.22);border-radius:999px;padding:6px 12px;cursor:pointer">
+                <input id="stationsReferenceOnlyToggle" type="checkbox">
+                عرض المحطات المرجعية فقط
+              </label>
+            </div>
 
             <!-- DURUR PROFILE SECTION -->
             <details class="adv-options" style="margin:14px 0">
               <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-calendar-days" style="margin-left:6px"></i> ملف الدرة</summary>
               <div class="admin-form-grid" style="margin-top:10px">
-                <div class="admin-field"><label>الدر الحالي</label><select id="stDururSelect"><option value="">-- اختر دراً --</option></select></div>
-                <div class="admin-field"><label>تاريخ دخول الدر</label><input id="stDururEntryDate" type="date"></div>
-                <div class="admin-field"><label>الأيام المتبقية</label><input id="stDururDaysRemaining" type="number" readonly></div>
-                <div class="admin-field"><label>بداية الدر التالي</label><input id="stDururNextStart" type="date" readonly></div>
-              </div>
-
-              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
-                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">سمات الطقس</h5>
-                <div id="stDururWeatherTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
-              </div>
-
-              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
-                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">سمات البحر</h5>
-                <div id="stDururMarineTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
-              </div>
-
-              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
-                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">الأحداث الموسمية</h5>
-                <div id="stDururSeasonalTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
-              </div>
-
-              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
-                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">السمات العامة / الانتقالية</h5>
-                <div id="stDururGeneralTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
-              </div>
-
-              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
-                <h5 style="margin:0 0 10px;font-size:.95rem;color:#c5d5e0">سمات السمك</h5>
-                <div id="stDururFishTraits" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px"><!-- checkboxes populated by JS --></div>
-              </div>
-
-              <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px">
-                <label style="display:block;margin-bottom:8px;font-size:.88rem">ملاحظات الخبير</label>
-                <textarea id="stDururExpertNotes" style="width:100%;min-height:80px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:.88rem;font-family:inherit;resize:vertical"></textarea>
+                <div class="admin-field"><label>الدر الحالي</label><input id="stDururCurrentName" type="text" readonly></div>
+                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stDururDayInPeriod" type="text" readonly></div>
+                <div class="admin-field"><label>المرحلة الحالية</label><input id="stDururActivePhase" type="text" readonly></div>
+                <div class="admin-field"><label>تاريخ بداية الدر</label><input id="stDururStartDate" type="text" readonly></div>
+                <div class="admin-field"><label>تاريخ نهاية الدر</label><input id="stDururEndDate" type="text" readonly></div>
+                <div class="admin-field"><label>الدر التالي</label><input id="stDururNextName" type="text" readonly></div>
+                <div class="admin-field"><label>الأيام المتبقية</label><input id="stDururDaysRemaining" type="text" readonly></div>
               </div>
 
               <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:8px;justify-content:flex-start">
-                <button type="button" id="stDururAnalyticsBtn" class="small-btn" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(92,225,255,.15);border:1px solid rgba(92,225,255,.3);border-radius:8px;cursor:pointer;color:#5ce1ff;font-weight:500;font-size:.85rem"><i class="fa-solid fa-chart-line"></i> عرض التحليلات</button>
-                <span id="stDururStatus" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem;margin-left:auto">--</span>
+                <span id="stDururStatus" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem">يتم التحديث تلقائياً من محرك التحليل</span>
               </div>
             </details>
             <!-- END DURUR PROFILE SECTION -->
@@ -468,20 +453,29 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
 
               <!-- Validation Structure Block -->
               <div style="margin-top:12px;padding:12px;background:rgba(255,185,0,.08);border:1px solid rgba(255,185,0,.2);border-radius:10px">
-                <h5 style="margin:0 0 10px;font-size:.9rem;color:#ffe7aa;font-weight:600">⚖️ هيكل التحقق (Validation Structure)</h5>
+                <h5 style="margin:0 0 10px;font-size:.9rem;color:#ffe7aa;font-weight:600">⚖️ هيكل التحقق</h5>
                 <div id="stAnalyticsValidation" style="display:grid;gap:8px;font-size:.85rem;color:#c5d5e0">
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                    <div><strong style="color:#9fc1d7">السمات المتوقعة:</strong><br><span id="stAnalyticsExpectedCount" style="font-size:.9rem;color:#ffe7aa">0 سمة</span></div>
-                    <div><strong style="color:#9fc1d7">السمات المرصودة:</strong><br><span id="stAnalyticsObservedCount" style="font-size:.9rem;color:#ffe7aa">0 سمة (جاهز للبيانات الحقيقية)</span></div>
+                  <div>
+                    <div style="margin-bottom:6px"><strong style="color:#9fc1d7">السمات المتوقعة</strong></div>
+                    <div id="stAnalyticsExpectedTraitList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
                   </div>
                   <div style="border-top:1px solid rgba(255,185,0,.15);padding-top:8px">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-                      <div><strong style="color:#9fc1d7">نسبة المطابقة:</strong><br><span id="stAnalyticsScore" style="font-size:.9rem;color:#ffe7aa">-- (محجوزة)</span></div>
-                      <div><strong style="color:#9fc1d7">حالة التحقق:</strong><br><span id="stAnalyticsStatus" style="font-size:.9rem;color:#ffe7aa">بانتظار الرصد</span></div>
-                    </div>
+                    <div style="margin-bottom:6px"><strong style="color:#9fc1d7">السمات المرصودة</strong></div>
+                    <div id="stAnalyticsObservedTraitList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
                   </div>
-                  <div style="border-top:1px solid rgba(255,185,0,.15);padding-top:8px;font-size:.8rem;color:#9fc1d7">
-                    <strong>ملاحظة:</strong> تنتظر البيانات المرصودة الحقيقية من مصادر الطقس والبحر لحساب نسبة المطابقة
+                  <div style="border-top:1px solid rgba(255,185,0,.15);padding-top:8px">
+                    <div style="margin-bottom:6px"><strong style="color:#9fc1d7">السمات المتطابقة</strong></div>
+                    <div id="stAnalyticsMatchedTraitList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                  </div>
+                  <div style="border-top:1px solid rgba(255,185,0,.15);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <div>
+                      <div style="margin-bottom:6px"><strong style="color:#9fc1d7">سمات مفقودة</strong></div>
+                      <div id="stAnalyticsMissingTraitList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                    </div>
+                    <div>
+                      <div style="margin-bottom:6px"><strong style="color:#9fc1d7">سمات زائدة</strong></div>
+                      <div id="stAnalyticsExtraTraitList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -542,7 +536,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               </div>
               <div class="filter-box" style="margin-bottom:12px">
                 <div class="admin-form-grid">
-                  <div class="admin-field"><label>نوع المحطة</label><select id="dururStationTypeFilter"><option value="all">الكل</option><option value="primary_reference">رئيسية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
+                  <div class="admin-field"><label>نوع المحطة</label><select id="dururStationTypeFilter"><option value="all">الكل</option><option value="reference_only">مرجعية فقط</option><option value="primary_reference">رئيسية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
                   <div class="admin-field"><label>الدر الحالي</label><select id="dururCurrentDurFilter"><option value="all">الكل</option></select></div>
                   <div class="admin-field"><label>حدث موسمي</label><select id="dururSeasonEventFilter"><option value="all">الكل</option></select></div>
                 </div>
@@ -677,7 +671,14 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div class="admin-form-grid">
                   <div class="admin-field full"><label>نوع المحطة</label><select id="refStRoleType"><option value="primary_reference">رئيسية مرجعية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
                   <div class="admin-field"><label>مرجعية كبرى</label><div class="admin-switch"><input type="checkbox" id="refStPrimaryReference"><label for="refStPrimaryReference">نعم</label></div></div>
+                  <div class="admin-field"><label>محطة مرجعية</label><div class="admin-switch"><input type="checkbox" id="refStIsReferenceStation"><label for="refStIsReferenceStation">نعم</label></div></div>
+                  <div class="admin-field"><label>مرجع موثق</label><div class="admin-switch"><input type="checkbox" id="refStIsVerified"><label for="refStIsVerified">نعم</label></div></div>
                   <div class="admin-field full"><label>مرتبطة بمحطة</label><input id="refStReferenceStation" type="text" placeholder="st_001"></div>
+                  <div class="admin-field"><label>أولوية المرجع</label><input id="refStReferencePriority" type="number" step="1" placeholder="1"></div>
+                  <div class="admin-field"><label>مفتاح حزام العرض</label><input id="refStLatitudeBandKey" type="text" placeholder="gulf_band_north"></div>
+                  <div class="admin-field"><label>مرساة سهيل اليدوية</label><input id="refStManualSuhailAnchorDate" type="date"></div>
+                  <div class="admin-field"><label>بداية الدورة اليدوية</label><input id="refStManualCycleStartDate" type="date"></div>
+                  <div class="admin-field full"><label>ملاحظات المعايرة</label><textarea id="refStCalibrationNotes"></textarea></div>
                   <div class="admin-field full"><label>ملاحظات محلية</label><textarea id="refStLocalNotes"></textarea></div>
                 </div>
                 <div class="settings-actions"><button class="settings-btn" id="saveStationTypeBtn">تحديث المحطة</button></div>

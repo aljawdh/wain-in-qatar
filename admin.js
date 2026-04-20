@@ -1508,6 +1508,9 @@
     var comparison = getComparisonForStationDur(station, dur);
     var html = '<div style="text-align:right;line-height:1.4;font-size:0.95rem">';
     html += '<strong>' + (station.name || station.id || '--') + '</strong><br>';
+    if (isReferenceCalibrationStation(station)) {
+      html += '<div style="margin:4px 0 6px">' + buildReferenceBadgeHtml(station) + '</div>';
+    }
     html += '<div>النوع: ' + (station.station_role_type || '--') + '</div>';
     html += '<div>الدر الحالي: ' + (dur ? dur.name : '--') + '</div>';
     html += '<div>المعرفة المحلية: ' + (profile ? profile.local_definition || '--' : '--') + '</div>';
@@ -1521,6 +1524,7 @@
 
   function getDururMarkerOptions(station) {
     var fillColor = '#f8c146';
+    if (isReferenceCalibrationStation(station)) fillColor = '#ff5252';
     if (station.station_role_type === 'primary_reference') fillColor = '#ff5252';
     if (station.station_role_type === 'latlon_band_station') fillColor = '#ff8c00';
     return { radius: 8, fillColor: fillColor, color: '#fff', weight: 1, fillOpacity: 0.9 };
@@ -1534,7 +1538,8 @@
     dururStationMarkers = [];
     stationsCache.forEach(function (station) {
       if (!station.lat || !station.lon) return;
-      if (dururMapFilters.stationType !== 'all' && station.station_role_type !== dururMapFilters.stationType) return;
+      if (dururMapFilters.stationType === 'reference_only' && !isReferenceCalibrationStation(station)) return;
+      if (dururMapFilters.stationType !== 'all' && dururMapFilters.stationType !== 'reference_only' && station.station_role_type !== dururMapFilters.stationType) return;
       var dur = getCurrentDurForDate(new Date());
       if (dururMapFilters.currentDur !== 'all' && (!dur || dur.id !== dururMapFilters.currentDur)) return;
       if (dururMapFilters.seasonEvent !== 'all') {
@@ -1576,15 +1581,31 @@
     var profile = getDururProfileForStation(station);
     var events = getSeasonEventsForDur(dur);
     var comparison = getComparisonForStationDur(station, dur);
+    var timingDur = currentStationAnalysisDto && currentStationAnalysisDto.station_id === stationId ? currentStationAnalysisDto.dur : null;
     var html = '<div style="font-size:0.95rem;line-height:1.5">';
     html += '<strong>' + (station.name || '--') + '</strong><br>';
+    if (isReferenceCalibrationStation(station)) {
+      html += '<div style="margin:4px 0 6px">' + buildReferenceBadgeHtml(station) + '</div>';
+    }
     html += '<div><strong>المعرف التقني:</strong> <span style="font-size:.78rem;color:#8fb4c8">' + (station.id || '--') + '</span></div>';
     html += '<div><strong>الدولة:</strong> ' + (station.country || '--') + '</div>';
     html += '<div><strong>المنطقة:</strong> ' + (station.region || '--') + '</div>';
     html += '<div><strong>الإحداثيات:</strong> ' + (station.lat || '--') + ', ' + (station.lon || '--') + '</div>';
     html += '<div><strong>نوع المحطة:</strong> ' + (station.station_role_type || '--') + '</div>';
     html += '<div><strong>مرجعية كبرى:</strong> ' + (station.primary_reference ? 'نعم' : 'لا') + '</div>';
+    html += '<div><strong>مرجع معايرة:</strong> ' + (isReferenceCalibrationStation(station) ? 'نعم' : 'لا') + '</div>';
+    html += '<div><strong>موثق:</strong> ' + (station.is_verified ? 'نعم' : 'لا') + '</div>';
+    html += '<div><strong>مفتاح الحزام:</strong> ' + (station.latitude_band_key || '--') + '</div>';
+    html += '<div><strong>مرساة سهيل اليدوية:</strong> ' + (station.manual_suhail_anchor_date || '--') + '</div>';
+    html += '<div><strong>بداية الدورة اليدوية:</strong> ' + (station.manual_cycle_start_date || '--') + '</div>';
     html += '<div><strong>محطة مرجعية مرتبطة:</strong> ' + (station.reference_station_id || '--') + '</div>';
+    if (timingDur) {
+      html += '<div><strong>مصدر التوقيت الحالي:</strong> ' + getTimingSourceLabel(timingDur) + '</div>';
+      html += '<div><strong>سبب الاختيار:</strong> ' + getCalibrationReasonLabel(timingDur.calibration_selection_reason) + '</div>';
+      html += '<div><strong>المرجع المستخدم:</strong> ' + (timingDur.calibration_reference_station_name || '--') + '</div>';
+      html += '<div><strong>مرساة سهيل النهائية:</strong> ' + (timingDur.suhail_anchor_date || '--') + '</div>';
+      html += '<div><strong>بداية الدورة النهائية:</strong> ' + (timingDur.cycle_start_date || '--') + '</div>';
+    }
     html += '<div><strong>الدر الحالي:</strong> ' + (dur ? dur.name : '--') + '</div>';
     if (dur) {
       html += '<div><strong>مدى الدر:</strong> ' + getDurDateLabel(dur) + '</div>';
@@ -1777,7 +1798,14 @@
         id: station.id,
         station_role_type: getEl('refStRoleType').value,
         primary_reference: !!getEl('refStPrimaryReference').checked,
+        is_reference_station: !!getEl('refStIsReferenceStation').checked,
+        is_verified: !!getEl('refStIsVerified').checked,
         reference_station_id: getEl('refStReferenceStation').value.trim(),
+        reference_priority: getEl('refStReferencePriority').value ? Number(getEl('refStReferencePriority').value) : null,
+        latitude_band_key: getEl('refStLatitudeBandKey').value.trim() || null,
+        manual_suhail_anchor_date: getEl('refStManualSuhailAnchorDate').value || null,
+        manual_cycle_start_date: getEl('refStManualCycleStartDate').value || null,
+        calibration_notes: getEl('refStCalibrationNotes').value.trim() || null,
         notes: getEl('refStLocalNotes').value.trim()
       };
       var res = await apiFetch('/api?route=admin&path=stations', {
@@ -1800,12 +1828,29 @@
   function fillSelectedStationForms(station) {
     if (!station) return;
     selectedDururStationId = station.id;
+    fillReferenceStationEditor(station);
     getEl('profileStationId').value = station.id;
     getEl('profileStationName').value = station.name || station.id || '';
     getEl('overrideStationId').value = station.id;
     getEl('overrideStationName').value = station.name || station.id || '';
     renderProfileTable();
     renderOverrideTable();
+  }
+
+  function fillReferenceStationEditor(station) {
+    if (!station) return;
+    selectedDururStationId = station.id;
+    getEl('refStRoleType').value = station.station_role_type || 'secondary_linked';
+    getEl('refStPrimaryReference').checked = !!station.primary_reference;
+    getEl('refStIsReferenceStation').checked = !!station.is_reference_station;
+    getEl('refStIsVerified').checked = !!station.is_verified;
+    getEl('refStReferenceStation').value = station.reference_station_id || '';
+    getEl('refStReferencePriority').value = station.reference_priority != null ? station.reference_priority : '';
+    getEl('refStLatitudeBandKey').value = station.latitude_band_key || '';
+    getEl('refStManualSuhailAnchorDate').value = station.manual_suhail_anchor_date || '';
+    getEl('refStManualCycleStartDate').value = station.manual_cycle_start_date || '';
+    getEl('refStCalibrationNotes').value = station.calibration_notes || '';
+    getEl('refStLocalNotes').value = station.notes || '';
   }
 
   function fillProfileForm(profile) {
@@ -2056,23 +2101,28 @@
   function renderReferenceStationsTable() {
     var body = getEl('referenceStationsBody');
     if (!body) return;
-    body.innerHTML = stationsCache.map(function (station, idx) {
+    var referenceStations = stationsCache.filter(function (station) {
+      return isReferenceCalibrationStation(station);
+    });
+    if (!referenceStations.length) {
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ea4ba">لا توجد محطات مرجعية حتى الآن.</td></tr>';
+      return;
+    }
+    body.innerHTML = referenceStations.map(function (station, idx) {
+      var stateParts = [];
+      stateParts.push(station.is_verified ? 'موثق' : 'غير موثق');
+      if (station.latitude_band_key) stateParts.push('الحزام: ' + station.latitude_band_key);
+      if (station.reference_priority != null) stateParts.push('أولوية: ' + station.reference_priority);
       return '<tr><td>' + (idx + 1) + '</td>' +
-        '<td>' + (station.name || '--') + '</td>' +
-        '<td>' + (station.station_role_type || '--') + '</td>' +
-        '<td>' + (station.primary_reference ? 'نعم' : 'لا') + '</td>' +
-        '<td>' + (station.reference_station_id || '--') + '</td>' +
+        '<td><strong>' + (station.name || '--') + '</strong><div style="margin-top:4px">' + buildReferenceBadgeHtml(station) + '</div></td>' +
+        '<td>' + stateParts.join(' • ') + '</td>' +
         '<td><button class="small-btn" data-action="select-ref" data-id="' + (station.id || '') + '">اختر</button></td></tr>';
     }).join('');
     body.querySelectorAll('button[data-action="select-ref"]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var station = stationsCache.find(function (s) { return s.id === btn.getAttribute('data-id'); });
         if (!station) return;
-        selectedDururStationId = station.id;
-        getEl('refStRoleType').value = station.station_role_type || 'secondary_linked';
-        getEl('refStPrimaryReference').checked = !!station.primary_reference;
-        getEl('refStReferenceStation').value = station.reference_station_id || '';
-        getEl('refStLocalNotes').value = station.notes || '';
+        fillReferenceStationEditor(station);
         selectDururStation(station.id);
       });
     });
@@ -2126,6 +2176,45 @@
   function formatTraitCountLabel(count, suffix) {
     var extra = suffix ? ' ' + suffix : '';
     return String(Number(count) || 0) + ' سمة' + extra;
+  }
+
+  function isReferenceCalibrationStation(station) {
+    return !!(station && station.is_reference_station);
+  }
+
+  function isVerifiedCalibrationStation(station) {
+    return isReferenceCalibrationStation(station) && !!(station && station.is_verified);
+  }
+
+  function buildReferenceBadgeHtml(station) {
+    if (!isReferenceCalibrationStation(station)) return '';
+    return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,82,82,.14);border:1px solid rgba(255,82,82,.35);color:#ffb3b3;border-radius:999px;padding:2px 8px;font-size:11px;margin-top:4px">محطة مرجعية</span>';
+  }
+
+  function getTimingSourceLabel(dur) {
+    var source = dur && dur.timing_source ? dur.timing_source : '';
+    if (source === 'calibrated_reference_anchor') return 'مرجع يدوي معتمد';
+    if (source === 'nearest_reference_station') return 'محطة مرجعية قريبة';
+    return 'المحرك الأساسي';
+  }
+
+  function getCalibrationReasonLabel(reason) {
+    if (reason === 'self') return 'مرجع ذاتي';
+    if (reason === 'linked_reference_station') return 'محطة مرتبطة مباشرة';
+    if (reason === 'latitude_band_key') return 'حزام عرض مطابق';
+    if (reason === 'nearest_latitude') return 'أقرب مرجع عرضي';
+    return 'بدون معايرة';
+  }
+
+  function buildTimingStatusText(dur) {
+    var parts = [getTimingSourceLabel(dur)];
+    if (dur && dur.calibration_reference_station_name && dur.timing_source !== 'pure_engine') {
+      parts.push(dur.calibration_reference_station_name);
+    }
+    if (dur && dur.calibration_latitude_band_key) {
+      parts.push('الحزام: ' + dur.calibration_latitude_band_key);
+    }
+    return parts.join(' • ');
   }
 
   function normalizeDurRecordForUi(item) {
@@ -2769,6 +2858,12 @@
     var tideLabel = mapDtoTideStateToArabic(dto.tide && dto.tide.state);
     var phaseLabel = phase.title_ar || phase.phase_id || dto.dur.active_phase_id || '--';
     var baseReferenceLabel = ref.name_ar || dto.dur.period_name || '--';
+    var timingSourceLabel = getTimingSourceLabel(dto.dur || {});
+    var calibrationReferenceLabel = dto.dur.calibration_reference_station_name || '--';
+    var calibrationBandLabel = dto.dur.calibration_latitude_band_key || '--';
+    var calibrationReasonLabel = getCalibrationReasonLabel(dto.dur.calibration_selection_reason);
+    var resolvedAnchorLabel = dto.dur.suhail_anchor_date || '--';
+    var resolvedCycleStartLabel = dto.dur.cycle_start_date || '--';
     body.innerHTML = ''
       + '<div style="padding:10px;border:1px solid rgba(92,225,255,.18);border-radius:10px;background:rgba(92,225,255,.05)">'
       + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
@@ -2790,6 +2885,17 @@
       + '<div style="margin-top:10px;padding:10px;border:1px solid rgba(38,194,129,.18);border-radius:10px;background:rgba(38,194,129,.05)">'
       + '<div style="margin-bottom:6px"><strong style="color:#9fc1d7">المرجع الفعال بعد الدمج</strong> <span style="font-size:.75rem;color:#8fb4c8">(يشمل المرحلة الحالية' + (dto.dur.overrides_applied ? ' والتخصيصات' : '') + ')</span></div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div>'
+      + '</div>'
+      + '<div style="margin-top:10px;padding:10px;border:1px solid rgba(255,82,82,.18);border-radius:10px;background:rgba(255,82,82,.05)">'
+      + '<div style="margin-bottom:6px"><strong style="color:#ffb3b3">مصدر التوقيت</strong></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
+      + '  <div><strong style="color:#9fc1d7">النمط المستخدم:</strong><br>' + escapeHtml(timingSourceLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">سبب الاختيار:</strong><br>' + escapeHtml(calibrationReasonLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">المحطة المرجعية:</strong><br>' + escapeHtml(calibrationReferenceLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">حزام العرض:</strong><br>' + escapeHtml(calibrationBandLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">مرساة سهيل النهائية:</strong><br>' + escapeHtml(resolvedAnchorLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">بداية الدورة النهائية:</strong><br>' + escapeHtml(resolvedCycleStartLabel) + '</div>'
+      + '</div>'
       + '</div>';
   }
 
@@ -3224,14 +3330,15 @@
       var lon = Number(st.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       var hasGulf = (st.region || '').toLowerCase() === 'gulf';
+      var isReference = isReferenceCalibrationStation(st);
       var m = L.circleMarker([lat, lon], {
         radius: 7,
-        color: hasGulf ? '#ffb300' : '#27b3ff',
-        fillColor: hasGulf ? '#ffd54f' : '#0ea5e9',
+        color: isReference ? '#ff7f7f' : (hasGulf ? '#ffb300' : '#27b3ff'),
+        fillColor: isReference ? '#ff5252' : (hasGulf ? '#ffd54f' : '#0ea5e9'),
         fillOpacity: 0.75,
         weight: 2
       }).addTo(stationsAdminMap);
-      m.bindTooltip((hasGulf ? '⚠ ' : '') + st.name + (st.region ? ' (' + st.region + ')' : '') + ' — ' + (st.country || ''), { permanent: false, direction: 'top' });
+      m.bindTooltip((isReference ? 'محطة مرجعية • ' : '') + (hasGulf ? '⚠ ' : '') + st.name + (st.region ? ' (' + st.region + ')' : '') + ' — ' + (st.country || ''), { permanent: false, direction: 'top' });
       m.on('click', function (e) {
         if (e) L.DomEvent.stop(e);
         fillStationForm(st, true);
@@ -3376,16 +3483,6 @@
     getEl('stLat').addEventListener('input', function () { syncStationMapFromInputs(false); });
     getEl('stLon').addEventListener('input', function () { syncStationMapFromInputs(false); });
 
-    // ── Durur Profile Event Listeners ────────────────────────────────────────
-    var dururSel = getEl('stDururSelect');
-    if (dururSel) dururSel.addEventListener('change', calculateDururDates);
-
-    var entryDateEl = getEl('stDururEntryDate');
-    if (entryDateEl) entryDateEl.addEventListener('change', calculateDururDates);
-
-    var analyticsBtn = getEl('stDururAnalyticsBtn');
-    if (analyticsBtn) analyticsBtn.addEventListener('click', showDururAnalytics);
-
     // ── Analytics Panel Event Listeners ──────────────────────────────────────
     var periodSel = getEl('stAnalyticsPeriod');
     if (periodSel && !periodSel.querySelector('option[value="now"]')) {
@@ -3405,27 +3502,6 @@
 
   function readStationForm() {
     var active = !!getEl('stActive').checked;
-    var dururProfile = {
-      current_dur_id: getEl('stDururSelect').value.trim() || null,
-      dur_entry_date: getEl('stDururEntryDate').value || null,
-      weather_traits: readTraitCheckboxes('stDururWeatherTraits'),
-      marine_traits: readTraitCheckboxes('stDururMarineTraits'),
-      general_traits: readTraitCheckboxes('stDururGeneralTraits'),
-      seasonal_traits: readTraitCheckboxes('stDururSeasonalTraits'),
-      fish_activity_traits: readTraitCheckboxes('stDururFishTraits'),
-      expert_notes: getEl('stDururExpertNotes').value.trim()
-    };
-    var currentProfile = snapshotDururProfile(dururProfile);
-    if (_loadedDururProfileSnapshot && !dururProfilesMatch(_loadedDururProfileSnapshot, currentProfile)) {
-      dururProfile.source = 'manual';
-      dururProfile.is_overridden = true;
-    } else if (_loadedDururProfileSnapshot) {
-      dururProfile.source = _loadedDururProfileSnapshot.source || (_currentDururProfileSource || 'auto');
-      dururProfile.is_overridden = !!_loadedDururProfileSnapshot.is_overridden;
-    } else {
-      dururProfile.source = _currentDururProfileSource || 'auto';
-      dururProfile.is_overridden = _currentDururProfileSource === 'manual';
-    }
     return {
       id: getEl('stId').value.trim() || undefined,
       name: getEl('stName').value.trim(),
@@ -3439,10 +3515,16 @@
       default_radius: Number(getEl('stRadius').value || 0.02),
       station_role_type: getEl('stRoleType') ? getEl('stRoleType').value : 'secondary_linked',
       primary_reference: getEl('stPrimaryReference') ? getEl('stPrimaryReference').checked : false,
+      is_reference_station: getEl('stIsReferenceStation') ? getEl('stIsReferenceStation').checked : false,
+      reference_priority: getEl('stReferencePriority') && getEl('stReferencePriority').value ? Number(getEl('stReferencePriority').value) : null,
+      latitude_band_key: getEl('stLatitudeBandKey') ? (getEl('stLatitudeBandKey').value.trim() || null) : null,
+      manual_suhail_anchor_date: getEl('stManualSuhailAnchorDate') ? (getEl('stManualSuhailAnchorDate').value || null) : null,
+      manual_cycle_start_date: getEl('stManualCycleStartDate') ? (getEl('stManualCycleStartDate').value || null) : null,
+      is_verified: getEl('stIsVerified') ? getEl('stIsVerified').checked : false,
+      calibration_notes: getEl('stCalibrationNotes') ? (getEl('stCalibrationNotes').value.trim() || null) : null,
       reference_station_id: getEl('stReferenceStation') ? getEl('stReferenceStation').value.trim() : '',
       notes: getEl('stNotes').value.trim(),
-      assigned_members: splitCsv(getEl('stMembers').value),
-      durur_profile: dururProfile
+      assigned_members: splitCsv(getEl('stMembers').value)
     };
   }
 
@@ -3493,6 +3575,13 @@
     getEl('stRadius').value = st.default_radius != null ? st.default_radius : 0.02;
     getEl('stRoleType').value = st.station_role_type || 'secondary_linked';
     getEl('stPrimaryReference').checked = !!st.primary_reference;
+    if (getEl('stIsReferenceStation')) getEl('stIsReferenceStation').checked = !!st.is_reference_station;
+    if (getEl('stReferencePriority')) getEl('stReferencePriority').value = st.reference_priority != null ? st.reference_priority : '';
+    if (getEl('stLatitudeBandKey')) getEl('stLatitudeBandKey').value = st.latitude_band_key || '';
+    if (getEl('stManualSuhailAnchorDate')) getEl('stManualSuhailAnchorDate').value = st.manual_suhail_anchor_date || '';
+    if (getEl('stManualCycleStartDate')) getEl('stManualCycleStartDate').value = st.manual_cycle_start_date || '';
+    if (getEl('stIsVerified')) getEl('stIsVerified').checked = !!st.is_verified;
+    if (getEl('stCalibrationNotes')) getEl('stCalibrationNotes').value = st.calibration_notes || '';
     getEl('stReferenceStation').value = st.reference_station_id || '';
     getEl('stNotes').value = st.notes || '';
     getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
@@ -3517,30 +3606,18 @@
     var dururProfile = getResolvedDururProfileForStation(st);
     st.durur_profile = dururProfile;
     _currentDururProfileSource = dururProfile.source || 'reference';
-    fillDururProfile(dururProfile);
+    fillDururProfile(st);
     _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
 
   }
 
-  function fillDururProfile(profile) {
-    var dururSel = getEl('stDururSelect');
-    if (dururSel) dururSel.value = profile.current_dur_id || '';
-
-    var entryDateEl = getEl('stDururEntryDate');
-    if (entryDateEl && profile.dur_entry_date) {
-      entryDateEl.value = profile.dur_entry_date;
-      calculateDururDates();
+  function fillDururProfile(station) {
+    var dto = currentStationAnalysisDto;
+    if (dto && station && station.id && dto.station_id === station.id) {
+      renderReadOnlyDurProfile(dto);
+      return;
     }
-
-    // Populate trait checkboxes
-    populateTraitCheckboxes('stDururWeatherTraits', profile.weather_traits || []);
-    populateTraitCheckboxes('stDururMarineTraits', profile.marine_traits || []);
-    populateTraitCheckboxes('stDururGeneralTraits', profile.general_traits || []);
-    populateTraitCheckboxes('stDururSeasonalTraits', profile.seasonal_traits || []);
-    updateFishActivityOptions(profile.current_dur_id, profile.fish_activity_traits || []);
-    updateDurReferenceDisplay(profile.current_dur_id, profile.weather_traits || [], profile.marine_traits || [], profile.general_traits || [], profile.seasonal_traits || [], profile.fish_activity_traits || []);
-
-    getEl('stDururExpertNotes').value = profile.expert_notes || '';
+    clearReadOnlyDurProfile(station && station.id ? 'جاري تحميل قراءة المحرك...' : '--');
   }
 
   function populateTraitCheckboxes(containerId, selectedIds) {
@@ -3575,7 +3652,83 @@
     currentStationId = null;
     currentAnalyzedStationId = null;
     currentTransientPreviewPoint = null;
+    clearReadOnlyDurProfile('--');
     clearAdminAnalysisDisplay('جاهز');
+  }
+
+  function setReadOnlyFieldValue(id, value) {
+    var el = getEl(id);
+    if (!el) return;
+    el.value = value == null || value === '' ? '--' : String(value);
+  }
+
+  function clearReadOnlyDurProfile(statusText) {
+    setReadOnlyFieldValue('stDururCurrentName', '--');
+    setReadOnlyFieldValue('stDururDayInPeriod', '--');
+    setReadOnlyFieldValue('stDururActivePhase', '--');
+    setReadOnlyFieldValue('stDururStartDate', '--');
+    setReadOnlyFieldValue('stDururEndDate', '--');
+    setReadOnlyFieldValue('stDururNextName', '--');
+    setReadOnlyFieldValue('stDururDaysRemaining', '--');
+    var statusEl = getEl('stDururStatus');
+    if (statusEl) statusEl.textContent = statusText || 'يتم التحديث تلقائياً من محرك التحليل';
+  }
+
+  function renderReadOnlyDurProfile(dto) {
+    var dur = dto && dto.dur ? dto.dur : {};
+    var phase = dur.active_phase_reference || {};
+    var analysisDate = dto && dto.analysis_timestamp ? new Date(dto.analysis_timestamp) : null;
+    var startDate = null;
+    var endDate = null;
+    if (analysisDate && dur.day_in_period != null) {
+      startDate = new Date(analysisDate.getTime());
+      startDate.setUTCDate(startDate.getUTCDate() - Math.max(0, Number(dur.day_in_period || 1) - 1));
+    }
+    if (analysisDate && dur.days_remaining != null) {
+      endDate = new Date(analysisDate.getTime());
+      endDate.setUTCDate(endDate.getUTCDate() + Math.max(0, Number(dur.days_remaining || 0)));
+    }
+    setReadOnlyFieldValue('stDururCurrentName', dur.period_name || '--');
+    setReadOnlyFieldValue('stDururDayInPeriod', dur.day_in_period != null ? dur.day_in_period : '--');
+    setReadOnlyFieldValue('stDururActivePhase', phase.title_ar || phase.phase_id || dur.active_phase_id || '--');
+    setReadOnlyFieldValue('stDururStartDate', startDate ? startDate.toISOString().slice(0, 10) : '--');
+    setReadOnlyFieldValue('stDururEndDate', endDate ? endDate.toISOString().slice(0, 10) : '--');
+    setReadOnlyFieldValue('stDururNextName', dur.next_period_name || '--');
+    setReadOnlyFieldValue('stDururDaysRemaining', dur.days_remaining != null ? dur.days_remaining : '--');
+    var statusEl = getEl('stDururStatus');
+    if (statusEl) statusEl.textContent = buildTimingStatusText(dur);
+  }
+
+  function renderTraitList(containerId, values, bgColor, borderColor, textColor, emptyText) {
+    var container = getEl(containerId);
+    if (!container) return;
+    var normalized = uniqueNonEmptyValues(values);
+    container.innerHTML = normalized.length
+      ? buildTraitChipHtml(normalized, bgColor, borderColor, textColor)
+      : '<span style="color:#9fc1d7">' + escapeHtml(emptyText || '--') + '</span>';
+  }
+
+  function renderValidationExplanation(dto, observedTraitsOverride) {
+    var dur = dto && dto.dur ? dto.dur : {};
+    var ref = dur.reference || {};
+    var phase = dur.active_phase_reference || {};
+    var expectedTraits = uniqueNonEmptyValues([]
+      .concat(ref.general_traits || [])
+      .concat(ref.weather_traits || [])
+      .concat(ref.marine_traits || [])
+      .concat(phase.general_traits || [])
+      .concat(phase.weather_traits || [])
+      .concat(phase.marine_traits || [])
+      .concat(phase.fish_traits || []));
+    var observedTraits = uniqueNonEmptyValues(Array.isArray(observedTraitsOverride) ? observedTraitsOverride : deriveObservedTraitsFromAnalysis(dto));
+    var matchedTraits = expectedTraits.filter(function (trait) { return observedTraits.indexOf(trait) >= 0; });
+    var missingTraits = expectedTraits.filter(function (trait) { return observedTraits.indexOf(trait) < 0; });
+    var extraTraits = observedTraits.filter(function (trait) { return expectedTraits.indexOf(trait) < 0; });
+    renderTraitList('stAnalyticsExpectedTraitList', expectedTraits, 'rgba(92,225,255,.16)', 'rgba(92,225,255,.28)', '#dff8ff', '-- لا توجد سمات متوقعة --');
+    renderTraitList('stAnalyticsObservedTraitList', observedTraits, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea', '-- لا توجد سمات مرصودة --');
+    renderTraitList('stAnalyticsMatchedTraitList', matchedTraits, 'rgba(110,231,183,.18)', 'rgba(110,231,183,.28)', '#dfffea', '-- لا توجد سمات متطابقة --');
+    renderTraitList('stAnalyticsMissingTraitList', missingTraits, 'rgba(255,120,120,.12)', 'rgba(255,120,120,.22)', '#ffd8d8', '-- لا توجد سمات مفقودة --');
+    renderTraitList('stAnalyticsExtraTraitList', extraTraits, 'rgba(255,185,0,.12)', 'rgba(255,185,0,.22)', '#ffe7aa', '-- لا توجد سمات زائدة --');
   }
 
   // ── Durur Profile Functions ───────────────────────────────────────────────
@@ -4071,10 +4224,8 @@
     getEl('stAnalyticsNextDur').textContent = '--';
     getEl('stAnalyticsExpectedTraits').innerHTML = '<span style="color:#9fc1d7">--</span>';
     getEl('stAnalyticsExpertNotes').textContent = '-- لا توجد ملاحظات --';
-    getEl('stAnalyticsExpectedCount').textContent = formatTraitCountLabel(0);
-    getEl('stAnalyticsObservedCount').textContent = formatTraitCountLabel(0);
-    getEl('stAnalyticsScore').textContent = '--';
-    getEl('stAnalyticsStatus').textContent = 'بانتظار الرصد';
+    renderValidationExplanation(null, []);
+    clearReadOnlyDurProfile(message || 'يتم التحديث تلقائياً من محرك التحليل');
     getEl('stWeatherTemp').textContent = '-- °C';
     getEl('stWeatherWindSpeed').textContent = '-- km/h';
     getEl('stWeatherWindDir').textContent = '--°';
@@ -4087,9 +4238,7 @@
 
   function renderAdminAnalysisDto(dto, stationId, expertNotes, modeLabel) {
     currentStationAnalysisDto = dto;
-    var marineTraits = deriveMarineTraitsFromAnalysis(dto);
     var observedTraits = deriveObservedTraitsFromAnalysis(dto);
-    var profile = stationId ? (stationsCache.find(function (item) { return item.id === stationId; }) || {}).durur_profile || {} : {};
 
     currentWeatherState = {
       station_id: stationId || null,
@@ -4106,11 +4255,13 @@
     getEl('stAnalyticsDurEntryDate').textContent = dto.analysis_timestamp ? dto.analysis_timestamp.slice(0, 10) : '--';
     getEl('stAnalyticsDaysRemaining').textContent = dto.dur.days_remaining != null ? String(dto.dur.days_remaining) : '--';
     getEl('stAnalyticsNextDur').textContent = dto.dur.next_period_name || '--';
-    getEl('stAnalyticsExpectedTraits').innerHTML = marineTraits.length
-      ? marineTraits.map(function (trait) {
-          return '<span style="display:inline-block;padding:4px 8px;background:rgba(92,225,255,.2);border:1px solid rgba(92,225,255,.3);border-radius:6px;color:#5ce1ff">' + trait + '</span>';
-        }).join('')
-      : '<span style="color:#9fc1d7">-- لا توجد سمات مشتقة --</span>';
+    var expectedPreviewTraits = uniqueNonEmptyValues([]
+      .concat(dto && dto.dur && dto.dur.reference && dto.dur.reference.general_traits || [])
+      .concat(dto && dto.dur && dto.dur.reference && dto.dur.reference.weather_traits || [])
+      .concat(dto && dto.dur && dto.dur.reference && dto.dur.reference.marine_traits || []));
+    getEl('stAnalyticsExpectedTraits').innerHTML = expectedPreviewTraits.length
+      ? buildTraitChipHtml(expectedPreviewTraits, 'rgba(92,225,255,.2)', 'rgba(92,225,255,.3)', '#5ce1ff')
+      : '<span style="color:#9fc1d7">-- لا توجد سمات مرجعية --</span>';
     getEl('stAnalyticsExpertNotes').textContent = expertNotes || dto.fishing.advice_text || '-- لا توجد ملاحظات --';
 
     getEl('stWeatherTemp').textContent = (dto.environment.temp_c != null ? dto.environment.temp_c : '--') + ' °C';
@@ -4119,11 +4270,8 @@
     getEl('stWeatherWaveHeight').textContent = (dto.environment.wave_height_m != null ? dto.environment.wave_height_m : '--') + ' m';
     getEl('stWeatherSeaTemp').textContent = (dto.environment.temp_c != null ? dto.environment.temp_c : '--') + ' °C';
     getEl('stWeatherLastUpdate').textContent = dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '--';
-
-    getEl('stAnalyticsExpectedCount').textContent = formatTraitCountLabel(marineTraits.length);
-    getEl('stAnalyticsObservedCount').textContent = formatTraitCountLabel(observedTraits.length);
-    getEl('stAnalyticsScore').textContent = dto.fishing.confidence_score != null ? String(dto.fishing.confidence_score) : '--';
-    getEl('stAnalyticsStatus').textContent = mapDtoTideStateToArabic(dto.tide.state);
+    renderValidationExplanation(dto, observedTraits);
+    renderReadOnlyDurProfile(dto);
     getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
     renderDururStationPreview();
   }
@@ -4181,12 +4329,7 @@
     station.durur_profile = profile;
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var currentDur;
-    if (profile.source === 'manual' && profile.is_overridden) {
-      currentDur = getDururById(profile.current_dur_id);
-    } else {
-      currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
-    }
+    var currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
     if (!currentDur) {
       if (currentAnalyticsPeriod === 'now') {
         getEl('stAnalyticsMsg').textContent = 'لا توجد قراءة حالية جاهزة لهذه المحطة';
@@ -4197,59 +4340,17 @@
     }
 
     var staticDur = getDururById(currentDur.id);
-
-    var nextDur = getNextDurur(currentDur);
-    var entryDate = safeParseYmd(profile.dur_entry_date);
-    var currentDurName = currentDur.name || ('Dur ' + currentDur.dur_number);
-    var currentEntryDateText = entryDate ? formatYmd(entryDate) : '--';
-    var currentEndDate = getDurEndDate(currentDur, entryDate);
-    var daysRemaining = currentEndDate != null ? Math.max(0, getDaysDifference(currentEndDate)) + ' days' : '--';
-
-    var nextDurName = nextDur ? (nextDur.name || ('Dur ' + nextDur.dur_number)) : '--';
-    var nextStartDate = nextDur ? getNextDurStartDate(currentDur) : null;
-
-    var expectedTraits = Array.isArray(staticDur.weather_traits) ? staticDur.weather_traits.slice() : [];
-    var marineTraits = Array.isArray(staticDur.marine_traits) ? staticDur.marine_traits.slice() : [];
-    var fishTraits = Array.isArray(staticDur.fish_traits) ? staticDur.fish_traits.slice() : [];
-    var profileFishTraits = Array.isArray(profile.fish_activity_traits) ? profile.fish_activity_traits.slice() : [];
-    var manualFishTraits = profileFishTraits.filter(function (trait) { return fishTraits.indexOf(trait) < 0; });
-    var observedTraits = currentWeatherState && currentWeatherState.station_id === stationId ? getObservedTraitsFromWeather(currentWeatherState) : [];
-
-    if (currentAnalyticsPeriod === 'now') {
-      try {
-        var dto = await fetchSharedLiveAnalysisBundle(station);
-        if (requestToken !== currentAnalysisRequestToken) return;
-        observedTraits = deriveObservedTraitsFromAnalysis(dto);
-        staticDur = dto && dto.dur ? dto.dur : staticDur;
-        renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث القراءة الحية');
-      } catch (_liveErr) {
-        if (requestToken !== currentAnalysisRequestToken) return;
-        clearAdminAnalysisDisplay('تعذر تحميل القراءة الحية حالياً.');
-        return;
-      }
+    try {
+      var dto = await fetchSharedLiveAnalysisBundle(station);
+      if (requestToken !== currentAnalysisRequestToken) return;
+      staticDur = dto && dto.dur ? dto.dur : staticDur;
+      renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', currentAnalyticsPeriod === 'now' ? 'تم تحديث القراءة الحية' : 'تم تحديث القراءة الحالية');
+    } catch (_liveErr) {
+      if (requestToken !== currentAnalysisRequestToken) return;
+      clearAdminAnalysisDisplay('تعذر تحميل القراءة الحية حالياً.');
+      return;
     }
-
-    if (currentAnalyticsPeriod !== 'now') {
-      getEl('stAnalyticsDurName').textContent = currentDurName;
-      getEl('stAnalyticsDurEntryDate').textContent = currentEntryDateText;
-      getEl('stAnalyticsDaysRemaining').textContent = daysRemaining;
-    }
-    var nextDurEl = getEl('stAnalyticsNextDur');
-    if (nextDurEl && currentAnalyticsPeriod !== 'now') nextDurEl.textContent = nextDurName;
-    updateAnalyticsDurReferenceDisplay(staticDur, profile.weather_traits || [], profile.marine_traits || [], profile.seasonal_traits || []);
-
-    var traitsContainer = getEl('stAnalyticsExpectedTraits');
-    if (traitsContainer) {
-      traitsContainer.innerHTML = expectedTraits.length > 0
-        ? expectedTraits.map(function (t) {
-            return '<span style="display:inline-block;padding:4px 8px;background:rgba(92,225,255,.2);border:1px solid rgba(92,225,255,.3);border-radius:6px;color:#5ce1ff">' + t + '</span>';
-          }).join('')
-        : '<span style="color:#9fc1d7">-- لا توجد سمات --</span>';
-    }
-
-    if (currentAnalyticsPeriod !== 'now') {
-      getEl('stAnalyticsExpertNotes').textContent = profile.expert_notes || '-- لا توجد ملاحظات --';
-    }
+    updateAnalyticsDurReferenceDisplay(staticDur, [], [], [], [], []);
 
     // Keep a single admin-facing analytics display path (official cards/blocks only).
     if (currentAnalyticsPeriod !== 'now') {
@@ -4263,18 +4364,7 @@
       getEl('stAnalyticsMsg').textContent = 'تم تحميل السجل التاريخي (' + currentAnalyticsPeriod + ') بعدد ' + historyCount + ' قراءة.';
     }
 
-    var validation = buildValidationObject(stationId, profile);
-    validation.observed_traits = observedTraits;
-    validation.validation_score = currentStationAnalysisDto && currentStationAnalysisDto.fishing
-      ? currentStationAnalysisDto.fishing.confidence_score
-      : validation.validation_score;
-    validation.validation_status = currentStationAnalysisDto && currentStationAnalysisDto.tide
-      ? mapDtoTideStateToArabic(currentStationAnalysisDto.tide.state)
-      : validation.validation_status;
-    getEl('stAnalyticsExpectedCount').textContent = formatTraitCountLabel(expectedTraits.length);
-    getEl('stAnalyticsObservedCount').textContent = formatTraitCountLabel((validation.observed_traits || []).length, '(جاهز للبيانات)');
-    getEl('stAnalyticsScore').textContent = validation.validation_score || '-- (محجوزة)';
-    getEl('stAnalyticsStatus').textContent = validation.validation_status || 'بانتظار الرصد';
+    buildValidationObject(stationId, profile);
   }
 
   function buildValidationObject(stationId, dururProfile) {
@@ -4428,11 +4518,19 @@
 
     var body = getEl('stationsBody');
     body.innerHTML = '';
-    stationsCache.forEach(function (st, idx) {
+    var referenceOnly = !!(getEl('stationsReferenceOnlyToggle') && getEl('stationsReferenceOnlyToggle').checked);
+    var visibleStations = stationsCache.filter(function (st) {
+      return !referenceOnly || isReferenceCalibrationStation(st);
+    });
+    if (!visibleStations.length) {
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8ea4ba">لا توجد محطات مطابقة للفلتر الحالي.</td></tr>';
+    }
+    visibleStations.forEach(function (st, idx) {
       var isGulf = (st.region || '').toLowerCase() === 'gulf';
       var regionBg = isGulf ? 'rgba(255,185,0,.18)' : 'rgba(39,179,255,.12)';
       var regionBorder = isGulf ? 'rgba(255,185,0,.5)' : 'rgba(39,179,255,.3)';
       var regionLabel = isGulf ? ('\u26a0 ' + (st.region || '--')) : (st.region || '--');
+      var isReference = isReferenceCalibrationStation(st);
 
       var fm = String(st.fishing_mode || '').toLowerCase();
       var fmBadge;
@@ -4445,8 +4543,9 @@
       }
 
       var tr = document.createElement('tr');
+      if (isReference) tr.style.background = 'rgba(255,82,82,.05)';
       tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
-        '<td><strong>' + st.name + '</strong><br><span style="font-size:11px;color:#8ea4ba">' + st.id + '</span></td>' +
+        '<td><strong style="' + (isReference ? 'color:#ffd0d0' : '') + '">' + st.name + '</strong><br><span style="font-size:11px;color:#8ea4ba">' + st.id + '</span><div>' + buildReferenceBadgeHtml(st) + '</div></td>' +
         '<td><span style="background:' + regionBg + ';border:1px solid ' + regionBorder + ';border-radius:6px;padding:2px 7px;font-size:12px">' + regionLabel + '</span></td>' +
         '<td>' + (st.country || '--') + '</td>' +
         '<td>' + fmBadge + '</td>' +
@@ -4955,6 +5054,8 @@
       var el = getEl(id);
       if (el) el.addEventListener('change', applyDururFilters);
     });
+    var stationsReferenceOnlyToggle = getEl('stationsReferenceOnlyToggle');
+    if (stationsReferenceOnlyToggle) stationsReferenceOnlyToggle.addEventListener('change', function () { loadStations(); });
 
     var dururReferenceSearch = getEl('dururReferenceSearch');
     if (dururReferenceSearch) dururReferenceSearch.addEventListener('input', renderDururReferenceTable);

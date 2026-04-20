@@ -22,6 +22,17 @@ function normalizeFishingMode(mode, fallback) {
   return 'coastal';
 }
 
+function normalizeNullableString(value, maxLen) {
+  const cleaned = cleanString(value, maxLen);
+  return cleaned || null;
+}
+
+function normalizeIsoDate(value) {
+  const cleaned = cleanString(value, 20);
+  if (!cleaned) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(cleaned) ? cleaned : null;
+}
+
 function normalizeTags(tags, category, featured) {
   const list = Array.isArray(tags) ? tags : [];
   const cleaned = list.map((t) => cleanString(t, 40).toLowerCase()).filter(Boolean);
@@ -81,6 +92,15 @@ function normalizeStationInput(input, existing) {
     station_quality_score: input.station_quality_score != null ? Number(input.station_quality_score) : (base.station_quality_score != null ? Number(base.station_quality_score) : null),
     seabed_type: cleanString(input.seabed_type != null ? input.seabed_type : base.seabed_type, 80) || null,
     depth_profile: cleanString(input.depth_profile != null ? input.depth_profile : base.depth_profile, 120) || null,
+    is_reference_station: input.is_reference_station != null ? !!input.is_reference_station : !!base.is_reference_station,
+    reference_priority: input.reference_priority != null
+      ? (Number.isFinite(Number(input.reference_priority)) ? Number(input.reference_priority) : null)
+      : (base.reference_priority != null && Number.isFinite(Number(base.reference_priority)) ? Number(base.reference_priority) : null),
+    latitude_band_key: normalizeNullableString(input.latitude_band_key != null ? input.latitude_band_key : base.latitude_band_key, 80),
+    manual_suhail_anchor_date: normalizeIsoDate(input.manual_suhail_anchor_date != null ? input.manual_suhail_anchor_date : base.manual_suhail_anchor_date),
+    manual_cycle_start_date: normalizeIsoDate(input.manual_cycle_start_date != null ? input.manual_cycle_start_date : base.manual_cycle_start_date),
+    is_verified: input.is_verified != null ? !!input.is_verified : !!base.is_verified,
+    calibration_notes: normalizeNullableString(input.calibration_notes != null ? input.calibration_notes : base.calibration_notes, 1200),
     created_at: base.created_at || now,
     updated_at: now
   };
