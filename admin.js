@@ -1,12 +1,12 @@
 (function () {
-  var API_ENDPOINT = '/api/admin-analytics';
-  var SETTINGS_ENDPOINT = '/api/admin-settings';
-  var STATIONS_ENDPOINT = '/api/admin/stations';
-  var USERS_ENDPOINT = '/api/admin/users';
-  var SUMMARY_ENDPOINT = '/api/admin/summary';
-  var FEEDBACK_ENDPOINT = '/api/admin/feedback';
-  var LOGIN_ENDPOINT = '/api/login';
-  var LOGOUT_ENDPOINT = '/api/logout';
+  var API_ENDPOINT = '/api?route=admin-analytics';
+  var SETTINGS_ENDPOINT = '/api?route=admin-settings';
+  var STATIONS_ENDPOINT = '/api?route=admin&path=stations';
+  var USERS_ENDPOINT = '/api?route=admin&path=users';
+  var SUMMARY_ENDPOINT = '/api?route=admin-summary';
+  var FEEDBACK_ENDPOINT = '/api?route=admin&path=feedback';
+  var LOGIN_ENDPOINT = '/api?route=login';
+  var LOGOUT_ENDPOINT = '/api?route=logout';
 
   var adminAuthenticated = false;
   var adminDataFilter = 'all';
@@ -1088,14 +1088,14 @@
     var now = new Date();
     var startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
     var query = 'station_id=' + encodeURIComponent(stationId) + '&start_date=' + encodeURIComponent(startDate.toISOString().split('T')[0]);
-    return apiFetch('/api/admin/analytics-history?' + query, { method: 'GET' })
+    return apiFetch('/api?route=admin&path=analytics-history&' + query, { method: 'GET' })
       .then(function (res) { return res.json(); })
       .then(function (data) { return Array.isArray(data.items) ? data.items : []; });
   }
 
   async function loadDururData() {
     try {
-      var res = await apiFetch('/api/admin/durur', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=durur', { method: 'GET' });
       if (!res.ok) throw new Error('durur_load_failed');
       var data = await res.json();
       dururCache = Array.isArray(data.items) ? data.items : [];
@@ -1127,7 +1127,7 @@
 
   async function loadTraits() {
     try {
-      var res = await apiFetch('/api/admin/trait-dictionaries', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=trait-dictionaries', { method: 'GET' });
       if (!res.ok) throw new Error('traits_load_failed');
       var data = await res.json();
       traitsCache = Array.isArray(data.items) ? data.items : [];
@@ -1180,7 +1180,7 @@
     body.querySelectorAll('button[data-action="delete-durur-reference"]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
         if (!window.confirm('حذف المرجع نهائياً؟')) return;
-        await apiFetch('/api/admin/durur-reference/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
+        await apiFetch('/api?route=admin&path=durur-reference/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
         await loadDururReferenceData();
       });
     });
@@ -1250,7 +1250,7 @@
 
   async function loadDururReferenceData() {
     try {
-      var res = await apiFetch('/api/admin/durur-reference', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=durur-reference', { method: 'GET' });
       if (!res.ok) throw new Error('durur_reference_load_failed');
       var data = await res.json();
       dururReferenceCache = Array.isArray(data.items) ? data.items : [];
@@ -1264,7 +1264,7 @@
   async function saveDururReferenceForm() {
     try {
       var payload = readDururReferenceForm();
-      var endpoint = '/api/admin/durur-reference';
+      var endpoint = '/api?route=admin&path=durur-reference';
       if (payload.id) {
         endpoint += '/' + encodeURIComponent(payload.id);
       }
@@ -1309,7 +1309,7 @@
         reviewed_at: status === 'reviewed' ? new Date().toISOString() : item.reviewed_at || null,
         approved_at: status === 'approved' ? new Date().toISOString() : (status === 'draft' ? null : item.approved_at || null)
       };
-      var res = await apiFetch('/api/admin/durur-reference/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) });
+      var res = await apiFetch('/api?route=admin&path=durur-reference/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify(payload) });
       if (!res.ok) throw new Error('durur_reference_status_failed');
       await loadDururReferenceData();
       setDururReferenceStatusMessage('تم تحديث حالة المراجعة إلى ' + getDururReferenceStatusLabel(status) + '.', false);
@@ -1330,7 +1330,7 @@
 
   async function loadSeasonEvents() {
     try {
-      var res = await apiFetch('/api/admin/season-events', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=season-events', { method: 'GET' });
       if (!res.ok) throw new Error('season_events_load_failed');
       var data = await res.json();
       seasonEventsCache = Array.isArray(data.items) ? data.items : [];
@@ -1349,7 +1349,7 @@
 
   async function loadStationProfiles() {
     try {
-      var res = await apiFetch('/api/admin/station-dur-profiles', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=station-dur-profiles', { method: 'GET' });
       if (!res.ok) throw new Error('station_profiles_load_failed');
       var data = await res.json();
       stationProfilesCache = Array.isArray(data.items) ? data.items : [];
@@ -1361,7 +1361,7 @@
 
   async function loadStationOverrides() {
     try {
-      var res = await apiFetch('/api/admin/station-dur-overrides', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=station-dur-overrides', { method: 'GET' });
       if (!res.ok) throw new Error('station_overrides_load_failed');
       var data = await res.json();
       stationOverridesCache = Array.isArray(data.items) ? data.items : [];
@@ -1373,7 +1373,7 @@
 
   async function loadAnnualComparisons() {
     try {
-      var res = await apiFetch('/api/admin/annual-comparisons', { method: 'GET' });
+      var res = await apiFetch('/api?route=admin&path=annual-comparisons', { method: 'GET' });
       if (!res.ok) throw new Error('annual_comparisons_load_failed');
       var data = await res.json();
       annualComparisonsCache = Array.isArray(data.items) ? data.items : [];
@@ -1405,7 +1405,7 @@
     body.querySelectorAll('button[data-action="delete-dur"]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
         if (!window.confirm('حذف الدر نهائياً؟')) return;
-        await apiFetch('/api/admin/durur/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
+        await apiFetch('/api?route=admin&path=durur/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
         await loadDururData();
       });
     });
@@ -1432,7 +1432,7 @@
     body.querySelectorAll('button[data-action="delete-event"]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
         if (!window.confirm('حذف الحدث نهائياً؟')) return;
-        await apiFetch('/api/admin/season-events/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
+        await apiFetch('/api?route=admin&path=season-events/' + encodeURIComponent(btn.getAttribute('data-id')), { method: 'DELETE' });
         await loadSeasonEvents();
       });
     });
@@ -1678,7 +1678,7 @@
       var payload = readDurForm();
       var btnStatus = getEl('durStatus');
       if (btnStatus) btnStatus.textContent = 'جاري الحفظ...';
-      var res = await apiFetch('/api/admin/durur', {
+      var res = await apiFetch('/api?route=admin&path=durur', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1698,7 +1698,7 @@
       var payload = readEventForm();
       var btnStatus = getEl('eventStatus');
       if (btnStatus) btnStatus.textContent = 'جاري الحفظ...';
-      var res = await apiFetch('/api/admin/season-events', {
+      var res = await apiFetch('/api?route=admin&path=season-events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1729,7 +1729,7 @@
         reference_station_id: getEl('refStReferenceStation').value.trim(),
         notes: getEl('refStLocalNotes').value.trim()
       };
-      var res = await apiFetch('/api/admin/stations', {
+      var res = await apiFetch('/api?route=admin&path=stations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1824,7 +1824,7 @@
       var payload = readProfileForm();
       if (!payload.station_id) throw new Error('station_id_required');
       if (status) status.textContent = 'جاري الحفظ...';
-      var res = await apiFetch('/api/admin/station-dur-profiles', {
+      var res = await apiFetch('/api?route=admin&path=station-dur-profiles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1846,7 +1846,7 @@
       var payload = readOverrideForm();
       if (!payload.station_id) throw new Error('station_id_required');
       if (status) status.textContent = 'جاري الحفظ...';
-      var res = await apiFetch('/api/admin/station-dur-overrides', {
+      var res = await apiFetch('/api?route=admin&path=station-dur-overrides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1975,7 +1975,7 @@
       if (!payload.station_id) throw new Error('station_id_required');
       if (!payload.dur_id) throw new Error('dur_id_required');
       if (status) status.textContent = 'جاري الحفظ...';
-      var res = await apiFetch('/api/admin/annual-comparisons', {
+      var res = await apiFetch('/api?route=admin&path=annual-comparisons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -3722,7 +3722,7 @@
 
         if (action === 'toggle') {
           var nextStatus = station.status === 'disabled' ? 'active' : 'disabled';
-          await apiFetch('/api/admin/stations/' + encodeURIComponent(id) + '/status', {
+          await apiFetch('/api?route=admin&path=stations/' + encodeURIComponent(id) + '/status', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: nextStatus })
@@ -3734,7 +3734,7 @@
         if (action === 'delete') {
           var stName = btn.getAttribute('data-name') || id;
           if (!window.confirm('حذف نهائي للمحطة "' + stName + '"؟\nلا يمكن التراجع عن هذا الإجراء.')) return;
-          var delRes = await apiFetch('/api/admin/stations/' + encodeURIComponent(id), { method: 'DELETE' });
+          var delRes = await apiFetch('/api?route=admin&path=stations/' + encodeURIComponent(id), { method: 'DELETE' });
           if (!delRes.ok) {
             var delErr = '';
             try { delErr = await delRes.text(); } catch (_) {}
@@ -3851,7 +3851,7 @@
         if (act === 'reset') {
           var nextPass = prompt('كلمة المرور الجديدة للمستخدم ' + user.username);
           if (!nextPass) return;
-          await apiFetch('/api/admin/users/' + encodeURIComponent(id) + '/password', {
+          await apiFetch('/api?route=admin&path=users/' + encodeURIComponent(id) + '/password', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ password: nextPass })

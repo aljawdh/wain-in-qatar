@@ -675,7 +675,7 @@
       return Promise.reject(new Error('validation_failed'));
     }
     var isNew = stationFormState.isNew;
-    var endpoint = isNew ? '/api/stations' : '/api/admin/stations/' + encodeURIComponent(stationFormState.originalId || payload.id);
+    var endpoint = isNew ? '/api?route=stations' : '/api?route=admin&path=stations/' + encodeURIComponent(stationFormState.originalId || payload.id);
     var method = isNew ? 'POST' : 'PUT';
     if (!isNew) {
       payload.id = stationFormState.originalId || payload.id;
@@ -1458,7 +1458,7 @@
     if (!stationId) return Promise.resolve(null);
     var current = calibrationStore[stationId];
     if (current && current.loadedFromServer) return Promise.resolve(current);
-    return apiFetch('/api/admin/station-dur-profiles?station_id=' + encodeURIComponent(stationId), { method: 'GET' })
+    return apiFetch('/api?route=admin&path=station-dur-profiles&station_id=' + encodeURIComponent(stationId), { method: 'GET' })
       .then(function (data) {
         var items = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
         var record = chooseLatestCalibration(items);
@@ -1473,15 +1473,15 @@
     var stationId = getStationId(station);
     var payload = buildCalibrationPayload(station, calibration);
     var makePut = function (record) {
-      return apiFetch('/api/admin/station-dur-profiles/' + encodeURIComponent(record.id), { method: 'PUT', body: payload });
+      return apiFetch('/api?route=admin&path=station-dur-profiles/' + encodeURIComponent(record.id), { method: 'PUT', body: payload });
     };
     var makePost = function () {
-      return apiFetch('/api/admin/station-dur-profiles', { method: 'POST', body: payload });
+      return apiFetch('/api?route=admin&path=station-dur-profiles', { method: 'POST', body: payload });
     };
     if (calibration.savedProfileId) {
       return makePut({ id: calibration.savedProfileId });
     }
-    return apiFetch('/api/admin/station-dur-profiles?station_id=' + encodeURIComponent(stationId) + '&dur_id=' + encodeURIComponent(payload.dur_id), { method: 'GET' })
+    return apiFetch('/api?route=admin&path=station-dur-profiles&station_id=' + encodeURIComponent(stationId) + '&dur_id=' + encodeURIComponent(payload.dur_id), { method: 'GET' })
       .then(function (data) {
         var items = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
         var existing = chooseLatestCalibration(items);
@@ -1629,15 +1629,15 @@
     createMap();
     bindEvents();
     Promise.all([
-      apiFetch('/api/stations', { method: 'GET' }).catch(function () { return safeFetchJson('/data/stations.json'); }),
-      apiFetch('/api/admin/durur-master', { method: 'GET' }).catch(function () { return safeFetchJson('/data/durur_master.json'); }),
-      apiFetch('/api/admin/season-events', { method: 'GET' }).catch(function () { return safeFetchJson('/data/season_events.json'); }),
-      apiFetch('/api/admin/station-dur-profiles', { method: 'GET' }).catch(function () { return safeFetchJson('/data/station_dur_profiles.json'); }),
-      apiFetch('/api/admin/station-dur-overrides', { method: 'GET' }).catch(function () { return safeFetchJson('/data/station_dur_overrides.json'); }),
-      apiFetch('/api/admin/annual-comparisons', { method: 'GET' }).catch(function () { return safeFetchJson('/data/annual_comparisons.json'); }),
-      apiFetch('/api/admin/trait-dictionaries', { method: 'GET' }).catch(function () { return safeFetchJson('/data/trait_dictionaries.json'); }),
-      apiFetch('/api/admin/fish-season-tags', { method: 'GET' }).catch(function () { return safeFetchJson('/data/fish_season_tags.json'); }),
-      apiFetch('/api/admin/advice-basis-tags', { method: 'GET' }).catch(function () { return safeFetchJson('/data/advice_basis_tags.json'); })
+      apiFetch('/api?route=stations', { method: 'GET' }).catch(function () { return safeFetchJson('/data/stations.json'); }),
+      apiFetch('/api?route=admin&path=durur-master', { method: 'GET' }).catch(function () { return safeFetchJson('/data/durur_master.json'); }),
+      apiFetch('/api?route=admin&path=season-events', { method: 'GET' }).catch(function () { return safeFetchJson('/data/season_events.json'); }),
+      apiFetch('/api?route=admin&path=station-dur-profiles', { method: 'GET' }).catch(function () { return safeFetchJson('/data/station_dur_profiles.json'); }),
+      apiFetch('/api?route=admin&path=station-dur-overrides', { method: 'GET' }).catch(function () { return safeFetchJson('/data/station_dur_overrides.json'); }),
+      apiFetch('/api?route=admin&path=annual-comparisons', { method: 'GET' }).catch(function () { return safeFetchJson('/data/annual_comparisons.json'); }),
+      apiFetch('/api?route=admin&path=trait-dictionaries', { method: 'GET' }).catch(function () { return safeFetchJson('/data/trait_dictionaries.json'); }),
+      apiFetch('/api?route=admin&path=fish-season-tags', { method: 'GET' }).catch(function () { return safeFetchJson('/data/fish_season_tags.json'); }),
+      apiFetch('/api?route=admin&path=advice-basis-tags', { method: 'GET' }).catch(function () { return safeFetchJson('/data/advice_basis_tags.json'); })
     ]).then(function (results) {
       var stationData = results[0];
       stations = Array.isArray(stationData.stations) ? stationData.stations : (Array.isArray(stationData) ? stationData : []);

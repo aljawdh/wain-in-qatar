@@ -41,7 +41,7 @@
 
   async function attemptRemoteLogin(username, password) {
     try {
-      var response = await fetch('/api/login', {
+      var response = await fetch('/api?route=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username, password: password })

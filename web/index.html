@@ -1520,7 +1520,7 @@
     async function loadRuntimeStations() {
       const emergencyFallback = isEmergencyStationFallbackEnabled();
       try {
-        const res = await fetch('/api/stations', { method: 'GET', cache: 'no-store' });
+        const res = await fetch('/api?route=stations', { method: 'GET', cache: 'no-store' });
         if (!res.ok) throw new Error('stations_http_' + res.status);
         const data = await res.json();
         const list = Array.isArray(data.stations) ? data.stations.map(mapApiStationToBase).filter(function (st) {
@@ -1641,7 +1641,7 @@
 
     async function loadRuntimeUiSettings() {
       try {
-        const res = await fetch('/api/admin-settings', { method: 'GET', cache: 'no-store' });
+        const res = await fetch('/api?route=admin-settings', { method: 'GET', cache: 'no-store' });
         if (!res.ok) throw new Error('settings_http_' + res.status);
         const payload = await res.json();
         runtimeUiSettings = normalizeRuntimeSettings(payload && payload.settings ? payload.settings : payload);
@@ -2929,7 +2929,7 @@
       const list = JSON.parse(localStorage.getItem(key) || '[]');
       if (!Array.isArray(list) || !list.length) return;
       try {
-        const res = await fetch('/api/tracking', {
+        const res = await fetch('/api?route=tracking', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ records: list.slice(0, 100) })
@@ -2963,7 +2963,7 @@
       const feedbackStatus = document.getElementById('feedbackStatus');
       feedbackStatus.textContent = 'Sending...';
       try {
-        const response = await fetch('/api/feedback', {
+        const response = await fetch('/api?route=feedback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -3045,7 +3045,7 @@
     }
 
     async function fetchHotspotForStation(station) {
-      const url = '/api/fishing-engine?lat=' + encodeURIComponent(station.lat) + '&lon=' + encodeURIComponent(station.lng) + '&debug=true';
+      const url = '/api?route=fishing-engine&lat=' + encodeURIComponent(station.lat) + '&lon=' + encodeURIComponent(station.lng) + '&debug=true';
       const response = await fetch(url, { method: 'GET' });
       if (!response.ok) throw new Error('hotspot_http_' + response.status);
       return response.json();

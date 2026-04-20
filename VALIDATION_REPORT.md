@@ -47,7 +47,7 @@ The NAVIDUR Full Control System has been **successfully implemented and validate
 | Item | Status | Details |
 |------|--------|---------|
 | Station creation | ✅ PASS | Test Station Alpha created with full metadata |
-| API persistence | ✅ PASS | Available via `/api/stations` (GET active stations) |
+| API persistence | ✅ PASS | Available via `/api?route=stations` (GET active stations) |
 | Status validation | ✅ PASS | Station is 'active' and featured='true' |
 
 **New Station Details:**
@@ -292,20 +292,20 @@ web/index.html
 ## API Endpoints Validation
 
 ### Public Endpoints
-- ✅ `GET /api/stations` - Returns active stations
-- ✅ `POST /api/feedback` - Submit feedback (validated)
-- ✅ `POST /api/tracking` - Anonymous tracking
-- ✅ `POST /api/login` - User authentication
+- ✅ `GET /api?route=stations` - Returns active stations
+- ✅ `POST /api?route=feedback` - Submit feedback (validated)
+- ✅ `POST /api?route=tracking` - Anonymous tracking
+- ✅ `POST /api?route=login` - User authentication
 
 ### Admin Protected Endpoints
-- ✅ `GET,POST /api/admin/stations` - Manage stations
-- ✅ `PUT,DELETE /api/admin/stations/:id` - Edit/archive
-- ✅ `PATCH /api/admin/stations/:id/status` - Status updates
-- ✅ `GET,POST,PATCH /api/admin/users` - User management
-- ✅ `PATCH /api/admin/users/:id/password` - Password reset
-- ✅ `GET /api/admin/summary` - Analytics
-- ✅ `GET,PATCH /api/admin/feedback` - Feedback management
-- ✅ `POST /api/logout` - Session cleanup
+- ✅ `GET,POST /api?route=admin&path=stations` - Manage stations
+- ✅ `PUT,DELETE /api?route=admin&path=stations/:id` - Edit/archive
+- ✅ `PATCH /api?route=admin&path=stations/:id/status` - Status updates
+- ✅ `GET,POST,PATCH /api?route=admin&path=users` - User management
+- ✅ `PATCH /api?route=admin&path=users/:id/password` - Password reset
+- ✅ `GET /api?route=admin-summary` - Analytics
+- ✅ `GET,PATCH /api?route=admin&path=feedback` - Feedback management
+- ✅ `POST /api?route=logout` - Session cleanup
 
 **All endpoints require valid authentication token and proper role authorization.**
 

@@ -53,8 +53,8 @@ async function run() {
 
   // 4) APIs on custom domain (browser fetch)
   {
-    const stationsResp = await context.request.get('https://navidur.app/api/stations');
-    const summaryResp = await context.request.get('https://navidur.app/api/admin/summary');
+    const stationsResp = await context.request.get('https://navidur.app/api?route=stations');
+    const summaryResp = await context.request.get('https://navidur.app/api?route=admin-summary');
     push('custom_domain_stations_api_available', stationsResp.status() === 200, `status=${stationsResp.status()}`);
     push('custom_domain_admin_summary_unauth_blocked', summaryResp.status() === 401 || summaryResp.status() === 403, `status=${summaryResp.status()}`);
   }
@@ -66,7 +66,7 @@ async function run() {
     const authRequired = await textContains(page, 'Authentication Required');
     push('vercel_project_accessible_without_protection', status === 200 && !authRequired, `status=${status}, authRequired=${authRequired}`);
 
-    const apiResp = await context.request.get('https://wain-in-qatar-d00o26cxx-ehmoodi-7527s-projects.vercel.app/api/stations');
+    const apiResp = await context.request.get('https://wain-in-qatar-d00o26cxx-ehmoodi-7527s-projects.vercel.app/api?route=stations');
     push('vercel_stations_api_accessible_without_protection', apiResp.status() === 200, `status=${apiResp.status()}`);
   }
 

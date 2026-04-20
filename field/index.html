@@ -1138,7 +1138,7 @@
 'use strict';
 
 // ══════════════════════════════════════════════════════════
-// STATIONS — loaded dynamically from /api/stations
+// STATIONS — loaded dynamically from /api?route=stations
 // Falls back to localStorage cache, then FALLBACK_STATIONS
 // ══════════════════════════════════════════════════════════
 let STATIONS = []; // populated at runtime by loadStations()
@@ -1186,7 +1186,7 @@ async function loadStations() {
   if (appState.isOnline) {
     try {
       const headers = Auth.token ? { 'Authorization': 'Bearer ' + Auth.token } : {};
-      const resp = await fetch('/api/stations', { headers });
+      const resp = await fetch('/api?route=stations', { headers });
       if (resp.ok) {
         const data = await resp.json();
         if (data && Array.isArray(data.stations) && data.stations.length > 0) {
@@ -1213,7 +1213,7 @@ async function loadFishSpecies() {
   if (appState.isOnline) {
     try {
       const headers = Auth.token ? { 'Authorization': 'Bearer ' + Auth.token } : {};
-      const resp = await fetch('/api/fish-species', { headers });
+      const resp = await fetch('/api?route=fish-species', { headers });
       if (resp.ok) {
         const data = await resp.json();
         if (data && Array.isArray(data.fish_species) && data.fish_species.length > 0) {
@@ -1625,7 +1625,7 @@ async function doLogin(e) {
   btn.textContent = 'جارٍ الدخول...';
 
   try {
-    const resp = await fetch('/api/login', {
+    const resp = await fetch('/api?route=login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -2409,7 +2409,7 @@ async function saveNewFieldStation() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ جارٍ الحفظ...'; }
 
   try {
-    const resp = await fetch('/api/stations', {
+    const resp = await fetch('/api?route=stations', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3245,13 +3245,13 @@ async function submitFishSpeciesModal() {
   try {
     let resp;
     if (mode === 'create') {
-      resp = await fetch('/api/fish-species', {
+      resp = await fetch('/api?route=fish-species', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.token },
         body: JSON.stringify({ name: name })
       });
     } else {
-      resp = await fetch('/api/fish-species', {
+      resp = await fetch('/api?route=fish-species', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.token },
         body: JSON.stringify({
@@ -3433,7 +3433,7 @@ async function syncPending() {
       // Build server payload (exclude local_id)
       const { local_id, ...serverPayload } = record;
       try {
-        const resp = await fetch('/api/log-catch', {
+        const resp = await fetch('/api?route=log-catch', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

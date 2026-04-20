@@ -17,14 +17,14 @@
     var safeLat = toNumber(lat);
     var safeLon = toNumber(lon);
     if (safeLat == null || safeLon == null) throw new Error('station_coords_missing');
-    var url = '/api/fishing-engine?lat=' + encodeURIComponent(safeLat) + '&lon=' + encodeURIComponent(safeLon) + '&debug=true';
+    var url = '/api?route=fishing-engine&lat=' + encodeURIComponent(safeLat) + '&lon=' + encodeURIComponent(safeLon) + '&debug=true';
     var response = await fetch(url, { method: 'GET' });
     if (!response.ok) throw new Error('live_analysis_http_' + response.status);
     return response.json();
   }
 
   async function fetchSharedAnalysis(payload) {
-    var response = await fetch('/api/navidur-analysis', {
+    var response = await fetch('/api?route=analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload || {})

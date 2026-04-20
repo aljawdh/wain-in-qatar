@@ -1,7 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/**/*.js": {
+    "api/index.js": {
       "includeFiles": "data/*.json"
     }
   },
@@ -11,12 +11,26 @@
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/api/fish-species", "destination": "/api/stations?_navidur_route=fish_species" },
-    { "source": "/api/compute-decision", "destination": "/api/fishing-engine?_navidur_route=compute_decision" },
-    { "source": "/api/log-catch", "destination": "/api/tracking?_navidur_route=log_catch" },
-    { "source": "/api/catch-data", "destination": "/api/tracking?_navidur_route=catch_data" },
-    { "source": "/api/system-storage-health", "destination": "/api/tracking?_navidur_route=storage_health" },
-    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/api/admin/summary", "destination": "/api?route=admin-summary" },
+    { "source": "/api/admin/:path*", "destination": "/api?route=admin&path=:path*" },
+    { "source": "/api/navidur-analysis", "destination": "/api?route=analysis" },
+    { "source": "/api/admin-settings", "destination": "/api?route=admin-settings" },
+    { "source": "/api/admin-analytics", "destination": "/api?route=admin-analytics" },
+    { "source": "/api/fish-species", "destination": "/api?route=fish-species" },
+    { "source": "/api/compute-decision", "destination": "/api?route=compute-decision" },
+    { "source": "/api/log-catch", "destination": "/api?route=log-catch" },
+    { "source": "/api/catch-data", "destination": "/api?route=catch-data" },
+    { "source": "/api/system-storage-health", "destination": "/api?route=system-storage-health" },
+    { "source": "/api/fishing-engine", "destination": "/api?route=fishing-engine" },
+    { "source": "/api/stations", "destination": "/api?route=stations" },
+    { "source": "/api/tracking", "destination": "/api?route=tracking" },
+    { "source": "/api/feedback", "destination": "/api?route=feedback" },
+    { "source": "/api/login", "destination": "/api?route=login" },
+    { "source": "/api/logout", "destination": "/api?route=logout" },
+    { "source": "/api/vercel-analytics", "destination": "/api?route=vercel-analytics" },
+    { "source": "/api/runtime-store", "destination": "/api?route=runtime-store" },
+    { "source": "/api/_store", "destination": "/api?route=store" },
+    { "source": "/api/:path*", "destination": "/api?route=:path*" },
     { "source": "/admin.html", "destination": "/admin.html" },
     { "source": "/:path*", "destination": "/:path*" }
   ]

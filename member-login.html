@@ -139,7 +139,7 @@
         loginBtn.disabled = true;
 
         try {
-          var res = await fetch('/api/login', {
+          var res = await fetch('/api?route=login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',

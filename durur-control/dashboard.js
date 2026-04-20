@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadStationData() {
     try {
-      var data = await tryFetch('/api/stations', '/data/stations.json');
+      var data = await tryFetch('/api?route=stations', '/data/stations.json');
       stations = Array.isArray(data.stations) ? data.stations : (Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('[durur-control] failed to load stations', e);
@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadDururData() {
     try {
-      var data = await tryFetch('/api/admin/durur', '/data/durur.json');
+      var data = await tryFetch('/api?route=admin&path=durur', '/data/durur.json');
       dururCache = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
       if (durFilter) {
         durFilter.innerHTML = '<option value="all">الكل</option>' + dururCache.slice().sort(function (a, b) {
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadSeasonEvents() {
     try {
-      var data = await tryFetch('/api/admin/season-events', '/data/season_events.json');
+      var data = await tryFetch('/api?route=admin&path=season-events', '/data/season_events.json');
       seasonEventsCache = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
       if (seasonEventFilter) {
         seasonEventFilter.innerHTML = '<option value="all">الكل</option>' + seasonEventsCache.map(function (event) {
@@ -385,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadStationProfiles() {
     try {
-      var data = await tryFetch('/api/admin/station-dur-profiles', '/data/station_dur_profiles.json');
+      var data = await tryFetch('/api?route=admin&path=station-dur-profiles', '/data/station_dur_profiles.json');
       stationProfilesCache = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('[durur-control] failed to load station profiles', e);
@@ -395,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   async function loadStationOverrides() {
     try {
-      var data = await tryFetch('/api/admin/station-dur-overrides', '/data/station_dur_overrides.json');
+      var data = await tryFetch('/api?route=admin&path=station-dur-overrides', '/data/station_dur_overrides.json');
       stationOverridesCache = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('[durur-control] failed to load station overrides', e);

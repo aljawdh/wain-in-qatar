@@ -26,7 +26,7 @@
 3️⃣  STATION MANAGEMENT TESTS (3/3 ✅)
    • Station creation from scratch                 ✅ PASS
    • Station persistence in data layer             ✅ PASS
-   • Station API availability (GET /api/stations)  ✅ PASS
+   • Station API availability (GET /api?route=stations)  ✅ PASS
    
    Final Station Count: 33 (32 original + 1 new test station)
    New Station: "Test Station Alpha" (ID: stn_test_001, Status: active)
@@ -94,7 +94,7 @@
 
 ✅ NEW STATIONS CAN BE ADDED FROM DASHBOARD WITHOUT CODE CHANGES
    Evidence: Test station created successfully via data layer
-   Verification: Immediately available via /api/stations
+   Verification: Immediately available via /api?route=stations
    Result: NO SERVER RESTART REQUIRED
 
 ✅ ADMIN SYSTEM IS PROTECTED AND ROLE-BASED

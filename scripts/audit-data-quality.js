@@ -108,7 +108,7 @@ async function testE2EScenarios() {
   const sentIds = [];
 
   for (const s of scenarios) {
-    const { status, data } = await post('/api/log-catch', s.payload);
+    const { status, data } = await post('/api?route=log-catch', s.payload);
     if (status === 200 && data.ok && data.id) {
       ok(`${s.label} → id=${data.id}`);
       sentIds.push(data.id);
@@ -147,9 +147,9 @@ const NULLABLE_OK = new Set([
 async function inspectRecords() {
   section('2 — Inspect last 10 KV records');
 
-  const { status, data } = await get('/api/catch-data');
+  const { status, data } = await get('/api?route=catch-data');
   if (status !== 200 || !data.ok) {
-    fail('fetch /api/catch-data', `HTTP ${status}: ${JSON.stringify(data)}`);
+    fail('fetch /api?route=catch-data', `HTTP ${status}: ${JSON.stringify(data)}`);
     return [];
   }
 
@@ -270,7 +270,7 @@ async function testDedup() {
   const payloadA = buildPayload({ analysis_timestamp: freshTs, actual_species: ['كنعد'], prediction_snapshot_id: 'snap_dedup_test_1' });
 
   // First submission — should succeed
-  const r1 = await post('/api/log-catch', payloadA);
+  const r1 = await post('/api?route=log-catch', payloadA);
   if (r1.status === 200 && r1.data.ok) {
     ok('First submission accepted (status 200)');
   } else {
@@ -280,7 +280,7 @@ async function testDedup() {
 
   // Exact duplicate within 120s — should be rejected
   const payloadDup = { ...payloadA };
-  const r2 = await post('/api/log-catch', payloadDup);
+  const r2 = await post('/api?route=log-catch', payloadDup);
   if (r2.status === 409) {
     ok('Duplicate within 120s rejected (status 409) ✓');
   } else {
@@ -289,7 +289,7 @@ async function testDedup() {
 
   // Different actual_species — should NOT be blocked (different fingerprint)
   const payloadDiff = buildPayload({ analysis_timestamp: freshTs, actual_species: ['زبيدي'], prediction_snapshot_id: 'snap_dedup_test_2' });
-  const r3 = await post('/api/log-catch', payloadDiff);
+  const r3 = await post('/api?route=log-catch', payloadDiff);
   if (r3.status === 200 && r3.data.ok) {
     ok('Different actual_species accepted (different fingerprint) ✓');
   } else {
@@ -298,7 +298,7 @@ async function testDedup() {
 
   // Different catch_success (no catch) — different fingerprint
   const payloadNoCatch = buildPayload({ analysis_timestamp: freshTs, catch_success: false, actual_species: [], catch_quantity: null, fishing_method: null, prediction_snapshot_id: 'snap_dedup_test_3' });
-  const r4 = await post('/api/log-catch', payloadNoCatch);
+  const r4 = await post('/api?route=log-catch', payloadNoCatch);
   if (r4.status === 200 && r4.data.ok) {
     ok('catch_success=false with same TS accepted (different fingerprint) ✓');
   } else {
@@ -324,14 +324,14 @@ async function testSnapshotConsistency() {
     catch_quantity: 2
   });
 
-  const { status, data } = await post('/api/log-catch', payload);
+  const { status, data } = await post('/api?route=log-catch', payload);
   if (status !== 200 || !data.ok) {
     fail('Snapshot consistency submission', `HTTP ${status}: ${JSON.stringify(data)}`);
     return;
   }
 
   // Fetch the saved record
-  const { status: s2, data: d2 } = await get('/api/catch-data');
+  const { status: s2, data: d2 } = await get('/api?route=catch-data');
   if (s2 !== 200) { fail('fetch records for consistency check', `HTTP ${s2}`); return; }
 
   const saved = (d2.logs || []).find(r => r.prediction_snapshot_id === snapId);
@@ -381,7 +381,7 @@ async function testComputeConsistency() {
 
   // Call compute-decision
   const computePayload = { stationId: 'st_001', lat: 25.2854, lng: 51.531, date: '2026-04-10' };
-  const { status: cs, data: cd } = await post('/api/compute-decision', computePayload);
+  const { status: cs, data: cd } = await post('/api?route=compute-decision', computePayload);
   if (cs !== 200) {
     fail('compute-decision call', `HTTP ${cs}: ${JSON.stringify(cd)}`);
     return;
@@ -416,7 +416,7 @@ async function testComputeConsistency() {
     fishing_method: 'عراعير'
   };
 
-  const { status: ls, data: ld } = await post('/api/log-catch', fullPayload);
+  const { status: ls, data: ld } = await post('/api?route=log-catch', fullPayload);
   if (ls !== 200 || !ld.ok) {
     fail('log-catch with server-compute snapshot', `HTTP ${ls}: ${JSON.stringify(ld)}`);
     return;
@@ -424,7 +424,7 @@ async function testComputeConsistency() {
   ok('log-catch accepted with server compute data');
 
   // Verify saved record has server fields
-  const { status: fs, data: fd } = await get('/api/catch-data');
+  const { status: fs, data: fd } = await get('/api?route=catch-data');
   const saved = (fd.logs || []).find(r => r.prediction_snapshot_id === computeSnapId);
   if (!saved) { fail('find compute-consistency record', `snap_id=${computeSnapId} not found`); return; }
 
@@ -537,7 +537,7 @@ async function main() {
 
   // 0. Health check first
   section('0 — Storage health check');
-  const health = await get('/api/system-storage-health');
+  const health = await get('/api?route=system-storage-health');
   if (health.status === 200 && health.data.ok) {
     ok(`KV healthy: ${JSON.stringify(health.data)}`);
   } else {
@@ -563,7 +563,7 @@ async function main() {
   await testComputeConsistency();
 
   // 7. Dataset readiness
-  const { data: latestData } = await get('/api/catch-data');
+  const { data: latestData } = await get('/api?route=catch-data');
   await assessDatasetReadiness(latestData.logs || []);
 
   // ─── Final summary ───

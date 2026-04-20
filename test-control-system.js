@@ -201,9 +201,9 @@ async function testStations() {
     results.failed.push('Station creation and persistence');
   }
   
-  // Verify it would be served by /api/stations (active stations)
+  // Verify it would be served by /api?route=stations (active stations)
   if (found && found.status === 'active') {
-    log('Station is active and would be served by /api/stations', 'pass');
+    log('Station is active and would be served by /api?route=stations', 'pass');
     results.passed.push('Station active status for API');
   } else {
     log('Station status issue', 'fail');

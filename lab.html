@@ -2147,7 +2147,7 @@
       const feedbackStatus = document.getElementById('feedbackStatus');
       feedbackStatus.textContent = 'Sending...';
       try {
-        const response = await fetch('/api/feedback', {
+        const response = await fetch('/api?route=feedback', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -2225,7 +2225,7 @@
     }
 
     async function fetchHotspotForStation(station) {
-      const url = '/api/fishing-engine?lat=' + encodeURIComponent(station.lat) + '&lon=' + encodeURIComponent(station.lng) + '&debug=true';
+      const url = '/api?route=fishing-engine&lat=' + encodeURIComponent(station.lat) + '&lon=' + encodeURIComponent(station.lng) + '&debug=true';
       const response = await fetch(url, { method: 'GET' });
       if (!response.ok) throw new Error('hotspot_http_' + response.status);
       return response.json();
