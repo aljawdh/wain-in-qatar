@@ -124,6 +124,7 @@ async function loadReferenceData() {
   var rows = await Promise.all([
     readJsonFile('stations', []),
     readJsonFile('durur', []),
+    readJsonFile('durur_master', []),
     readJsonFile('durur_reference_seed', { durur_master: [] }),
     readJsonFile('trait_dictionaries', []),
     readJsonFile('season_events', []),
@@ -136,13 +137,14 @@ async function loadReferenceData() {
   return {
     stations: Array.isArray(rows[0]) ? rows[0] : [],
     durur_reference: Array.isArray(rows[1]) ? rows[1] : [],
-    durur_reference_seed: rows[2] || { durur_master: [] },
-    traits_reference: Array.isArray(rows[3]) ? rows[3] : [],
-    seasonal_events: Array.isArray(rows[4]) ? rows[4] : [],
-    fish_reference: Array.isArray(rows[5]) ? rows[5] : [],
-    advice_templates: Array.isArray(rows[6]) ? rows[6] : [],
-    station_profiles: Array.isArray(rows[7]) ? rows[7] : [],
-    overrides: Array.isArray(rows[8]) ? rows[8] : []
+    durur_master: Array.isArray(rows[2]) ? rows[2] : [],
+    durur_reference_seed: rows[3] || { durur_master: [] },
+    traits_reference: Array.isArray(rows[4]) ? rows[4] : [],
+    seasonal_events: Array.isArray(rows[5]) ? rows[5] : [],
+    fish_reference: Array.isArray(rows[6]) ? rows[6] : [],
+    advice_templates: Array.isArray(rows[7]) ? rows[7] : [],
+    station_profiles: Array.isArray(rows[8]) ? rows[8] : [],
+    overrides: Array.isArray(rows[9]) ? rows[9] : []
   };
 }
 

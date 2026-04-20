@@ -58,19 +58,119 @@
     return date;
   }
 
-  function calculateSuhailStart(lat, year) {
-    var safeLat = toNumber(lat);
-    var base = new Date(Date.UTC(Number(year || new Date().getUTCFullYear()), 7, 15));
-    if (safeLat == null) return base;
-    var offsetDays = Math.floor((25 - safeLat) * 2);
-    base.setUTCDate(base.getUTCDate() + offsetDays);
-    return base;
+  var SOHAIL_STATION_ANCHORS = {
+    'جازان': { month: 8, day: 16 },
+    'فرسان': { month: 8, day: 16 },
+    'صلالة': { month: 8, day: 16 },
+    'الدقم': { month: 8, day: 19 },
+    'القنفذة': { month: 8, day: 19 },
+    'جدة': { month: 8, day: 20 },
+    'الليث': { month: 8, day: 20 },
+    'رابغ': { month: 8, day: 22 },
+    'ينبع': { month: 8, day: 23 },
+    'أبوظبي': { month: 8, day: 23 },
+    'مسقط': { month: 8, day: 23 },
+    'أملج': { month: 8, day: 23 },
+    'صحار': { month: 8, day: 23 },
+    'مسندم (خصب)': { month: 8, day: 23 },
+    'الفجيرة': { month: 8, day: 23 },
+    'بوشهر': { month: 8, day: 23 },
+    'الدوحة': { month: 8, day: 24 },
+    'دبي': { month: 8, day: 24 },
+    'العقير': { month: 8, day: 24 },
+    'الخور': { month: 8, day: 24 },
+    'الرويس': { month: 8, day: 24 },
+    'المنامة': { month: 8, day: 25 },
+    'الخبر': { month: 8, day: 25 },
+    'الدمام': { month: 8, day: 25 },
+    'الجبيل': { month: 8, day: 26 },
+    'خفجي': { month: 8, day: 27 },
+    'ضبا': { month: 8, day: 27 },
+    'الوجه': { month: 8, day: 27 },
+    'حقل': { month: 8, day: 27 },
+    'نيوم': { month: 8, day: 27 },
+    'الكويت': { month: 8, day: 28 },
+    'الجهراء': { month: 8, day: 28 }
+  };
+
+  var DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS = 106;
+  var DEFAULT_DURUR_LENGTH_DAYS = 13;
+
+  function normalizeStationName(value) {
+    return normalizeString(value);
+  }
+
+  function clampNumber(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function getFallbackSuhailAnchorDay(station) {
+    var lat = toNumber(station && station.lat);
+    if (lat == null) return 24;
+    return clampNumber(Math.round(24 + ((lat - 25.3) * 0.75)), 16, 28);
+  }
+
+  function getStationSuhailAnchorConfig(station) {
+    var byName = SOHAIL_STATION_ANCHORS[normalizeStationName(station && station.name)];
+    if (byName) return { month: byName.month, day: byName.day, source: 'station_lookup' };
+    return { month: 8, day: getFallbackSuhailAnchorDay(station), source: 'latitude_fallback' };
+  }
+
+  function createUtcDate(year, month, day) {
+    return new Date(Date.UTC(Number(year || new Date().getUTCFullYear()), Number(month || 1) - 1, Number(day || 1), 0, 0, 0, 0));
+  }
+
+  function getStationSuhailAnchorDate(station, year) {
+    var cfg = getStationSuhailAnchorConfig(station);
+    return createUtcDate(year, cfg.month, cfg.day);
+  }
+
+  function getRelevantSuhailAnchor(station, analysisDate) {
+    var year = analysisDate.getUTCFullYear();
+    var currentAnchor = getStationSuhailAnchorDate(station, year);
+    var currentCycleStart = addDays(currentAnchor, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
+    if (analysisDate >= currentCycleStart) return currentAnchor;
+    return getStationSuhailAnchorDate(station, year - 1);
+  }
+
+  function getDaysBetween(start, end) {
+    return Math.floor((end.getTime() - start.getTime()) / 86400000);
   }
 
   function sortDurRows(rows) {
     return toArray(rows).slice().sort(function (a, b) {
-      return Number(a && a.dur_number || 0) - Number(b && b.dur_number || 0);
+      var aOrder = Number(a && (a.order_index != null ? a.order_index : a.dur_number) || 0);
+      var bOrder = Number(b && (b.order_index != null ? b.order_index : b.dur_number) || 0);
+      return aOrder - bOrder;
     });
+  }
+
+  function normalizeDurRow(row) {
+    var item = row || {};
+    return {
+      id: normalizeString(item.id),
+      dur_number: toNumber(item.dur_number),
+      order_index: toNumber(item.order_index != null ? item.order_index : item.dur_number),
+      default_days_count: toNumber(item.default_days_count != null ? item.default_days_count : item.days_count) || DEFAULT_DURUR_LENGTH_DAYS,
+      season_ar: normalizeString(item.season_ar || item.season),
+      season_en: normalizeString(item.season_en),
+      zodiac_ar: normalizeString(item.astronomical_marker_ar || item.zodiac_ar),
+      zodiac_en: normalizeString(item.astronomical_marker_en || item.zodiac_en),
+      name_ar: normalizeString(item.name_ar || item.name),
+      name_en: normalizeString(item.name_en),
+      heritage_meaning_ar: normalizeString(item.heritage_meaning_ar || item.heritage_meaning),
+      heritage_meaning_en: normalizeString(item.heritage_meaning_en),
+      description_ar: normalizeString(item.description_ar || item.description),
+      description_en: normalizeString(item.description_en),
+      notes_ar: normalizeString(item.notes_ar || item.notes),
+      notes_en: normalizeString(item.notes_en),
+      general_traits: normalizeStringArray(item.general_traits),
+      weather_traits: normalizeStringArray(item.weather_traits),
+      marine_traits: normalizeStringArray(item.marine_traits),
+      fish_traits: normalizeStringArray(item.fish_traits),
+      related_event_ids: uniqueStrings([].concat(item.related_event_ids || [], item.related_events || [])),
+      is_active: item.is_active !== false
+    };
   }
 
   function getSeasonKeyFromDate(date) {
@@ -169,22 +269,25 @@
     var durRows = sortDurRows(referenceData && referenceData.durur_reference);
     if (!durRows.length) return { current: null, next: null };
 
-    var year = analysisDate.getUTCFullYear();
-    var suhailStart = calculateSuhailStart(station && station.lat, year);
+    var suhailStart = getRelevantSuhailAnchor(station, analysisDate);
     var seasonKey = getSeasonKeyFromDate(analysisDate);
+    var cycleStart = addDays(suhailStart, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
+    var cursor = cycleStart;
 
     var timeline = durRows.map(function (durRow, index) {
-      var start = addDays(suhailStart, index * 13);
-      var end = addDays(start, Math.max(0, Number(durRow.days_count || durRow.default_days_count || 13) - 1));
+      var daysCount = Math.max(1, Number(durRow && durRow.default_days_count || DEFAULT_DURUR_LENGTH_DAYS));
       var storedOverride = findStoredOverride(referenceData, station, durRow, seasonKey) || {};
       var mergedOverride = Object.assign({}, storedOverride, runtimeOverride || {});
-      start = addDays(start, toNumber(mergedOverride.start_offset_days) || 0);
+      var start = addDays(cursor, toNumber(mergedOverride.start_offset_days) || 0);
+      var end = addDays(start, daysCount - 1);
       end = addDays(end, toNumber(mergedOverride.end_offset_days) || 0);
-      return {
+      var item = {
         durRow: durRow,
         start: start,
         end: end
       };
+      cursor = addDays(end, 1);
+      return item;
     });
 
     var current = null;
@@ -202,7 +305,13 @@
 
     var currentIndex = timeline.indexOf(current);
     var next = timeline[(currentIndex + 1) % timeline.length];
-    return { current: current, next: next };
+    return {
+      current: current,
+      next: next,
+      timeline: timeline,
+      suhail_anchor: suhailStart,
+      cycle_start: timeline[0] ? timeline[0].start : cycleStart
+    };
   }
 
   function dateRangeContains(date, startMonth, startDay, endMonth, endDay) {
@@ -220,6 +329,7 @@
   function resolveSeasonalEvents(referenceData, durRow, analysisDate, runtimeOverride) {
     var targetDurId = normalizeString(durRow && durRow.id);
     var overrideEventIds = uniqueStrings([].concat(
+      toArray(durRow && durRow.related_event_ids),
       toArray(runtimeOverride && runtimeOverride.season_event_ids),
       toArray(runtimeOverride && runtimeOverride.seasonal_event_ids)
     ));
@@ -291,6 +401,7 @@
     var marineTraits = [];
     var seasonalTraits = [];
     var fishTraits = [];
+    var generalTraits = [];
 
     weatherTraits = weatherTraits.concat(durRow && durRow.weather_traits || []);
     weatherTraits = weatherTraits.concat(durReference && durReference.weather_traits || []);
@@ -307,6 +418,8 @@
     fishTraits = fishTraits.concat(stationProfile && stationProfile.traits_fish || []);
     fishTraits = fishTraits.concat(runtimeOverride && runtimeOverride.fish_traits || []);
 
+    generalTraits = generalTraits.concat(durRow && durRow.general_traits || []);
+    generalTraits = generalTraits.concat(durReference && durReference.general_traits || []);
     seasonalTraits = seasonalTraits.concat(stationProfile && stationProfile.traits_seasonal_transition_traits || []);
     seasonalTraits = seasonalTraits.concat(runtimeOverride && runtimeOverride.seasonal_traits || []);
 
@@ -318,10 +431,50 @@
     });
 
     return {
+      general_traits: uniqueStrings(generalTraits),
       weather_traits: resolveTraitLabels(weatherTraits, referenceData),
       marine_traits: resolveTraitLabels(marineTraits, referenceData),
       seasonal_traits: uniqueStrings(seasonalTraits),
       fish_traits: uniqueStrings(fishTraits)
+    };
+  }
+
+  function buildDurReferenceMetadata(durRow, nextDur, traitBundle, seasonalEvents) {
+    if (!durRow) return null;
+    return {
+      id: normalizeString(durRow.id),
+      dur_number: toNumber(durRow.dur_number),
+      order_index: toNumber(durRow.order_index),
+      name_ar: normalizeString(durRow.name_ar || durRow.name),
+      name_en: normalizeString(durRow.name_en),
+      season_ar: normalizeString(durRow.season_ar),
+      season_en: normalizeString(durRow.season_en),
+      zodiac_ar: normalizeString(durRow.zodiac_ar),
+      zodiac_en: normalizeString(durRow.zodiac_en),
+      heritage_meaning_ar: normalizeString(durRow.heritage_meaning_ar),
+      heritage_meaning_en: normalizeString(durRow.heritage_meaning_en),
+      description_ar: normalizeString(durRow.description_ar),
+      description_en: normalizeString(durRow.description_en),
+      notes_ar: normalizeString(durRow.notes_ar),
+      notes_en: normalizeString(durRow.notes_en),
+      general_traits: uniqueStrings(traitBundle && traitBundle.general_traits || []),
+      weather_traits: uniqueStrings(traitBundle && traitBundle.weather_traits || []),
+      marine_traits: uniqueStrings(traitBundle && traitBundle.marine_traits || []),
+      fish_traits: uniqueStrings(traitBundle && traitBundle.fish_traits || []),
+      seasonal_event_names: uniqueStrings((seasonalEvents || []).map(function (eventItem) {
+        return normalizeString(eventItem && (eventItem.name_ar || eventItem.name || eventItem.name_en));
+      })),
+      seasonal_events: toArray(seasonalEvents).map(function (eventItem) {
+        return {
+          id: normalizeString(eventItem && eventItem.id),
+          name_ar: normalizeString(eventItem && (eventItem.name_ar || eventItem.name)),
+          name_en: normalizeString(eventItem && eventItem.name_en),
+          description_ar: normalizeString(eventItem && (eventItem.description_ar || eventItem.description)),
+          description_en: normalizeString(eventItem && eventItem.description_en)
+        };
+      }),
+      next_period_id: normalizeString(nextDur && nextDur.durRow && nextDur.durRow.id),
+      next_period_name: normalizeString(nextDur && nextDur.durRow && (nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en))
     };
   }
 
@@ -459,14 +612,16 @@
   function normalizeReferenceData(referenceData) {
     var source = referenceData || {};
     var dururReference = sortDurRows(
-      source.durur_reference ||
+      (source.durur_master && source.durur_master.length ? source.durur_master : null) ||
       source.durur ||
+      source.durur_reference ||
       (source.durur_reference_seed && source.durur_reference_seed.durur_master) ||
       []
-    );
+    ).map(normalizeDurRow);
 
     return {
       durur_reference: dururReference,
+      durur_order: toArray(source.durur_order || (source.durur_reference_seed && source.durur_reference_seed.durur_order)),
       traits_reference: toArray(source.traits_reference || source.trait_dictionaries),
       seasonal_events: toArray(source.seasonal_events || source.season_events),
       fish_reference: toArray(source.fish_reference || source.fish_species),
@@ -513,6 +668,13 @@
       seasonalEvents,
       runtimeOverride
     );
+    var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
+    var durReferenceMetadata = buildDurReferenceMetadata(
+      currentDur && currentDur.durRow ? currentDur.durRow : durReference,
+      nextDur,
+      traitBundle,
+      seasonalEvents
+    );
 
     var fishing = buildFishingDecision(
       referenceData,
@@ -530,10 +692,15 @@
       station_id: station.id || null,
       analysis_timestamp: analysisDateTime.toISOString(),
       dur: {
+        period_id: currentDur && currentDur.durRow ? normalizeString(currentDur.durRow.id) : '',
         period_number: currentDur && currentDur.durRow ? toNumber(currentDur.durRow.dur_number) : null,
         period_name: currentDur && currentDur.durRow ? normalizeString(currentDur.durRow.name_ar || currentDur.durRow.name || currentDur.durRow.name_en) : '',
+        day_in_period: dayInPeriod,
+        next_period_id: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.id) : '',
         next_period_name: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en) : '',
-        days_remaining: currentDur && currentDur.end ? Math.max(0, Math.ceil((currentDur.end.getTime() - analysisDate.getTime()) / 86400000)) : null
+        days_remaining: currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null,
+        suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
+        reference: durReferenceMetadata
       },
       environment: {
         temp_c: liveEnvironment.temp_c,

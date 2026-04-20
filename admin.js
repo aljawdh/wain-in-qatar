@@ -3231,6 +3231,7 @@
 
   function updateAnalyticsDurReferenceDisplay(dur, manualWeatherIds, manualMarineIds, manualGeneralIds, manualSeasonIds, manualFishTraits) {
     ensureAnalyticsDurReferenceFields();
+    var resolvedReference = dur && dur.reference ? dur.reference : null;
     var seasonEl = getEl('stAnalyticsDurSeason');
     var meaningEl = getEl('stAnalyticsDurMeaning');
     var descriptionEl = getEl('stAnalyticsDurDescription');
@@ -3243,16 +3244,20 @@
     var manualFishEl = getEl('stAnalyticsDurManualFish');
     var manualSeasonEl = getEl('stAnalyticsDurManualDurEvents');
     if (!seasonEl || !meaningEl || !descriptionEl || !weatherEl || !marineEl || !fishEl || !eventsEl || !manualWeatherEl || !manualMarineEl || !manualFishEl || !manualSeasonEl) return;
-    seasonEl.textContent = dur && dur.season_ar ? dur.season_ar : '--';
-    meaningEl.textContent = dur && dur.heritage_meaning_ar ? dur.heritage_meaning_ar : '--';
-    descriptionEl.textContent = dur ? (dur.notes_ar || dur.description_ar || dur.description || '--') : '--';
+    seasonEl.textContent = resolvedReference ? (resolvedReference.season_ar || '--') : (dur && dur.season_ar ? dur.season_ar : '--');
+    meaningEl.textContent = resolvedReference
+      ? (resolvedReference.heritage_meaning_ar || '--')
+      : (dur && dur.heritage_meaning_ar ? dur.heritage_meaning_ar : '--');
+    descriptionEl.textContent = resolvedReference
+      ? (resolvedReference.notes_ar || resolvedReference.description_ar || '--')
+      : (dur ? (dur.notes_ar || dur.description_ar || dur.description || '--') : '--');
 
-    var referenceWeather = dur ? getDurReferenceTraitLabels(dur, 'weather') : [];
-    var referenceWeatherIds = dur ? getDurReferenceTraitIds(dur, 'weather') : [];
-    var referenceMarine = dur ? getDurReferenceTraitLabels(dur, 'marine') : [];
-    var referenceMarineIds = dur ? getDurReferenceTraitIds(dur, 'marine') : [];
-    var referenceFish = dur && Array.isArray(dur.fish_traits) ? dur.fish_traits.slice() : [];
-    var referenceEvents = dur ? getSeasonEventsForDur(dur) : [];
+    var referenceWeather = resolvedReference ? (resolvedReference.weather_traits || []).slice() : (dur ? getDurReferenceTraitLabels(dur, 'weather') : []);
+    var referenceWeatherIds = resolvedReference ? mapTraitValuesToIds(referenceWeather, 'weather') : (dur ? getDurReferenceTraitIds(dur, 'weather') : []);
+    var referenceMarine = resolvedReference ? (resolvedReference.marine_traits || []).slice() : (dur ? getDurReferenceTraitLabels(dur, 'marine') : []);
+    var referenceMarineIds = resolvedReference ? mapTraitValuesToIds(referenceMarine, 'marine') : (dur ? getDurReferenceTraitIds(dur, 'marine') : []);
+    var referenceFish = resolvedReference ? (resolvedReference.fish_traits || []).slice() : (dur && Array.isArray(dur.fish_traits) ? dur.fish_traits.slice() : []);
+    var referenceEvents = resolvedReference ? (resolvedReference.seasonal_events || []).slice() : (dur ? getSeasonEventsForDur(dur) : []);
 
     weatherEl.textContent = referenceWeather.length ? referenceWeather.join(', ') : '--';
     marineEl.textContent = referenceMarine.length ? referenceMarine.join(', ') : '--';
@@ -3509,6 +3514,7 @@
         var dto = await fetchSharedLiveAnalysisBundle(station);
         if (requestToken !== currentAnalysisRequestToken) return;
         observedTraits = deriveObservedTraitsFromAnalysis(dto);
+        staticDur = dto && dto.dur ? dto.dur : staticDur;
         renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث القراءة الحية');
       } catch (_liveErr) {
         if (requestToken !== currentAnalysisRequestToken) return;
