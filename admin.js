@@ -1000,6 +1000,32 @@
     return mergeUniqueArrays(traits);
   }
 
+  function getObservedTraitsFromWeather(weatherState) {
+    if (!weatherState) return [];
+    var traits = [];
+    if (weatherState.wave_height != null) {
+      if (weatherState.wave_height >= 1.5) traits.push('بحر مضطرب');
+      else if (weatherState.wave_height >= 0.7) traits.push('نشاط الموج');
+      else traits.push('بحر هادئ');
+    }
+    if (weatherState.current_speed_ms != null) {
+      if (weatherState.current_speed_ms >= 0.8) traits.push('تيار قوي');
+      else if (weatherState.current_speed_ms >= 0.45) traits.push('نشاط التيارات');
+      else traits.push('تيار خفيف');
+    }
+    if (weatherState.wind_speed_10m != null) {
+      if (weatherState.wind_speed_10m >= 30) traits.push('رياح قوية');
+      else if (weatherState.wind_speed_10m >= 18) traits.push('رياح متوسطة');
+      else traits.push('رياح خفيفة');
+    }
+    if (weatherState.temperature_2m != null) {
+      if (weatherState.temperature_2m >= 31) traits.push('جو حار وجاف');
+      else if (weatherState.temperature_2m <= 18) traits.push('جو بارد');
+      else traits.push('اعتدال الجو');
+    }
+    return mergeUniqueArrays(traits);
+  }
+
   function getSeasonEventsForDur(dur) {
     if (!dur) return [];
     return seasonEventsCache.filter(function (e) { return Array.isArray(e.related_dur_ids) && e.related_dur_ids.includes(dur.id); });
@@ -3088,7 +3114,11 @@
       container = document.createElement('div');
       container.id = noteId;
       container.style.cssText = 'margin-top:10px;font-size:.84rem;color:#9fc1d7;line-height:1.5';
-      statusNode.parentNode.insertBefore(container, statusNode.parentNode.nextSibling);
+      if (statusNode.nextSibling) {
+        statusNode.parentNode.insertBefore(container, statusNode.nextSibling);
+      } else {
+        statusNode.parentNode.appendChild(container);
+      }
     }
     if (!dur) {
       container.innerHTML = '<div>معلومات الدر المرجعية غير متاحة.</div>';
@@ -3357,6 +3387,7 @@
       wind_speed_10m: dto.environment.wind_speed_kmh,
       wind_direction_10m: dto.environment.wind_direction_deg,
       wave_height: dto.environment.wave_height_m,
+      current_speed_ms: dto.tide.current_speed_ms,
       checked_at: dto.analysis_timestamp,
       source: 'shared_navidur_engine'
     };
