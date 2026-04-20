@@ -3510,8 +3510,38 @@
     function renderHero(date) {
       if (currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.dur) {
         const env = currentSharedAnalysisDto.environment;
+        const durRef = currentSharedAnalysisDto.dur.reference || null;
         const tideLabel = getSharedWaterStateArabic() || 'غير معروف';
         const activeModeFromDto = getSharedFishingMode() || getActiveMode(date);
+        const escapeHtml = function (value) {
+          return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        };
+        const durNotes = durRef ? [durRef.description_ar, durRef.notes_ar].filter(function (item, index, arr) {
+          return item && arr.indexOf(item) === index;
+        }) : [];
+        const seasonalEventNames = durRef
+          ? ((durRef.seasonal_event_names && durRef.seasonal_event_names.length ? durRef.seasonal_event_names : (durRef.seasonal_events || []).map(function (item) {
+              return item && (item.name_ar || item.name || item.id) || '';
+            })).filter(Boolean))
+          : [];
+        const renderRefList = function (label, values) {
+          return values && values.length ? '<div><strong>' + escapeHtml(label) + ':</strong> ' + values.map(escapeHtml).join('، ') + '</div>' : '';
+        };
+        const refHtml = durRef ? [
+          '<div><strong>التوصية الحالية:</strong> ' + escapeHtml(currentSharedAnalysisDto.fishing.advice_text || '---') + '</div>',
+          '<div><strong>الموسم:</strong> ' + escapeHtml(durRef.season_ar || '---') + '</div>',
+          '<div><strong>المعنى التقليدي:</strong> ' + escapeHtml(durRef.heritage_meaning_ar || '---') + '</div>',
+          durNotes.length ? '<div><strong>الوصف / الملاحظات:</strong> ' + durNotes.map(escapeHtml).join(' | ') + '</div>' : '',
+          renderRefList('سمات الطقس', durRef.weather_traits || []),
+          renderRefList('سمات البحر', durRef.marine_traits || []),
+          renderRefList('سمات السمك', durRef.fish_traits || []),
+          renderRefList('الأحداث الموسمية', seasonalEventNames)
+        ].filter(Boolean).join('') : escapeHtml(currentSharedAnalysisDto.fishing.advice_text || '');
         document.getElementById('dateLine').textContent = formatDateArabic(new Date()) + ' • ' + selectedStation.name;
         document.getElementById('moonIcon').textContent = '🌊';
         document.getElementById('moonVal').textContent = tideLabel;
@@ -3520,9 +3550,9 @@
         document.getElementById('tideHeightVal').textContent = currentSharedAnalysisDto.tide.current_speed_ms != null ? ('🌊 ' + currentSharedAnalysisDto.tide.current_speed_ms + ' م/ث') : '🌊 ---';
         document.getElementById('currentWaterHeight').innerHTML = '≈ الحالة الحالية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span> • الثقة: ' + (currentSharedAnalysisDto.fishing.confidence_score != null ? currentSharedAnalysisDto.fishing.confidence_score + '%' : '---');
         document.getElementById('dorahName').textContent = 'الدر الحالي: ' + (currentSharedAnalysisDto.dur.period_name || '---');
-        document.getElementById('dorahDetail').textContent = 'الفترة التالية: ' + (currentSharedAnalysisDto.dur.next_period_name || '---');
+        document.getElementById('dorahDetail').textContent = 'الفترة التالية: ' + (currentSharedAnalysisDto.dur.next_period_name || '---') + (durRef && durRef.season_ar ? ' • الموسم: ' + durRef.season_ar : '');
         document.getElementById('dorahCountdownLine').textContent = 'باقي ' + (currentSharedAnalysisDto.dur.days_remaining != null ? currentSharedAnalysisDto.dur.days_remaining : '--') + ' يوم';
-        document.getElementById('dorahInfoBox').textContent = currentSharedAnalysisDto.fishing.advice_text || '';
+        document.getElementById('dorahInfoBox').innerHTML = refHtml;
         document.getElementById('countdownDays').textContent = String(currentSharedAnalysisDto.dur.days_remaining != null ? currentSharedAnalysisDto.dur.days_remaining : '--');
         document.getElementById('dorahWarning').textContent = currentSharedAnalysisDto.fishing.is_recommended ? 'التوصية الحالية مناسبة.' : 'الصيد يحتاج حذراً في هذه المحطة.';
         document.getElementById('coastalBtn').classList.toggle('active', activeModeFromDto === 'coastal');

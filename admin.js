@@ -3209,11 +3209,12 @@
   function ensureAnalyticsDurReferenceFields() {
     var container = getEl('stAnalyticsDerivedReading');
     if (!container) return;
-    ['stAnalyticsDurSeason', 'stAnalyticsDurMeaning', 'stAnalyticsDurDescription', 'stAnalyticsDurWeather', 'stAnalyticsDurMarine', 'stAnalyticsDurFish', 'stAnalyticsDurEvents', 'stAnalyticsDurManualWeather', 'stAnalyticsDurManualMarine', 'stAnalyticsDurManualFish', 'stAnalyticsDurManualDurEvents'].forEach(function (id) {
+    ['stAnalyticsDurSeason', 'stAnalyticsDurMeaning', 'stAnalyticsDurDescription', 'stAnalyticsDurGeneral', 'stAnalyticsDurWeather', 'stAnalyticsDurMarine', 'stAnalyticsDurFish', 'stAnalyticsDurEvents', 'stAnalyticsDurManualWeather', 'stAnalyticsDurManualMarine', 'stAnalyticsDurManualFish', 'stAnalyticsDurManualDurEvents'].forEach(function (id) {
       if (!getEl(id)) {
         var label = 'الموسم:';
         if (id === 'stAnalyticsDurMeaning') label = 'المعنى التقليدي:';
         if (id === 'stAnalyticsDurDescription') label = 'الوصف:';
+        if (id === 'stAnalyticsDurGeneral') label = 'السمات العامة المرجعية:';
         if (id === 'stAnalyticsDurWeather') label = 'سمات الطقس المرجعية:';
         if (id === 'stAnalyticsDurMarine') label = 'سمات البحر المرجعية:';
         if (id === 'stAnalyticsDurFish') label = 'سمات السمك المرجعية:';
@@ -3235,6 +3236,7 @@
     var seasonEl = getEl('stAnalyticsDurSeason');
     var meaningEl = getEl('stAnalyticsDurMeaning');
     var descriptionEl = getEl('stAnalyticsDurDescription');
+    var generalEl = getEl('stAnalyticsDurGeneral');
     var weatherEl = getEl('stAnalyticsDurWeather');
     var marineEl = getEl('stAnalyticsDurMarine');
     var fishEl = getEl('stAnalyticsDurFish');
@@ -3243,7 +3245,7 @@
     var manualMarineEl = getEl('stAnalyticsDurManualMarine');
     var manualFishEl = getEl('stAnalyticsDurManualFish');
     var manualSeasonEl = getEl('stAnalyticsDurManualDurEvents');
-    if (!seasonEl || !meaningEl || !descriptionEl || !weatherEl || !marineEl || !fishEl || !eventsEl || !manualWeatherEl || !manualMarineEl || !manualFishEl || !manualSeasonEl) return;
+    if (!seasonEl || !meaningEl || !descriptionEl || !generalEl || !weatherEl || !marineEl || !fishEl || !eventsEl || !manualWeatherEl || !manualMarineEl || !manualFishEl || !manualSeasonEl) return;
     seasonEl.textContent = resolvedReference ? (resolvedReference.season_ar || '--') : (dur && dur.season_ar ? dur.season_ar : '--');
     meaningEl.textContent = resolvedReference
       ? (resolvedReference.heritage_meaning_ar || '--')
@@ -3251,6 +3253,9 @@
     descriptionEl.textContent = resolvedReference
       ? (resolvedReference.notes_ar || resolvedReference.description_ar || '--')
       : (dur ? (dur.notes_ar || dur.description_ar || dur.description || '--') : '--');
+    generalEl.textContent = resolvedReference && Array.isArray(resolvedReference.general_traits) && resolvedReference.general_traits.length
+      ? resolvedReference.general_traits.join(', ')
+      : '--';
 
     var referenceWeather = resolvedReference ? (resolvedReference.weather_traits || []).slice() : (dur ? getDurReferenceTraitLabels(dur, 'weather') : []);
     var referenceWeatherIds = resolvedReference ? mapTraitValuesToIds(referenceWeather, 'weather') : (dur ? getDurReferenceTraitIds(dur, 'weather') : []);
