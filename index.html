@@ -1612,6 +1612,8 @@
     let analysisCircle = null;
     let stationMarkerMap = new Map();
     let latestHotspotResult = null;
+    let currentSharedAnalysisDto = null;
+    let currentSharedAnalysisRequest = 0;
     let serverComputeResult = null; // cached server-side tidal compute result (TASK 1 fallback layer)
     let currentPredictionSnapshot = null; // frozen snapshot of analysis state — used for catch logging
     let allStationsExpanded = false;
@@ -2782,6 +2784,32 @@
         currentPredictionSnapshot = null;
         return;
       }
+      if (currentSharedAnalysisDto) {
+        currentPredictionSnapshot = {
+          snapshot_id: 'snap_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          station_id: selectedStation.id,
+          station_name: selectedStation.name || '',
+          lat: selectedStation.lat != null ? selectedStation.lat : null,
+          lng: selectedStation.lng != null ? selectedStation.lng : null,
+          analysis_timestamp: currentSharedAnalysisDto.analysis_timestamp,
+          tide_current: currentSharedAnalysisDto.tide.current_speed_ms,
+          tide_previous: null,
+          tide_next: null,
+          wind_speed_kmh: currentSharedAnalysisDto.environment.wind_speed_kmh,
+          wind_direction: currentSharedAnalysisDto.environment.wind_direction_deg,
+          temperature: currentSharedAnalysisDto.environment.temp_c,
+          tidal_coefficient: currentSharedAnalysisDto.fishing.confidence_score,
+          water_state: getSharedWaterStateArabic(),
+          activity_score: currentSharedAnalysisDto.fishing.confidence_score,
+          fishing_mode: getSharedFishingMode(),
+          species_predicted: getSharedSpeciesNames(),
+          compute_source: 'shared_engine',
+          server_water_state: null,
+          server_tidal_coefficient: null,
+          server_activity_score: null
+        };
+        return;
+      }
       const date = getForecastDateByIndex(selectedForecastDay);
       const activeHours = getActiveHours();
       const idx = selectedHourIndex;
@@ -2837,10 +2865,16 @@
       const targetDate = new Date(date || new Date());
       const out = {};
       navidurEngine.getStations().forEach(function (st) {
-        const decision = st.id === selectedStation.id
+        const sharedWaterState = currentSharedAnalysisDto && selectedStation && st.id === selectedStation.id
+          ? (currentSharedAnalysisDto.tide && currentSharedAnalysisDto.tide.state === 'LOAD' ? 'حمل' :
+            currentSharedAnalysisDto.tide && currentSharedAnalysisDto.tide.state === 'FASAD' ? 'فساد' : null)
+          : null;
+        const decision = st.id === selectedStation.id && !sharedWaterState
           ? getStationDecisionEngine(targetDate, st)
           : null;
-        const mode = decision ? decision.mode : getDailyFishingLabel(targetDate, st).mode;
+        const mode = st.id === selectedStation.id && sharedWaterState
+          ? (sharedWaterState === 'حمل' ? 'deep' : 'coastal')
+          : (decision ? decision.mode : getDailyFishingLabel(targetDate, st).mode);
         const currentDar = getCurrentDar(targetDate, st);
         out[st.id] = {
           stationId: st.id,
@@ -2850,16 +2884,40 @@
             : st.tideSource,
           bathymetry: st.bathymetry,
           mode: mode,
-          waterState: decision ? decision.waterState : null,
-          tidalCoefficient: decision ? decision.tidalCoefficient : null,
+          waterState: sharedWaterState || (decision ? decision.waterState : null),
+          tidalCoefficient: currentSharedAnalysisDto && selectedStation && st.id === selectedStation.id
+            ? (currentSharedAnalysisDto.fishing ? currentSharedAnalysisDto.fishing.confidence_score : null)
+            : (decision ? decision.tidalCoefficient : null),
           migrationSeason: decision ? decision.migrationSeason : null,
-          migrationAdvice: decision ? decision.migrationAdvice : null,
+          migrationAdvice: currentSharedAnalysisDto && selectedStation && st.id === selectedStation.id
+            ? currentSharedAnalysisDto.fishing.advice_text
+            : (decision ? decision.migrationAdvice : null),
           dorah: currentDar.dar,
           season: currentDar.seasonName
         };
       });
       stationStates = out;
       return out;
+    }
+
+    function getSharedWaterStateArabic() {
+      if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.tide) return null;
+      if (currentSharedAnalysisDto.tide.state === 'LOAD') return 'حمل';
+      if (currentSharedAnalysisDto.tide.state === 'FASAD') return 'فساد';
+      return null;
+    }
+
+    function getSharedFishingMode() {
+      const waterState = getSharedWaterStateArabic();
+      if (waterState === 'حمل') return 'deep';
+      if (waterState === 'فساد') return 'coastal';
+      return null;
+    }
+
+    function getSharedSpeciesNames() {
+      if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.fishing) return [];
+      const species = currentSharedAnalysisDto.fishing.species_activity;
+      return Array.isArray(species) ? species.filter(Boolean) : [];
     }
 
     // Layer 2 (local marine state) is the authoritative source for حمل/فساد.
@@ -3184,6 +3242,22 @@
 
     function renderHotspotPanel(result) {
       if (!result) return;
+      if (result.fishing && result.environment && result.dur && result.tide) {
+        const confidence = getConfidenceMeta(result.fishing.confidence_score != null ? result.fishing.confidence_score : 0);
+        const fishNames = getSharedSpeciesNames();
+        document.getElementById('hotspotScore').textContent = String(result.fishing.confidence_score != null ? result.fishing.confidence_score : '--');
+        document.getElementById('hotspotZone').textContent = 'الحالة: ' + (getSharedWaterStateArabic() || 'غير معروف');
+        document.getElementById('hotspotBest').textContent = 'الدر الحالي: ' + (result.dur.period_name || '---');
+        document.getElementById('hotspotCurrent').textContent = 'التيار: ' + (result.tide.current_speed_ms != null ? result.tide.current_speed_ms : '--') + ' • حرارة: ' + (result.environment.temp_c != null ? result.environment.temp_c : '--');
+        document.getElementById('hotspotPoints').textContent = 'الأنواع النشطة: ' + (fishNames.length ? fishNames.join('، ') : '---');
+        document.getElementById('mapMetaText').textContent = 'المحطة: ' + (selectedStation ? selectedStation.name : '---');
+        const confidenceBadge = document.getElementById('confidenceBadge');
+        confidenceBadge.className = 'confidence-pill ' + confidence.cls;
+        confidenceBadge.textContent = 'Confidence: ' + confidence.label;
+        document.getElementById('whySpotBox').innerHTML = result.fishing.advice_text || '';
+        document.getElementById('feedbackStatus').textContent = '';
+        return;
+      }
       const best = result.best_spot || {};
       const data = result.data || {};
       const area = result.search_area || {};
@@ -3351,6 +3425,48 @@
     }
 
     function renderFish(date) {
+      if (currentSharedAnalysisDto && currentSharedAnalysisDto.fishing) {
+        const root = document.getElementById('fishList');
+        const fishNames = getSharedSpeciesNames();
+        root.innerHTML = '';
+        if (!fishNames.length) {
+          root.innerHTML = '<div class="empty">لا توجد أسماك مطابقة حالياً.</div>';
+          return;
+        }
+        fishNames.forEach(function (name, index) {
+          const fallback = {
+            name_ar: name,
+            name_en: '',
+            type: getSharedFishingMode() === 'deep' ? 'قاعي' : 'ساحلي',
+            best_time: 'الآن',
+            rig: 'حسب حالة المحطة',
+            bait: [],
+            methods: [],
+            durur: [currentSharedAnalysisDto.dur.period_name || ''],
+            tag: '',
+            seasonLabel: currentSharedAnalysisDto.dur.period_name || 'نشط',
+            score: Math.max(20, (currentSharedAnalysisDto.fishing.confidence_score || 50) - (index * 8))
+          };
+          const matched = FISH_SPECIES_DATABASE.find(function (item) {
+            return item.name_ar === name || item.name_en === name;
+          });
+          const fish = matched ? Object.assign({}, matched, {
+            score: fallback.score,
+            seasonLabel: fallback.seasonLabel
+          }) : fallback;
+          const el = document.createElement('div');
+          el.className = 'fish-item';
+          el.innerHTML =
+            '<div class="fish-row"><div>' +
+              '<div class="fish-name">' + fish.name_ar + '</div>' +
+              '<div class="fish-meta">' + (fish.seasonLabel || 'نشط') + ' • ' + (currentSharedAnalysisDto.dur.period_name || '---') + '</div>' +
+            '</div><div class="score">' + fish.score + '%</div></div>' +
+            '<div class="bar"><span style="width:' + fish.score + '%"></span></div>';
+          el.addEventListener('click', function () { showFishModal(fish); });
+          root.appendChild(el);
+        });
+        return;
+      }
       const hr = getSelectedHourEntry().hour || {};
       const dorahLabel = (getCurrentDar(date).darName.split(' - ')[1] || getCurrentDar(date).darName);
       // Use the authoritative per-station live waterState so fish ranking is
@@ -3392,6 +3508,31 @@
     }
 
     function renderHero(date) {
+      if (currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.dur) {
+        const env = currentSharedAnalysisDto.environment;
+        const tideLabel = getSharedWaterStateArabic() || 'غير معروف';
+        const activeModeFromDto = getSharedFishingMode() || getActiveMode(date);
+        document.getElementById('dateLine').textContent = formatDateArabic(new Date()) + ' • ' + selectedStation.name;
+        document.getElementById('moonIcon').textContent = '🌊';
+        document.getElementById('moonVal').textContent = tideLabel;
+        document.getElementById('tempVal').textContent = env.temp_c != null ? ('🌡️ ' + env.temp_c.toFixed(1) + '°') : '🌡️ ---';
+        document.getElementById('windVal').textContent = env.wind_speed_kmh != null ? ('💨 ' + env.wind_speed_kmh + ' كم/س') : '💨 ---';
+        document.getElementById('tideHeightVal').textContent = currentSharedAnalysisDto.tide.current_speed_ms != null ? ('🌊 ' + currentSharedAnalysisDto.tide.current_speed_ms + ' م/ث') : '🌊 ---';
+        document.getElementById('currentWaterHeight').innerHTML = '≈ الحالة الحالية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span> • الثقة: ' + (currentSharedAnalysisDto.fishing.confidence_score != null ? currentSharedAnalysisDto.fishing.confidence_score + '%' : '---');
+        document.getElementById('dorahName').textContent = 'الدر الحالي: ' + (currentSharedAnalysisDto.dur.period_name || '---');
+        document.getElementById('dorahDetail').textContent = 'الفترة التالية: ' + (currentSharedAnalysisDto.dur.next_period_name || '---');
+        document.getElementById('dorahCountdownLine').textContent = 'باقي ' + (currentSharedAnalysisDto.dur.days_remaining != null ? currentSharedAnalysisDto.dur.days_remaining : '--') + ' يوم';
+        document.getElementById('dorahInfoBox').textContent = currentSharedAnalysisDto.fishing.advice_text || '';
+        document.getElementById('countdownDays').textContent = String(currentSharedAnalysisDto.dur.days_remaining != null ? currentSharedAnalysisDto.dur.days_remaining : '--');
+        document.getElementById('dorahWarning').textContent = currentSharedAnalysisDto.fishing.is_recommended ? 'التوصية الحالية مناسبة.' : 'الصيد يحتاج حذراً في هذه المحطة.';
+        document.getElementById('coastalBtn').classList.toggle('active', activeModeFromDto === 'coastal');
+        document.getElementById('deepBtn').classList.toggle('active', activeModeFromDto === 'deep');
+        const statusEl = document.getElementById('windOfficialStatus');
+        if (statusEl) {
+          statusEl.style.display = 'none';
+        }
+        return;
+      }
       const dar = getCurrentDar(date);
       const moon = getMoonPhase(date);
       const activeMode = getActiveMode(date);
@@ -3489,6 +3630,21 @@
     }
 
     function renderNawkhadaBox(date) {
+      if (currentSharedAnalysisDto && currentSharedAnalysisDto.fishing) {
+        const adviceEl = document.getElementById('nawkhadaBoxAdvice');
+        const sourceEl = document.getElementById('nawkhadaDataSource');
+        const kanaadEl = document.getElementById('kanaadAlert');
+        const fishTargets = getSharedSpeciesNames();
+        if (sourceEl) sourceEl.textContent = 'NAVIDUR المشترك';
+        adviceEl.className = getSharedWaterStateArabic() === 'حمل' ? 'nawkhada-advice-hamal' : 'nawkhada-advice-fasad';
+        adviceEl.innerHTML =
+          '📍 <strong>ملخص الحالة:</strong> ' + (getSharedWaterStateArabic() || 'غير معروف') + ' في ' + (currentSharedAnalysisDto.dur.period_name || '---') + '.<br>' +
+          '🌊 <strong>الحالة البحرية:</strong> تيار ' + (currentSharedAnalysisDto.tide.current_speed_ms != null ? currentSharedAnalysisDto.tide.current_speed_ms + ' م/ث' : '---') + ' • موج ' + (currentSharedAnalysisDto.environment.wave_height_m != null ? currentSharedAnalysisDto.environment.wave_height_m + ' م' : '---') + '.<br>' +
+          '🎣 <strong>التوصية الفنية:</strong> ' + (currentSharedAnalysisDto.fishing.advice_text || '---') + '<br>' +
+          '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف المتوقعة:</strong> ' + (fishTargets.length ? fishTargets.join('، ') : '---') + '</span>';
+        kanaadEl.style.display = 'none';
+        return;
+      }
       const dar = getCurrentDar(date);
       const darLabel = (dar.darName.split(' - ')[1] || dar.darName);
       const adviceEl = document.getElementById('nawkhadaBoxAdvice');
@@ -3647,8 +3803,11 @@
     async function onStationChange(idx, opts) {
       const options = opts || {};
       const source = options.source === 'map' ? 'map' : 'list';
+      currentSharedAnalysisRequest += 1;
+      const requestToken = currentSharedAnalysisRequest;
       setAnalysisLoading(true);
       currentPredictionSnapshot = null; // Task 4: invalidate snapshot on station change
+      currentSharedAnalysisDto = null;
       selectedStation = navidurEngine.getStationByIndex(idx);
       appTimezone = selectedStation.timezone || 'Asia/Qatar';
       selectionTracking.country = selectedStation.country;
@@ -3662,9 +3821,27 @@
       weatherByDay = liveBundle.hoursByDay;
       currentStationLiveMeta = liveBundle.meta;
 
+      try {
+        if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.getStationAnalysis === 'function') {
+          const dto = await window.NavidurLiveAnalysis.getStationAnalysis(selectedStation, {
+            datetime: new Date().toISOString()
+          });
+          if (requestToken === currentSharedAnalysisRequest) {
+            currentSharedAnalysisDto = dto;
+          }
+        }
+      } catch (_sharedErr) {
+        if (requestToken === currentSharedAnalysisRequest) {
+          currentSharedAnalysisDto = null;
+        }
+      }
+
       selectedHourIndex = getDefaultHourIndex(selectedForecastDay);
       updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
       renderAll();
+      if (currentSharedAnalysisDto) {
+        renderHotspotPanel(currentSharedAnalysisDto);
+      }
 
       // TASK 1: fire server compute in background (non-blocking, zero regression)
       const _hrForCompute = getActiveHours()[selectedHourIndex] || {};
@@ -3677,10 +3854,11 @@
       try {
         const hotspot = await fetchHotspotForStation(selectedStation);
         latestHotspotResult = hotspot;
-        renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
-        // Refresh temperature card with engine data now that latestHotspotResult is set
-        renderHero(getForecastDateByIndex(selectedForecastDay));
+        if (!currentSharedAnalysisDto) {
+          renderHotspotPanel(hotspot);
+          renderHero(getForecastDateByIndex(selectedForecastDay));
+        }
         trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), region: selectionTracking.region || (selectedStation ? selectedStation.region : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;

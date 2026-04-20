@@ -23,6 +23,16 @@
     return response.json();
   }
 
+  async function fetchSharedAnalysis(payload) {
+    var response = await fetch('/api/navidur-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+    if (!response.ok) throw new Error('shared_analysis_http_' + response.status);
+    return response.json();
+  }
+
   async function getHotspotForStation(station) {
     if (!station || typeof station !== 'object') throw new Error('station_required');
     var lat = station.lat;
@@ -30,26 +40,50 @@
     return fetchHotspotByCoords(lat, lon);
   }
 
-  async function getStationLiveSummary(station) {
-    var hotspot = await getHotspotForStation(station);
-    var best = hotspot && hotspot.best_spot ? hotspot.best_spot : {};
-    var data = hotspot && hotspot.data ? hotspot.data : {};
-    var confidence = getConfidenceMeta(best.score != null ? best.score : 0);
-    return {
-      hotspot: hotspot,
-      score: best.score != null ? best.score : null,
-      zone: best.zone || '--',
-      recommendation: best.recommendation || '--',
-      confidence_label: confidence.label,
-      confidence_class: confidence.cls,
-      current: data.current != null ? data.current : null,
-      temp: data.temp != null ? data.temp : null,
-      wave: data.wave != null ? data.wave : null
-    };
+  async function getStationAnalysis(station, options) {
+    if (!station || typeof station !== 'object') throw new Error('station_required');
+    var opts = options || {};
+    return fetchSharedAnalysis({
+      station: station,
+      station_id: station.id || null,
+      datetime: opts.datetime || new Date().toISOString(),
+      overrides: opts.overrides || null,
+      live_inputs: opts.live_inputs || null,
+      field_validation: opts.field_validation || null
+    });
+  }
+
+  async function getPreviewAnalysis(point, options) {
+    if (!point || typeof point !== 'object') throw new Error('point_required');
+    var lat = toNumber(point.lat);
+    var lon = toNumber(point.lon != null ? point.lon : point.lng);
+    if (lat == null || lon == null) throw new Error('station_coords_missing');
+    var opts = options || {};
+    return fetchSharedAnalysis({
+      station: {
+        id: null,
+        name: point.name || '',
+        lat: lat,
+        lon: lon,
+        country: point.country || '',
+        region: point.region || ''
+      },
+      datetime: opts.datetime || new Date().toISOString(),
+      overrides: opts.overrides || null,
+      live_inputs: opts.live_inputs || null,
+      field_validation: opts.field_validation || null
+    });
+  }
+
+  async function getStationLiveSummary(station, options) {
+    return getStationAnalysis(station, options);
   }
 
   root.NavidurLiveAnalysis = {
     getHotspotForStation: getHotspotForStation,
-    getStationLiveSummary: getStationLiveSummary
+    getStationAnalysis: getStationAnalysis,
+    getPreviewAnalysis: getPreviewAnalysis,
+    getStationLiveSummary: getStationLiveSummary,
+    getConfidenceMeta: getConfidenceMeta
   };
 })(typeof window !== 'undefined' ? window : globalThis);

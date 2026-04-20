@@ -759,6 +759,7 @@
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/shared/navidur-live-analysis.js"></script>
 </head>
 <body>
 
@@ -2559,6 +2560,19 @@ function _pickCurrentValue(current, keys) {
   return null;
 }
 
+function _mapDtoWaterState(state) {
+  if (state === 'LOAD') return 'حمل';
+  if (state === 'FASAD') return 'فساد';
+  return null;
+}
+
+function _mapDtoFishingMode(dto) {
+  const waterState = _mapDtoWaterState(dto && dto.tide ? dto.tide.state : null);
+  if (waterState === 'حمل') return 'deep';
+  if (waterState === 'فساد') return 'coastal';
+  return null;
+}
+
 async function fetchAnalysis(station) {
   // ── Offline: restore stored prediction for this station ──
   if (!appState.isOnline) {
@@ -2582,134 +2596,60 @@ async function fetchAnalysis(station) {
   updateChips({ water: '...', activity: '⏳', src: 'جارٍ...' });
   currentFieldPrediction = null;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const lat = station.lat;
-  const lon = station.lon;
-
-  // ── 1. Fetch marine + weather (same sources as public page) ──
-  const marineUrl = 'https://marine-api.open-meteo.com/v1/marine' +
-    '?latitude=' + lat + '&longitude=' + lon +
-    '&hourly=sea_level_height_msl,sea_surface_temperature' +
-    '&current=sea_surface_temperature' +
-    '&start_date=' + today + '&end_date=' + today + '&timezone=UTC';
-
-  const weatherUrl = 'https://api.open-meteo.com/v1/forecast' +
-    '?latitude=' + lat + '&longitude=' + lon +
-    '&hourly=wind_speed_10m,wind_direction_10m,sea_surface_temperature' +
-    '&models=icon_seamless,icon_global' +
-    '&start_date=' + today + '&end_date=' + today + '&timezone=UTC';
-
-  let tideArr = [], marineSstArr = [], windSpdArr = [], windDirArr = [], sstArr = [];
-  let currentWind = null, currentWindDir = null, currentSst = null, marineCurrentSst = null;
   try {
-    const [mResp, wResp] = await Promise.all([
-      fetch(marineUrl).catch(() => null),
-      fetch(weatherUrl).catch(() => null)
-    ]);
-    if (mResp && mResp.ok) {
-      const md = await mResp.json();
-      tideArr = (md && md.hourly && md.hourly.sea_level_height_msl) || [];
-      marineSstArr = (md && md.hourly && md.hourly.sea_surface_temperature) || [];
-      marineCurrentSst = _pickCurrentValue(md.current, ['sea_surface_temperature']);
+    if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationAnalysis !== 'function') {
+      throw new Error('shared_live_engine_unavailable');
     }
-    if (wResp && wResp.ok) {
-      const wd = await wResp.json();
-      const hourly = (wd && wd.hourly) || {};
-      windSpdArr = _pickFirstHourlyArray(hourly, ['wind_speed_10m', 'wind_speed_10m_icon_seamless', 'wind_speed_10m_icon_global']);
-      windDirArr = _pickFirstHourlyArray(hourly, ['wind_direction_10m', 'wind_direction_10m_icon_seamless', 'wind_direction_10m_icon_global']);
-      sstArr     = _pickFirstHourlyArray(hourly, ['sea_surface_temperature', 'sea_surface_temperature_icon_seamless', 'sea_surface_temperature_icon_global']);
-      currentWind = _pickCurrentValue(wd.current, ['wind_speed_10m', 'wind_speed_10m_icon_seamless', 'wind_speed_10m_icon_global']);
-      currentWindDir = _pickCurrentValue(wd.current, ['wind_direction_10m', 'wind_direction_10m_icon_seamless', 'wind_direction_10m_icon_global']);
-      currentSst = _pickCurrentValue(wd.current, ['sea_surface_temperature', 'sea_surface_temperature_icon_seamless', 'sea_surface_temperature_icon_global']);
-    }
-  } catch(_) {}
+    const dto = await window.NavidurLiveAnalysis.getStationAnalysis(station, {
+      datetime: new Date().toISOString(),
+      field_validation: {
+        source: 'field',
+        water_status: addStationState && addStationState.waterStatus ? addStationState.waterStatus : 'unknown'
+      }
+    });
+    const waterState = _mapDtoWaterState(dto && dto.tide ? dto.tide.state : null);
+    const fishingMode = _mapDtoFishingMode(dto);
+    const speciesPredicted = Array.isArray(dto && dto.fishing && dto.fishing.species_activity)
+      ? dto.fishing.species_activity.slice()
+      : [];
 
-  // ── 2. Current-hour slice ──
-  const nowHour = new Date().getUTCHours();
-  const tideMaxIdx = Math.max(tideArr.length - 1, 0);
-  const weatherMaxIdx = Math.max(Math.max(windSpdArr.length - 1, windDirArr.length - 1, sstArr.length - 1), 0);
-  const tideCurIdx = Math.min(nowHour, tideMaxIdx);
-  const weatherCurIdx = Math.min(nowHour, weatherMaxIdx);
-  const prevIdx = Math.max(0, tideCurIdx - 1);
-  const nextIdx = Math.min(tideMaxIdx, tideCurIdx + 1);
-
-  const tideCur  = tideArr[tideCurIdx]  != null ? +tideArr[tideCurIdx]  : null;
-  const tidePrev = tideArr[prevIdx] != null ? +tideArr[prevIdx] : tideCur;
-  const tideNext = tideArr[nextIdx] != null ? +tideArr[nextIdx] : tideCur;
-  const windKmh  = windSpdArr[weatherCurIdx] != null ? +windSpdArr[weatherCurIdx] : currentWind;
-  const windDir  = windDirArr[weatherCurIdx] != null ? +windDirArr[weatherCurIdx] : currentWindDir;
-  const marineSst = marineSstArr[tideCurIdx] != null ? +marineSstArr[tideCurIdx] : marineCurrentSst;
-  const sst      = sstArr[weatherCurIdx]     != null ? +sstArr[weatherCurIdx]     : (currentSst != null ? currentSst : marineSst);
-
-  // ── 3. POST /api/compute-decision ──
-  let serverResult = null;
-  try {
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const tid  = ctrl ? setTimeout(() => ctrl.abort(), 5000) : null;
-    const opts = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.token },
-      body: JSON.stringify({
-        station_id: station.id,
-        lat: station.lat,
-        lng: station.lon,
-        tide: { current: tideCur, previous: tidePrev, next: tideNext },
-        wind: { speed: windKmh, direction: windDir },
-        temperature: sst
-      })
+    currentFieldPrediction = {
+      prediction_snapshot_id: 'fsnap_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      station_id: station.id,
+      lat: appState.currentLat,
+      lng: appState.currentLng,
+      analysis_timestamp: dto.analysis_timestamp || new Date().toISOString(),
+      tide_current: dto && dto.tide ? dto.tide.current_speed_ms : null,
+      tide_previous: null,
+      tide_next: null,
+      wind_speed_kmh: dto && dto.environment ? dto.environment.wind_speed_kmh : null,
+      wind_direction: dto && dto.environment ? dto.environment.wind_direction_deg : null,
+      temperature: dto && dto.environment ? dto.environment.temp_c : null,
+      water_state_predicted: waterState,
+      tidal_coefficient_predicted: dto && dto.fishing ? dto.fishing.confidence_score : null,
+      activity_score_predicted: dto && dto.fishing ? dto.fishing.confidence_score : null,
+      fishing_mode_predicted: fishingMode,
+      species_predicted: speciesPredicted,
+      compute_source: 'shared_engine'
     };
-    if (ctrl) opts.signal = ctrl.signal;
-    const cdResp = await fetch('/api/compute-decision', opts);
-    if (tid) clearTimeout(tid);
-    if (cdResp.ok) serverResult = await cdResp.json();
-  } catch(_) {}
 
-  // ── 4. Resolve prediction values (server → local fallback → none) ──
-  const waterState    = serverResult ? serverResult.waterState        : _localWaterState(tidePrev, tideCur, tideNext);
-  const tidalCoeff    = serverResult ? serverResult.tidalCoefficient  : _localTidalCoeff(tidePrev, tideCur, tideNext);
-  const activityScore = serverResult ? serverResult.activityScore     : null;
-  const computeSrc    = serverResult ? 'server' : (tideCur != null ? 'local_field' : 'none');
-  const fishingMode   = waterState === 'حمل' ? 'deep' : 'coastal';
-
-  // ── 5. Species prediction ──
-  const region = getStationRegion(station);
-  const speciesPool = SPECIES_BY_STATE[region] || SPECIES_BY_STATE.gulf;
-  const speciesPredicted = waterState ? (speciesPool[waterState] || []) : [];
-
-  // ── 6. Build and freeze currentFieldPrediction ──
-  const snapId = 'fsnap_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  currentFieldPrediction = {
-    prediction_snapshot_id: snapId,
-    station_id: station.id,
-    lat: appState.currentLat,
-    lng: appState.currentLng,
-    analysis_timestamp: new Date().toISOString(),
-    tide_current: tideCur,
-    tide_previous: tidePrev,
-    tide_next: tideNext,
-    wind_speed_kmh: windKmh,
-    wind_direction: windDir,
-    temperature: sst,
-    water_state_predicted: waterState,
-    tidal_coefficient_predicted: tidalCoeff,
-    activity_score_predicted: activityScore,
-    fishing_mode_predicted: fishingMode,
-    species_predicted: speciesPredicted,
-    compute_source: computeSrc
-  };
-
-  // ── 7. Persist to localStorage (offline restore) ──
-  _savePredictionToStorage(currentFieldPrediction);
-
-  // ── 8. Update UI ──
-  const srcLabel = computeSrc === 'server' ? 'NAVIDUR' : computeSrc === 'local_field' ? 'محلي' : '—';
-  const wChip = waterState || '—';
-  const aChip = activityScore != null
-    ? activityScore.toFixed(0) + '%'
-    : (fishingMode === 'deep' ? 'عمق' : fishingMode === 'coastal' ? 'ساحل' : '—');
-  updateChips({ water: wChip, activity: aChip, src: srcLabel });
-  _refreshSpeciesGridFromSnapshot();
-  renderPredictionPanel();
+    _savePredictionToStorage(currentFieldPrediction);
+    const srcLabel = 'NAVIDUR';
+    const wChip = waterState || '—';
+    const aChip = currentFieldPrediction.activity_score_predicted != null
+      ? currentFieldPrediction.activity_score_predicted.toFixed(0) + '%'
+      : (fishingMode === 'deep' ? 'عمق' : fishingMode === 'coastal' ? 'ساحل' : '—');
+    updateChips({ water: wChip, activity: aChip, src: srcLabel });
+    _refreshSpeciesGridFromSnapshot();
+    renderPredictionPanel();
+    return;
+  } catch(_) {
+    currentFieldPrediction = _makeNullSnapshot(station);
+    updateChips({ water: '—', activity: '—', src: '—' });
+    _refreshSpeciesGridFromSnapshot();
+    renderPredictionPanel();
+    return;
+  }
 }
 
 // Highlight predicted species in the grid
