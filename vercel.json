@@ -6,7 +6,7 @@
     }
   },
   "crons": [
-    { "path": "/api/run-snapshots", "schedule": "0 */6 * * *" }
+    { "path": "/api/run-snapshots", "schedule": "0 0 * * *" }
   ],
   "redirects": [
     { "source": "/web/index.html", "destination": "/index.html", "permanent": false },
