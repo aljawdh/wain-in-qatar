@@ -168,7 +168,8 @@
       marine_traits: normalizeStringArray(item.marine_traits),
       fish_traits: normalizeStringArray(item.fish_traits),
       related_event_ids: uniqueStrings(item.related_event_ids || []),
-      notes_ar: normalizeString(item.notes_ar)
+      notes_ar: normalizeString(item.notes_ar),
+      advice_text: normalizeString(item.advice_text)
     };
   }
 
@@ -218,6 +219,8 @@
       description_en: normalizeString(item.description_en),
       notes_ar: normalizeString(item.notes_ar || item.notes),
       notes_en: normalizeString(item.notes_en),
+      review_status: normalizeString(item.review_status || 'draft') || 'draft',
+      advice_text: normalizeString(item.advice_text),
       general_traits: normalizeStringArray(item.general_traits),
       weather_traits: normalizeStringArray(item.weather_traits),
       marine_traits: normalizeStringArray(item.marine_traits),
@@ -319,6 +322,80 @@
       if (seasonValue && allowedSeasons.length && allowedSeasons.indexOf(seasonValue) < 0) return false;
       return true;
     }) || null;
+  }
+
+  function normalizeOverrideFields(fields) {
+    var item = fields || {};
+    var out = {};
+    if (Object.prototype.hasOwnProperty.call(item, 'general_traits')) out.general_traits = normalizeStringArray(item.general_traits);
+    if (Object.prototype.hasOwnProperty.call(item, 'weather_traits')) out.weather_traits = normalizeStringArray(item.weather_traits);
+    if (Object.prototype.hasOwnProperty.call(item, 'marine_traits')) out.marine_traits = normalizeStringArray(item.marine_traits);
+    if (Object.prototype.hasOwnProperty.call(item, 'fish_traits')) out.fish_traits = normalizeStringArray(item.fish_traits);
+    if (Object.prototype.hasOwnProperty.call(item, 'advice_text')) out.advice_text = normalizeString(item.advice_text) || null;
+    return out;
+  }
+
+  function normalizeReferenceOverrideRow(row) {
+    var item = row || {};
+    return {
+      override_id: normalizeString(item.override_id || item.id),
+      station_id: normalizeString(item.station_id),
+      dur_id: normalizeString(item.dur_id),
+      phase_id: normalizeString(item.phase_id),
+      season_key: normalizeForMatch(item.season_key || item.season),
+      fields: normalizeOverrideFields(item.fields),
+      is_active: item.is_active !== false,
+      created_at: normalizeString(item.created_at),
+      updated_at: normalizeString(item.updated_at)
+    };
+  }
+
+  function matchesSeasonKey(overrideSeason, activeSeasonKey) {
+    if (!overrideSeason) return true;
+    return getSeasonAliases(activeSeasonKey).map(normalizeForMatch).indexOf(overrideSeason) >= 0;
+  }
+
+  function sortReferenceOverrides(rows) {
+    return toArray(rows).slice().sort(function (a, b) {
+      var aPhase = a && a.phase_id ? 1 : 0;
+      var bPhase = b && b.phase_id ? 1 : 0;
+      if (aPhase !== bPhase) return aPhase - bPhase;
+      var aStation = a && a.station_id ? 1 : 0;
+      var bStation = b && b.station_id ? 1 : 0;
+      return aStation - bStation;
+    });
+  }
+
+  function resolveReferenceOverrideFields(referenceData, station, durRow, activePhase, seasonKey, includePhaseSpecific) {
+    var stationId = normalizeString(station && station.id);
+    var durId = normalizeString(durRow && durRow.id);
+    var phaseId = normalizeString(activePhase && activePhase.phase_id);
+    return sortReferenceOverrides(toArray(referenceData && referenceData.reference_overrides).map(normalizeReferenceOverrideRow).filter(function (item) {
+      if (!item || item.is_active === false) return false;
+      if (!durId || item.dur_id !== durId) return false;
+      if (!matchesSeasonKey(item.season_key, seasonKey)) return false;
+      if (includePhaseSpecific) {
+        if (item.phase_id && item.phase_id !== phaseId) return false;
+      } else if (item.phase_id) {
+        return false;
+      }
+      if (item.station_id && item.station_id !== stationId) return false;
+      return true;
+    })).reduce(function (merged, item) {
+      return Object.assign(merged, item.fields || {});
+    }, {});
+  }
+
+  function cloneDurRowWithOverrides(durRow, overrideFields) {
+    if (!durRow) return null;
+    var next = Object.assign({}, durRow);
+    var fields = overrideFields || {};
+    if (Object.prototype.hasOwnProperty.call(fields, 'general_traits')) next.general_traits = normalizeStringArray(fields.general_traits);
+    if (Object.prototype.hasOwnProperty.call(fields, 'weather_traits')) next.weather_traits = normalizeStringArray(fields.weather_traits);
+    if (Object.prototype.hasOwnProperty.call(fields, 'marine_traits')) next.marine_traits = normalizeStringArray(fields.marine_traits);
+    if (Object.prototype.hasOwnProperty.call(fields, 'fish_traits')) next.fish_traits = normalizeStringArray(fields.fish_traits);
+    if (Object.prototype.hasOwnProperty.call(fields, 'advice_text')) next.advice_text = normalizeString(fields.advice_text) || '';
+    return next;
   }
 
   function resolveActiveDurPhase(durRow, dayInPeriod) {
@@ -554,6 +631,8 @@
       description_en: normalizeString(durRow.description_en),
       notes_ar: normalizeString(durRow.notes_ar),
       notes_en: normalizeString(durRow.notes_en),
+      review_status: normalizeString(durRow.review_status || 'draft') || 'draft',
+      advice_text: normalizeString(durRow.advice_text),
       is_active: durRow.is_active !== false,
       general_traits: uniqueStrings(durRow.general_traits || []),
       weather_traits: uniqueStrings(durRow.weather_traits || []),
@@ -571,7 +650,8 @@
           marine_traits: uniqueStrings(phase && phase.marine_traits || []),
           fish_traits: uniqueStrings(phase && phase.fish_traits || []),
           related_event_ids: uniqueStrings(phase && phase.related_event_ids || []),
-          notes_ar: normalizeString(phase && phase.notes_ar)
+          notes_ar: normalizeString(phase && phase.notes_ar),
+          advice_text: normalizeString(phase && phase.advice_text)
         };
       }),
       seasonal_event_names: uniqueStrings(eventMetadata.map(function (eventItem) {
@@ -597,6 +677,7 @@
       fish_traits: uniqueStrings(activePhase.fish_traits || []),
       related_event_ids: uniqueStrings(activePhase.related_event_ids || []),
       notes_ar: normalizeString(activePhase.notes_ar),
+      advice_text: normalizeString(activePhase.advice_text),
       seasonal_event_names: uniqueStrings(eventMetadata.map(function (eventItem) {
         return normalizeString(eventItem && (eventItem.name_ar || eventItem.name || eventItem.name_en));
       })),
@@ -748,6 +829,7 @@
       advice_templates: toArray(source.advice_templates || source.advice_basis_tags),
       station_profiles: toArray(source.station_profiles || source.station_dur_profiles),
       overrides: toArray(source.overrides || source.station_dur_overrides),
+      reference_overrides: toArray(source.durur_overrides || source.reference_overrides),
       rules_config: source.rules_config || null
     };
   }
@@ -778,37 +860,43 @@
     var currentDur = durInfo.current;
     var nextDur = durInfo.next;
     var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
+    var seasonKey = getSeasonKeyFromDate(analysisDate);
     var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
     var activePhase = resolveActiveDurPhase(currentDur && currentDur.durRow, dayInPeriod);
+    var baseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, false);
+    var phaseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, true);
+    var overrideApplied = Object.keys(phaseReferenceOverrideFields).length > 0;
+    var effectiveDurRow = cloneDurRowWithOverrides(currentDur && currentDur.durRow, baseReferenceOverrideFields);
+    var effectiveActivePhase = cloneDurRowWithOverrides(activePhase, phaseReferenceOverrideFields);
     var baseReferenceEvents = resolveReferenceSeasonalEvents(
       referenceData,
-      currentDur && currentDur.durRow,
+      effectiveDurRow,
       analysisDate,
-      currentDur && currentDur.durRow && currentDur.durRow.related_event_ids,
+      effectiveDurRow && effectiveDurRow.related_event_ids,
       true
     );
     var activePhaseEvents = resolveReferenceSeasonalEvents(
       referenceData,
-      currentDur && currentDur.durRow,
+      effectiveDurRow,
       analysisDate,
-      activePhase && activePhase.related_event_ids,
+      effectiveActivePhase && effectiveActivePhase.related_event_ids,
       false
     );
-    var seasonalEvents = resolveSeasonalEvents(referenceData, currentDur && currentDur.durRow, analysisDate, runtimeOverride, activePhase);
+    var seasonalEvents = resolveSeasonalEvents(referenceData, effectiveDurRow, analysisDate, runtimeOverride, effectiveActivePhase);
     var traitBundle = collectReferenceTraits(
       referenceData,
-      currentDur && currentDur.durRow,
-      activePhase,
+      effectiveDurRow,
+      effectiveActivePhase,
       stationProfile,
       seasonalEvents,
       runtimeOverride
     );
     var durReferenceMetadata = buildDurReferenceMetadata(
-      currentDur && currentDur.durRow,
+      effectiveDurRow,
       nextDur,
       baseReferenceEvents
     );
-    var activePhaseReferenceMetadata = buildActivePhaseReferenceMetadata(activePhase, activePhaseEvents);
+    var activePhaseReferenceMetadata = buildActivePhaseReferenceMetadata(effectiveActivePhase, activePhaseEvents);
 
     var fishing = buildFishingDecision(
       referenceData,
@@ -836,7 +924,8 @@
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
         reference: durReferenceMetadata,
         active_phase_id: normalizeString(activePhase && activePhase.phase_id),
-        active_phase_reference: activePhaseReferenceMetadata
+        active_phase_reference: activePhaseReferenceMetadata,
+        overrides_applied: overrideApplied
       },
       environment: {
         temp_c: liveEnvironment.temp_c,

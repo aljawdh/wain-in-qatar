@@ -21,6 +21,9 @@
   var latestFeedbackCache = [];
   var dururCache = [];
   var dururReferenceCache = [];
+  var globalDururManagementCache = [];
+  var dururGlobalOverridesCache = [];
+  var selectedGlobalDurId = '';
   var seasonEventsCache = [];
   var traitsCache = [];
   var stationProfilesCache = [];
@@ -839,6 +842,7 @@
       loadStationOverrides(),
       loadAnnualComparisons()
     ]);
+    await loadGlobalDururManagementData();
   }
 
   function getDurDateLabel(dur) {
@@ -1136,7 +1140,8 @@
       var res = await apiFetch('/api?route=admin&path=durur', { method: 'GET' });
       if (!res.ok) throw new Error('durur_load_failed');
       var data = await res.json();
-      dururCache = Array.isArray(data.items) ? data.items : [];
+      dururCache = Array.isArray(data.items) ? data.items.map(normalizeDurRecordForUi) : [];
+      globalDururManagementCache = dururCache.slice();
       var select = getEl('dururCurrentDurFilter');
       if (select) {
         select.innerHTML = '<option value="all">الكل</option>' + dururCache.slice().sort(function (a, b) { return Number(a.dur_number) - Number(b.dur_number); }).map(function (d) {
@@ -1158,6 +1163,8 @@
       }
       renderDururTable();
       applyDururFilters();
+      renderGlobalDururList();
+      renderGlobalDururEditor();
     } catch (e) {
       console.error('[durur] load failed', e);
     }
@@ -1540,6 +1547,7 @@
 
   function selectDururStation(stationId) {
     selectedDururStationId = stationId;
+    renderDururStationPreview();
     if (!stationId) {
       if (dururStationMarkers.length) {
         dururStationMarkers.forEach(function (entry) {
@@ -2092,6 +2100,377 @@
 
   function splitCsv(text) {
     return String(text || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+
+  function parseListInput(text) {
+    return String(text || '')
+      .split(/\r?\n|,/)
+      .map(function (x) { return x.trim(); })
+      .filter(Boolean);
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function normalizeDurRecordForUi(item) {
+    var row = item || {};
+    return Object.assign({}, row, {
+      name: row.name || row.name_ar || row.name_en || ('Dur ' + (row.dur_number || '')),
+      days_count: row.days_count != null ? row.days_count : row.default_days_count,
+      gregorian_start_month: row.gregorian_start_month != null ? row.gregorian_start_month : (row.gregorian_window_hint && row.gregorian_window_hint.start_month),
+      gregorian_start_day: row.gregorian_start_day != null ? row.gregorian_start_day : (row.gregorian_window_hint && row.gregorian_window_hint.start_day),
+      gregorian_end_month: row.gregorian_end_month != null ? row.gregorian_end_month : (row.gregorian_window_hint && row.gregorian_window_hint.end_month),
+      gregorian_end_day: row.gregorian_end_day != null ? row.gregorian_end_day : (row.gregorian_window_hint && row.gregorian_window_hint.end_day),
+      description: row.description || row.description_ar || row.description_en || '',
+      heritage_meaning: row.heritage_meaning || row.heritage_meaning_ar || row.heritage_meaning_en || '',
+      notes: row.notes || row.notes_ar || row.notes_en || '',
+      review_status: row.review_status || 'draft',
+      advice_text: row.advice_text == null ? null : String(row.advice_text)
+    });
+  }
+
+  function listInputValue(values) {
+    return Array.isArray(values) ? values.join('\n') : '';
+  }
+
+  function buildTraitChipHtml(values, bgColor, borderColor, textColor) {
+    return (Array.isArray(values) && values.length ? values : []).map(function (value) {
+      return '<span style="display:inline-block;padding:4px 8px;background:' + (bgColor || 'rgba(92,225,255,.16)') + ';border:1px solid ' + (borderColor || 'rgba(92,225,255,.28)') + ';border-radius:999px;color:' + (textColor || '#dff8ff') + ';font-size:.78rem">' + escapeHtml(value) + '</span>';
+    }).join('');
+  }
+
+  function ensureDururManagementPanel() {
+    if (getEl('globalDururManagementBlock')) return;
+    var analyticsDetails = getEl('stAnalyticsRefreshBtn');
+    if (!analyticsDetails || !analyticsDetails.closest) return;
+    var anchor = analyticsDetails.closest('details');
+    if (!anchor || !anchor.parentNode) return;
+    var wrapper = document.createElement('details');
+    wrapper.className = 'adv-options';
+    wrapper.id = 'globalDururManagementBlock';
+    wrapper.style.margin = '14px 0';
+    wrapper.innerHTML = ''
+      + '<summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-globe" style="margin-left:6px"></i> Durur Management</summary>'
+      + '<div style="margin-top:12px;display:grid;gap:12px">'
+      + '  <div style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(360px,1.7fr);gap:12px;align-items:start">'
+      + '    <div style="padding:12px;background:rgba(92,225,255,.06);border:1px solid rgba(92,225,255,.18);border-radius:10px">'
+      + '      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">الدرور المرجعية</strong><span id="globalDururCount" style="font-size:.8rem;color:#9fc1d7">0</span></div>'
+      + '      <div id="globalDururList" style="display:grid;gap:6px;max-height:420px;overflow:auto"></div>'
+      + '    </div>'
+      + '    <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:10px">'
+      + '      <div id="globalDururEditorState" style="color:#9fc1d7;font-size:.85rem">اختر دراً من القائمة لفتح المحرر.</div>'
+      + '      <div id="globalDururEditor" style="display:none;gap:10px"></div>'
+      + '    </div>'
+      + '  </div>'
+      + '  <div style="padding:12px;background:rgba(38,194,129,.06);border:1px solid rgba(38,194,129,.18);border-radius:10px">'
+      + '    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">Station Preview</strong><span id="dururStationPreviewStatus" style="font-size:.8rem;color:#9fc1d7">--</span></div>'
+      + '    <div id="dururStationPreviewBody" style="display:grid;gap:8px;color:#c5d5e0;font-size:.84rem">اختر محطة ثم حمّل التحليل لعرض المرجع الفعال بعد الدمج.</div>'
+      + '  </div>'
+      + '</div>';
+    anchor.parentNode.insertBefore(wrapper, anchor.nextSibling);
+  }
+
+  function renderGlobalDururList() {
+    var container = getEl('globalDururList');
+    var countEl = getEl('globalDururCount');
+    if (!container) return;
+    container.innerHTML = '';
+    if (countEl) countEl.textContent = String(globalDururManagementCache.length);
+    globalDururManagementCache.slice().sort(function (a, b) {
+      return Number(a.order_index || a.dur_number || 0) - Number(b.order_index || b.dur_number || 0);
+    }).forEach(function (item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'small-btn';
+      btn.setAttribute('data-dur-id', item.id || '');
+      btn.style.textAlign = 'right';
+      btn.style.padding = '9px 10px';
+      btn.style.background = item.id === selectedGlobalDurId ? 'rgba(92,225,255,.18)' : 'rgba(255,255,255,.04)';
+      btn.style.border = item.id === selectedGlobalDurId ? '1px solid rgba(92,225,255,.34)' : '1px solid rgba(255,255,255,.08)';
+      btn.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><strong>' + escapeHtml(item.name || '--') + '</strong><span style="color:#9fc1d7">#' + escapeHtml(item.dur_number || '--') + '</span></div>'
+        + '<div style="font-size:.78rem;color:#9fc1d7;margin-top:4px">' + escapeHtml(item.review_status || 'draft') + '</div>';
+      btn.addEventListener('click', function () {
+        selectedGlobalDurId = item.id || '';
+        renderGlobalDururList();
+        renderGlobalDururEditor();
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  function buildGlobalDururEditorHtml(item) {
+    var phases = Array.isArray(item.phases) ? item.phases : [];
+    return ''
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">ID</label><input id="globalDurId" type="text" readonly value="' + escapeHtml(item.id || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">الاسم</label><input id="globalDurNameAr" type="text" value="' + escapeHtml(item.name_ar || item.name || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">رقم الدر</label><input id="globalDurNumber" type="number" value="' + escapeHtml(item.dur_number || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">الترتيب</label><input id="globalDurOrderIndex" type="number" value="' + escapeHtml(item.order_index || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">عدد الأيام</label><input id="globalDurDefaultDays" type="number" value="' + escapeHtml(item.default_days_count || item.days_count || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">حالة المراجعة</label><select id="globalDurReviewStatus" style="width:100%"><option value="draft">draft</option><option value="reviewed">reviewed</option><option value="approved">approved</option><option value="needs_revision">needs_revision</option></select></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">الموسم</label><input id="globalDurSeasonAr" type="text" value="' + escapeHtml(item.season_ar || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">العلامة الفلكية</label><input id="globalDurMarkerAr" type="text" value="' + escapeHtml(item.astronomical_marker_ar || '') + '" style="width:100%"></div>'
+      + '</div>'
+      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">المعنى التراثي</label><textarea id="globalDurHeritageMeaningAr" style="width:100%;min-height:70px">' + escapeHtml(item.heritage_meaning_ar || item.heritage_meaning || '') + '</textarea></div>'
+      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">الوصف</label><textarea id="globalDurDescriptionAr" style="width:100%;min-height:70px">' + escapeHtml(item.description_ar || item.description || '') + '</textarea></div>'
+      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">الملاحظات</label><textarea id="globalDurNotesAr" style="width:100%;min-height:70px">' + escapeHtml(item.notes_ar || item.notes || '') + '</textarea></div>'
+      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Advice Text</label><textarea id="globalDurAdviceText" style="width:100%;min-height:56px">' + escapeHtml(item.advice_text || '') + '</textarea></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
+      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">General Traits</label><textarea id="globalDurGeneralTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.general_traits)) + '</textarea></div>'
+      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Weather Traits</label><textarea id="globalDurWeatherTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.weather_traits)) + '</textarea></div>'
+      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Marine Traits</label><textarea id="globalDurMarineTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.marine_traits)) + '</textarea></div>'
+      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Fish Traits</label><textarea id="globalDurFishTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.fish_traits)) + '</textarea></div>'
+      + '</div>'
+      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Related Event IDs</label><textarea id="globalDurRelatedEvents" style="width:100%;min-height:56px">' + escapeHtml(listInputValue(item.related_event_ids)) + '</textarea></div>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button type="button" id="globalDurSaveBtn" class="small-btn">حفظ الدر</button><span id="globalDurSaveStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div>'
+      + '<div style="margin-top:12px"><strong style="color:#dff8ff">Phases</strong><div id="globalDurPhaseEditor" style="display:grid;gap:8px;margin-top:8px">'
+      + phases.map(function (phase) {
+          return '<details style="border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px;background:rgba(255,255,255,.02)">'
+            + '<summary style="cursor:pointer;color:#cfeaff">Phase ' + escapeHtml(phase.phase_id || '--') + ' | day ' + escapeHtml(phase.start_day || '--') + '-' + escapeHtml(phase.end_day || '--') + '</summary>'
+            + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">العنوان</label><input data-phase-field="title_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="text" value="' + escapeHtml(phase.title_ar || '') + '" style="width:100%"></div>'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">النطاق</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input data-phase-field="start_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.start_day || '') + '"><input data-phase-field="end_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.end_day || '') + '"></div></div>'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">General</label><textarea data-phase-field="general_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.general_traits)) + '</textarea></div>'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Weather</label><textarea data-phase-field="weather_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.weather_traits)) + '</textarea></div>'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Marine</label><textarea data-phase-field="marine_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.marine_traits)) + '</textarea></div>'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Fish</label><textarea data-phase-field="fish_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.fish_traits)) + '</textarea></div>'
+            + '</div>'
+            + '<div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">Related Events</label><textarea data-phase-field="related_event_ids" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:56px">' + escapeHtml(listInputValue(phase.related_event_ids)) + '</textarea></div>'
+            + '<div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">Notes</label><textarea data-phase-field="notes_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:56px">' + escapeHtml(phase.notes_ar || '') + '</textarea></div>'
+            + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" class="small-btn" data-save-phase="' + escapeHtml(phase.phase_id || '') + '">حفظ المرحلة</button></div>'
+            + '</details>';
+        }).join('')
+      + '</div></div>'
+      + '<div style="margin-top:12px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">Override Editor</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Override ID</label><input id="globalOverrideId" type="text" placeholder="auto if new" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Station ID (blank = global)</label><input id="globalOverrideStationId" type="text" value="' + escapeHtml(selectedDururStationId || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Phase ID</label><select id="globalOverridePhaseId" style="width:100%"><option value="">base/global dur</option>' + phases.map(function (phase) { return '<option value="' + escapeHtml(phase.phase_id || '') + '">' + escapeHtml(phase.phase_id || '') + '</option>'; }).join('') + '</select></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Season Key</label><input id="globalOverrideSeasonKey" type="text" placeholder="optional" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">General</label><textarea id="globalOverrideGeneralTraits" style="width:100%;min-height:60px"></textarea></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Weather</label><textarea id="globalOverrideWeatherTraits" style="width:100%;min-height:60px"></textarea></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Marine</label><textarea id="globalOverrideMarineTraits" style="width:100%;min-height:60px"></textarea></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Fish</label><textarea id="globalOverrideFishTraits" style="width:100%;min-height:60px"></textarea></div>'
+      + '</div><div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">Advice Text</label><textarea id="globalOverrideAdviceText" style="width:100%;min-height:56px"></textarea></div><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" id="globalOverrideSaveBtn" class="small-btn">حفظ Override</button><span id="globalOverrideStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div><div id="globalOverrideList" style="display:grid;gap:6px;margin-top:10px"></div></div>';
+  }
+
+  function renderGlobalDururEditor() {
+    var stateEl = getEl('globalDururEditorState');
+    var editor = getEl('globalDururEditor');
+    if (!editor || !stateEl) return;
+    var item = globalDururManagementCache.find(function (row) { return row.id === selectedGlobalDurId; });
+    if (!item) {
+      stateEl.style.display = '';
+      editor.style.display = 'none';
+      editor.innerHTML = '';
+      return;
+    }
+    stateEl.style.display = 'none';
+    editor.style.display = 'grid';
+    editor.innerHTML = buildGlobalDururEditorHtml(item);
+    var reviewEl = getEl('globalDurReviewStatus');
+    if (reviewEl) reviewEl.value = item.review_status || 'draft';
+    var saveBtn = getEl('globalDurSaveBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveSelectedGlobalDur);
+    editor.querySelectorAll('button[data-save-phase]').forEach(function (btn) {
+      btn.addEventListener('click', function () { saveSelectedDurPhase(btn.getAttribute('data-save-phase')); });
+    });
+    var overrideSaveBtn = getEl('globalOverrideSaveBtn');
+    if (overrideSaveBtn) overrideSaveBtn.addEventListener('click', saveSelectedDurOverride);
+    renderGlobalOverrideList(item.id);
+  }
+
+  function collectSelectedDurFields() {
+    return {
+      name_ar: safeInput(getEl('globalDurNameAr') ? getEl('globalDurNameAr').value : '', 120),
+      dur_number: Number(getEl('globalDurNumber') ? getEl('globalDurNumber').value : 0) || 0,
+      order_index: Number(getEl('globalDurOrderIndex') ? getEl('globalDurOrderIndex').value : 0) || 0,
+      default_days_count: Number(getEl('globalDurDefaultDays') ? getEl('globalDurDefaultDays').value : 0) || 0,
+      review_status: safeInput(getEl('globalDurReviewStatus') ? getEl('globalDurReviewStatus').value : 'draft', 40) || 'draft',
+      season_ar: safeInput(getEl('globalDurSeasonAr') ? getEl('globalDurSeasonAr').value : '', 120),
+      astronomical_marker_ar: safeInput(getEl('globalDurMarkerAr') ? getEl('globalDurMarkerAr').value : '', 120),
+      heritage_meaning_ar: safeInput(getEl('globalDurHeritageMeaningAr') ? getEl('globalDurHeritageMeaningAr').value : '', 1200),
+      description_ar: safeInput(getEl('globalDurDescriptionAr') ? getEl('globalDurDescriptionAr').value : '', 1200),
+      notes_ar: safeInput(getEl('globalDurNotesAr') ? getEl('globalDurNotesAr').value : '', 1200),
+      advice_text: safeInput(getEl('globalDurAdviceText') ? getEl('globalDurAdviceText').value : '', 1200) || null,
+      general_traits: parseListInput(getEl('globalDurGeneralTraits') ? getEl('globalDurGeneralTraits').value : ''),
+      weather_traits: parseListInput(getEl('globalDurWeatherTraits') ? getEl('globalDurWeatherTraits').value : ''),
+      marine_traits: parseListInput(getEl('globalDurMarineTraits') ? getEl('globalDurMarineTraits').value : ''),
+      fish_traits: parseListInput(getEl('globalDurFishTraits') ? getEl('globalDurFishTraits').value : ''),
+      related_event_ids: parseListInput(getEl('globalDurRelatedEvents') ? getEl('globalDurRelatedEvents').value : '')
+    };
+  }
+
+  function collectSelectedPhaseFields(phaseId) {
+    var fields = {};
+    ['title_ar', 'start_day', 'end_day', 'general_traits', 'weather_traits', 'marine_traits', 'fish_traits', 'related_event_ids', 'notes_ar'].forEach(function (key) {
+      var el = document.querySelector('[data-phase-id="' + phaseId + '"][data-phase-field="' + key + '"]');
+      if (!el) return;
+      if (key === 'start_day' || key === 'end_day') fields[key] = Number(el.value || 0) || 0;
+      else if (key.indexOf('_traits') >= 0 || key === 'related_event_ids') fields[key] = parseListInput(el.value);
+      else fields[key] = safeInput(el.value, 1200);
+    });
+    return fields;
+  }
+
+  async function loadGlobalDururManagementData() {
+    ensureDururManagementPanel();
+    try {
+      var pair = await Promise.all([
+        apiFetch('/api?route=admin&path=durur', { method: 'GET' }).then(function (res) { return res.json(); }),
+        apiFetch('/api?route=admin&path=durur-overrides', { method: 'GET' }).then(function (res) { return res.json(); })
+      ]);
+      globalDururManagementCache = Array.isArray(pair[0].items) ? pair[0].items.map(normalizeDurRecordForUi) : [];
+      dururGlobalOverridesCache = Array.isArray(pair[1].items) ? pair[1].items : [];
+      if (!selectedGlobalDurId && globalDururManagementCache.length) selectedGlobalDurId = globalDururManagementCache[0].id || '';
+      renderGlobalDururList();
+      renderGlobalDururEditor();
+      renderDururStationPreview();
+    } catch (err) {
+      console.error('[durur-management] load failed', err);
+    }
+  }
+
+  function renderGlobalOverrideList(durId) {
+    var list = getEl('globalOverrideList');
+    if (!list) return;
+    var items = dururGlobalOverridesCache.filter(function (item) { return item && item.dur_id === durId; });
+    list.innerHTML = items.length ? items.map(function (item) {
+      return '<button type="button" class="small-btn" data-load-override="' + escapeHtml(item.override_id || item.id || '') + '" style="text-align:right;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)"><strong>' + escapeHtml((item.station_id || 'GLOBAL')) + '</strong> | ' + escapeHtml(item.phase_id || 'base') + ' | ' + escapeHtml(item.season_key || 'all') + '</button>';
+    }).join('') : '<div style="color:#9fc1d7;font-size:.8rem">لا توجد Overrides لهذا الدر بعد.</div>';
+    list.querySelectorAll('button[data-load-override]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var override = dururGlobalOverridesCache.find(function (item) { return (item.override_id || item.id) === btn.getAttribute('data-load-override'); });
+        if (!override) return;
+        if (getEl('globalOverrideId')) getEl('globalOverrideId').value = override.override_id || override.id || '';
+        if (getEl('globalOverrideStationId')) getEl('globalOverrideStationId').value = override.station_id || '';
+        if (getEl('globalOverridePhaseId')) getEl('globalOverridePhaseId').value = override.phase_id || '';
+        if (getEl('globalOverrideSeasonKey')) getEl('globalOverrideSeasonKey').value = override.season_key || '';
+        if (getEl('globalOverrideGeneralTraits')) getEl('globalOverrideGeneralTraits').value = listInputValue(override.fields && override.fields.general_traits);
+        if (getEl('globalOverrideWeatherTraits')) getEl('globalOverrideWeatherTraits').value = listInputValue(override.fields && override.fields.weather_traits);
+        if (getEl('globalOverrideMarineTraits')) getEl('globalOverrideMarineTraits').value = listInputValue(override.fields && override.fields.marine_traits);
+        if (getEl('globalOverrideFishTraits')) getEl('globalOverrideFishTraits').value = listInputValue(override.fields && override.fields.fish_traits);
+        if (getEl('globalOverrideAdviceText')) getEl('globalOverrideAdviceText').value = override.fields && override.fields.advice_text ? override.fields.advice_text : '';
+      });
+    });
+  }
+
+  async function saveSelectedGlobalDur() {
+    var statusEl = getEl('globalDurSaveStatus');
+    if (!selectedGlobalDurId) return;
+    if (statusEl) statusEl.textContent = 'جاري الحفظ...';
+    try {
+      var res = await apiFetch('/api?route=admin&path=durur-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dur_id: selectedGlobalDurId, fields: collectSelectedDurFields() })
+      });
+      if (!res.ok) throw new Error('durur_update_failed');
+      if (statusEl) statusEl.textContent = 'تم حفظ الدر.';
+      await loadDururData();
+      await loadGlobalDururManagementData();
+    } catch (err) {
+      if (statusEl) statusEl.textContent = 'فشل حفظ الدر.';
+    }
+  }
+
+  async function saveSelectedDurPhase(phaseId) {
+    var statusEl = getEl('globalDurSaveStatus');
+    if (!selectedGlobalDurId || !phaseId) return;
+    if (statusEl) statusEl.textContent = 'جاري حفظ المرحلة...';
+    try {
+      var res = await apiFetch('/api?route=admin&path=durur-phase-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dur_id: selectedGlobalDurId, phase_id: phaseId, fields: collectSelectedPhaseFields(phaseId) })
+      });
+      if (!res.ok) throw new Error('durur_phase_update_failed');
+      if (statusEl) statusEl.textContent = 'تم حفظ المرحلة.';
+      await loadGlobalDururManagementData();
+    } catch (err) {
+      if (statusEl) statusEl.textContent = 'فشل حفظ المرحلة.';
+    }
+  }
+
+  async function saveSelectedDurOverride() {
+    var statusEl = getEl('globalOverrideStatus');
+    if (!selectedGlobalDurId) return;
+    if (statusEl) statusEl.textContent = 'جاري حفظ الـ override...';
+    try {
+      var overrideId = safeInput(getEl('globalOverrideId') ? getEl('globalOverrideId').value : '', 80);
+      var path = overrideId ? 'durur-override-update' : 'durur-override-create';
+      var payload = {
+        override_id: overrideId || undefined,
+        station_id: safeInput(getEl('globalOverrideStationId') ? getEl('globalOverrideStationId').value : '', 80) || null,
+        dur_id: selectedGlobalDurId,
+        phase_id: safeInput(getEl('globalOverridePhaseId') ? getEl('globalOverridePhaseId').value : '', 80) || null,
+        season_key: safeInput(getEl('globalOverrideSeasonKey') ? getEl('globalOverrideSeasonKey').value : '', 60) || null,
+        fields: {
+          general_traits: parseListInput(getEl('globalOverrideGeneralTraits') ? getEl('globalOverrideGeneralTraits').value : ''),
+          weather_traits: parseListInput(getEl('globalOverrideWeatherTraits') ? getEl('globalOverrideWeatherTraits').value : ''),
+          marine_traits: parseListInput(getEl('globalOverrideMarineTraits') ? getEl('globalOverrideMarineTraits').value : ''),
+          fish_traits: parseListInput(getEl('globalOverrideFishTraits') ? getEl('globalOverrideFishTraits').value : ''),
+          advice_text: safeInput(getEl('globalOverrideAdviceText') ? getEl('globalOverrideAdviceText').value : '', 1200) || null
+        }
+      };
+      var res = await apiFetch('/api?route=admin&path=' + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('durur_override_save_failed');
+      if (statusEl) statusEl.textContent = 'تم حفظ الـ override.';
+      await loadGlobalDururManagementData();
+    } catch (err) {
+      if (statusEl) statusEl.textContent = 'فشل حفظ الـ override.';
+    }
+  }
+
+  function renderDururStationPreview() {
+    var body = getEl('dururStationPreviewBody');
+    var status = getEl('dururStationPreviewStatus');
+    if (!body || !status) return;
+    if (!selectedDururStationId) {
+      status.textContent = '--';
+      body.innerHTML = 'اختر محطة ثم حمّل التحليل لعرض المرجع الفعال بعد الدمج.';
+      return;
+    }
+    status.textContent = selectedDururStationId;
+    if (!currentStationAnalysisDto || !currentStationAnalysisDto.dur) {
+      body.innerHTML = 'المحطة محددة، لكن لا توجد قراءة تحليلية حالية بعد.';
+      return;
+    }
+    var dto = currentStationAnalysisDto;
+    if (dto.station_id && selectedDururStationId && dto.station_id !== selectedDururStationId) {
+      body.innerHTML = 'تم تغيير المحطة. حدّث التحليل لهذه المحطة لعرض المرجع الفعال الصحيح.';
+      return;
+    }
+    var ref = dto.dur.reference || {};
+    var phase = dto.dur.active_phase_reference || {};
+    var effectiveTraits = []
+      .concat(ref.general_traits || [])
+      .concat(ref.weather_traits || [])
+      .concat(ref.marine_traits || [])
+      .concat(ref.fish_traits || [])
+      .concat(phase.general_traits || [])
+      .concat(phase.weather_traits || [])
+      .concat(phase.marine_traits || [])
+      .concat(phase.fish_traits || []);
+    var unique = [];
+    effectiveTraits.forEach(function (value) { if (value && unique.indexOf(value) < 0) unique.push(value); });
+    body.innerHTML = ''
+      + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
+      + '  <div><strong style="color:#9fc1d7">Current Dur:</strong><br>' + escapeHtml(dto.dur.period_name || '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">Day In Period:</strong><br>' + escapeHtml(dto.dur.day_in_period != null ? dto.dur.day_in_period : '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">Active Phase:</strong><br>' + escapeHtml(phase.phase_id || dto.dur.active_phase_id || '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">Override Applied:</strong><br>' + (dto.dur.overrides_applied ? 'Yes' : 'No') + '</div>'
+      + '</div>'
+      + '<div style="margin-top:8px"><strong style="color:#9fc1d7">Effective Traits</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div></div>';
   }
 
   function getFishingModeLabel(mode) {
@@ -3383,6 +3762,7 @@
     getEl('stWeatherSeaTemp').textContent = '-- °C';
     getEl('stWeatherLastUpdate').textContent = '--';
     getEl('stAnalyticsMsg').textContent = message || 'جاهز';
+    renderDururStationPreview();
   }
 
   function renderAdminAnalysisDto(dto, stationId, expertNotes, modeLabel) {
@@ -3425,6 +3805,7 @@
     getEl('stAnalyticsScore').textContent = dto.fishing.confidence_score != null ? String(dto.fishing.confidence_score) : '--';
     getEl('stAnalyticsStatus').textContent = mapDtoTideStateToArabic(dto.tide.state);
     getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
+    renderDururStationPreview();
   }
 
   async function renderTransientStationPreview(lat, lon) {
@@ -4321,6 +4702,7 @@
     initStationsAdminMap();
     initDururAdminMap();
     initStationFormBindings();
+    ensureDururManagementPanel();
 
     bindSettingsActions();
 

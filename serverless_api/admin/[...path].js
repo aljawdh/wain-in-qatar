@@ -154,6 +154,10 @@ function normalizeDururMasterInput(input, existing) {
     related_event_ids: Array.isArray(input.related_event_ids) ? input.related_event_ids.map((v) => cleanString(v, 80)).filter(Boolean) : (Array.isArray(base.related_event_ids) ? base.related_event_ids : []),
     notes_ar: cleanString(input.notes_ar != null ? input.notes_ar : base.notes_ar, 1200),
     notes_en: cleanString(input.notes_en != null ? input.notes_en : base.notes_en, 1200),
+    review_status: ['draft', 'reviewed', 'approved', 'needs_revision'].includes(cleanString(input.review_status != null ? input.review_status : base.review_status || 'draft', 40))
+      ? cleanString(input.review_status != null ? input.review_status : base.review_status || 'draft', 40)
+      : 'draft',
+    advice_text: input.advice_text === null ? null : cleanString(input.advice_text != null ? input.advice_text : base.advice_text, 1200) || null,
     phases: fallbackPhaseSource.map((phase, index) => ({
       phase_id: cleanString(phase && phase.phase_id ? phase.phase_id : ((base.id || input.id || 'dur') + '_phase_' + String(index + 1).padStart(2, '0')), 80),
       start_day: Number.isFinite(Number(phase && phase.start_day)) ? Number(phase.start_day) : 1,
@@ -170,6 +174,113 @@ function normalizeDururMasterInput(input, existing) {
     created_at: base.created_at || nowIso(),
     updated_at: nowIso()
   };
+}
+
+function normalizeStringArray(value, maxLength) {
+  return Array.isArray(value) ? value.map((entry) => cleanString(entry, maxLength || 120)).filter(Boolean) : [];
+}
+
+function normalizeNullableString(value, maxLength) {
+  if (value === null) return null;
+  const cleaned = cleanString(value, maxLength || 1200);
+  return cleaned || null;
+}
+
+function normalizeDururOverrideInput(input, existing) {
+  const base = existing || {};
+  const baseFields = base.fields || {};
+  const nextFields = input.fields || {};
+  return {
+    override_id: cleanString(base.override_id || base.id || input.override_id || input.id || createId('durovr'), 80),
+    station_id: cleanString(input.station_id != null ? input.station_id : base.station_id, 80) || null,
+    dur_id: cleanString(input.dur_id != null ? input.dur_id : base.dur_id, 80),
+    phase_id: cleanString(input.phase_id != null ? input.phase_id : base.phase_id, 80) || null,
+    season_key: cleanString(input.season_key != null ? input.season_key : base.season_key, 60) || null,
+    fields: {
+      general_traits: Array.isArray(nextFields.general_traits) ? normalizeStringArray(nextFields.general_traits, 120) : (Array.isArray(baseFields.general_traits) ? baseFields.general_traits : []),
+      weather_traits: Array.isArray(nextFields.weather_traits) ? normalizeStringArray(nextFields.weather_traits, 120) : (Array.isArray(baseFields.weather_traits) ? baseFields.weather_traits : []),
+      marine_traits: Array.isArray(nextFields.marine_traits) ? normalizeStringArray(nextFields.marine_traits, 120) : (Array.isArray(baseFields.marine_traits) ? baseFields.marine_traits : []),
+      fish_traits: Array.isArray(nextFields.fish_traits) ? normalizeStringArray(nextFields.fish_traits, 120) : (Array.isArray(baseFields.fish_traits) ? baseFields.fish_traits : []),
+      advice_text: Object.prototype.hasOwnProperty.call(nextFields, 'advice_text')
+        ? normalizeNullableString(nextFields.advice_text, 1200)
+        : normalizeNullableString(baseFields.advice_text, 1200)
+    },
+    is_active: input.is_active != null ? !!input.is_active : (base.is_active != null ? !!base.is_active : true),
+    created_at: base.created_at || nowIso(),
+    updated_at: nowIso()
+  };
+}
+
+function applyPartialDurMasterUpdate(existing, fields) {
+  const next = Object.assign({}, existing || {});
+  Object.keys(fields || {}).forEach((key) => {
+    if (key === 'id' || key === 'phases') return;
+    next[key] = fields[key];
+  });
+  return normalizeDururMasterInput(next, existing);
+}
+
+function validateDurMasterRow(row) {
+  if (!row || !row.id) throw new Error('dur_id_required');
+  const reviewStatus = cleanString(row.review_status || 'draft', 40) || 'draft';
+  if (!['draft', 'reviewed', 'approved', 'needs_revision'].includes(reviewStatus)) {
+    throw new Error('invalid_review_status');
+  }
+  const phases = Array.isArray(row.phases) ? row.phases.slice() : [];
+  const seenPhaseIds = new Set();
+  phases.forEach((phase) => {
+    if (!phase || !cleanString(phase.phase_id, 80)) throw new Error('phase_id_required');
+    const phaseId = cleanString(phase.phase_id, 80);
+    if (seenPhaseIds.has(phaseId)) throw new Error('duplicate_phase_id');
+    seenPhaseIds.add(phaseId);
+    const start = Number(phase.start_day);
+    const end = Number(phase.end_day);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 1 || end < start) {
+      throw new Error('invalid_phase_range');
+    }
+  });
+  phases.sort((a, b) => Number(a.start_day) - Number(b.start_day));
+  for (let i = 1; i < phases.length; i += 1) {
+    if (Number(phases[i].start_day) <= Number(phases[i - 1].end_day)) {
+      throw new Error('overlapping_phase_ranges');
+    }
+  }
+}
+
+function validateDurMasterCollection(rows) {
+  const seenDurIds = new Set();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    validateDurMasterRow(row);
+    const durId = cleanString(row.id, 80);
+    if (!durId) throw new Error('dur_id_required');
+    if (seenDurIds.has(durId)) throw new Error('duplicate_dur_id');
+    seenDurIds.add(durId);
+  });
+}
+
+function mapDurMasterForAdmin(row) {
+  const item = row || {};
+  return Object.assign({}, item, {
+    name: item.name_ar || item.name || '',
+    days_count: item.default_days_count,
+    description: item.description_ar || '',
+    heritage_meaning: item.heritage_meaning_ar || '',
+    notes: item.notes_ar || ''
+  });
+}
+
+function mergeDurMasterAdminWithLegacy(row, legacyRows) {
+  const item = mapDurMasterForAdmin(row);
+  const legacy = (Array.isArray(legacyRows) ? legacyRows : []).find((entry) => {
+    return cleanString(entry && entry.id, 80) === cleanString(item.id, 80)
+      || (Number(entry && entry.dur_number) > 0 && Number(entry.dur_number) === Number(item.dur_number));
+  }) || {};
+  return Object.assign({}, item, {
+    gregorian_start_month: legacy.gregorian_start_month != null ? legacy.gregorian_start_month : (item.gregorian_window_hint && item.gregorian_window_hint.start_month),
+    gregorian_start_day: legacy.gregorian_start_day != null ? legacy.gregorian_start_day : (item.gregorian_window_hint && item.gregorian_window_hint.start_day),
+    gregorian_end_month: legacy.gregorian_end_month != null ? legacy.gregorian_end_month : (item.gregorian_window_hint && item.gregorian_window_hint.end_month),
+    gregorian_end_day: legacy.gregorian_end_day != null ? legacy.gregorian_end_day : (item.gregorian_window_hint && item.gregorian_window_hint.end_day)
+  });
 }
 
 function normalizeTraitDictionaryInput(input, existing) {
@@ -352,6 +463,13 @@ async function writeCollection(root, rows) {
   await writeJsonFile(key, rows);
 }
 
+async function readDurMasterRows() {
+  const rows = await readJsonFile('durur_master', []);
+  const out = Array.isArray(rows) ? rows : [];
+  validateDurMasterCollection(out);
+  return out;
+}
+
 module.exports = async function handler(req, res) {
   setNoCache(res);
 
@@ -520,11 +638,13 @@ module.exports = async function handler(req, res) {
           const item = sanitizeCollectionItem(rootName, body, existingIdx >= 0 ? rows[existingIdx] : null);
           if (existingIdx >= 0) {
             rows[existingIdx] = item;
+            if (rootName === 'durur-master') validateDurMasterCollection(rows);
             await writeCollection(rootName, rows);
             await writeAudit(rootName + '_updated', actor, { item_id: item.id });
             return res.status(200).json({ ok: true, item });
           }
           rows.push(item);
+          if (rootName === 'durur-master') validateDurMasterCollection(rows);
           await writeCollection(rootName, rows);
           await writeAudit(rootName + '_created', actor, { item_id: item.id });
           return res.status(201).json({ ok: true, item });
@@ -544,6 +664,7 @@ module.exports = async function handler(req, res) {
         const body = parseBody(req);
         const updated = sanitizeCollectionItem(rootName, body, rows[idx]);
         rows[idx] = updated;
+        if (rootName === 'durur-master') validateDurMasterCollection(rows);
         await writeCollection(rootName, rows);
         await writeAudit(rootName + '_updated', actor, { item_id: updated.id });
         return res.status(200).json({ ok: true, item: updated });
@@ -563,7 +684,132 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
-  const collectionRoots = ['durur', 'durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons', 'durur-master', 'trait-dictionaries', 'fish-season-tags', 'advice-basis-tags'];
+  if (root === 'durur') {
+    if (req.method !== 'GET' && req.method !== 'POST') {
+      res.setHeader('Allow', 'GET, POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const rows = await readDurMasterRows();
+    const legacyRows = await readJsonFile('durur', []);
+    if (req.method === 'GET') {
+      const durId = cleanString(req.query && req.query.dur_id, 80);
+      if (durId) {
+        const item = rows.find((row) => row.id === durId);
+        if (!item) return res.status(404).json({ error: 'dur_not_found' });
+        return res.status(200).json({ ok: true, item: mergeDurMasterAdminWithLegacy(item, legacyRows) });
+      }
+      const items = rows.slice().sort((a, b) => Number(a.order_index || a.dur_number || 0) - Number(b.order_index || b.dur_number || 0)).map((item) => mergeDurMasterAdminWithLegacy(item, legacyRows));
+      return res.status(200).json({ ok: true, total: items.length, items });
+    }
+    try {
+      const body = parseBody(req) || {};
+      const requestedId = cleanString(body.dur_id || body.id, 80);
+      if (!requestedId) return res.status(400).json({ error: 'dur_id_required' });
+      const idx = rows.findIndex((row) => row.id === requestedId);
+      if (idx < 0) return res.status(404).json({ error: 'dur_not_found' });
+      const partialFields = Object.assign({}, body.fields || body || {}, body.id ? { id: requestedId } : {});
+      const updated = applyPartialDurMasterUpdate(rows[idx], partialFields);
+      rows[idx] = updated;
+      validateDurMasterCollection(rows);
+      await writeJsonFile('durur_master', rows);
+      await writeAudit('durur_master_updated', actor, { dur_id: updated.id, via: 'durur_root_post' });
+      return res.status(200).json({ ok: true, item: mapDurMasterForAdmin(updated) });
+    } catch (err) {
+      return res.status(400).json({ error: err && err.message ? err.message : 'durur_update_failed' });
+    }
+  }
+
+  if (root === 'durur-update') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const body = parseBody(req) || {};
+      const durId = cleanString(body.dur_id, 80);
+      if (!durId) return res.status(400).json({ error: 'dur_id_required' });
+      const rows = await readDurMasterRows();
+      const idx = rows.findIndex((row) => row.id === durId);
+      if (idx < 0) return res.status(404).json({ error: 'dur_not_found' });
+      const updated = applyPartialDurMasterUpdate(rows[idx], body.fields || {});
+      rows[idx] = updated;
+      validateDurMasterCollection(rows);
+      await writeJsonFile('durur_master', rows);
+      await writeAudit('durur_master_updated', actor, { dur_id: updated.id });
+      return res.status(200).json({ ok: true, item: mapDurMasterForAdmin(updated) });
+    } catch (err) {
+      return res.status(400).json({ error: err && err.message ? err.message : 'durur_update_failed' });
+    }
+  }
+
+  if (root === 'durur-phase-update') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const body = parseBody(req) || {};
+      const durId = cleanString(body.dur_id, 80);
+      const phaseId = cleanString(body.phase_id, 80);
+      if (!durId || !phaseId) return res.status(400).json({ error: 'dur_id_phase_id_required' });
+      const rows = await readDurMasterRows();
+      const idx = rows.findIndex((row) => row.id === durId);
+      if (idx < 0) return res.status(404).json({ error: 'dur_not_found' });
+      const current = rows[idx];
+      const phaseIdx = (Array.isArray(current.phases) ? current.phases : []).findIndex((phase) => cleanString(phase.phase_id, 80) === phaseId);
+      if (phaseIdx < 0) return res.status(404).json({ error: 'phase_not_found' });
+      const phases = current.phases.slice();
+      phases[phaseIdx] = Object.assign({}, phases[phaseIdx], body.fields || {}, { phase_id: phaseId });
+      const updated = normalizeDururMasterInput(Object.assign({}, current, { phases: phases }), current);
+      rows[idx] = updated;
+      validateDurMasterCollection(rows);
+      await writeJsonFile('durur_master', rows);
+      await writeAudit('durur_phase_updated', actor, { dur_id: durId, phase_id: phaseId });
+      return res.status(200).json({ ok: true, item: mapDurMasterForAdmin(updated) });
+    } catch (err) {
+      return res.status(400).json({ error: err && err.message ? err.message : 'durur_phase_update_failed' });
+    }
+  }
+
+  if (root === 'durur-overrides') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const rows = await readJsonFile('durur_overrides', []);
+    return res.status(200).json({ ok: true, total: Array.isArray(rows) ? rows.length : 0, items: Array.isArray(rows) ? rows : [] });
+  }
+
+  if (root === 'durur-override-create' || root === 'durur-override-update') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const body = parseBody(req) || {};
+      const rows = await readJsonFile('durur_overrides', []);
+      const overrideId = cleanString(body.override_id || body.id, 80);
+      const existingIdx = overrideId ? rows.findIndex((item) => cleanString(item.override_id || item.id, 80) === overrideId) : -1;
+      if (root === 'durur-override-update' && existingIdx < 0) {
+        return res.status(404).json({ error: 'override_not_found' });
+      }
+      const item = normalizeDururOverrideInput(body, existingIdx >= 0 ? rows[existingIdx] : null);
+      if (!item.dur_id) return res.status(400).json({ error: 'dur_id_required' });
+      if (existingIdx >= 0) rows[existingIdx] = item;
+      else rows.push(item);
+      await writeJsonFile('durur_overrides', rows);
+      await writeAudit(existingIdx >= 0 ? 'durur_override_updated' : 'durur_override_created', actor, {
+        override_id: item.override_id,
+        dur_id: item.dur_id,
+        station_id: item.station_id
+      });
+      return res.status(existingIdx >= 0 ? 200 : 201).json({ ok: true, item });
+    } catch (err) {
+      return res.status(400).json({ error: err && err.message ? err.message : 'durur_override_save_failed' });
+    }
+  }
+
+  const collectionRoots = ['durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons', 'durur-master', 'trait-dictionaries', 'fish-season-tags', 'advice-basis-tags'];
   if (collectionRoots.includes(root)) {
     return handleCollection(root);
   }
