@@ -1441,7 +1441,7 @@
         '<td>' + (d.name || '--') + '</td>' +
         '<td>' + (d.dur_number || '--') + '</td>' +
         '<td>' + getDurDateLabel(d) + '</td>' +
-        '<td>' + (d.is_active !== false ? 'Active' : 'Disabled') + '</td>' +
+        '<td>' + (d.is_active !== false ? 'نشط' : 'معطل') + '</td>' +
         '<td><div class="inline-actions"><button class="small-btn" data-action="edit-dur" data-id="' + (d.id || '') + '">تعديل</button><button class="small-btn danger" data-action="delete-dur" data-id="' + (d.id || '') + '">حذف</button></div></td>';
       body.appendChild(tr);
     });
@@ -1468,7 +1468,7 @@
         '<td>' + (e.name || '--') + '</td>' +
         '<td>' + getDurDateLabel(e) + '</td>' +
         '<td>' + related + '</td>' +
-        '<td>' + (e.is_active !== false ? 'Active' : 'Disabled') + '</td>' +
+        '<td>' + (e.is_active !== false ? 'نشط' : 'معطل') + '</td>' +
         '<td><div class="inline-actions"><button class="small-btn" data-action="edit-event" data-id="' + (e.id || '') + '">تعديل</button><button class="small-btn danger" data-action="delete-event" data-id="' + (e.id || '') + '">حذف</button></div></td>';
       body.appendChild(tr);
     });
@@ -1577,7 +1577,7 @@
     var comparison = getComparisonForStationDur(station, dur);
     var html = '<div style="font-size:0.95rem;line-height:1.5">';
     html += '<strong>' + (station.name || '--') + '</strong><br>';
-    html += '<div><strong>ID:</strong> ' + (station.id || '--') + '</div>';
+    html += '<div><strong>المعرف التقني:</strong> <span style="font-size:.78rem;color:#8fb4c8">' + (station.id || '--') + '</span></div>';
     html += '<div><strong>الدولة:</strong> ' + (station.country || '--') + '</div>';
     html += '<div><strong>المنطقة:</strong> ' + (station.region || '--') + '</div>';
     html += '<div><strong>الإحداثيات:</strong> ' + (station.lat || '--') + ', ' + (station.lon || '--') + '</div>';
@@ -2122,6 +2122,11 @@
       .replace(/'/g, '&#39;');
   }
 
+  function formatTraitCountLabel(count, suffix) {
+    var extra = suffix ? ' ' + suffix : '';
+    return String(Number(count) || 0) + ' سمة' + extra;
+  }
+
   function normalizeDurRecordForUi(item) {
     var row = item || {};
     return Object.assign({}, row, {
@@ -2375,7 +2380,7 @@
     var options = getDururManagementOptionSource();
     return ''
       + '<div style="padding:12px;background:rgba(92,225,255,.05);border:1px solid rgba(92,225,255,.18);border-radius:10px">'
-      + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px"><strong style="color:#dff8ff">المرجع العام للدرة</strong><span style="font-size:.8rem;color:#9fc1d7">ID: ' + escapeHtml(item.id || '') + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px"><strong style="color:#dff8ff">المرجع العام للدرة</strong><span style="font-size:.75rem;color:#8fb4c8">المعرف التقني: ' + escapeHtml(item.id || '') + '</span></div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">اسم الدرة</label><input id="globalDurNameAr" type="text" value="' + escapeHtml(item.name_ar || item.name || '') + '" style="width:100%"></div>'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">حالة المراجعة</label><select id="globalDurReviewStatus" style="width:100%">' + options.reviewStatus.map(function (opt) { return '<option value="' + escapeHtml(opt.value) + '">' + escapeHtml(opt.label) + '</option>'; }).join('') + '</select></div>'
@@ -2401,14 +2406,14 @@
       + buildStructuredSelectField('globalDurRelatedEvents', 'الأحداث المرتبطة', item.related_event_ids || [], options.events, true, 6)
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button type="button" id="globalDurSaveCurrentBtn" class="small-btn">حفظ الحالة الحالية</button><button type="button" id="globalDurSaveDraftBtn" class="small-btn">حفظ كمسودة</button><button type="button" id="globalDurSaveApprovedBtn" class="small-btn">حفظ واعتماد</button><span id="globalDurSaveStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div>'
       + '</div>'
-      + '<div style="margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">مراحل الدرة</strong><div id="globalDurPhaseEditor" style="display:grid;gap:8px;margin-top:8px">'
+      + '<div style="margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">مراحل الدرة</strong><div id="globalDurPhaseEditor" style="display:grid;gap:10px;margin-top:10px">'
       + phases.map(function (phase) {
           var phasePrefix = 'globalDurPhase_' + (phase.phase_id || '');
-          return '<details style="border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px;background:rgba(255,255,255,.02)">'
-            + '<summary style="cursor:pointer;color:#cfeaff">المرحلة ' + escapeHtml(phase.phase_id || '--') + ' | اليوم ' + escapeHtml(phase.start_day || '--') + ' - ' + escapeHtml(phase.end_day || '--') + '</summary>'
+          return '<details open style="border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px;background:rgba(255,255,255,.02)">'
+            + '<summary style="cursor:pointer;color:#cfeaff"><strong>اسم المرحلة:</strong> ' + escapeHtml(phase.title_ar || phase.phase_id || '--') + ' <span style="font-size:.74rem;color:#8fb4c8">(' + escapeHtml(phase.phase_id || '--') + ')</span></summary>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
-            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">العنوان</label><input data-phase-field="title_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="text" value="' + escapeHtml(phase.title_ar || '') + '" style="width:100%"></div>'
-            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">النطاق</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input data-phase-field="start_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.start_day || '') + '"><input data-phase-field="end_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.end_day || '') + '"></div></div>'
+            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">اسم المرحلة</label><input data-phase-field="title_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="text" value="' + escapeHtml(phase.title_ar || '') + '" style="width:100%"></div>'
+            +   '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><div><label style="display:block;margin-bottom:4px;color:#9fc1d7">من يوم</label><input data-phase-field="start_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.start_day || '') + '"></div><div><label style="display:block;margin-bottom:4px;color:#9fc1d7">إلى يوم</label><input data-phase-field="end_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.end_day || '') + '"></div></div>'
             + '</div>'
             + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px">'
             +   buildStructuredSelectField(phasePrefix + '_general_traits', 'السمات العامة', phase.general_traits || [], options.generalTraits, false, 6)
@@ -2418,7 +2423,7 @@
             + '</div>'
             + '<div style="margin-top:8px">' + buildStructuredSelectField(phasePrefix + '_related_event_ids', 'الأحداث المرتبطة', phase.related_event_ids || [], options.events, true, 5) + '</div>'
             + '<div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">الملاحظات</label><textarea data-phase-field="notes_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:56px">' + escapeHtml(phase.notes_ar || '') + '</textarea></div>'
-            + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" class="small-btn" data-save-phase="' + escapeHtml(phase.phase_id || '') + '">حفظ المرحلة</button></div>'
+            + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" class="small-btn" data-save-phase="' + escapeHtml(phase.phase_id || '') + '">حفظ المرحلة</button><span style="font-size:.74rem;color:#8fb4c8">المعرف التقني: ' + escapeHtml(phase.phase_id || '--') + '</span></div>'
             + '</details>';
         }).join('')
       + '</div></div>'
@@ -2650,6 +2655,11 @@
       endDate = new Date(analysisDate.getTime());
       endDate.setUTCDate(endDate.getUTCDate() + Math.max(0, Number(dto.dur.days_remaining || 0)));
     }
+    var baseTraits = []
+      .concat(ref.general_traits || [])
+      .concat(ref.weather_traits || [])
+      .concat(ref.marine_traits || [])
+      .concat(ref.fish_traits || []);
     var effectiveTraits = []
       .concat(ref.general_traits || [])
       .concat(ref.weather_traits || [])
@@ -2659,15 +2669,20 @@
       .concat(phase.weather_traits || [])
       .concat(phase.marine_traits || [])
       .concat(phase.fish_traits || []);
+    var uniqueBase = [];
     var unique = [];
+    baseTraits.forEach(function (value) { if (value && uniqueBase.indexOf(value) < 0) uniqueBase.push(value); });
     effectiveTraits.forEach(function (value) { if (value && unique.indexOf(value) < 0) unique.push(value); });
     var appliedReferenceLabel = dto.dur.overrides_applied ? 'عليه تخصيص' : 'مرجع عام';
     var tideLabel = mapDtoTideStateToArabic(dto.tide && dto.tide.state);
+    var phaseLabel = phase.title_ar || phase.phase_id || dto.dur.active_phase_id || '--';
+    var baseReferenceLabel = ref.name_ar || dto.dur.period_name || '--';
     body.innerHTML = ''
+      + '<div style="padding:10px;border:1px solid rgba(92,225,255,.18);border-radius:10px;background:rgba(92,225,255,.05)">'
       + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
       + '  <div><strong style="color:#9fc1d7">الدر الحالي الآن:</strong><br>' + escapeHtml(dto.dur.period_name || '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">اليوم داخل الدر:</strong><br>' + escapeHtml(dto.dur.day_in_period != null ? dto.dur.day_in_period : '--') + '</div>'
-      + '  <div><strong style="color:#9fc1d7">المرحلة الحالية:</strong><br>' + escapeHtml(phase.title_ar || phase.phase_id || dto.dur.active_phase_id || '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">المرحلة الحالية:</strong><br>' + escapeHtml(phaseLabel) + '</div>'
       + '  <div><strong style="color:#9fc1d7">بداية الدر:</strong><br>' + escapeHtml(startDate ? startDate.toISOString().slice(0, 10) : '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">نهاية الدر:</strong><br>' + escapeHtml(endDate ? endDate.toISOString().slice(0, 10) : '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">الدر التالي:</strong><br>' + escapeHtml(dto.dur.next_period_name || '--') + '</div>'
@@ -2675,7 +2690,15 @@
       + '  <div><strong style="color:#9fc1d7">المرجع المطبق:</strong><br>' + escapeHtml(appliedReferenceLabel) + '</div>'
       + '  <div><strong style="color:#9fc1d7">حالة الحمل / الفساد الحالية:</strong><br>' + escapeHtml(tideLabel || '--') + '</div>'
       + '</div>'
-      + '<div style="margin-top:8px"><strong style="color:#9fc1d7">السمات الفعالة بعد الدمج</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div></div>';
+      + '</div>'
+      + '<div style="margin-top:10px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)">'
+      + '<div style="margin-bottom:6px"><strong style="color:#9fc1d7">المرجع العام للدرة</strong> <span style="font-size:.75rem;color:#8fb4c8">(' + escapeHtml(baseReferenceLabel) + ')</span></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (uniqueBase.length ? buildTraitChipHtml(uniqueBase, 'rgba(92,225,255,.16)', 'rgba(92,225,255,.28)', '#dff8ff') : '<span style="color:#9fc1d7">-- لا توجد سمات مرجعية --</span>') + '</div>'
+      + '</div>'
+      + '<div style="margin-top:10px;padding:10px;border:1px solid rgba(38,194,129,.18);border-radius:10px;background:rgba(38,194,129,.05)">'
+      + '<div style="margin-bottom:6px"><strong style="color:#9fc1d7">المرجع الفعال بعد الدمج</strong> <span style="font-size:.75rem;color:#8fb4c8">(يشمل المرحلة الحالية' + (dto.dur.overrides_applied ? ' والتخصيصات' : '') + ')</span></div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div>'
+      + '</div>';
   }
 
   function getFishingModeLabel(mode) {
@@ -3956,10 +3979,10 @@
     getEl('stAnalyticsNextDur').textContent = '--';
     getEl('stAnalyticsExpectedTraits').innerHTML = '<span style="color:#9fc1d7">--</span>';
     getEl('stAnalyticsExpertNotes').textContent = '-- لا توجد ملاحظات --';
-    getEl('stAnalyticsExpectedCount').textContent = '0 traits';
-    getEl('stAnalyticsObservedCount').textContent = '0 traits';
+    getEl('stAnalyticsExpectedCount').textContent = formatTraitCountLabel(0);
+    getEl('stAnalyticsObservedCount').textContent = formatTraitCountLabel(0);
     getEl('stAnalyticsScore').textContent = '--';
-    getEl('stAnalyticsStatus').textContent = 'pending_observation';
+    getEl('stAnalyticsStatus').textContent = 'بانتظار الرصد';
     getEl('stWeatherTemp').textContent = '-- °C';
     getEl('stWeatherWindSpeed').textContent = '-- km/h';
     getEl('stWeatherWindDir').textContent = '--°';
@@ -4005,8 +4028,8 @@
     getEl('stWeatherSeaTemp').textContent = (dto.environment.temp_c != null ? dto.environment.temp_c : '--') + ' °C';
     getEl('stWeatherLastUpdate').textContent = dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '--';
 
-    getEl('stAnalyticsExpectedCount').textContent = marineTraits.length + ' trait(s)';
-    getEl('stAnalyticsObservedCount').textContent = observedTraits.length + ' trait(s)';
+    getEl('stAnalyticsExpectedCount').textContent = formatTraitCountLabel(marineTraits.length);
+    getEl('stAnalyticsObservedCount').textContent = formatTraitCountLabel(observedTraits.length);
     getEl('stAnalyticsScore').textContent = dto.fishing.confidence_score != null ? String(dto.fishing.confidence_score) : '--';
     getEl('stAnalyticsStatus').textContent = mapDtoTideStateToArabic(dto.tide.state);
     getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
@@ -4156,10 +4179,10 @@
     validation.validation_status = currentStationAnalysisDto && currentStationAnalysisDto.tide
       ? mapDtoTideStateToArabic(currentStationAnalysisDto.tide.state)
       : validation.validation_status;
-    getEl('stAnalyticsExpectedCount').textContent = expectedTraits.length + ' trait(s)';
-    getEl('stAnalyticsObservedCount').textContent = (validation.observed_traits || []).length + ' trait(s) (جاهز للبيانات)';
+    getEl('stAnalyticsExpectedCount').textContent = formatTraitCountLabel(expectedTraits.length);
+    getEl('stAnalyticsObservedCount').textContent = formatTraitCountLabel((validation.observed_traits || []).length, '(جاهز للبيانات)');
     getEl('stAnalyticsScore').textContent = validation.validation_score || '-- (محجوزة)';
-    getEl('stAnalyticsStatus').textContent = validation.validation_status || 'pending_observation';
+    getEl('stAnalyticsStatus').textContent = validation.validation_status || 'بانتظار الرصد';
   }
 
   function buildValidationObject(stationId, dururProfile) {
@@ -4184,7 +4207,7 @@
     var observedTraits = useCurrentWeather ? getObservedTraitsFromWeather(currentWeatherState) : [];
     var matchingTraits = useCurrentWeather ? observedTraits.filter(function (t) { return expectedTraits.includes(t); }) : [];
     var percentage = null;
-    var status = 'pending_observation';
+    var status = 'بانتظار الرصد';
     if (useCurrentWeather) {
       if (expectedTraits.length === 0) {
         status = 'no_expected_traits';
