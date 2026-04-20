@@ -27,8 +27,21 @@ function normalizeAdminPath(value) {
     .filter(Boolean);
 }
 
+function applyCorsHeaders(res) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+}
+
 module.exports = async function handler(req, res) {
+  applyCorsHeaders(res);
   req.query = req.query || {};
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({ ok: true });
+  }
 
   const route = normalizeRoute(req.query.route || req.query.resource || req.query._route);
 

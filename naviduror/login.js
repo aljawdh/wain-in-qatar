@@ -33,6 +33,18 @@
     authError.textContent = message || '';
   }
 
+  function stripHiddenWhitespace(value) {
+    return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f\u00a0\u1680\u180e\u2000-\u200f\u2028\u2029\u202f\u205f\u2060\u3000\ufeff]/g, '');
+  }
+
+  function normalizeIdentifier(value) {
+    return stripHiddenWhitespace(value).trim().toLowerCase();
+  }
+
+  function normalizePassword(value) {
+    return stripHiddenWhitespace(value).trim();
+  }
+
   function updateButtonState(isProcessing) {
     if (!loginBtn) return;
     loginBtn.disabled = isProcessing;
@@ -41,11 +53,22 @@
 
   async function attemptRemoteLogin(username, password) {
     try {
+      console.info('[navidur] login request', {
+        username: username,
+        passwordProvided: !!password
+      });
       var response = await fetch('/api?route=login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username, password: password })
       });
+      console.info('[navidur] login response', { status: response.status });
+      var contentType = String(response.headers.get('content-type') || '').toLowerCase();
+      if (contentType.indexOf('application/json') === -1) {
+        console.warn('[navidur] unexpected login response type', { contentType: contentType || 'unknown' });
+        return false;
+      }
       var payload = await response.json().catch(function () { return {}; });
       if (response.ok && payload && payload.token) {
         saveAuth(payload.token, payload.user || { username: username });
@@ -60,8 +83,8 @@
   async function performLogin(event) {
     if (event) event.preventDefault();
     setError('');
-    var username = String(usernameInput.value || '').trim();
-    var password = String(passwordInput.value || '');
+    var username = normalizeIdentifier(usernameInput.value);
+    var password = normalizePassword(passwordInput.value);
     if (!username || !password) {
       setError('يرجى إدخال اسم المستخدم وكلمة المرور');
       return;

@@ -42,9 +42,21 @@ function isFieldAccountsEnabled() {
   return process.env.NAVIDUR_ALLOW_FIELD_ACCOUNTS === 'true';
 }
 
+function stripHiddenWhitespace(value) {
+  return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f\u00a0\u1680\u180e\u2000-\u200f\u2028\u2029\u202f\u205f\u2060\u3000\ufeff]/g, '');
+}
+
+function normalizeLoginIdentifier(value) {
+  return cleanString(stripHiddenWhitespace(value), 60).toLowerCase();
+}
+
+function normalizeLoginPassword(value) {
+  return cleanString(stripHiddenWhitespace(value), 200);
+}
+
 function getFieldAccountByUsername(username) {
   if (!isFieldAccountsEnabled()) return null;
-  const safe = cleanString(username, 60).toLowerCase();
+  const safe = normalizeLoginIdentifier(username);
   return FIELD_TEST_ACCOUNTS.find((a) => a.username.toLowerCase() === safe) || null;
 }
 
@@ -150,19 +162,42 @@ function requireRole(minRole) {
   };
 }
 
-function setAuthCookie(res, token) {
-  const secure = process.env.NODE_ENV === 'production';
-  const cookie = 'navidur_token=' + encodeURIComponent(token) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200' + (secure ? '; Secure' : '');
-  res.setHeader('Set-Cookie', cookie);
+function isSecureRequest(req) {
+  const forwardedProto = String(req && req.headers && req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const forwardedSsl = String(req && req.headers && req.headers['x-forwarded-ssl'] || '').trim().toLowerCase();
+  return forwardedProto === 'https' || forwardedSsl === 'on' || process.env.NODE_ENV === 'production';
 }
 
-function clearAuthCookie(res) {
-  res.setHeader('Set-Cookie', 'navidur_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+function buildAuthCookie(token, maxAge, req) {
+  const attrs = [
+    'navidur_token=' + encodeURIComponent(token || ''),
+    'Path=/',
+    'HttpOnly',
+    'Max-Age=' + String(maxAge)
+  ];
+
+  if (isSecureRequest(req)) {
+    attrs.push('SameSite=None', 'Secure');
+  } else {
+    // Keep local non-HTTPS environments working while Safari production traffic gets a cross-site safe cookie.
+    attrs.push('SameSite=Lax');
+  }
+
+  return attrs.join('; ');
+}
+
+function setAuthCookie(res, token, req) {
+  res.setHeader('Set-Cookie', buildAuthCookie(token, 43200, req));
+}
+
+function clearAuthCookie(res, req) {
+  res.setHeader('Set-Cookie', buildAuthCookie('', 0, req));
 }
 
 async function login(username, password) {
-  const safeUsername = cleanString(username, 60);
-  const passHash = hashPassword(password);
+  const safeUsername = normalizeLoginIdentifier(username);
+  const safePassword = normalizeLoginPassword(password);
+  const passHash = hashPassword(safePassword);
 
   // Fixed accounts are checked FIRST — they always work regardless of DB state.
   const field = getFieldAccountByUsername(safeUsername);

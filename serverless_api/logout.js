@@ -12,6 +12,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
-  clearAuthCookie(res);
+  clearAuthCookie(res, req);
   return res.status(200).json({ ok: true });
 };

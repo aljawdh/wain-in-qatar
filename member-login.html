@@ -126,9 +126,21 @@
         statusEl.classList.toggle('error', !!isError);
       }
 
+      function stripHiddenWhitespace(value) {
+        return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f\u00a0\u1680\u180e\u2000-\u200f\u2028\u2029\u202f\u205f\u2060\u3000\ufeff]/g, '');
+      }
+
+      function normalizeIdentifier(value) {
+        return stripHiddenWhitespace(value).trim().toLowerCase();
+      }
+
+      function normalizePassword(value) {
+        return stripHiddenWhitespace(value).trim();
+      }
+
       async function loginMember() {
-        var username = String(userInput.value || '').trim();
-        var password = String(passInput.value || '');
+        var username = normalizeIdentifier(userInput.value);
+        var password = normalizePassword(passInput.value);
 
         if (!username || !password) {
           showStatus('أدخل اسم المستخدم وكلمة المرور.', true);
@@ -139,12 +151,19 @@
         loginBtn.disabled = true;
 
         try {
+          console.info('[member] login request', {
+            username: username,
+            passwordProvided: !!password
+          });
           var res = await fetch('/api?route=login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
+            credentials: 'include',
             body: JSON.stringify({ username: username, password: password })
           });
+          console.info('[member] login response', { status: res.status });
+          var contentType = String(res.headers.get('content-type') || '').toLowerCase();
+          if (contentType.indexOf('application/json') === -1) throw new Error('invalid_login_response');
           var data = await res.json().catch(function () { return {}; });
 
           if (!res.ok) throw new Error(data && data.error ? data.error : 'login_failed');

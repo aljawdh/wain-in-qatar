@@ -174,6 +174,18 @@
     return String(value).trim().slice(0, maxLen || 1000);
   }
 
+  function stripHiddenWhitespace(value) {
+    return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f-\u009f\u00a0\u1680\u180e\u2000-\u200f\u2028\u2029\u202f\u205f\u2060\u3000\ufeff]/g, '');
+  }
+
+  function normalizeLoginIdentifier(value) {
+    return stripHiddenWhitespace(value).trim().toLowerCase();
+  }
+
+  function normalizeLoginPassword(value) {
+    return stripHiddenWhitespace(value).trim();
+  }
+
   function dateKey(d) {
     var y = d.getFullYear();
     var m = String(d.getMonth() + 1).padStart(2, '0');
@@ -187,7 +199,7 @@
     if (authToken) headers.Authorization = 'Bearer ' + authToken;
     return fetch(url, {
       method: opts.method || 'GET',
-      credentials: 'same-origin',
+      credentials: 'include',
       cache: 'no-store',
       headers: headers,
       body: opts.body
@@ -3962,17 +3974,24 @@
   }
 
   async function onLogin() {
-    var user = (getEl('adminUser').value || '').trim();
-    var pass = getEl('adminPass').value || '';
+    var user = normalizeLoginIdentifier(getEl('adminUser').value);
+    var pass = normalizeLoginPassword(getEl('adminPass').value);
     var errEl = getEl('adminErr');
 
     try {
+      console.info('[admin] login request', {
+        username: user,
+        passwordProvided: !!pass
+      });
       var res = await fetch(LOGIN_ENDPOINT, {
         method: 'POST',
-        credentials: 'same-origin',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: user, password: pass })
       });
+      console.info('[admin] login response', { status: res.status });
+      var contentType = String(res.headers.get('content-type') || '').toLowerCase();
+      if (contentType.indexOf('application/json') === -1) throw new Error('invalid_login_response');
       if (!res.ok) throw new Error('login_failed');
       var data = await res.json();
       authToken = data.token || '';
@@ -3997,7 +4016,7 @@
 
   async function logout() {
     try {
-      await fetch(LOGOUT_ENDPOINT, { method: 'POST', credentials: 'same-origin' });
+      await fetch(LOGOUT_ENDPOINT, { method: 'POST', credentials: 'include' });
     } catch (_e) {}
     localStorage.removeItem('navidur_admin_token');
     authToken = '';
