@@ -3,6 +3,7 @@
 const { appendSnapshotRunLog, createId, nowIso } = require('./_lib/data-store');
 const { isAllowedOrigin, parseBody, setNoCache, cleanString, rateLimit } = require('./_lib/security');
 const { loadReferenceData } = require('./_lib/navidur-analysis-runtime');
+const { recomputeGlobalSummary } = require('./_lib/dur-intelligence');
 const snapshotHandler = require('./navidur-snapshot');
 
 var DEFAULT_BATCH_SIZE = 5;
@@ -100,6 +101,7 @@ async function runSnapshotsInternal(options) {
   );
 
   await appendSnapshotRunLog(runLog);
+  await recomputeGlobalSummary();
   return runLog;
 }
 

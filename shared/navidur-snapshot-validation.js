@@ -317,6 +317,7 @@
       timestamp: normalizeString(input && input.timestamp),
       dur_id: normalizeString(dto && dto.dur && dto.dur.period_id),
       dur_name: normalizeString(dto && dto.dur && dto.dur.period_name),
+      phase_id: normalizeString(dto && dto.dur && dto.dur.active_phase_id),
       active_phase_id: normalizeString(dto && dto.dur && dto.dur.active_phase_id),
       expected_traits: comparison.expected_traits,
       observed_traits: comparison.observed_traits,

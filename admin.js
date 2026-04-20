@@ -23,6 +23,7 @@
   var dururReferenceCache = [];
   var globalDururManagementCache = [];
   var dururGlobalOverridesCache = [];
+  var dururIntelligenceGroupedCache = [];
   var selectedGlobalDurId = '';
   var seasonEventsCache = [];
   var traitsCache = [];
@@ -2240,6 +2241,42 @@
     return match ? match.label : (value || '--');
   }
 
+  function getDurLabelById(durId) {
+    var item = (Array.isArray(globalDururManagementCache) ? globalDururManagementCache : []).find(function (row) {
+      return row && row.id === durId;
+    }) || (Array.isArray(dururCache) ? dururCache : []).find(function (row) {
+      return row && row.id === durId;
+    });
+    return item ? (item.name_ar || item.name || item.id || durId) : (durId || '--');
+  }
+
+  function formatIntelligencePercent(value) {
+    var num = Number(value);
+    return Number.isFinite(num) ? (num.toFixed(1) + '%') : '--';
+  }
+
+  function formatIntelligenceDate(value) {
+    if (!value) return '--';
+    var date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('ar');
+  }
+
+  function needsDurIntelligenceWarning(summary) {
+    if (!summary) return false;
+    return Number(summary.avg_score || 0) < 60 || Number(summary.failure_rate || 0) > 40;
+  }
+
+  function openDurEditorFromIntelligence(durId) {
+    selectedGlobalDurId = durId || '';
+    renderGlobalDururList();
+    renderGlobalDururEditor();
+    var block = getEl('globalDururManagementBlock');
+    if (block && typeof block.scrollIntoView === 'function') {
+      block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
   function splitSelectedAndCustomValues(values, options, useOptionObjects) {
     var knownValues = (Array.isArray(options) ? options : []).map(function (item) {
       return useOptionObjects ? item.value : item;
@@ -2342,6 +2379,10 @@
       + '  <div style="padding:12px;background:rgba(38,194,129,.06);border:1px solid rgba(38,194,129,.18);border-radius:10px">'
       + '    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">معاينة محطة</strong><span id="dururStationPreviewStatus" style="font-size:.8rem;color:#9fc1d7">--</span></div>'
       + '    <div id="dururStationPreviewBody" style="display:grid;gap:8px;color:#c5d5e0;font-size:.84rem">اختر محطة ثم حمّل التحليل لعرض المرجع الفعال بعد الدمج.</div>'
+      + '  </div>'
+      + '  <div style="padding:12px;background:rgba(255,185,0,.06);border:1px solid rgba(255,185,0,.18);border-radius:10px">'
+      + '    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">تحليل أداء الدرور</strong><span id="dururIntelligenceStatus" style="font-size:.8rem;color:#9fc1d7">--</span></div>'
+      + '    <div id="dururIntelligenceBody" style="display:grid;gap:10px;color:#c5d5e0;font-size:.84rem">جاري تحميل بيانات الذكاء...</div>'
       + '  </div>'
       + '</div>';
     anchor.parentNode.insertBefore(wrapper, anchor.nextSibling);
@@ -2514,16 +2555,21 @@
     try {
       var pair = await Promise.all([
         apiFetch('/api?route=admin&path=durur', { method: 'GET' }).then(function (res) { return res.json(); }),
-        apiFetch('/api?route=admin&path=durur-overrides', { method: 'GET' }).then(function (res) { return res.json(); })
+        apiFetch('/api?route=admin&path=durur-overrides', { method: 'GET' }).then(function (res) { return res.json(); }),
+        apiFetch('/api?route=admin&path=durur-intelligence', { method: 'GET' }).then(function (res) { return res.json(); })
       ]);
       globalDururManagementCache = Array.isArray(pair[0].items) ? pair[0].items.map(normalizeDurRecordForUi) : [];
       dururGlobalOverridesCache = Array.isArray(pair[1].items) ? pair[1].items : [];
+      dururIntelligenceGroupedCache = Array.isArray(pair[2].grouped) ? pair[2].grouped : [];
       if (!selectedGlobalDurId && globalDururManagementCache.length) selectedGlobalDurId = globalDururManagementCache[0].id || '';
       renderGlobalDururList();
       renderGlobalDururEditor();
       renderDururStationPreview();
+      renderDururIntelligencePanel();
     } catch (err) {
       console.error('[durur-management] load failed', err);
+      dururIntelligenceGroupedCache = [];
+      renderDururIntelligencePanel();
     }
   }
 
@@ -2547,6 +2593,52 @@
         setStructuredFieldValues('globalOverrideMarineTraits', override.fields && override.fields.marine_traits);
         setStructuredFieldValues('globalOverrideFishTraits', override.fields && override.fields.fish_traits);
         if (getEl('globalOverrideAdviceText')) getEl('globalOverrideAdviceText').value = override.fields && override.fields.advice_text ? override.fields.advice_text : '';
+      });
+    });
+  }
+
+  function renderDururIntelligencePanel() {
+    var body = getEl('dururIntelligenceBody');
+    var status = getEl('dururIntelligenceStatus');
+    if (!body || !status) return;
+    if (!Array.isArray(dururIntelligenceGroupedCache) || !dururIntelligenceGroupedCache.length) {
+      status.textContent = 'لا توجد بيانات';
+      body.innerHTML = '<div style="color:#9fc1d7">لا توجد ملخصات تحقق كافية بعد لعرض تحليل الأداء.</div>';
+      return;
+    }
+    status.textContent = String(dururIntelligenceGroupedCache.length) + ' درة';
+    body.innerHTML = dururIntelligenceGroupedCache.map(function (group) {
+      var summary = group && group.summary ? group.summary : {};
+      var durId = group && group.dur_id ? group.dur_id : '';
+      var durLabel = getDurLabelById(durId);
+      var warning = needsDurIntelligenceWarning(summary);
+      var phases = Array.isArray(group && group.phases) ? group.phases : [];
+      return ''
+        + '<div style="padding:10px;border:1px solid ' + (warning ? 'rgba(255,120,120,.28)' : 'rgba(255,255,255,.08)') + ';border-radius:10px;background:' + (warning ? 'rgba(255,120,120,.05)' : 'rgba(255,255,255,.02)') + '">'
+        + '  <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">'
+        + '    <div><strong style="color:#dff8ff">' + escapeHtml(durLabel) + '</strong><div style="font-size:.74rem;color:#8fb4c8">المعرف التقني: ' + escapeHtml(durId || '--') + '</div></div>'
+        + '    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="small-btn" data-open-intelligence-dur="' + escapeHtml(durId) + '">فتح المحرر</button>' + (warning ? '<span style="color:#ffb3b3;font-size:.8rem">⚠ هذا الدر يحتاج مراجعة</span>' : '') + '</div>'
+        + '  </div>'
+        + '  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px">'
+        + '    <div><strong style="color:#9fc1d7">متوسط الدقة</strong><br>' + escapeHtml(summary.avg_score != null ? String(summary.avg_score) : '--') + '</div>'
+        + '    <div><strong style="color:#9fc1d7">نسبة النجاح</strong><br>' + escapeHtml(formatIntelligencePercent(summary.success_rate)) + '</div>'
+        + '    <div><strong style="color:#9fc1d7">نسبة الفشل</strong><br>' + escapeHtml(formatIntelligencePercent(summary.failure_rate)) + '</div>'
+        + '    <div><strong style="color:#9fc1d7">عدد مرات التحقق</strong><br>' + escapeHtml(summary.total_runs != null ? String(summary.total_runs) : '0') + '</div>'
+        + '  </div>'
+        + '  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+        + '    <div><strong style="color:#9fc1d7">أكثر السمات فشلًا</strong><br>' + (summary.most_failed_traits && summary.most_failed_traits.length ? buildTraitChipHtml(summary.most_failed_traits, 'rgba(255,120,120,.12)', 'rgba(255,120,120,.22)', '#ffd8d8') : '<span style="color:#9fc1d7">--</span>') + '</div>'
+        + '    <div><strong style="color:#9fc1d7">أكثر السمات الزائدة</strong><br>' + (summary.most_extra_traits && summary.most_extra_traits.length ? buildTraitChipHtml(summary.most_extra_traits, 'rgba(255,185,0,.12)', 'rgba(255,185,0,.22)', '#ffe7aa') : '<span style="color:#9fc1d7">--</span>') + '</div>'
+        + '  </div>'
+        + '  <div style="margin-top:8px"><strong style="color:#9fc1d7">آخر تحديث</strong><br>' + escapeHtml(formatIntelligenceDate(summary.last_updated)) + '</div>'
+        + (phases.length ? ('<div style="margin-top:10px"><strong style="color:#9fc1d7">تفصيل المراحل</strong><div style="display:grid;gap:6px;margin-top:6px">' + phases.map(function (phase) {
+            var phaseWarning = needsDurIntelligenceWarning(phase);
+            return '<button type="button" class="small-btn" data-open-intelligence-dur="' + escapeHtml(durId) + '" style="text-align:right;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)"><strong>' + escapeHtml(phase.phase_id || 'بدون مرحلة') + '</strong> | متوسط الدقة: ' + escapeHtml(String(phase.avg_score != null ? phase.avg_score : '--')) + ' | نسبة الفشل: ' + escapeHtml(formatIntelligencePercent(phase.failure_rate)) + (phaseWarning ? ' | ⚠ يحتاج مراجعة' : '') + '</button>';
+          }).join('') + '</div></div>') : '')
+        + '</div>';
+    }).join('');
+    body.querySelectorAll('button[data-open-intelligence-dur]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openDurEditorFromIntelligence(btn.getAttribute('data-open-intelligence-dur'));
       });
     });
   }

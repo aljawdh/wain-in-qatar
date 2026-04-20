@@ -18,6 +18,7 @@ const FILES = {
   catch_logs: 'catch_logs.json',
   station_snapshots: 'station_snapshots.json',
   dur_validation_logs: 'dur_validation_logs.json',
+  dur_intelligence_summary: 'dur_intelligence_summary.json',
   snapshot_run_logs: 'snapshot_run_logs.json',
   durur_overrides: 'durur_overrides.json',
   durur: 'durur.json',

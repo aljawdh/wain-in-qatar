@@ -4,6 +4,7 @@ const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getD
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
+const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
 
 async function writeAudit(action, actor, details) {
   const audit = await readJsonFile('audit', []);
@@ -930,6 +931,22 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: true, item: item });
     }
     return res.status(200).json({ ok: true, total: items.length, items: items });
+  }
+
+  if (root === 'durur-intelligence') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const durId = cleanString(req.query && req.query.dur_id, 80);
+    const stationId = cleanString(req.query && req.query.station_id, 80);
+    const result = await getDurIntelligenceSummary({ durId: durId, stationId: stationId });
+    return res.status(200).json({
+      ok: true,
+      total: Array.isArray(result.items) ? result.items.length : 0,
+      items: Array.isArray(result.items) ? result.items : [],
+      grouped: Array.isArray(result.grouped) ? result.grouped : []
+    });
   }
 
   return res.status(404).json({ error: 'admin_route_not_found' });
