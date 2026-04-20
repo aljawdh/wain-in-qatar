@@ -1,0 +1,148 @@
+[
+  {
+    "snapshot_id": "snapshot_mo6udokmhku3keqo",
+    "station_id": "st_001",
+    "station_name": "الدوحة",
+    "timestamp": "2026-04-20T06:56:50.086Z",
+    "analysis_date": "2026-04-20",
+    "dur_id": "dur_27",
+    "dur_name": "المؤخر",
+    "day_in_period": 7,
+    "active_phase_id": "dur_27_phase_01",
+    "expected_reference_summary": {
+      "dur_reference": {
+        "id": "dur_27",
+        "name_ar": "المؤخر",
+        "season_ar": "الصيف",
+        "heritage_meaning_ar": "المؤخر يمثل ذروة الصيف الأولية قبل أن يزداد القيظ شدة.",
+        "description_ar": "مرحلة الحرارة المرتفعة قبل اكتمال القيض.",
+        "notes_ar": "يحتاج تأكيد إذا كان مرتبطاً بمرحلة 'نوء المؤخر'.",
+        "general_traits": [
+          "نشاط سطحي مرتفع",
+          "حرارة متصاعدة"
+        ],
+        "weather_traits": [
+          "تغير الصيفي",
+          "جو حار وجاف"
+        ],
+        "marine_traits": [
+          "تيار ضعيف",
+          "مياه شديدة الدفء"
+        ],
+        "fish_traits": [],
+        "related_event_ids": [
+          "season_event_01",
+          "season_event_07"
+        ],
+        "seasonal_event_names": [
+          "سهيل",
+          "ذروة القيض"
+        ]
+      },
+      "active_phase_reference": {
+        "phase_id": "dur_27_phase_01",
+        "title_ar": null,
+        "start_day": 1,
+        "end_day": 13,
+        "notes_ar": "يحتاج تأكيد إذا كان مرتبطاً بمرحلة 'نوء المؤخر'.",
+        "general_traits": [
+          "نشاط سطحي مرتفع",
+          "حرارة متصاعدة"
+        ],
+        "weather_traits": [
+          "تغير الصيفي",
+          "جو حار وجاف"
+        ],
+        "marine_traits": [
+          "تيار ضعيف",
+          "مياه شديدة الدفء"
+        ],
+        "fish_traits": [],
+        "related_event_ids": [
+          "season_event_01",
+          "season_event_07"
+        ],
+        "seasonal_event_names": [
+          "سهيل",
+          "ذروة القيض"
+        ]
+      },
+      "expected_traits": [
+        "نشاط سطحي مرتفع",
+        "حرارة متصاعدة",
+        "تغير الصيفي",
+        "جو حار وجاف",
+        "تيار ضعيف",
+        "مياه شديدة الدفء"
+      ],
+      "comparable_expected_traits": [
+        "جو حار وجاف"
+      ],
+      "unsupported_reference_traits": [
+        "نشاط سطحي مرتفع",
+        "حرارة متصاعدة",
+        "تغير الصيفي",
+        "تيار ضعيف",
+        "مياه شديدة الدفء"
+      ]
+    },
+    "observed_weather": {
+      "temp_c": 27,
+      "wind_speed_kmh": 18,
+      "wind_direction_deg": 45,
+      "derived_traits": [
+        "رياح متوسطة",
+        "اعتدال الجو"
+      ]
+    },
+    "observed_marine": {
+      "wave_height_m": 0.8,
+      "current_speed_ms": 0.7,
+      "derived_traits": [
+        "نشاط الموج",
+        "نشاط التيارات"
+      ]
+    },
+    "observed_tide": {
+      "state": "LOAD",
+      "state_ar": "حمل",
+      "current_speed_ms": 0.7,
+      "derived_traits": [
+        "حمل"
+      ]
+    },
+    "observed_traits": [
+      "نشاط الموج",
+      "نشاط التيارات",
+      "رياح متوسطة",
+      "اعتدال الجو",
+      "حمل"
+    ],
+    "load_fasad_state": "حمل",
+    "live_analysis_outputs": {
+      "tide_state": "LOAD",
+      "advice_text": "طقس مستقر وبحر هادئ مناسب للصيد الوقائي. فترة من الموسم تدعم الصيد أو الإنتاج البحري بشكل أفضل. المحطة: الدوحة • الدر: المؤخر • الحالة: حمل. الأنسب حالياً: البالول، الحمرا، السبيطي، الشعري، الشعم.",
+      "species_activity": [
+        "البالول",
+        "الحمرا",
+        "السبيطي",
+        "الشعري",
+        "الشعم"
+      ],
+      "is_recommended": true,
+      "confidence_score": 99
+    },
+    "recommendation": {
+      "is_recommended": true,
+      "advice_text": "طقس مستقر وبحر هادئ مناسب للصيد الوقائي. فترة من الموسم تدعم الصيد أو الإنتاج البحري بشكل أفضل. المحطة: الدوحة • الدر: المؤخر • الحالة: حمل. الأنسب حالياً: البالول، الحمرا، السبيطي، الشعري، الشعم.",
+      "species_activity": [
+        "البالول",
+        "الحمرا",
+        "السبيطي",
+        "الشعري",
+        "الشعم"
+      ]
+    },
+    "confidence_score": 99
+  }
+]

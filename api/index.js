@@ -7,6 +7,7 @@ const trackingHandler = require('../serverless_api/tracking');
 const stationsHandler = require('../serverless_api/stations');
 const fishingEngineHandler = require('../serverless_api/fishing-engine');
 const analysisHandler = require('../serverless_api/navidur-analysis');
+const snapshotHandler = require('../serverless_api/navidur-snapshot');
 const adminSettingsHandler = require('../serverless_api/admin-settings');
 const adminAnalyticsHandler = require('../serverless_api/admin-analytics');
 const adminSummaryHandler = require('../serverless_api/admin/summary');
@@ -60,6 +61,7 @@ module.exports = async function handler(req, res) {
     return fishingEngineHandler(req, res);
   }
   if (route === 'analysis') return analysisHandler(req, res);
+  if (route === 'capture-snapshot' || route === 'snapshot-capture') return snapshotHandler(req, res);
   if (route === 'admin-settings') return adminSettingsHandler(req, res);
   if (route === 'admin-analytics') return adminAnalyticsHandler(req, res);
   if (route === 'admin-summary') return adminSummaryHandler(req, res);

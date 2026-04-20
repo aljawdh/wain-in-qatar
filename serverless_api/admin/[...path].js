@@ -1,6 +1,6 @@
 'use strict';
 
-const { readJsonFile, writeJsonFile, createId, nowIso } = require('../_lib/data-store');
+const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs } = require('../_lib/data-store');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
@@ -628,6 +628,45 @@ module.exports = async function handler(req, res) {
     }
     const tracking = await readJsonFile('tracking', []);
     return res.status(200).json(buildAnalyticsSummary(tracking));
+  }
+
+  if (root === 'station-snapshots') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const stationId = cleanString(req.query && req.query.station_id, 80);
+    const durId = cleanString(req.query && req.query.dur_id, 80);
+    const limit = id
+      ? 500
+      : (Number(req.query && req.query.limit) > 0 ? Math.min(Number(req.query.limit), 500) : 100);
+    const items = await getStationSnapshots({ stationId: stationId, durId: durId, limit: limit });
+    if (id) {
+      const item = items.find(function (entry) { return String(entry.snapshot_id || entry.id || '') === String(id); });
+      if (!item) return res.status(404).json({ error: 'snapshot_not_found' });
+      return res.status(200).json({ ok: true, item: item });
+    }
+    return res.status(200).json({ ok: true, total: items.length, items: items });
+  }
+
+  if (root === 'dur-validation-logs') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const stationId = cleanString(req.query && req.query.station_id, 80);
+    const durId = cleanString(req.query && req.query.dur_id, 80);
+    const status = cleanString(req.query && req.query.status, 40);
+    const limit = id
+      ? 500
+      : (Number(req.query && req.query.limit) > 0 ? Math.min(Number(req.query.limit), 500) : 100);
+    const items = await getDurValidationLogs({ stationId: stationId, durId: durId, status: status, limit: limit });
+    if (id) {
+      const item = items.find(function (entry) { return String(entry.validation_id || entry.id || '') === String(id); });
+      if (!item) return res.status(404).json({ error: 'validation_not_found' });
+      return res.status(200).json({ ok: true, item: item });
+    }
+    return res.status(200).json({ ok: true, total: items.length, items: items });
   }
 
   return res.status(404).json({ error: 'admin_route_not_found' });

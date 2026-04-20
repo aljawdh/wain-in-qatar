@@ -16,6 +16,8 @@ const FILES = {
   audit: 'audit_logs.json',
   tracking: 'tracking.json',
   catch_logs: 'catch_logs.json',
+  station_snapshots: 'station_snapshots.json',
+  dur_validation_logs: 'dur_validation_logs.json',
   durur: 'durur.json',
   durur_reference_seed: 'durur_reference_seed.json',
   season_events: 'season_events.json',
@@ -32,6 +34,12 @@ const FILES = {
 const CATCH_INDEX_KEY = 'navidur_catch_index';   // Redis LIST of IDs (newest first)
 const CATCH_RECORD_PREFIX = 'navidur_catch:';     // navidur_catch:{id} = JSON record
 const CATCH_INDEX_MAX_SIZE = 10000;               // LTRIM guard — prevents unbounded growth
+const SNAPSHOT_INDEX_KEY = 'navidur_station_snapshot_index';
+const SNAPSHOT_RECORD_PREFIX = 'navidur_station_snapshot:';
+const SNAPSHOT_INDEX_MAX_SIZE = 20000;
+const VALIDATION_INDEX_KEY = 'navidur_dur_validation_index';
+const VALIDATION_RECORD_PREFIX = 'navidur_dur_validation:';
+const VALIDATION_INDEX_MAX_SIZE = 20000;
 const DEDUP_PREFIX = 'navidur_dedup:';            // short-lived dedup keys
 const RL_PREFIX = 'navidur_rl:';                  // rate-limit counters
 
@@ -184,6 +192,104 @@ async function getCatchLogs(stationId, limit) {
   return records.slice(0, safeLimit);
 }
 
+function parseStoredRecord(raw) {
+  if (raw == null) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function appendIndexedRecordLocal(key, record, maxSize) {
+  const rows = await readJsonFile(key, []);
+  rows.unshift(record);
+  await writeJsonFile(key, rows.slice(0, maxSize));
+}
+
+async function appendIndexedRecord(options, record) {
+  const kv = getKv();
+  if (!kv) {
+    assertPersistentStoreAvailable();
+    return appendIndexedRecordLocal(options.fileKey, record, options.maxSize);
+  }
+  const id = String(record[options.idField] || '');
+  if (!id) throw new Error('record_id_required');
+  await kv.set(options.recordPrefix + id, JSON.stringify(record));
+  await kv.lpush(options.indexKey, id);
+  await kv.ltrim(options.indexKey, 0, options.maxSize - 1);
+}
+
+async function getIndexedRecordsLocal(key, options) {
+  const rows = await readJsonFile(key, []);
+  return rows.filter(function (record) {
+    if (options.stationId && String(record && record.station_id || '') !== options.stationId) return false;
+    if (options.durId && String(record && record.dur_id || '') !== options.durId) return false;
+    if (options.status && String(record && record.validation_status || '') !== options.status) return false;
+    return true;
+  }).slice(0, options.limit);
+}
+
+async function getIndexedRecords(config, options) {
+  const kv = getKv();
+  const query = Object.assign({ stationId: '', durId: '', status: '', limit: 100 }, options || {});
+  if (!kv) {
+    assertPersistentStoreAvailable();
+    return getIndexedRecordsLocal(config.fileKey, query);
+  }
+  const safeLimit = (typeof query.limit === 'number' && query.limit > 0) ? query.limit : 100;
+  const fetchCount = query.stationId || query.durId || query.status ? Math.min(config.maxSize, Math.max(safeLimit * 5, 500)) : safeLimit;
+  const ids = await kv.lrange(config.indexKey, 0, fetchCount - 1);
+  if (!ids || !ids.length) return [];
+  const keys = ids.map(function (id) { return config.recordPrefix + String(id); });
+  const rawRecords = await kv.mget(...keys);
+  const records = rawRecords.map(parseStoredRecord).filter(Boolean);
+  return records.filter(function (record) {
+    if (query.stationId && String(record.station_id || '') !== query.stationId) return false;
+    if (query.durId && String(record.dur_id || '') !== query.durId) return false;
+    if (query.status && String(record.validation_status || '') !== query.status) return false;
+    return true;
+  }).slice(0, safeLimit);
+}
+
+async function appendStationSnapshot(record) {
+  return appendIndexedRecord({
+    fileKey: 'station_snapshots',
+    idField: 'snapshot_id',
+    indexKey: SNAPSHOT_INDEX_KEY,
+    recordPrefix: SNAPSHOT_RECORD_PREFIX,
+    maxSize: SNAPSHOT_INDEX_MAX_SIZE
+  }, record);
+}
+
+async function getStationSnapshots(options) {
+  return getIndexedRecords({
+    fileKey: 'station_snapshots',
+    indexKey: SNAPSHOT_INDEX_KEY,
+    recordPrefix: SNAPSHOT_RECORD_PREFIX,
+    maxSize: SNAPSHOT_INDEX_MAX_SIZE
+  }, options);
+}
+
+async function appendDurValidationLog(record) {
+  return appendIndexedRecord({
+    fileKey: 'dur_validation_logs',
+    idField: 'validation_id',
+    indexKey: VALIDATION_INDEX_KEY,
+    recordPrefix: VALIDATION_RECORD_PREFIX,
+    maxSize: VALIDATION_INDEX_MAX_SIZE
+  }, record);
+}
+
+async function getDurValidationLogs(options) {
+  return getIndexedRecords({
+    fileKey: 'dur_validation_logs',
+    indexKey: VALIDATION_INDEX_KEY,
+    recordPrefix: VALIDATION_RECORD_PREFIX,
+    maxSize: VALIDATION_INDEX_MAX_SIZE
+  }, options);
+}
+
 // ─── Upstash-backed rate limiting (Task 3) ────────────────────────────────────
 // Uses Redis INCR + EXPIRE for cross-instance, persistent rate limiting.
 // Falls back to allowing the request if KV is unavailable.
@@ -257,6 +363,10 @@ module.exports = {
   getKv,
   appendCatchLog,
   getCatchLogs,
+  appendStationSnapshot,
+  getStationSnapshots,
+  appendDurValidationLog,
+  getDurValidationLogs,
   rateLimitKv,
   checkAndSetDedup,
   checkStorageHealth

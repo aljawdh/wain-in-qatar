@@ -1,0 +1,37 @@
+[
+  {
+    "validation_id": "validation_mo6udoknlgx16rqr",
+    "station_id": "st_001",
+    "timestamp": "2026-04-20T06:56:50.086Z",
+    "dur_id": "dur_27",
+    "dur_name": "المؤخر",
+    "active_phase_id": "dur_27_phase_01",
+    "expected_traits": [
+      "جو حار وجاف"
+    ],
+    "observed_traits": [
+      "نشاط الموج",
+      "نشاط التيارات",
+      "رياح متوسطة",
+      "اعتدال الجو",
+      "حمل"
+    ],
+    "matched_traits": [],
+    "failed_traits": [
+      "جو حار وجاف"
+    ],
+    "extra_traits": [
+      "نشاط الموج",
+      "نشاط التيارات",
+      "رياح متوسطة",
+      "اعتدال الجو",
+      "حمل"
+    ],
+    "validation_score": 0,
+    "validation_status": "failed",
+    "notes": "unsupported_reference_traits: نشاط سطحي مرتفع, حرارة متصاعدة, تغير الصيفي, تيار ضعيف, مياه شديدة الدفء | field_observed_traits: ???? ?????",
+    "field_observed_traits": [
+      "???? ?????"
+    ]
+  }
+]

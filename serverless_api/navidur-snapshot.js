@@ -1,6 +1,12 @@
 'use strict';
 
-const { isAllowedOrigin, parseBody, setNoCache, cleanString } = require('./_lib/security');
+const {
+  appendStationSnapshot,
+  appendDurValidationLog,
+  createId,
+  nowIso
+} = require('./_lib/data-store');
+const { isAllowedOrigin, parseBody, setNoCache, cleanString, rateLimit } = require('./_lib/security');
 const { analyzeLiveStation } = require('../shared/navidur-analysis-engine');
 const {
   normalizeRequestedStation,
@@ -8,18 +14,25 @@ const {
   fetchWeatherAndMarineInputs,
   loadReferenceData
 } = require('./_lib/navidur-analysis-runtime');
+const {
+  buildSnapshotRecord,
+  buildValidationLogRecord
+} = require('../shared/navidur-snapshot-validation');
 
 module.exports = async function handler(req, res) {
   setNoCache(res);
 
   if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'forbidden_domain' });
-  if (req.method !== 'POST' && req.method !== 'GET') {
-    res.setHeader('Allow', 'GET, POST');
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'method_not_allowed' });
+  }
+  if (!rateLimit(req, 'capture_snapshot', 60, 60 * 1000)) {
+    return res.status(429).json({ error: 'rate_limited' });
   }
 
   try {
-    var body = req.method === 'POST' ? parseBody(req) : (req.query || {});
+    var body = parseBody(req);
     var referenceData = await loadReferenceData();
     var station = normalizeRequestedStation(body, referenceData.stations);
 
@@ -50,10 +63,34 @@ module.exports = async function handler(req, res) {
       field_validation: fieldValidation
     });
 
-    return res.status(200).json(dto);
+    var timestamp = nowIso();
+    var snapshot = buildSnapshotRecord({
+      snapshot_id: createId('snapshot'),
+      timestamp: timestamp,
+      station: station,
+      dto: dto
+    });
+    var validation = buildValidationLogRecord({
+      validation_id: createId('validation'),
+      timestamp: timestamp,
+      station: station,
+      dto: dto,
+      field_validation: fieldValidation,
+      notes: cleanString(body.notes, 800) || null
+    });
+
+    await appendStationSnapshot(snapshot);
+    await appendDurValidationLog(validation);
+
+    return res.status(200).json({
+      ok: true,
+      snapshot: snapshot,
+      validation: validation,
+      dto: dto
+    });
   } catch (error) {
     return res.status(500).json({
-      error: 'navidur_analysis_failed',
+      error: 'snapshot_capture_failed',
       detail: String(error && error.message ? error.message : error)
     });
   }
