@@ -5,6 +5,9 @@
       "includeFiles": "data/*.json"
     }
   },
+  "crons": [
+    { "path": "/api/run-snapshots", "schedule": "0 */6 * * *" }
+  ],
   "redirects": [
     { "source": "/web/index.html", "destination": "/index.html", "permanent": false },
     { "source": "/admin", "destination": "/admin.html", "permanent": false },

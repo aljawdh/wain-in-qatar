@@ -19,7 +19,65 @@ const {
   buildValidationLogRecord
 } = require('../shared/navidur-snapshot-validation');
 
-module.exports = async function handler(req, res) {
+async function captureSnapshotInternal(body, options) {
+  var runtimeOptions = options || {};
+  var referenceData = runtimeOptions.referenceData || await loadReferenceData();
+  var station = normalizeRequestedStation(body, referenceData.stations);
+
+  if (station.lat == null || station.lon == null) {
+    throw new Error('station_coordinates_required');
+  }
+
+  var liveInputs = await fetchWeatherAndMarineInputs(station, body);
+  var fieldValidation = body && body.field_validation && typeof body.field_validation === 'object'
+    ? Object.assign({}, body.field_validation)
+    : null;
+
+  if (fieldValidation && !Array.isArray(fieldValidation.observed_traits)) {
+    fieldValidation.observed_traits = deriveWaterTraits({
+      temp_c: liveInputs.temp_c,
+      wind_speed_kmh: liveInputs.wind_speed_kmh,
+      wave_height_m: liveInputs.wave_height_m,
+      current_speed_ms: liveInputs.current_speed_ms
+    });
+  }
+
+  var dto = analyzeLiveStation({
+    station: station,
+    datetime: cleanString(body.datetime, 60) || new Date().toISOString(),
+    reference_data: referenceData,
+    overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
+    live_inputs: liveInputs,
+    field_validation: fieldValidation
+  });
+
+  var timestamp = nowIso();
+  var snapshot = buildSnapshotRecord({
+    snapshot_id: createId('snapshot'),
+    timestamp: timestamp,
+    station: station,
+    dto: dto
+  });
+  var validation = buildValidationLogRecord({
+    validation_id: createId('validation'),
+    timestamp: timestamp,
+    station: station,
+    dto: dto,
+    field_validation: fieldValidation,
+    notes: cleanString(body.notes, 800) || null
+  });
+
+  await appendStationSnapshot(snapshot);
+  await appendDurValidationLog(validation);
+
+  return {
+    snapshot: snapshot,
+    validation: validation,
+    dto: dto
+  };
+}
+
+async function handler(req, res) {
   setNoCache(res);
 
   if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'forbidden_domain' });
@@ -33,60 +91,12 @@ module.exports = async function handler(req, res) {
 
   try {
     var body = parseBody(req);
-    var referenceData = await loadReferenceData();
-    var station = normalizeRequestedStation(body, referenceData.stations);
-
-    if (station.lat == null || station.lon == null) {
-      return res.status(400).json({ error: 'station_coordinates_required' });
-    }
-
-    var liveInputs = await fetchWeatherAndMarineInputs(station, body);
-    var fieldValidation = body && body.field_validation && typeof body.field_validation === 'object'
-      ? Object.assign({}, body.field_validation)
-      : null;
-
-    if (fieldValidation && !Array.isArray(fieldValidation.observed_traits)) {
-      fieldValidation.observed_traits = deriveWaterTraits({
-        temp_c: liveInputs.temp_c,
-        wind_speed_kmh: liveInputs.wind_speed_kmh,
-        wave_height_m: liveInputs.wave_height_m,
-        current_speed_ms: liveInputs.current_speed_ms
-      });
-    }
-
-    var dto = analyzeLiveStation({
-      station: station,
-      datetime: cleanString(body.datetime, 60) || new Date().toISOString(),
-      reference_data: referenceData,
-      overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
-      live_inputs: liveInputs,
-      field_validation: fieldValidation
-    });
-
-    var timestamp = nowIso();
-    var snapshot = buildSnapshotRecord({
-      snapshot_id: createId('snapshot'),
-      timestamp: timestamp,
-      station: station,
-      dto: dto
-    });
-    var validation = buildValidationLogRecord({
-      validation_id: createId('validation'),
-      timestamp: timestamp,
-      station: station,
-      dto: dto,
-      field_validation: fieldValidation,
-      notes: cleanString(body.notes, 800) || null
-    });
-
-    await appendStationSnapshot(snapshot);
-    await appendDurValidationLog(validation);
-
+    var result = await captureSnapshotInternal(body);
     return res.status(200).json({
       ok: true,
-      snapshot: snapshot,
-      validation: validation,
-      dto: dto
+      snapshot: result.snapshot,
+      validation: result.validation,
+      dto: result.dto
     });
   } catch (error) {
     return res.status(500).json({
@@ -94,4 +104,7 @@ module.exports = async function handler(req, res) {
       detail: String(error && error.message ? error.message : error)
     });
   }
-};
+}
+
+module.exports = handler;
+module.exports.captureSnapshotInternal = captureSnapshotInternal;

@@ -1,6 +1,6 @@
 'use strict';
 
-const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs } = require('../_lib/data-store');
+const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs } = require('../_lib/data-store');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
@@ -664,6 +664,23 @@ module.exports = async function handler(req, res) {
     if (id) {
       const item = items.find(function (entry) { return String(entry.validation_id || entry.id || '') === String(id); });
       if (!item) return res.status(404).json({ error: 'validation_not_found' });
+      return res.status(200).json({ ok: true, item: item });
+    }
+    return res.status(200).json({ ok: true, total: items.length, items: items });
+  }
+
+  if (root === 'snapshot-run-logs') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const limit = id
+      ? 500
+      : (Number(req.query && req.query.limit) > 0 ? Math.min(Number(req.query.limit), 500) : 100);
+    const items = await getSnapshotRunLogs({ limit: limit });
+    if (id) {
+      const item = items.find(function (entry) { return String(entry.run_id || entry.id || '') === String(id); });
+      if (!item) return res.status(404).json({ error: 'snapshot_run_not_found' });
       return res.status(200).json({ ok: true, item: item });
     }
     return res.status(200).json({ ok: true, total: items.length, items: items });

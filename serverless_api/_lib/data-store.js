@@ -18,6 +18,7 @@ const FILES = {
   catch_logs: 'catch_logs.json',
   station_snapshots: 'station_snapshots.json',
   dur_validation_logs: 'dur_validation_logs.json',
+  snapshot_run_logs: 'snapshot_run_logs.json',
   durur: 'durur.json',
   durur_reference_seed: 'durur_reference_seed.json',
   season_events: 'season_events.json',
@@ -40,6 +41,9 @@ const SNAPSHOT_INDEX_MAX_SIZE = 20000;
 const VALIDATION_INDEX_KEY = 'navidur_dur_validation_index';
 const VALIDATION_RECORD_PREFIX = 'navidur_dur_validation:';
 const VALIDATION_INDEX_MAX_SIZE = 20000;
+const SNAPSHOT_RUN_INDEX_KEY = 'navidur_snapshot_run_index';
+const SNAPSHOT_RUN_RECORD_PREFIX = 'navidur_snapshot_run:';
+const SNAPSHOT_RUN_INDEX_MAX_SIZE = 5000;
 const DEDUP_PREFIX = 'navidur_dedup:';            // short-lived dedup keys
 const RL_PREFIX = 'navidur_rl:';                  // rate-limit counters
 
@@ -290,6 +294,25 @@ async function getDurValidationLogs(options) {
   }, options);
 }
 
+async function appendSnapshotRunLog(record) {
+  return appendIndexedRecord({
+    fileKey: 'snapshot_run_logs',
+    idField: 'run_id',
+    indexKey: SNAPSHOT_RUN_INDEX_KEY,
+    recordPrefix: SNAPSHOT_RUN_RECORD_PREFIX,
+    maxSize: SNAPSHOT_RUN_INDEX_MAX_SIZE
+  }, record);
+}
+
+async function getSnapshotRunLogs(options) {
+  return getIndexedRecords({
+    fileKey: 'snapshot_run_logs',
+    indexKey: SNAPSHOT_RUN_INDEX_KEY,
+    recordPrefix: SNAPSHOT_RUN_RECORD_PREFIX,
+    maxSize: SNAPSHOT_RUN_INDEX_MAX_SIZE
+  }, options);
+}
+
 // ─── Upstash-backed rate limiting (Task 3) ────────────────────────────────────
 // Uses Redis INCR + EXPIRE for cross-instance, persistent rate limiting.
 // Falls back to allowing the request if KV is unavailable.
@@ -367,6 +390,8 @@ module.exports = {
   getStationSnapshots,
   appendDurValidationLog,
   getDurValidationLogs,
+  appendSnapshotRunLog,
+  getSnapshotRunLogs,
   rateLimitKv,
   checkAndSetDedup,
   checkStorageHealth
