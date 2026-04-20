@@ -1186,6 +1186,7 @@
     if (status === 'approved') return 'معتمد';
     if (status === 'reviewed') return 'مراجع';
     if (status === 'draft') return 'مسودة';
+    if (status === 'needs_revision') return 'يحتاج مراجعة';
     return 'غير معروف';
   }
 
@@ -1598,6 +1599,9 @@
     html += '</div>';
     var target = getEl('dururStationInfoContent');
     if (target) target.innerHTML = html;
+    currentAnalyticsPeriod = 'now';
+    currentAnalyzedStationId = stationId;
+    renderStationAnalytics();
   }
 
   function initDururAdminMap() {
@@ -2145,6 +2149,168 @@
     }).join('');
   }
 
+  var DURUR_MANAGEMENT_REVIEW_OPTIONS = [
+    { value: 'draft', label: 'مسودة' },
+    { value: 'reviewed', label: 'مراجع' },
+    { value: 'approved', label: 'معتمد' },
+    { value: 'needs_revision', label: 'يحتاج مراجعة' }
+  ];
+
+  function uniqueNonEmptyValues(values) {
+    var out = [];
+    (Array.isArray(values) ? values : []).forEach(function (value) {
+      var clean = safeInput(value, 240);
+      if (clean && out.indexOf(clean) < 0) out.push(clean);
+    });
+    return out;
+  }
+
+  function joinArabicValues(values) {
+    return uniqueNonEmptyValues(values).join('، ');
+  }
+
+  function collectDurFieldValues(rows, key) {
+    var out = [];
+    (Array.isArray(rows) ? rows : []).forEach(function (row) {
+      if (!row) return;
+      if (Array.isArray(row[key])) out = out.concat(row[key]);
+      else if (row[key]) out.push(row[key]);
+      (Array.isArray(row.phases) ? row.phases : []).forEach(function (phase) {
+        if (!phase) return;
+        if (Array.isArray(phase[key])) out = out.concat(phase[key]);
+        else if (phase[key]) out.push(phase[key]);
+      });
+    });
+    return uniqueNonEmptyValues(out);
+  }
+
+  function sortArabicText(values) {
+    return uniqueNonEmptyValues(values).sort(function (a, b) {
+      return String(a).localeCompare(String(b), 'ar');
+    });
+  }
+
+  function getDururManagementOptionSource() {
+    var durRows = Array.isArray(globalDururManagementCache) && globalDururManagementCache.length ? globalDururManagementCache : dururCache;
+    var weatherOptions = [];
+    var marineOptions = [];
+    var generalOptions = collectDurFieldValues(durRows, 'general_traits');
+    var fishOptions = collectDurFieldValues(durRows, 'fish_traits');
+    (Array.isArray(traitsCache) ? traitsCache : []).forEach(function (item) {
+      if (!item || item.is_active === false) return;
+      var name = safeInput(item.name_ar || item.name || item.name_en, 120);
+      if (!name) return;
+      if (item.category === 'weather') weatherOptions.push(name);
+      if (item.category === 'marine') marineOptions.push(name);
+      if (item.category === 'general' || item.category === 'general_traits') generalOptions.push(name);
+      if (item.category === 'fish' || item.category === 'fish_traits') fishOptions.push(name);
+    });
+    (Array.isArray(seasonEventsCache) ? seasonEventsCache : []).forEach(function (item) {
+      if (!item || item.is_active === false) return;
+      fishOptions = fishOptions.concat(Array.isArray(item.fish_traits) ? item.fish_traits : []);
+      weatherOptions = weatherOptions.concat(Array.isArray(item.weather_traits) ? item.weather_traits : []);
+      marineOptions = marineOptions.concat(Array.isArray(item.marine_traits) ? item.marine_traits : []);
+    });
+    return {
+      reviewStatus: DURUR_MANAGEMENT_REVIEW_OPTIONS.slice(),
+      seasons: sortArabicText((durRows || []).map(function (row) { return row && row.season_ar; })),
+      astronomicalMarkers: sortArabicText((durRows || []).map(function (row) { return row && row.astronomical_marker_ar; })),
+      generalTraits: sortArabicText(generalOptions),
+      weatherTraits: sortArabicText(weatherOptions.concat(collectDurFieldValues(durRows, 'weather_traits'))),
+      marineTraits: sortArabicText(marineOptions.concat(collectDurFieldValues(durRows, 'marine_traits'))),
+      fishTraits: sortArabicText(fishOptions),
+      events: (Array.isArray(seasonEventsCache) ? seasonEventsCache : []).filter(function (item) {
+        return item && item.is_active !== false;
+      }).map(function (item) {
+        return {
+          value: item.id || '',
+          label: (item.name_ar || item.name || item.id || '') + (item.id ? ' [' + item.id + ']' : '')
+        };
+      })
+    };
+  }
+
+  function getDururManagementReviewLabel(value) {
+    var match = DURUR_MANAGEMENT_REVIEW_OPTIONS.find(function (item) { return item.value === value; });
+    return match ? match.label : (value || '--');
+  }
+
+  function splitSelectedAndCustomValues(values, options, useOptionObjects) {
+    var knownValues = (Array.isArray(options) ? options : []).map(function (item) {
+      return useOptionObjects ? item.value : item;
+    });
+    var selected = [];
+    var custom = [];
+    uniqueNonEmptyValues(values).forEach(function (value) {
+      if (knownValues.indexOf(value) >= 0) selected.push(value);
+      else custom.push(value);
+    });
+    return { selected: selected, custom: custom };
+  }
+
+  function buildStructuredSelectField(fieldId, label, values, options, useOptionObjects, size) {
+    var normalizedOptions = Array.isArray(options) ? options : [];
+    var split = splitSelectedAndCustomValues(values, normalizedOptions, !!useOptionObjects);
+    var hasOther = split.custom.length > 0;
+    return ''
+      + '<div data-structured-field="' + fieldId + '" style="display:grid;gap:6px">'
+      + '  <label style="display:block;margin-bottom:2px;color:#9fc1d7">' + label + '</label>'
+      + '  <select id="' + fieldId + '" multiple size="' + String(size || 6) + '" style="width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px">'
+      + normalizedOptions.map(function (item) {
+          var value = useOptionObjects ? item.value : item;
+          var text = useOptionObjects ? item.label : item;
+          var selected = split.selected.indexOf(value) >= 0 ? ' selected' : '';
+          return '<option value="' + escapeHtml(value) + '"' + selected + '>' + escapeHtml(text) + '</option>';
+        }).join('')
+      + '    <option value="__other__"' + (hasOther ? ' selected' : '') + '>أخرى</option>'
+      + '  </select>'
+      + '  <textarea id="' + fieldId + '__other" placeholder="أدخل القيم الأخرى، كل قيمة في سطر" style="width:100%;min-height:58px;' + (hasOther ? '' : 'display:none;') + '">' + escapeHtml(split.custom.join('\n')) + '</textarea>'
+      + '</div>';
+  }
+
+  function bindStructuredSelectFields(scope) {
+    (scope || document).querySelectorAll('select[id$="__selector_placeholder__"]');
+  }
+
+  function bindStructuredFieldOtherToggle(scope) {
+    (scope || document).querySelectorAll('[data-structured-field] select').forEach(function (select) {
+      select.addEventListener('change', function () {
+        var other = getEl(select.id + '__other');
+        if (!other) return;
+        var selected = Array.prototype.slice.call(select.selectedOptions || []).map(function (option) { return option.value; });
+        other.style.display = selected.indexOf('__other__') >= 0 ? '' : 'none';
+      });
+    });
+  }
+
+  function getStructuredFieldValues(fieldId) {
+    var select = getEl(fieldId);
+    var other = getEl(fieldId + '__other');
+    if (!select) return [];
+    var values = Array.prototype.slice.call(select.selectedOptions || []).map(function (option) { return option.value; }).filter(function (value) {
+      return value && value !== '__other__';
+    });
+    if (other && other.style.display !== 'none') {
+      values = values.concat(parseListInput(other.value));
+    }
+    return uniqueNonEmptyValues(values);
+  }
+
+  function setStructuredFieldValues(fieldId, values) {
+    var select = getEl(fieldId);
+    var other = getEl(fieldId + '__other');
+    if (!select) return;
+    var options = Array.prototype.slice.call(select.options || []).map(function (option) { return option.value; });
+    var split = splitSelectedAndCustomValues(values, options.filter(function (value) { return value !== '__other__'; }), false);
+    Array.prototype.slice.call(select.options || []).forEach(function (option) {
+      option.selected = split.selected.indexOf(option.value) >= 0 || (option.value === '__other__' && split.custom.length > 0);
+    });
+    if (other) {
+      other.value = split.custom.join('\n');
+      other.style.display = split.custom.length > 0 ? '' : 'none';
+    }
+  }
+
   function ensureDururManagementPanel() {
     if (getEl('globalDururManagementBlock')) return;
     var analyticsDetails = getEl('stAnalyticsRefreshBtn');
@@ -2156,11 +2322,11 @@
     wrapper.id = 'globalDururManagementBlock';
     wrapper.style.margin = '14px 0';
     wrapper.innerHTML = ''
-      + '<summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-globe" style="margin-left:6px"></i> Durur Management</summary>'
+      + '<summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-globe" style="margin-left:6px"></i> إدارة مرجع الدرور</summary>'
       + '<div style="margin-top:12px;display:grid;gap:12px">'
       + '  <div style="display:grid;grid-template-columns:minmax(220px,1fr) minmax(360px,1.7fr);gap:12px;align-items:start">'
       + '    <div style="padding:12px;background:rgba(92,225,255,.06);border:1px solid rgba(92,225,255,.18);border-radius:10px">'
-      + '      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">الدرور المرجعية</strong><span id="globalDururCount" style="font-size:.8rem;color:#9fc1d7">0</span></div>'
+      + '      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">قائمة الدرور</strong><span id="globalDururCount" style="font-size:.8rem;color:#9fc1d7">0</span></div>'
       + '      <div id="globalDururList" style="display:grid;gap:6px;max-height:420px;overflow:auto"></div>'
       + '    </div>'
       + '    <div style="padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:10px">'
@@ -2169,7 +2335,7 @@
       + '    </div>'
       + '  </div>'
       + '  <div style="padding:12px;background:rgba(38,194,129,.06);border:1px solid rgba(38,194,129,.18);border-radius:10px">'
-      + '    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">Station Preview</strong><span id="dururStationPreviewStatus" style="font-size:.8rem;color:#9fc1d7">--</span></div>'
+      + '    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">معاينة محطة</strong><span id="dururStationPreviewStatus" style="font-size:.8rem;color:#9fc1d7">--</span></div>'
       + '    <div id="dururStationPreviewBody" style="display:grid;gap:8px;color:#c5d5e0;font-size:.84rem">اختر محطة ثم حمّل التحليل لعرض المرجع الفعال بعد الدمج.</div>'
       + '  </div>'
       + '</div>';
@@ -2194,7 +2360,7 @@
       btn.style.background = item.id === selectedGlobalDurId ? 'rgba(92,225,255,.18)' : 'rgba(255,255,255,.04)';
       btn.style.border = item.id === selectedGlobalDurId ? '1px solid rgba(92,225,255,.34)' : '1px solid rgba(255,255,255,.08)';
       btn.innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><strong>' + escapeHtml(item.name || '--') + '</strong><span style="color:#9fc1d7">#' + escapeHtml(item.dur_number || '--') + '</span></div>'
-        + '<div style="font-size:.78rem;color:#9fc1d7;margin-top:4px">' + escapeHtml(item.review_status || 'draft') + '</div>';
+        + '<div style="font-size:.78rem;color:#9fc1d7;margin-top:4px">' + escapeHtml(getDururManagementReviewLabel(item.review_status || 'draft')) + '</div>';
       btn.addEventListener('click', function () {
         selectedGlobalDurId = item.id || '';
         renderGlobalDururList();
@@ -2206,57 +2372,67 @@
 
   function buildGlobalDururEditorHtml(item) {
     var phases = Array.isArray(item.phases) ? item.phases : [];
+    var options = getDururManagementOptionSource();
     return ''
+      + '<div style="padding:12px;background:rgba(92,225,255,.05);border:1px solid rgba(92,225,255,.18);border-radius:10px">'
+      + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px"><strong style="color:#dff8ff">المرجع العام للدرة</strong><span style="font-size:.8rem;color:#9fc1d7">ID: ' + escapeHtml(item.id || '') + '</span></div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">ID</label><input id="globalDurId" type="text" readonly value="' + escapeHtml(item.id || '') + '" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">الاسم</label><input id="globalDurNameAr" type="text" value="' + escapeHtml(item.name_ar || item.name || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">اسم الدرة</label><input id="globalDurNameAr" type="text" value="' + escapeHtml(item.name_ar || item.name || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">حالة المراجعة</label><select id="globalDurReviewStatus" style="width:100%">' + options.reviewStatus.map(function (opt) { return '<option value="' + escapeHtml(opt.value) + '">' + escapeHtml(opt.label) + '</option>'; }).join('') + '</select></div>'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">رقم الدر</label><input id="globalDurNumber" type="number" value="' + escapeHtml(item.dur_number || '') + '" style="width:100%"></div>'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">الترتيب</label><input id="globalDurOrderIndex" type="number" value="' + escapeHtml(item.order_index || '') + '" style="width:100%"></div>'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">عدد الأيام</label><input id="globalDurDefaultDays" type="number" value="' + escapeHtml(item.default_days_count || item.days_count || '') + '" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">حالة المراجعة</label><select id="globalDurReviewStatus" style="width:100%"><option value="draft">draft</option><option value="reviewed">reviewed</option><option value="approved">approved</option><option value="needs_revision">needs_revision</option></select></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">الموسم</label><input id="globalDurSeasonAr" type="text" value="' + escapeHtml(item.season_ar || '') + '" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">العلامة الفلكية</label><input id="globalDurMarkerAr" type="text" value="' + escapeHtml(item.astronomical_marker_ar || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">المعرف</label><input id="globalDurId" type="text" readonly value="' + escapeHtml(item.id || '') + '" style="width:100%"></div>'
+      + '</div>'
+      + '<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + buildStructuredSelectField('globalDurSeasonAr', 'الموسم', item.season_ar ? [item.season_ar] : [], options.seasons, false, 4)
+      + buildStructuredSelectField('globalDurMarkerAr', 'العلامة الفلكية', item.astronomical_marker_ar ? [item.astronomical_marker_ar] : [], options.astronomicalMarkers, false, 4)
       + '</div>'
       + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">المعنى التراثي</label><textarea id="globalDurHeritageMeaningAr" style="width:100%;min-height:70px">' + escapeHtml(item.heritage_meaning_ar || item.heritage_meaning || '') + '</textarea></div>'
       + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">الوصف</label><textarea id="globalDurDescriptionAr" style="width:100%;min-height:70px">' + escapeHtml(item.description_ar || item.description || '') + '</textarea></div>'
       + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">الملاحظات</label><textarea id="globalDurNotesAr" style="width:100%;min-height:70px">' + escapeHtml(item.notes_ar || item.notes || '') + '</textarea></div>'
-      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Advice Text</label><textarea id="globalDurAdviceText" style="width:100%;min-height:56px">' + escapeHtml(item.advice_text || '') + '</textarea></div>'
+      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">النصيحة المرجعية</label><textarea id="globalDurAdviceText" style="width:100%;min-height:56px">' + escapeHtml(item.advice_text || '') + '</textarea></div>'
       + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
-      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">General Traits</label><textarea id="globalDurGeneralTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.general_traits)) + '</textarea></div>'
-      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Weather Traits</label><textarea id="globalDurWeatherTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.weather_traits)) + '</textarea></div>'
-      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Marine Traits</label><textarea id="globalDurMarineTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.marine_traits)) + '</textarea></div>'
-      + '  <div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Fish Traits</label><textarea id="globalDurFishTraits" style="width:100%;min-height:88px">' + escapeHtml(listInputValue(item.fish_traits)) + '</textarea></div>'
+      + buildStructuredSelectField('globalDurGeneralTraits', 'السمات العامة', item.general_traits || [], options.generalTraits, false, 7)
+      + buildStructuredSelectField('globalDurWeatherTraits', 'سمات الطقس', item.weather_traits || [], options.weatherTraits, false, 7)
+      + buildStructuredSelectField('globalDurMarineTraits', 'سمات البحر', item.marine_traits || [], options.marineTraits, false, 7)
+      + buildStructuredSelectField('globalDurFishTraits', 'سمات السمك', item.fish_traits || [], options.fishTraits, false, 7)
       + '</div>'
-      + '<div><label style="display:block;margin:8px 0 4px;color:#9fc1d7">Related Event IDs</label><textarea id="globalDurRelatedEvents" style="width:100%;min-height:56px">' + escapeHtml(listInputValue(item.related_event_ids)) + '</textarea></div>'
-      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button type="button" id="globalDurSaveBtn" class="small-btn">حفظ الدر</button><span id="globalDurSaveStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div>'
-      + '<div style="margin-top:12px"><strong style="color:#dff8ff">Phases</strong><div id="globalDurPhaseEditor" style="display:grid;gap:8px;margin-top:8px">'
+      + buildStructuredSelectField('globalDurRelatedEvents', 'الأحداث المرتبطة', item.related_event_ids || [], options.events, true, 6)
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button type="button" id="globalDurSaveCurrentBtn" class="small-btn">حفظ الحالة الحالية</button><button type="button" id="globalDurSaveDraftBtn" class="small-btn">حفظ كمسودة</button><button type="button" id="globalDurSaveApprovedBtn" class="small-btn">حفظ واعتماد</button><span id="globalDurSaveStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div>'
+      + '</div>'
+      + '<div style="margin-top:12px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">مراحل الدرة</strong><div id="globalDurPhaseEditor" style="display:grid;gap:8px;margin-top:8px">'
       + phases.map(function (phase) {
+          var phasePrefix = 'globalDurPhase_' + (phase.phase_id || '');
           return '<details style="border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:8px;background:rgba(255,255,255,.02)">'
-            + '<summary style="cursor:pointer;color:#cfeaff">Phase ' + escapeHtml(phase.phase_id || '--') + ' | day ' + escapeHtml(phase.start_day || '--') + '-' + escapeHtml(phase.end_day || '--') + '</summary>'
+            + '<summary style="cursor:pointer;color:#cfeaff">المرحلة ' + escapeHtml(phase.phase_id || '--') + ' | اليوم ' + escapeHtml(phase.start_day || '--') + ' - ' + escapeHtml(phase.end_day || '--') + '</summary>'
             + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
             +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">العنوان</label><input data-phase-field="title_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="text" value="' + escapeHtml(phase.title_ar || '') + '" style="width:100%"></div>'
             +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">النطاق</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input data-phase-field="start_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.start_day || '') + '"><input data-phase-field="end_day" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" type="number" value="' + escapeHtml(phase.end_day || '') + '"></div></div>'
-            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">General</label><textarea data-phase-field="general_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.general_traits)) + '</textarea></div>'
-            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Weather</label><textarea data-phase-field="weather_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.weather_traits)) + '</textarea></div>'
-            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Marine</label><textarea data-phase-field="marine_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.marine_traits)) + '</textarea></div>'
-            +   '<div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Fish</label><textarea data-phase-field="fish_traits" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:70px">' + escapeHtml(listInputValue(phase.fish_traits)) + '</textarea></div>'
             + '</div>'
-            + '<div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">Related Events</label><textarea data-phase-field="related_event_ids" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:56px">' + escapeHtml(listInputValue(phase.related_event_ids)) + '</textarea></div>'
-            + '<div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">Notes</label><textarea data-phase-field="notes_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:56px">' + escapeHtml(phase.notes_ar || '') + '</textarea></div>'
+            + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px">'
+            +   buildStructuredSelectField(phasePrefix + '_general_traits', 'السمات العامة', phase.general_traits || [], options.generalTraits, false, 6)
+            +   buildStructuredSelectField(phasePrefix + '_weather_traits', 'سمات الطقس', phase.weather_traits || [], options.weatherTraits, false, 6)
+            +   buildStructuredSelectField(phasePrefix + '_marine_traits', 'سمات البحر', phase.marine_traits || [], options.marineTraits, false, 6)
+            +   buildStructuredSelectField(phasePrefix + '_fish_traits', 'سمات السمك', phase.fish_traits || [], options.fishTraits, false, 6)
+            + '</div>'
+            + '<div style="margin-top:8px">' + buildStructuredSelectField(phasePrefix + '_related_event_ids', 'الأحداث المرتبطة', phase.related_event_ids || [], options.events, true, 5) + '</div>'
+            + '<div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">الملاحظات</label><textarea data-phase-field="notes_ar" data-phase-id="' + escapeHtml(phase.phase_id || '') + '" style="width:100%;min-height:56px">' + escapeHtml(phase.notes_ar || '') + '</textarea></div>'
             + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" class="small-btn" data-save-phase="' + escapeHtml(phase.phase_id || '') + '">حفظ المرحلة</button></div>'
             + '</details>';
         }).join('')
       + '</div></div>'
-      + '<div style="margin-top:12px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">Override Editor</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Override ID</label><input id="globalOverrideId" type="text" placeholder="auto if new" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Station ID (blank = global)</label><input id="globalOverrideStationId" type="text" value="' + escapeHtml(selectedDururStationId || '') + '" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Phase ID</label><select id="globalOverridePhaseId" style="width:100%"><option value="">base/global dur</option>' + phases.map(function (phase) { return '<option value="' + escapeHtml(phase.phase_id || '') + '">' + escapeHtml(phase.phase_id || '') + '</option>'; }).join('') + '</select></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Season Key</label><input id="globalOverrideSeasonKey" type="text" placeholder="optional" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">General</label><textarea id="globalOverrideGeneralTraits" style="width:100%;min-height:60px"></textarea></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Weather</label><textarea id="globalOverrideWeatherTraits" style="width:100%;min-height:60px"></textarea></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Marine</label><textarea id="globalOverrideMarineTraits" style="width:100%;min-height:60px"></textarea></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">Fish</label><textarea id="globalOverrideFishTraits" style="width:100%;min-height:60px"></textarea></div>'
-      + '</div><div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">Advice Text</label><textarea id="globalOverrideAdviceText" style="width:100%;min-height:56px"></textarea></div><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" id="globalOverrideSaveBtn" class="small-btn">حفظ Override</button><span id="globalOverrideStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div><div id="globalOverrideList" style="display:grid;gap:6px;margin-top:10px"></div></div>';
+      + '<div style="margin-top:12px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">التخصيصات الخاصة</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">معرف التخصيص</label><input id="globalOverrideId" type="text" placeholder="يُنشأ تلقائياً عند الإضافة" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">معرف المحطة (فارغ = عام)</label><input id="globalOverrideStationId" type="text" value="' + escapeHtml(selectedDururStationId || '') + '" style="width:100%"></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">المرحلة</label><select id="globalOverridePhaseId" style="width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px"><option value="">المرجع العام للدرة</option>' + phases.map(function (phase) { return '<option value="' + escapeHtml(phase.phase_id || '') + '">' + escapeHtml(phase.phase_id || '') + '</option>'; }).join('') + '</select></div>'
+      + buildStructuredSelectField('globalOverrideSeasonKey', 'الموسم', [], options.seasons, false, 4)
+      + '</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px">'
+      + buildStructuredSelectField('globalOverrideGeneralTraits', 'السمات العامة', [], options.generalTraits, false, 5)
+      + buildStructuredSelectField('globalOverrideWeatherTraits', 'سمات الطقس', [], options.weatherTraits, false, 5)
+      + buildStructuredSelectField('globalOverrideMarineTraits', 'سمات البحر', [], options.marineTraits, false, 5)
+      + buildStructuredSelectField('globalOverrideFishTraits', 'سمات السمك', [], options.fishTraits, false, 5)
+      + '</div><div style="margin-top:8px"><label style="display:block;margin-bottom:4px;color:#9fc1d7">النصيحة المرجعية</label><textarea id="globalOverrideAdviceText" style="width:100%;min-height:56px"></textarea></div><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><button type="button" id="globalOverrideSaveBtn" class="small-btn">حفظ التخصيص</button><span id="globalOverrideStatus" style="color:#9fc1d7;font-size:.82rem">جاهز</span></div><div id="globalOverrideList" style="display:grid;gap:6px;margin-top:10px"></div></div>';
   }
 
   function renderGlobalDururEditor() {
@@ -2275,8 +2451,13 @@
     editor.innerHTML = buildGlobalDururEditorHtml(item);
     var reviewEl = getEl('globalDurReviewStatus');
     if (reviewEl) reviewEl.value = item.review_status || 'draft';
-    var saveBtn = getEl('globalDurSaveBtn');
-    if (saveBtn) saveBtn.addEventListener('click', saveSelectedGlobalDur);
+    bindStructuredFieldOtherToggle(editor);
+    var saveCurrentBtn = getEl('globalDurSaveCurrentBtn');
+    var saveDraftBtn = getEl('globalDurSaveDraftBtn');
+    var saveApprovedBtn = getEl('globalDurSaveApprovedBtn');
+    if (saveCurrentBtn) saveCurrentBtn.addEventListener('click', function () { saveSelectedGlobalDur(); });
+    if (saveDraftBtn) saveDraftBtn.addEventListener('click', function () { saveSelectedGlobalDur('draft'); });
+    if (saveApprovedBtn) saveApprovedBtn.addEventListener('click', function () { saveSelectedGlobalDur('approved'); });
     editor.querySelectorAll('button[data-save-phase]').forEach(function (btn) {
       btn.addEventListener('click', function () { saveSelectedDurPhase(btn.getAttribute('data-save-phase')); });
     });
@@ -2292,29 +2473,34 @@
       order_index: Number(getEl('globalDurOrderIndex') ? getEl('globalDurOrderIndex').value : 0) || 0,
       default_days_count: Number(getEl('globalDurDefaultDays') ? getEl('globalDurDefaultDays').value : 0) || 0,
       review_status: safeInput(getEl('globalDurReviewStatus') ? getEl('globalDurReviewStatus').value : 'draft', 40) || 'draft',
-      season_ar: safeInput(getEl('globalDurSeasonAr') ? getEl('globalDurSeasonAr').value : '', 120),
-      astronomical_marker_ar: safeInput(getEl('globalDurMarkerAr') ? getEl('globalDurMarkerAr').value : '', 120),
+      season_ar: joinArabicValues(getStructuredFieldValues('globalDurSeasonAr')),
+      astronomical_marker_ar: joinArabicValues(getStructuredFieldValues('globalDurMarkerAr')),
       heritage_meaning_ar: safeInput(getEl('globalDurHeritageMeaningAr') ? getEl('globalDurHeritageMeaningAr').value : '', 1200),
       description_ar: safeInput(getEl('globalDurDescriptionAr') ? getEl('globalDurDescriptionAr').value : '', 1200),
       notes_ar: safeInput(getEl('globalDurNotesAr') ? getEl('globalDurNotesAr').value : '', 1200),
       advice_text: safeInput(getEl('globalDurAdviceText') ? getEl('globalDurAdviceText').value : '', 1200) || null,
-      general_traits: parseListInput(getEl('globalDurGeneralTraits') ? getEl('globalDurGeneralTraits').value : ''),
-      weather_traits: parseListInput(getEl('globalDurWeatherTraits') ? getEl('globalDurWeatherTraits').value : ''),
-      marine_traits: parseListInput(getEl('globalDurMarineTraits') ? getEl('globalDurMarineTraits').value : ''),
-      fish_traits: parseListInput(getEl('globalDurFishTraits') ? getEl('globalDurFishTraits').value : ''),
-      related_event_ids: parseListInput(getEl('globalDurRelatedEvents') ? getEl('globalDurRelatedEvents').value : '')
+      general_traits: getStructuredFieldValues('globalDurGeneralTraits'),
+      weather_traits: getStructuredFieldValues('globalDurWeatherTraits'),
+      marine_traits: getStructuredFieldValues('globalDurMarineTraits'),
+      fish_traits: getStructuredFieldValues('globalDurFishTraits'),
+      related_event_ids: getStructuredFieldValues('globalDurRelatedEvents')
     };
   }
 
   function collectSelectedPhaseFields(phaseId) {
+    var phasePrefix = 'globalDurPhase_' + phaseId;
     var fields = {};
-    ['title_ar', 'start_day', 'end_day', 'general_traits', 'weather_traits', 'marine_traits', 'fish_traits', 'related_event_ids', 'notes_ar'].forEach(function (key) {
+    ['title_ar', 'start_day', 'end_day', 'notes_ar'].forEach(function (key) {
       var el = document.querySelector('[data-phase-id="' + phaseId + '"][data-phase-field="' + key + '"]');
       if (!el) return;
       if (key === 'start_day' || key === 'end_day') fields[key] = Number(el.value || 0) || 0;
-      else if (key.indexOf('_traits') >= 0 || key === 'related_event_ids') fields[key] = parseListInput(el.value);
       else fields[key] = safeInput(el.value, 1200);
     });
+    fields.general_traits = getStructuredFieldValues(phasePrefix + '_general_traits');
+    fields.weather_traits = getStructuredFieldValues(phasePrefix + '_weather_traits');
+    fields.marine_traits = getStructuredFieldValues(phasePrefix + '_marine_traits');
+    fields.fish_traits = getStructuredFieldValues(phasePrefix + '_fish_traits');
+    fields.related_event_ids = getStructuredFieldValues(phasePrefix + '_related_event_ids');
     return fields;
   }
 
@@ -2341,8 +2527,8 @@
     if (!list) return;
     var items = dururGlobalOverridesCache.filter(function (item) { return item && item.dur_id === durId; });
     list.innerHTML = items.length ? items.map(function (item) {
-      return '<button type="button" class="small-btn" data-load-override="' + escapeHtml(item.override_id || item.id || '') + '" style="text-align:right;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)"><strong>' + escapeHtml((item.station_id || 'GLOBAL')) + '</strong> | ' + escapeHtml(item.phase_id || 'base') + ' | ' + escapeHtml(item.season_key || 'all') + '</button>';
-    }).join('') : '<div style="color:#9fc1d7;font-size:.8rem">لا توجد Overrides لهذا الدر بعد.</div>';
+      return '<button type="button" class="small-btn" data-load-override="' + escapeHtml(item.override_id || item.id || '') + '" style="text-align:right;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)"><strong>' + escapeHtml((item.station_id || 'مرجع عام')) + '</strong> | ' + escapeHtml(item.phase_id || 'المرجع العام') + ' | ' + escapeHtml(item.season_key || 'كل المواسم') + '</button>';
+    }).join('') : '<div style="color:#9fc1d7;font-size:.8rem">لا توجد تخصيصات خاصة لهذه الدرة بعد.</div>';
     list.querySelectorAll('button[data-load-override]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var override = dururGlobalOverridesCache.find(function (item) { return (item.override_id || item.id) === btn.getAttribute('data-load-override'); });
@@ -2350,21 +2536,22 @@
         if (getEl('globalOverrideId')) getEl('globalOverrideId').value = override.override_id || override.id || '';
         if (getEl('globalOverrideStationId')) getEl('globalOverrideStationId').value = override.station_id || '';
         if (getEl('globalOverridePhaseId')) getEl('globalOverridePhaseId').value = override.phase_id || '';
-        if (getEl('globalOverrideSeasonKey')) getEl('globalOverrideSeasonKey').value = override.season_key || '';
-        if (getEl('globalOverrideGeneralTraits')) getEl('globalOverrideGeneralTraits').value = listInputValue(override.fields && override.fields.general_traits);
-        if (getEl('globalOverrideWeatherTraits')) getEl('globalOverrideWeatherTraits').value = listInputValue(override.fields && override.fields.weather_traits);
-        if (getEl('globalOverrideMarineTraits')) getEl('globalOverrideMarineTraits').value = listInputValue(override.fields && override.fields.marine_traits);
-        if (getEl('globalOverrideFishTraits')) getEl('globalOverrideFishTraits').value = listInputValue(override.fields && override.fields.fish_traits);
+        setStructuredFieldValues('globalOverrideSeasonKey', override.season_key ? [override.season_key] : []);
+        setStructuredFieldValues('globalOverrideGeneralTraits', override.fields && override.fields.general_traits);
+        setStructuredFieldValues('globalOverrideWeatherTraits', override.fields && override.fields.weather_traits);
+        setStructuredFieldValues('globalOverrideMarineTraits', override.fields && override.fields.marine_traits);
+        setStructuredFieldValues('globalOverrideFishTraits', override.fields && override.fields.fish_traits);
         if (getEl('globalOverrideAdviceText')) getEl('globalOverrideAdviceText').value = override.fields && override.fields.advice_text ? override.fields.advice_text : '';
       });
     });
   }
 
-  async function saveSelectedGlobalDur() {
+  async function saveSelectedGlobalDur(reviewStatusOverride) {
     var statusEl = getEl('globalDurSaveStatus');
     if (!selectedGlobalDurId) return;
     if (statusEl) statusEl.textContent = 'جاري الحفظ...';
     try {
+      if (reviewStatusOverride && getEl('globalDurReviewStatus')) getEl('globalDurReviewStatus').value = reviewStatusOverride;
       var res = await apiFetch('/api?route=admin&path=durur-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2400,7 +2587,7 @@
   async function saveSelectedDurOverride() {
     var statusEl = getEl('globalOverrideStatus');
     if (!selectedGlobalDurId) return;
-    if (statusEl) statusEl.textContent = 'جاري حفظ الـ override...';
+    if (statusEl) statusEl.textContent = 'جاري حفظ التخصيص...';
     try {
       var overrideId = safeInput(getEl('globalOverrideId') ? getEl('globalOverrideId').value : '', 80);
       var path = overrideId ? 'durur-override-update' : 'durur-override-create';
@@ -2409,12 +2596,12 @@
         station_id: safeInput(getEl('globalOverrideStationId') ? getEl('globalOverrideStationId').value : '', 80) || null,
         dur_id: selectedGlobalDurId,
         phase_id: safeInput(getEl('globalOverridePhaseId') ? getEl('globalOverridePhaseId').value : '', 80) || null,
-        season_key: safeInput(getEl('globalOverrideSeasonKey') ? getEl('globalOverrideSeasonKey').value : '', 60) || null,
+        season_key: getStructuredFieldValues('globalOverrideSeasonKey')[0] || null,
         fields: {
-          general_traits: parseListInput(getEl('globalOverrideGeneralTraits') ? getEl('globalOverrideGeneralTraits').value : ''),
-          weather_traits: parseListInput(getEl('globalOverrideWeatherTraits') ? getEl('globalOverrideWeatherTraits').value : ''),
-          marine_traits: parseListInput(getEl('globalOverrideMarineTraits') ? getEl('globalOverrideMarineTraits').value : ''),
-          fish_traits: parseListInput(getEl('globalOverrideFishTraits') ? getEl('globalOverrideFishTraits').value : ''),
+          general_traits: getStructuredFieldValues('globalOverrideGeneralTraits'),
+          weather_traits: getStructuredFieldValues('globalOverrideWeatherTraits'),
+          marine_traits: getStructuredFieldValues('globalOverrideMarineTraits'),
+          fish_traits: getStructuredFieldValues('globalOverrideFishTraits'),
           advice_text: safeInput(getEl('globalOverrideAdviceText') ? getEl('globalOverrideAdviceText').value : '', 1200) || null
         }
       };
@@ -2424,10 +2611,10 @@
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error('durur_override_save_failed');
-      if (statusEl) statusEl.textContent = 'تم حفظ الـ override.';
+      if (statusEl) statusEl.textContent = 'تم حفظ التخصيص.';
       await loadGlobalDururManagementData();
     } catch (err) {
-      if (statusEl) statusEl.textContent = 'فشل حفظ الـ override.';
+      if (statusEl) statusEl.textContent = 'فشل حفظ التخصيص.';
     }
   }
 
@@ -2452,6 +2639,17 @@
     }
     var ref = dto.dur.reference || {};
     var phase = dto.dur.active_phase_reference || {};
+    var analysisDate = dto.analysis_timestamp ? new Date(dto.analysis_timestamp) : null;
+    var startDate = null;
+    var endDate = null;
+    if (analysisDate && dto.dur.day_in_period != null) {
+      startDate = new Date(analysisDate.getTime());
+      startDate.setUTCDate(startDate.getUTCDate() - Math.max(0, Number(dto.dur.day_in_period || 1) - 1));
+    }
+    if (analysisDate && dto.dur.days_remaining != null) {
+      endDate = new Date(analysisDate.getTime());
+      endDate.setUTCDate(endDate.getUTCDate() + Math.max(0, Number(dto.dur.days_remaining || 0)));
+    }
     var effectiveTraits = []
       .concat(ref.general_traits || [])
       .concat(ref.weather_traits || [])
@@ -2463,14 +2661,21 @@
       .concat(phase.fish_traits || []);
     var unique = [];
     effectiveTraits.forEach(function (value) { if (value && unique.indexOf(value) < 0) unique.push(value); });
+    var appliedReferenceLabel = dto.dur.overrides_applied ? 'عليه تخصيص' : 'مرجع عام';
+    var tideLabel = mapDtoTideStateToArabic(dto.tide && dto.tide.state);
     body.innerHTML = ''
       + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
-      + '  <div><strong style="color:#9fc1d7">Current Dur:</strong><br>' + escapeHtml(dto.dur.period_name || '--') + '</div>'
-      + '  <div><strong style="color:#9fc1d7">Day In Period:</strong><br>' + escapeHtml(dto.dur.day_in_period != null ? dto.dur.day_in_period : '--') + '</div>'
-      + '  <div><strong style="color:#9fc1d7">Active Phase:</strong><br>' + escapeHtml(phase.phase_id || dto.dur.active_phase_id || '--') + '</div>'
-      + '  <div><strong style="color:#9fc1d7">Override Applied:</strong><br>' + (dto.dur.overrides_applied ? 'Yes' : 'No') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">الدر الحالي الآن:</strong><br>' + escapeHtml(dto.dur.period_name || '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">اليوم داخل الدر:</strong><br>' + escapeHtml(dto.dur.day_in_period != null ? dto.dur.day_in_period : '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">المرحلة الحالية:</strong><br>' + escapeHtml(phase.title_ar || phase.phase_id || dto.dur.active_phase_id || '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">بداية الدر:</strong><br>' + escapeHtml(startDate ? startDate.toISOString().slice(0, 10) : '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">نهاية الدر:</strong><br>' + escapeHtml(endDate ? endDate.toISOString().slice(0, 10) : '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">الدر التالي:</strong><br>' + escapeHtml(dto.dur.next_period_name || '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">الأيام المتبقية:</strong><br>' + escapeHtml(dto.dur.days_remaining != null ? dto.dur.days_remaining : '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">المرجع المطبق:</strong><br>' + escapeHtml(appliedReferenceLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">حالة الحمل / الفساد الحالية:</strong><br>' + escapeHtml(tideLabel || '--') + '</div>'
       + '</div>'
-      + '<div style="margin-top:8px"><strong style="color:#9fc1d7">Effective Traits</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div></div>';
+      + '<div style="margin-top:8px"><strong style="color:#9fc1d7">السمات الفعالة بعد الدمج</strong><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div></div>';
   }
 
   function getFishingModeLabel(mode) {
