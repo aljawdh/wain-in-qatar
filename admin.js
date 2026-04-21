@@ -3368,10 +3368,13 @@
 
   function refreshAllStationMarkers(editingId, visibleStations) {
     if (!stationsAdminMapState || !window.NavidurStationMap) return;
+    if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
+      stationsAdminMap.invalidateSize();
+    }
     var rows = Array.isArray(visibleStations) ? visibleStations : getVisibleAdminStations();
     window.NavidurStationMap.renderStations(stationsAdminMapState, {
       stations: rows,
-      isAdminMode: isAdminMode(),
+      isAdminMode: true,
       selectedStationId: selectedDururStationId || currentStationId || '',
       popupBuilder: createDururPopupContent,
       tooltipBuilder: function (station) {
@@ -3387,16 +3390,18 @@
     allStationMarkersList = Array.from(stationsAdminMapState.markerMap.entries()).map(function (entry) {
       return { id: entry[0], marker: entry[1] };
     });
-    if (getAdminReferenceOnlyEnabled() && rows.length) {
+    var refOnly = getAdminReferenceOnlyEnabled();
+    if (refOnly && rows.length) {
       fitAdminMapToStations(rows);
     }
+    var actualMarkerCount = stationsAdminMapState.markerMap ? stationsAdminMapState.markerMap.size : 0;
     console.info('[admin][stations-map]', {
       totalStationsLoaded: stationsCache.length,
       totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
-      totalRenderedOnAdminMap: stationsAdminMapState && stationsAdminMapState.markerMap ? stationsAdminMapState.markerMap.size : 0,
+      totalMarkersDrawn: actualMarkerCount,
       totalFilteredStationsShown: rows.length,
-      referenceOnly: getAdminReferenceOnlyEnabled(),
-      isAdminMode: isAdminMode()
+      referenceOnly: refOnly,
+      isAdminMode: true
     });
   }
 
@@ -3531,6 +3536,11 @@
       : null;
     if (!stationsAdminMapState) return;
     stationsAdminMap = stationsAdminMapState.map;
+    window.setTimeout(function () {
+      if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
+        stationsAdminMap.invalidateSize();
+      }
+    }, 300);
 
     stationsAdminMap.on('click', function (e) {
       applyStationPointFromMap(e.latlng.lat, e.latlng.lng, true, true);
@@ -5159,7 +5169,57 @@
     });
 
     var stationsReferenceOnlyToggle = getEl('stationsReferenceOnlyToggle');
-    if (stationsReferenceOnlyToggle) stationsReferenceOnlyToggle.addEventListener('change', function () { loadStations(); });
+    if (stationsReferenceOnlyToggle) stationsReferenceOnlyToggle.addEventListener('change', function () {
+      dururMapFilters.stationType = getAdminReferenceOnlyEnabled() ? 'reference_only' : 'all';
+      var visibleStations = getVisibleAdminStations();
+      refreshAllStationMarkers(null, visibleStations);
+      var body = getEl('stationsBody');
+      if (body) {
+        body.innerHTML = '';
+        if (!visibleStations.length) {
+          body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8ea4ba">لا توجد محطات مطابقة للفلتر الحالي.</td></tr>';
+        }
+        visibleStations.forEach(function (st, idx) {
+          var isGulf = (st.region || '').toLowerCase() === 'gulf';
+          var regionBg = isGulf ? 'rgba(255,185,0,.18)' : 'rgba(39,179,255,.12)';
+          var regionBorder = isGulf ? 'rgba(255,185,0,.5)' : 'rgba(39,179,255,.3)';
+          var regionLabel = isGulf ? ('\u26a0 ' + (st.region || '--')) : (st.region || '--');
+          var isReference = isReferenceCalibrationStation(st);
+          var fm = String(st.fishing_mode || '').toLowerCase();
+          var fmBadge;
+          if (fm === 'deep') {
+            fmBadge = '<span style="background:rgba(100,200,100,.15);border:1px solid rgba(100,200,100,.4);border-radius:6px;padding:2px 7px;font-size:12px">\u0639\u0645\u0642</span>';
+          } else if (fm === 'coastal') {
+            fmBadge = '<span style="background:rgba(39,179,255,.12);border:1px solid rgba(39,179,255,.3);border-radius:6px;padding:2px 7px;font-size:12px">\u0633\u0627\u062d\u0644\u064a</span>';
+          } else {
+            fmBadge = '<span style="background:rgba(255,100,0,.18);border:1px solid rgba(255,100,0,.5);border-radius:6px;padding:2px 7px;font-size:12px">\u26a0 \u0644\u0645 \u064a\u064f\u062d\u062f\u062f</span>';
+          }
+          var tr = document.createElement('tr');
+          if (isReference) tr.style.background = 'rgba(255,82,82,.05)';
+          tr.innerHTML = '<td>' + (idx + 1) + '</td>' +
+            '<td><strong style="' + (isReference ? 'color:#ffd0d0' : '') + '">' + st.name + '</strong><br><span style="font-size:11px;color:#8ea4ba">' + st.id + '</span><div>' + buildReferenceBadgeHtml(st) + '</div></td>' +
+            '<td><span style="background:' + regionBg + ';border:1px solid ' + regionBorder + ';border-radius:6px;padding:2px 7px;font-size:12px">' + regionLabel + '</span></td>' +
+            '<td>' + (st.country || '--') + '</td>' +
+            '<td>' + fmBadge + '</td>' +
+            '<td>' + stationStatusBadge(st.status) + '</td>' +
+            '<td>' + (st.default_radius != null ? st.default_radius : '--') + '</td>' +
+            '<td>' +
+              '<div class="inline-actions">' +
+                '<button class="small-btn" data-action="edit" data-id="' + st.id + '">تعديل</button>' +
+                '<button class="small-btn warn" data-action="toggle" data-id="' + st.id + '">' + (st.status === 'disabled' ? 'تفعيل' : 'تعطيل') + '</button>' +
+                '<button class="small-btn danger" data-action="delete" data-id="' + st.id + '" data-name="' + (st.name || '').replace(/"/g, '&quot;') + '">حذف</button>' +
+              '</div>' +
+            '</td>';
+          body.appendChild(tr);
+        });
+      }
+      console.info('[admin][toggle-reference-filter]', {
+        referenceOnly: getAdminReferenceOnlyEnabled(),
+        totalStations: stationsCache.length,
+        totalReferenceStations: getReferenceStationCount(stationsCache),
+        visibleStations: visibleStations.length
+      });
+    });
 
     var dururReferenceSearch = getEl('dururReferenceSearch');
     if (dururReferenceSearch) dururReferenceSearch.addEventListener('input', renderDururReferenceTable);
@@ -5234,10 +5294,15 @@
       getEl('adminLoginForm').style.display = 'none';
       getEl('adminContent').classList.add('active');
       adminAuthenticated = true;
-      renderAdminDashboard();
+      setAdminDataFilter('all');
+      renderAdminDashboard().then(function () {
+        if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
+          stationsAdminMap.invalidateSize();
+        }
+        refreshAllStationMarkers();
+      });
       loadSettingsIntoAdmin();
       clearStationForm();
-      setAdminDataFilter('all');
       return;
     }
 
