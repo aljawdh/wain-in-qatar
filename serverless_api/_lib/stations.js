@@ -39,6 +39,22 @@ function normalizeIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(cleaned) ? cleaned : null;
 }
 
+function normalizeWorkbookMatchMode(value) {
+  const allowed = ['exact_name', 'manual', 'nearest_city', 'same_region'];
+  if (value === null || value === undefined) return null;
+  const raw = cleanString(value, 40).toLowerCase();
+  if (!raw) return null;
+  return allowed.includes(raw) ? raw : null;
+}
+
+function normalizeWorkbookAssignmentStatus(value) {
+  const allowed = ['auto_assigned', 'manual_confirmed', 'needs_review'];
+  if (value === null || value === undefined) return null;
+  const raw = cleanString(value, 40).toLowerCase();
+  if (!raw) return null;
+  return allowed.includes(raw) ? raw : null;
+}
+
 function normalizeTags(tags, category, featured) {
   const list = Array.isArray(tags) ? tags : [];
   const cleaned = list.map((t) => cleanString(t, 40).toLowerCase()).filter(Boolean);
@@ -121,6 +137,20 @@ function normalizeStationInput(input, existing) {
     manual_cycle_start_date: normalizeIsoDate(input.manual_cycle_start_date != null ? input.manual_cycle_start_date : base.manual_cycle_start_date),
     is_verified: input.is_verified != null ? !!input.is_verified : !!base.is_verified,
     calibration_notes: normalizeNullableString(input.calibration_notes != null ? input.calibration_notes : base.calibration_notes, 1200),
+    workbook_city_key: normalizeNullableString(
+      input.workbook_city_key !== undefined ? input.workbook_city_key : base.workbook_city_key,
+      120
+    ),
+    workbook_city_name: normalizeNullableString(
+      input.workbook_city_name !== undefined ? input.workbook_city_name : base.workbook_city_name,
+      120
+    ),
+    workbook_match_mode: normalizeWorkbookMatchMode(
+      input.workbook_match_mode !== undefined ? input.workbook_match_mode : base.workbook_match_mode
+    ),
+    workbook_assignment_status: normalizeWorkbookAssignmentStatus(
+      input.workbook_assignment_status !== undefined ? input.workbook_assignment_status : base.workbook_assignment_status
+    ),
     created_at: base.created_at || now,
     updated_at: now
   };

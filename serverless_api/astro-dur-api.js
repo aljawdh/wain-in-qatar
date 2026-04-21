@@ -8,6 +8,16 @@
 const { getAuthUser } = require('./_lib/auth');
 const { readJsonFile } = require('./_lib/data-store');
 const { getStationBandKey, deriveCurrentDurStateFromWindows } = require('./_lib/geo-astro-dur');
+const {
+  buildWorkbookCityIndex,
+  suggestWorkbookCityForStation,
+  summarizeWorkbookMappingStats,
+  normalizeWorkbookCityName
+} = require('./_lib/workbook-city-index');
+const {
+  filterWindowsForCityYear,
+  deriveWorkbookDurPreviewForDate
+} = require('./_lib/workbook-dur-preview');
 
 function applyCorsHeaders(res) {
   res.setHeader('Content-Type', 'application/json');
@@ -107,9 +117,12 @@ module.exports = async function astroDurApiHandler(req, res) {
     var starEvents = await readJsonFile('star_events', {});
     var sequenceMap = await readJsonFile('dur_sequence_map', {});
     var audit = await readJsonFile('dur_generation_audit', {});
+    var stationsAll = await readJsonFile('stations', []);
+    var workbookIndex = buildWorkbookCityIndex(durWindows, starEvents);
 
     if (path === 'status') {
       var anchorSummary = summarizeAnchors(starEvents, durWindows);
+      var mappingStats = summarizeWorkbookMappingStats(stationsAll, workbookIndex);
 
       var wbImp = durWindows.workbook_import && typeof durWindows.workbook_import === 'object'
         ? durWindows.workbook_import
@@ -159,7 +172,137 @@ module.exports = async function astroDurApiHandler(req, res) {
               note: 'no_workbook_import_metadata_on_dur_windows'
             },
         star_events_import_summary: starEvents.import || null,
-        dur_sequence_import_summary: sequenceMap.import || null
+        dur_sequence_import_summary: sequenceMap.import || null,
+        workbook_station_mapping_stats: mappingStats
+      });
+    }
+
+    if (path === 'workbook-cities') {
+      return res.status(200).json({
+        ok: true,
+        path: 'workbook-cities',
+        source: 'workbook_import',
+        cities: workbookIndex.cities.map(function (c) {
+          return {
+            workbook_city_key: c.key,
+            workbook_city_name: c.name,
+            lat: c.lat,
+            lon: c.lon
+          };
+        })
+      });
+    }
+
+    if (path === 'workbook-suggest') {
+      var sid = req.query.station_id ? String(req.query.station_id).trim() : '';
+      if (!sid) return res.status(400).json({ error: 'station_id_required' });
+      var stRow = Array.isArray(stationsAll)
+        ? stationsAll.find(function (s) {
+            return s && String(s.id) === sid;
+          })
+        : null;
+      if (!stRow) return res.status(404).json({ error: 'station_not_found' });
+      var suggestion = suggestWorkbookCityForStation(stRow, workbookIndex);
+      return res.status(200).json({
+        ok: true,
+        path: 'workbook-suggest',
+        source: 'workbook_import',
+        station_id: sid,
+        suggestion: suggestion
+      });
+    }
+
+    if (path === 'workbook-preview') {
+      var previewSid = req.query.station_id ? String(req.query.station_id).trim() : '';
+      var previewYear = req.query.year != null ? Number(req.query.year) : new Date().getUTCFullYear();
+      var previewDate = req.query.date ? String(req.query.date).trim() : isoTodayUtc();
+      if (!previewSid) return res.status(400).json({ error: 'station_id_required' });
+      var pst = Array.isArray(stationsAll)
+        ? stationsAll.find(function (s) {
+            return s && String(s.id) === previewSid;
+          })
+        : null;
+      if (!pst) return res.status(404).json({ error: 'station_not_found' });
+
+      var cityLookup =
+        pst.workbook_city_key != null && String(pst.workbook_city_key).trim() !== ''
+          ? normalizeWorkbookCityName(pst.workbook_city_key)
+          : '';
+      var cityName =
+        pst.workbook_city_name != null && String(pst.workbook_city_name).trim() !== ''
+          ? String(pst.workbook_city_name).trim()
+          : '';
+      if (cityLookup && workbookIndex.byKey.has(cityLookup)) {
+        cityName = workbookIndex.byKey.get(cityLookup).name;
+      } else if (cityLookup && !cityName) {
+        cityName = cityLookup;
+      }
+
+      if (!cityName) {
+        return res.status(200).json({
+          ok: true,
+          path: 'workbook-preview',
+          source: 'workbook_import',
+          preview_engine: 'admin_workbook_only',
+          state: 'unmapped',
+          message_ar: 'المحطة غير مربوطة بمدينة من المصنف.',
+          station_id: previewSid,
+          iso_date: previewDate,
+          year: Number.isFinite(previewYear) ? previewYear : null
+        });
+      }
+
+      var wbRows = Array.isArray(durWindows.workbook_windows) ? durWindows.workbook_windows : [];
+      var yearRows = filterWindowsForCityYear(wbRows, cityName, previewYear);
+      if (!yearRows.length) {
+        return res.status(200).json({
+          ok: true,
+          path: 'workbook-preview',
+          source: 'workbook_import',
+          preview_engine: 'admin_workbook_only',
+          state: 'missing_year_source',
+          message_ar: 'لا توجد نوافذ مصنف لهذه المدينة والسنة.',
+          station_id: previewSid,
+          workbook_city_name: cityName,
+          iso_date: previewDate,
+          year: Number.isFinite(previewYear) ? previewYear : null
+        });
+      }
+
+      var derived = deriveWorkbookDurPreviewForDate(yearRows, previewDate);
+      var active = derived.active;
+      var next = derived.next;
+
+      return res.status(200).json({
+        ok: true,
+        path: 'workbook-preview',
+        source: 'workbook_import',
+        preview_engine: 'admin_workbook_only',
+        state: derived.ok ? 'ok' : derived.reason || 'unknown',
+        station_id: previewSid,
+        workbook_city_key: cityLookup || null,
+        workbook_city_name: cityName,
+        iso_date: previewDate,
+        year: Number.isFinite(previewYear) ? previewYear : null,
+        current_dur: active
+          ? {
+              dur_index: active.dur_index,
+              dur_name_ar: active.dur_name_ar,
+              dur_length_days: active.dur_length_days,
+              dur_start: active.dur_start,
+              dur_end: active.dur_end,
+              day_in_dur: derived.day_in_dur
+            }
+          : null,
+        next_dur: next
+          ? {
+              dur_index: next.dur_index,
+              dur_name_ar: next.dur_name_ar,
+              dur_start: next.dur_start,
+              dur_end: next.dur_end
+            }
+          : null,
+        derived: derived
       });
     }
 
@@ -209,7 +352,10 @@ module.exports = async function astroDurApiHandler(req, res) {
       });
     }
 
-    return res.status(400).json({ error: 'unknown_path', hint: 'status|preview' });
+    return res.status(400).json({
+      error: 'unknown_path',
+      hint: 'status|preview|workbook-cities|workbook-suggest|workbook-preview'
+    });
   } catch (err) {
     return res.status(500).json({
       ok: false,

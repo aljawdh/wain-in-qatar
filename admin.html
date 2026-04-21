@@ -370,6 +370,34 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
               </div>
             </details>
+            <details class="adv-options" style="margin:14px 0" id="workbookMappingDetails">
+              <summary style="cursor:pointer;font-size:.88rem;color:#c4e0ff;background:rgba(92,225,255,.08);border:1px solid rgba(92,225,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-book-atlas" style="margin-left:6px"></i> مصدر الدرور الميلادي (معاينة المصنف)</summary>
+              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">ربط المحطة بمدينة المصنف لعرض نوافذ الدور الميلادية المستوردة فقط — لا يُفعّل المحرك العام بعد.</p>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field full">
+                  <label>مدينة المصنف</label>
+                  <select id="stWorkbookCitySelect" style="width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:.88rem;font-family:inherit">
+                    <option value="">— غير مربوط —</option>
+                  </select>
+                </div>
+                <div class="admin-field full">
+                  <span id="stWorkbookSuggestHint" style="font-size:.8rem;color:#b8d4e8;line-height:1.4;display:block">—</span>
+                </div>
+                <div class="admin-field"><label>وضع المطابقة</label><input id="stWorkbookModeLabel" type="text" readonly style="opacity:.9"></div>
+                <div class="admin-field"><label>حالة التعيين</label><input id="stWorkbookStatusLabel" type="text" readonly style="opacity:.9"></div>
+                <div class="admin-field full">
+                  <div class="admin-switch"><input type="checkbox" id="stWorkbookMappingConfirmed"><label for="stWorkbookMappingConfirmed">أؤكد صحة ربط مدينة المصنف يدوياً</label></div>
+                </div>
+                <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="stWorkbookApplySuggestBtn">تطبيق الاقتراح الآلي</button></div>
+                <input type="hidden" id="stWorkbookSuggestKey" value="">
+                <input type="hidden" id="stWorkbookSuggestMode" value="">
+                <input type="hidden" id="stWorkbookSuggestStatus" value="">
+                <div class="admin-field"><label>سنة المعاينة</label><input id="stWorkbookPreviewYear" type="number" min="2016" max="2055" step="1" value="2026"></div>
+                <div class="admin-field"><label>تاريخ اليوم (GMT)</label><input id="stWorkbookPreviewDate" type="date"></div>
+                <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="stWorkbookPreviewRefreshBtn">تحديث معاينة الدر الميلادي</button></div>
+              </div>
+              <pre id="stWorkbookDurPreviewPre" style="margin-top:10px;background:rgba(30,40,55,.65);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;font-size:.76rem;max-height:220px;overflow:auto;white-space:pre-wrap">—</pre>
+            </details>
             <div class="station-map-wrap">
               <div class="station-map-head">
                 <strong>اختيار الموقع من الخريطة</strong>

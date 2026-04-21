@@ -22,6 +22,8 @@
     me = null;
   }
   var stationsCache = [];
+  /** @type {null | { workbook_city_key: string, workbook_city_name: string, lat: number|null, lon: number|null }[]} */
+  var workbookCitiesCache = null;
   var usersCache = [];
   var latestSummaryCache = null;
   var latestFeedbackCache = [];
@@ -3750,8 +3752,51 @@
       calibration_notes: getEl('stCalibrationNotes') ? (getEl('stCalibrationNotes').value.trim() || null) : null,
       reference_station_id: getEl('stReferenceStation') ? getEl('stReferenceStation').value.trim() : '',
       notes: getEl('stNotes').value.trim(),
-      assigned_members: splitCsv(getEl('stMembers').value)
+      assigned_members: splitCsv(getEl('stMembers').value),
+      workbook_city_key: null,
+      workbook_city_name: null,
+      workbook_match_mode: null,
+      workbook_assignment_status: null
     };
+
+    var wbSel = getEl('stWorkbookCitySelect');
+    var wbConfirmed = getEl('stWorkbookMappingConfirmed');
+    var skEl = getEl('stWorkbookSuggestKey');
+    var smEl = getEl('stWorkbookSuggestMode');
+    var ssEl = getEl('stWorkbookSuggestStatus');
+    var wbKey = wbSel && wbSel.value ? String(wbSel.value).trim() : '';
+    var wbOpt =
+      wbSel && wbSel.selectedOptions && wbSel.selectedOptions.length
+        ? wbSel.selectedOptions[0]
+        : null;
+    var wbDisp = wbOpt
+      ? wbOpt.getAttribute('data-city-name') || wbOpt.textContent || ''
+      : '';
+    wbDisp = wbDisp.trim();
+    var sugKey = skEl && skEl.value ? String(skEl.value).trim() : '';
+    var sugMode = smEl && smEl.value ? String(smEl.value).trim() : '';
+    var sugStat = ssEl && ssEl.value ? String(ssEl.value).trim() : '';
+    var confirmed = !!(wbConfirmed && wbConfirmed.checked);
+
+    if (!wbKey) {
+      payload.workbook_city_key = null;
+      payload.workbook_city_name = null;
+      payload.workbook_match_mode = null;
+      payload.workbook_assignment_status = null;
+    } else {
+      payload.workbook_city_key = wbKey;
+      payload.workbook_city_name = wbDisp || wbKey;
+      if (confirmed) {
+        payload.workbook_match_mode = 'manual';
+        payload.workbook_assignment_status = 'manual_confirmed';
+      } else if (sugKey === wbKey && sugMode && sugStat) {
+        payload.workbook_match_mode = sugMode;
+        payload.workbook_assignment_status = sugStat;
+      } else {
+        payload.workbook_match_mode = 'manual';
+        payload.workbook_assignment_status = 'needs_review';
+      }
+    }
     if (prev && !!prev.is_reference_station === !!payload.is_reference_station) {
       payload.is_operational_station = prev.is_operational_station;
       payload.operational_visibility = prev.operational_visibility;
@@ -3791,6 +3836,155 @@
     renderStationAnalytics();
   }
 
+  function ensureWorkbookCityCatalogLoaded() {
+    if (workbookCitiesCache) return Promise.resolve(workbookCitiesCache);
+    return apiFetch(ASTRO_DUR_ENDPOINT + '&path=workbook-cities')
+      .then(function (res) {
+        return res.ok ? res.json() : Promise.reject(new Error('workbook_cities_' + res.status));
+      })
+      .then(function (j) {
+        workbookCitiesCache = Array.isArray(j.cities) ? j.cities.slice() : [];
+        return workbookCitiesCache;
+      })
+      .catch(function () {
+        workbookCitiesCache = [];
+        return workbookCitiesCache;
+      });
+  }
+
+  function populateWorkbookCitySelect(sel, cities, selectedKey) {
+    if (!sel) return;
+    var keep = selectedKey ? String(selectedKey).trim() : '';
+    sel.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = '— غير مربوط —';
+    sel.appendChild(opt0);
+    cities.forEach(function (c) {
+      if (!c || !c.workbook_city_key) return;
+      var op = document.createElement('option');
+      op.value = c.workbook_city_key;
+      op.textContent = c.workbook_city_name || c.workbook_city_key;
+      op.setAttribute('data-city-name', c.workbook_city_name || c.workbook_city_key);
+      sel.appendChild(op);
+    });
+    if (keep && Array.from(sel.options).some(function (o) { return o.value === keep; })) {
+      sel.value = keep;
+    }
+  }
+
+  function setWorkbookSuggestHiddenFields(suggestion) {
+    var skEl = getEl('stWorkbookSuggestKey');
+    var smEl = getEl('stWorkbookSuggestMode');
+    var ssEl = getEl('stWorkbookSuggestStatus');
+    var su = suggestion || {};
+    if (skEl) skEl.value = su.workbook_city_key || '';
+    if (smEl) smEl.value = su.workbook_match_mode || '';
+    if (ssEl) ssEl.value = su.workbook_assignment_status || '';
+  }
+
+  function refreshWorkbookDurPreviewPre() {
+    var pre = getEl('stWorkbookDurPreviewPre');
+    var idEl = getEl('stId');
+    if (!pre || !idEl) return;
+    var sid = idEl.value.trim();
+    if (!sid) {
+      pre.textContent = '—';
+      return;
+    }
+    var yEl = getEl('stWorkbookPreviewYear');
+    var dEl = getEl('stWorkbookPreviewDate');
+    var y = yEl ? Number(yEl.value) : NaN;
+    var iso = dEl && dEl.value ? String(dEl.value).trim() : '';
+    var q =
+      'path=workbook-preview&station_id=' + encodeURIComponent(sid) +
+      '&year=' + encodeURIComponent(Number.isFinite(y) ? y : new Date().getUTCFullYear());
+    if (iso) q += '&date=' + encodeURIComponent(iso);
+    pre.textContent = '...';
+    apiFetch(ASTRO_DUR_ENDPOINT + '&' + q)
+      .then(function (res) {
+        return res.ok ? res.json() : Promise.reject(new Error('http_' + res.status));
+      })
+      .then(function (j) {
+        var tag = '[workbook_import · معاينة إدارية فقط — ليس محرك التشغيل]';
+        pre.textContent = tag + '\n\n' + JSON.stringify(j, null, 2);
+      })
+      .catch(function (e) {
+        pre.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      });
+  }
+
+  /**
+   * @param {object} st — station row from cache
+   */
+  function refreshWorkbookMappingUi(st) {
+    var sel = getEl('stWorkbookCitySelect');
+    var hint = getEl('stWorkbookSuggestHint');
+    var modeLab = getEl('stWorkbookModeLabel');
+    var statLab = getEl('stWorkbookStatusLabel');
+    var conf = getEl('stWorkbookMappingConfirmed');
+    if (!sel || !st) return;
+
+    ensureWorkbookCityCatalogLoaded().then(function (cities) {
+      populateWorkbookCitySelect(sel, cities, st.workbook_city_key || '');
+      var yPrev = getEl('stWorkbookPreviewYear');
+      var dPrev = getEl('stWorkbookPreviewDate');
+      if (conf) conf.checked = String(st.workbook_assignment_status || '').toLowerCase() === 'manual_confirmed';
+      if (modeLab) modeLab.value = st.workbook_match_mode || '';
+      if (statLab) statLab.value = st.workbook_assignment_status || '';
+      var pd = getEl('stWorkbookPreviewDate');
+      if (pd && !pd.value) {
+        var u = new Date();
+        pd.value =
+          u.getUTCFullYear() +
+          '-' +
+          String(u.getUTCMonth() + 1).padStart(2, '0') +
+          '-' +
+          String(u.getUTCDate()).padStart(2, '0');
+      }
+
+      if (!getEl('stId') || !getEl('stId').value.trim()) {
+        if (hint) hint.textContent = 'اختر محطة أو احفظ المعرف أولاً.';
+        setWorkbookSuggestHiddenFields(null);
+        var pre = getEl('stWorkbookDurPreviewPre');
+        if (pre) pre.textContent = '—';
+        return;
+      }
+
+      return apiFetch(ASTRO_DUR_ENDPOINT + '&path=workbook-suggest&station_id=' + encodeURIComponent(String(st.id)))
+        .then(function (res) {
+          return res.ok ? res.json() : Promise.reject(new Error('workbook_suggest_' + res.status));
+        })
+        .then(function (j) {
+          var sug = j && j.suggestion ? j.suggestion : {};
+          setWorkbookSuggestHiddenFields(sug);
+          if (!st.workbook_city_key) {
+            populateWorkbookCitySelect(sel, cities, sug.workbook_city_key || '');
+          }
+          if (hint) {
+            if (sug.preserved) {
+              hint.textContent = 'محفوظ: تعيين يدوي معتمد — لا يُستبدل آلياً.';
+            } else if (sug.workbook_city_name) {
+              hint.textContent =
+                'اقتراح: ' + sug.workbook_city_name +
+                ' · ' + (sug.workbook_match_mode || '') +
+                ' · ~' + (sug.distance_km != null ? sug.distance_km + ' km' : '—') +
+                ' · (' + (sug.rationale || '') + ')';
+            } else {
+              hint.textContent = 'لا يوجد اقتراح واضح — اختر المدينة يدوياً.';
+            }
+          }
+          if (modeLab) modeLab.value = st.workbook_match_mode || sug.workbook_match_mode || '';
+          if (statLab) statLab.value = st.workbook_assignment_status || sug.workbook_assignment_status || '';
+          refreshWorkbookDurPreviewPre();
+        })
+        .catch(function () {
+          if (hint) hint.textContent = 'تعذّر تحميل الاقتراح.';
+          refreshWorkbookDurPreviewPre();
+        });
+    });
+  }
+
   function fillStationForm(st, editMode) {
     _stationEditMode = (editMode !== false);
     _stationNameUserEdited = false;
@@ -3821,6 +4015,7 @@
     getEl('stReferenceStation').value = st.reference_station_id || '';
     getEl('stNotes').value = st.notes || '';
     getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
+    void refreshWorkbookMappingUi(st);
     var hintEl = getEl('stNameAutoHint');
     if (hintEl) hintEl.textContent = '';
     var wrapEl = getEl('newRegionWrap');
@@ -3894,7 +4089,11 @@
       manual_suhail_anchor_date: '',
       manual_cycle_start_date: '',
       calibration_notes: '',
-      reference_station_id: ''
+      reference_station_id: '',
+      workbook_city_key: null,
+      workbook_city_name: null,
+      workbook_match_mode: null,
+      workbook_assignment_status: null
     }, false);
     var fmClear = getEl('stFishingMode');
     if (fmClear) fmClear.value = 'coastal';
@@ -5283,6 +5482,51 @@
     if (stRegionNew) {
       stRegionNew.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); confirmNewRegion(); }
+      });
+    }
+
+    var applySug = getEl('stWorkbookApplySuggestBtn');
+    if (applySug) {
+      applySug.addEventListener('click', function () {
+        var id = getEl('stId') && getEl('stId').value.trim();
+        if (!id) return;
+        apiFetch(ASTRO_DUR_ENDPOINT + '&path=workbook-suggest&station_id=' + encodeURIComponent(id))
+          .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('sug_' + res.status)); })
+          .then(function (j) {
+            var sug = j && j.suggestion ? j.suggestion : {};
+            if (!sug.workbook_city_key) return;
+            setWorkbookSuggestHiddenFields(sug);
+            return ensureWorkbookCityCatalogLoaded().then(function (cities) {
+              var sel = getEl('stWorkbookCitySelect');
+              if (sel) {
+                populateWorkbookCitySelect(sel, cities, sug.workbook_city_key);
+              }
+              var ml = getEl('stWorkbookModeLabel');
+              var sl = getEl('stWorkbookStatusLabel');
+              if (ml) ml.value = sug.workbook_match_mode || '';
+              if (sl) sl.value = sug.workbook_assignment_status || '';
+              refreshWorkbookDurPreviewPre();
+            });
+          })
+          .catch(function () {});
+      });
+    }
+
+    var pvBtn = getEl('stWorkbookPreviewRefreshBtn');
+    if (pvBtn) pvBtn.addEventListener('click', function () { refreshWorkbookDurPreviewPre(); });
+
+    ['stWorkbookPreviewYear', 'stWorkbookPreviewDate'].forEach(function (id) {
+      var el = getEl(id);
+      if (el) el.addEventListener('change', function () { refreshWorkbookDurPreviewPre(); });
+    });
+
+    var wbSelChange = getEl('stWorkbookCitySelect');
+    if (wbSelChange) {
+      wbSelChange.addEventListener('change', function () {
+        var ml = getEl('stWorkbookModeLabel');
+        var sl = getEl('stWorkbookStatusLabel');
+        if (ml) ml.value = 'manual';
+        if (sl) sl.value = 'needs_review';
       });
     }
   }
