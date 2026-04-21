@@ -1507,13 +1507,38 @@
     return !!(adminAuthenticated && (!me || me.role === 'admin' || me.role === 'super_admin'));
   }
 
+  function parseStoredBooleanFlag(value) {
+    if (value === true) return true;
+    if (value === false) return false;
+    if (value == null || value === '') return false;
+    if (typeof value === 'string') {
+      var s = value.trim().toLowerCase();
+      if (s === 'true' || s === '1' || s === 'yes') return true;
+      if (s === 'false' || s === '0' || s === 'no') return false;
+    }
+    if (typeof value === 'number') return value !== 0;
+    return false;
+  }
+
+  function readStationLatLon(row) {
+    var r = row || {};
+    var latRaw = r.lat != null ? r.lat : r.latitude;
+    var lonRaw = r.lon != null ? r.lon : (r.lng != null ? r.lng : r.longitude);
+    return { lat: Number(latRaw), lon: Number(lonRaw) };
+  }
+
   function normalizeAdminStationRecord(station) {
     var row = station && typeof station === 'object' ? Object.assign({}, station) : {};
-    return Object.assign(row, {
-      is_reference_station: !!row.is_reference_station,
+    var coord = readStationLatLon(row);
+    var base = Object.assign({}, row);
+    if (Number.isFinite(coord.lat)) base.lat = coord.lat;
+    if (Number.isFinite(coord.lon)) base.lon = coord.lon;
+    var refFlag = parseStoredBooleanFlag(row.is_reference_station);
+    return Object.assign(base, {
+      is_reference_station: refFlag,
       is_operational_station: row.is_operational_station !== false,
       operational_visibility: row.operational_visibility !== false,
-      reference_anchor_mode: row.reference_anchor_mode || (row.is_reference_station ? 'coastal_land_anchor' : null),
+      reference_anchor_mode: row.reference_anchor_mode || (refFlag ? 'coastal_land_anchor' : null),
       is_verified: !!row.is_verified,
       reference_priority: row.reference_priority != null && Number.isFinite(Number(row.reference_priority)) ? Number(row.reference_priority) : null,
       latitude_band_key: row.latitude_band_key || null,
@@ -1537,7 +1562,8 @@
   }
 
   function hasValidStationCoords(station) {
-    return !!(station && Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lon)));
+    var c = readStationLatLon(station);
+    return !!(station && Number.isFinite(c.lat) && Number.isFinite(c.lon));
   }
 
   function getReferenceStationSamples(rows, limit) {
@@ -1569,8 +1595,9 @@
   function getVisibleAdminStations() {
     var referenceOnly = getAdminReferenceOnlyEnabled();
     return stationsCache.filter(function (st) {
-      if (!hasValidStationCoords(st)) return false;
-      return !referenceOnly || isReferenceCalibrationStation(st);
+      var isRef = isReferenceCalibrationStation(st);
+      if (referenceOnly) return isRef;
+      return hasValidStationCoords(st) || isRef;
     });
   }
 
@@ -1630,7 +1657,7 @@
   }
 
   async function handleStationsTableAction(action, id, btn) {
-    var station = stationsCache.find(function (s) { return s.id === id; });
+    var station = stationsCache.find(function (s) { return String(s.id) === String(id); });
     if (!station) return;
     if (action === 'edit') {
       fillStationForm(station);
@@ -2319,7 +2346,7 @@
   }
 
   function isReferenceCalibrationStation(station) {
-    return !!(station && station.is_reference_station);
+    return parseStoredBooleanFlag(station && station.is_reference_station);
   }
 
   function isVerifiedCalibrationStation(station) {
@@ -3501,14 +3528,17 @@
       fitAdminMapToStations(rows);
     }
     var actualMarkerCount = stationsAdminMapState.markerMap ? stationsAdminMapState.markerMap.size : 0;
-    console.info('[admin][stations-map]', {
-      totalStationsLoaded: stationsCache.length,
-      totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
-      totalMarkersDrawn: actualMarkerCount,
-      totalFilteredStationsShown: rows.length,
-      referenceOnly: refOnly,
-      isAdminMode: true
-    });
+    if (isAdminMode()) {
+      console.info('[admin][stations-map]', {
+        totalStationsLoaded: stationsCache.length,
+        totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
+        referenceStationsInFilteredView: rows.filter(isReferenceCalibrationStation).length,
+        totalMarkersDrawn: actualMarkerCount,
+        totalFilteredStationsShown: rows.length,
+        referenceOnly: refOnly,
+        isAdminMode: true
+      });
+    }
   }
 
   function setStationMarker(lat, lon, shouldCenter) {
@@ -3673,8 +3703,10 @@
   function readStationForm() {
     var active = !!getEl('stActive').checked;
     var isReferenceStation = getEl('stIsReferenceStation') ? getEl('stIsReferenceStation').checked : false;
-    return {
-      id: getEl('stId').value.trim() || undefined,
+    var currentId = getEl('stId').value.trim();
+    var prev = currentId ? stationsCache.find(function (s) { return String(s.id) === String(currentId); }) : null;
+    var payload = {
+      id: currentId || undefined,
       name: getEl('stName').value.trim(),
       lat: Number(getEl('stLat').value),
       lon: Number(getEl('stLon').value),
@@ -3700,6 +3732,12 @@
       notes: getEl('stNotes').value.trim(),
       assigned_members: splitCsv(getEl('stMembers').value)
     };
+    if (prev && !!prev.is_reference_station === !!payload.is_reference_station) {
+      payload.is_operational_station = prev.is_operational_station;
+      payload.operational_visibility = prev.operational_visibility;
+      payload.reference_anchor_mode = prev.reference_anchor_mode;
+    }
+    return payload;
   }
 
   function readTraitCheckboxes(containerId) {
@@ -3737,11 +3775,15 @@
     _stationEditMode = (editMode !== false);
     _stationNameUserEdited = false;
     getEl('stId').value = st.id || '';
+    if (isAdminMode()) {
+      console.info('[admin][station-edit]', { stationIdLoaded: st.id || null });
+    }
     getEl('stCountry').value = st.country || '';
     rebuildRegionSelect(st.country || '', st.region || '');
     getEl('stName').value = st.name || '';
-    getEl('stLat').value = st.lat != null ? st.lat : '';
-    getEl('stLon').value = st.lon != null ? st.lon : '';
+    var coord = readStationLatLon(st);
+    getEl('stLat').value = Number.isFinite(coord.lat) ? coord.lat : (st.lat != null ? st.lat : '');
+    getEl('stLon').value = Number.isFinite(coord.lon) ? coord.lon : (st.lon != null ? st.lon : '');
     var fmEl = getEl('stFishingMode');
     if (fmEl) fmEl.value = st.fishing_mode === 'deep' ? 'deep' : 'coastal';
     getEl('stActive').checked = st.status !== 'disabled' && st.status !== 'archived';
@@ -3765,8 +3807,8 @@
     if (wrapEl) wrapEl.style.display = 'none';
     syncStationMapFromInputs(true);
     refreshAllStationMarkers(_stationEditMode ? (st.id || null) : null);
-    var fLat = Number(st.lat);
-    var fLon = Number(st.lon);
+    var fLat = coord.lat;
+    var fLon = coord.lon;
     if (Number.isFinite(fLat) && Number.isFinite(fLon)) {
       showMarineTypeHint(fmEl && fmEl.value === 'deep' ? 'deep' : 'coastal');
       reverseGeocodeStation(fLat, fLon);
@@ -4672,13 +4714,17 @@
     }
 
     var editingId = _stationEditMode ? (getEl('stId').value.trim() || null) : null;
-    console.info('[admin][stations-load]', {
-      totalStationsLoaded: stationsCache.length,
-      totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
-      totalFilteredStationsShown: visibleStations.length,
-      referenceOnly: getAdminReferenceOnlyEnabled(),
-      referenceSamples: getReferenceStationSamples(stationsCache, 3)
-    });
+    var refInTable = visibleStations.filter(isReferenceCalibrationStation).length;
+    if (isAdminMode()) {
+      console.info('[admin][stations-load]', {
+        totalStationsLoaded: stationsCache.length,
+        totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
+        totalReferenceStationsShownInTable: refInTable,
+        totalFilteredStationsShown: visibleStations.length,
+        referenceOnly: getAdminReferenceOnlyEnabled(),
+        referenceSamples: getReferenceStationSamples(stationsCache, 3)
+      });
+    }
     if (invalidReferenceStations.length) {
       console.warn('[admin][stations-invalid-reference-coords]', invalidReferenceStations);
     }
@@ -4741,6 +4787,9 @@
       console.info('[SAVE_VALIDATE]', { ok: true, step: 'water_rules_passed' });
 
       status.textContent = payload.is_reference_station ? 'جاري حفظ المحطة المرجعية...' : 'جاري الحفظ...';
+      if (isAdminMode()) {
+        console.info('[admin][station-save]', { stationIdSent: payload.id || null });
+      }
       console.info('[SAVE_PAYLOAD]', payload);
       var res = await apiFetch(STATIONS_ENDPOINT, {
         method: 'POST',
@@ -5184,12 +5233,15 @@
       var visibleStations = getVisibleAdminStations();
       renderAdminStationsTable(visibleStations);
       refreshAllStationMarkers(null, visibleStations);
-      console.info('[admin][toggle-reference-filter]', {
-        referenceOnly: getAdminReferenceOnlyEnabled(),
-        totalStations: stationsCache.length,
-        totalReferenceStations: getReferenceStationCount(stationsCache),
-        visibleStations: visibleStations.length
-      });
+      if (isAdminMode()) {
+        console.info('[admin][toggle-reference-filter]', {
+          referenceOnly: getAdminReferenceOnlyEnabled(),
+          totalStations: stationsCache.length,
+          totalReferenceStations: getReferenceStationCount(stationsCache),
+          totalReferenceStationsShownInTable: visibleStations.filter(isReferenceCalibrationStation).length,
+          visibleStations: visibleStations.length
+        });
+      }
     });
 
     var dururReferenceSearch = getEl('dururReferenceSearch');
