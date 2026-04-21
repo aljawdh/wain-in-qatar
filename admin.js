@@ -39,12 +39,12 @@
   var currentStationAnalysisDto = null;
   var currentTransientPreviewPoint = null;
   var currentAnalysisRequestToken = 0;
+  var currentStationId = null;
 
   var stationsAdminMap = null;
-  var dururAdminMap = null;
+  var stationsAdminMapState = null;
   var stationAdminMarker = null;
   var allStationMarkersList = [];
-  var dururStationMarkers = [];
   var selectedDururStationId = null;
   var dururMapFilters = { stationType: 'all', currentDur: 'all', seasonEvent: 'all' };
   var stationReverseRequestId = 0;
@@ -872,10 +872,9 @@
   }
 
   function applyDururFilters() {
-    dururMapFilters.stationType = getEl('dururStationTypeFilter') ? getEl('dururStationTypeFilter').value : 'all';
-    dururMapFilters.currentDur = getEl('dururCurrentDurFilter') ? getEl('dururCurrentDurFilter').value : 'all';
-    dururMapFilters.seasonEvent = getEl('dururSeasonEventFilter') ? getEl('dururSeasonEventFilter').value : 'all';
-    refreshDururMarkers();
+    dururMapFilters.stationType = getEl('stationsReferenceOnlyToggle') && getEl('stationsReferenceOnlyToggle').checked ? 'reference_only' : 'all';
+    refreshAllStationMarkers();
+    updateDururStationInfoPanel();
   }
 
   function setDururTab(tabId) {
@@ -1143,12 +1142,6 @@
       var data = await res.json();
       dururCache = Array.isArray(data.items) ? data.items.map(normalizeDurRecordForUi) : [];
       globalDururManagementCache = dururCache.slice();
-      var select = getEl('dururCurrentDurFilter');
-      if (select) {
-        select.innerHTML = '<option value="all">الكل</option>' + dururCache.slice().sort(function (a, b) { return Number(a.dur_number) - Number(b.dur_number); }).map(function (d) {
-          return '<option value="' + (d.id || '') + '">' + (d.name || ('Dur ' + d.dur_number)) + '</option>';
-        }).join('');
-      }
       var analysisDur = getEl('analysisDurFilter');
       if (analysisDur) {
         analysisDur.innerHTML = '<option value="">الكل</option>' + dururCache.slice().sort(function (a, b) { return Number(a.dur_number) - Number(b.dur_number); }).map(function (d) {
@@ -1381,12 +1374,6 @@
       if (!res.ok) throw new Error('season_events_load_failed');
       var data = await res.json();
       seasonEventsCache = Array.isArray(data.items) ? data.items : [];
-      var select = getEl('dururSeasonEventFilter');
-      if (select) {
-        select.innerHTML = '<option value="all">الكل</option>' + seasonEventsCache.map(function (e) {
-          return '<option value="' + (e.id || '') + '">' + (e.name || '') + '</option>';
-        }).join('');
-      }
       renderSeasonEventsTable();
       applyDururFilters();
     } catch (e) {
@@ -1501,82 +1488,60 @@
     renderComparisonTable();
   }
 
+  function isAdminMode() {
+    return !!(adminAuthenticated && me && (me.role === 'admin' || me.role === 'super_admin'));
+  }
+
+  function getAdminMapTimingDetails(station) {
+    var timingDur = currentStationAnalysisDto && currentStationAnalysisDto.station_id === station.id
+      ? currentStationAnalysisDto.dur
+      : null;
+    return {
+      timing_source: timingDur && timingDur.timing_source || '',
+      timing_source_label_ar: timingDur ? getTimingSourceLabel(timingDur) : '--',
+      suhail_anchor_date: timingDur && timingDur.suhail_anchor_date || '',
+      cycle_start_date: timingDur && timingDur.cycle_start_date || ''
+    };
+  }
+
   function createDururPopupContent(station) {
-    var dur = getCurrentDurForDate(new Date());
-    var profile = getDururProfileForStation(station);
-    var events = getSeasonEventsForDur(dur);
-    var comparison = getComparisonForStationDur(station, dur);
-    var html = '<div style="text-align:right;line-height:1.4;font-size:0.95rem">';
-    html += '<strong>' + (station.name || station.id || '--') + '</strong><br>';
-    if (isReferenceCalibrationStation(station)) {
-      html += '<div style="margin:4px 0 6px">' + buildReferenceBadgeHtml(station) + '</div>';
-    }
-    html += '<div>النوع: ' + (station.station_role_type || '--') + '</div>';
-    html += '<div>الدر الحالي: ' + (dur ? dur.name : '--') + '</div>';
-    html += '<div>المعرفة المحلية: ' + (profile ? profile.local_definition || '--' : '--') + '</div>';
-    html += '<div>الأحداث الموسمية: ' + (events.length ? events.map(function (e) { return e.name; }).join(', ') : '--') + '</div>';
-    if (comparison) {
-      html += '<div>تطابق سنوي: ' + ((Number(comparison.match_score) * 100).toFixed(0) + '%') + '</div>';
-    }
-    html += '</div>';
-    return html;
+    var timing = getAdminMapTimingDetails(station);
+    return ''
+      + '<div style="text-align:right;line-height:1.5;font-size:.9rem">'
+      + '<strong>' + escapeHtml(station.name || station.id || '--') + '</strong>'
+      + (isReferenceCalibrationStation(station) ? '<div style="margin:4px 0 6px">' + buildReferenceBadgeHtml(station) + '</div>' : '')
+      + '<div>الحالة: ' + escapeHtml(station.status || '--') + '</div>'
+      + '<div>مرجع معايرة: ' + escapeHtml(station.is_reference_station ? 'نعم' : 'لا') + '</div>'
+      + '<div>موثق: ' + escapeHtml(station.is_verified ? 'نعم' : 'لا') + '</div>'
+      + '<div>حزام العرض: ' + escapeHtml(station.latitude_band_key || '--') + '</div>'
+      + '<div>مصدر التوقيت: ' + escapeHtml(timing.timing_source_label_ar || '--') + '</div>'
+      + '<div>مرساة سهيل النهائية: ' + escapeHtml(timing.suhail_anchor_date || '--') + '</div>'
+      + '<div>بداية الدورة النهائية: ' + escapeHtml(timing.cycle_start_date || '--') + '</div>'
+      + '</div>';
   }
 
-  function getDururMarkerOptions(station) {
-    var fillColor = '#f8c146';
-    if (isReferenceCalibrationStation(station)) fillColor = '#ff5252';
-    if (station.station_role_type === 'primary_reference') fillColor = '#ff5252';
-    if (station.station_role_type === 'latlon_band_station') fillColor = '#ff8c00';
-    return { radius: 8, fillColor: fillColor, color: '#fff', weight: 1, fillOpacity: 0.9 };
-  }
-
-  function refreshDururMarkers() {
-    if (!dururAdminMap) return;
-    dururStationMarkers.forEach(function (entry) {
-      if (dururAdminMap && entry.marker) dururAdminMap.removeLayer(entry.marker);
-    });
-    dururStationMarkers = [];
-    stationsCache.forEach(function (station) {
-      if (!station.lat || !station.lon) return;
-      if (dururMapFilters.stationType === 'reference_only' && !isReferenceCalibrationStation(station)) return;
-      if (dururMapFilters.stationType !== 'all' && dururMapFilters.stationType !== 'reference_only' && station.station_role_type !== dururMapFilters.stationType) return;
-      var dur = getCurrentDurForDate(new Date());
-      if (dururMapFilters.currentDur !== 'all' && (!dur || dur.id !== dururMapFilters.currentDur)) return;
-      if (dururMapFilters.seasonEvent !== 'all') {
-        var events = getSeasonEventsForDur(dur);
-        if (!events.some(function (e) { return e.id === dururMapFilters.seasonEvent; })) return;
-      }
-      var marker = L.circleMarker([station.lat, station.lon], getDururMarkerOptions(station)).addTo(dururAdminMap);
-      marker.on('click', function () { selectDururStation(station.id); });
-      dururStationMarkers.push({ id: station.id, marker: marker });
-    });
-  }
-
-  function selectDururStation(stationId) {
-    selectedDururStationId = stationId;
+  function selectDururStation(stationId, options) {
+    options = options || {};
+    selectedDururStationId = stationId || null;
     renderDururStationPreview();
+    var target = getEl('dururStationInfoContent');
     if (!stationId) {
-      if (dururStationMarkers.length) {
-        dururStationMarkers.forEach(function (entry) {
-          if (entry.marker) entry.marker.setStyle({ weight: 1, radius: 8 });
-        });
-      }
-      var target = getEl('dururStationInfoContent');
-      if (target) target.innerHTML = '<div class="durur-empty-state">اختر محطة من الخريطة لعرض معلوماتها هنا.</div>';
+      if (target) target.innerHTML = '<div class="durur-empty-state">اختر محطة من الخريطة المشتركة لعرض تفاصيلها هنا.</div>';
+      refreshAllStationMarkers();
       return;
     }
     var station = stationsCache.find(function (s) { return s.id === stationId; });
     if (!station) return;
-    if (dururAdminMap) {
-      dururAdminMap.setView([station.lat, station.lon], Math.max(dururAdminMap.getZoom(), 9));
-    }
-    if (dururStationMarkers.length) {
-      dururStationMarkers.forEach(function (entry) {
-        if (entry.id === stationId && entry.marker) entry.marker.setStyle({ weight: 2, radius: 10 });
-        else if (entry.marker) entry.marker.setStyle({ weight: 1, radius: 8 });
-      });
-    }
     fillSelectedStationForms(station);
+    refreshAllStationMarkers();
+    if (stationsAdminMapState) {
+      if (options.centerMap !== false) {
+        window.NavidurStationMap.focusStation(stationsAdminMapState, station, 9, false);
+      }
+      if (options.openPopup) {
+        window.NavidurStationMap.openPopupForStation(stationsAdminMapState, station.id);
+      }
+    }
     var dur = getCurrentDurForDate(new Date());
     var profile = getDururProfileForStation(station);
     var events = getSeasonEventsForDur(dur);
@@ -1619,26 +1584,12 @@
     }
     html += '<div><strong>الملاحظات:</strong> ' + (station.notes || '--') + '</div>';
     html += '</div>';
-    var target = getEl('dururStationInfoContent');
     if (target) target.innerHTML = html;
-    currentAnalyticsPeriod = 'now';
-    currentAnalyzedStationId = stationId;
-    renderStationAnalytics();
-  }
-
-  function initDururAdminMap() {
-    var mapEl = getEl('dururAdminMap');
-    if (!mapEl || typeof L === 'undefined') return;
-    if (dururAdminMap) return;
-    dururAdminMap = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([24.0, 53.0], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(dururAdminMap);
-    dururAdminMap.on('click', function (e) {
-      selectDururStation(null);
-    });
-    applyDururFilters();
+    if (options.triggerAnalysis !== false) {
+      currentAnalyticsPeriod = 'now';
+      currentAnalyzedStationId = stationId;
+      renderStationAnalytics();
+    }
   }
 
   function fillDurForm(id) {
@@ -3318,33 +3269,29 @@
   // ── End water placement validation ─────────────────────────────────────────
 
   function refreshAllStationMarkers(editingId) {
-    allStationMarkersList.forEach(function (m) {
-      if (stationsAdminMap) stationsAdminMap.removeLayer(m.marker);
+    if (!stationsAdminMapState || !window.NavidurStationMap) return;
+    var referenceOnly = dururMapFilters.stationType === 'reference_only';
+    window.NavidurStationMap.renderStations(stationsAdminMapState, {
+      stations: stationsCache,
+      isAdminMode: isAdminMode(),
+      selectedStationId: selectedDururStationId || currentStationId || '',
+      filterStation: function (station) {
+        if (editingId && station.id === editingId && !selectedDururStationId) return false;
+        return !referenceOnly || isReferenceCalibrationStation(station);
+      },
+      popupBuilder: createDururPopupContent,
+      tooltipBuilder: function (station) {
+        return isReferenceCalibrationStation(station) ? 'محطة مرجعية' : '';
+      },
+      onMarkerClick: function (station, marker, event) {
+        if (event) L.DomEvent.stop(event);
+        fillStationForm(station, true);
+        selectDururStation(station.id, { centerMap: false, openPopup: true, triggerAnalysis: true });
+        if (marker && typeof marker.openPopup === 'function') marker.openPopup();
+      }
     });
-    allStationMarkersList = [];
-    if (!stationsAdminMap) return;
-    stationsCache.forEach(function (st) {
-      if (!st.lat || !st.lon) return;
-      if (editingId && st.id === editingId) return;
-      var lat = Number(st.lat);
-      var lon = Number(st.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-      var hasGulf = (st.region || '').toLowerCase() === 'gulf';
-      var isReference = isReferenceCalibrationStation(st);
-      var m = L.circleMarker([lat, lon], {
-        radius: 7,
-        color: isReference ? '#ff7f7f' : (hasGulf ? '#ffb300' : '#27b3ff'),
-        fillColor: isReference ? '#ff5252' : (hasGulf ? '#ffd54f' : '#0ea5e9'),
-        fillOpacity: 0.75,
-        weight: 2
-      }).addTo(stationsAdminMap);
-      m.bindTooltip((isReference ? 'محطة مرجعية • ' : '') + (hasGulf ? '⚠ ' : '') + st.name + (st.region ? ' (' + st.region + ')' : '') + ' — ' + (st.country || ''), { permanent: false, direction: 'top' });
-      m.on('click', function (e) {
-        if (e) L.DomEvent.stop(e);
-        fillStationForm(st, true);
-        selectStationForAnalysis(st);
-      });
-      allStationMarkersList.push({ id: st.id, marker: m });
+    allStationMarkersList = Array.from(stationsAdminMapState.markerMap.entries()).map(function (entry) {
+      return { id: entry[0], marker: entry[1] };
     });
   }
 
@@ -3469,12 +3416,16 @@
     var mapEl = getEl('stationsAdminMap');
     if (!mapEl || typeof L === 'undefined') return;
     if (stationsAdminMap) return;
-
-    stationsAdminMap = L.map(mapEl, { zoomControl: true, attributionControl: true }).setView([24.0, 53.0], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(stationsAdminMap);
+    stationsAdminMapState = window.NavidurStationMap
+      ? window.NavidurStationMap.createContext({
+          elementId: mapEl,
+          center: [24.0, 53.0],
+          zoom: 5,
+          attributionControl: true
+        })
+      : null;
+    if (!stationsAdminMapState) return;
+    stationsAdminMap = stationsAdminMapState.map;
 
     stationsAdminMap.on('click', function (e) {
       applyStationPointFromMap(e.latlng.lat, e.latlng.lng, true, true);
@@ -4233,6 +4184,7 @@
     getEl('stWeatherSeaTemp').textContent = '-- °C';
     getEl('stWeatherLastUpdate').textContent = '--';
     getEl('stAnalyticsMsg').textContent = message || 'جاهز';
+    refreshAllStationMarkers();
     renderDururStationPreview();
   }
 
@@ -4273,6 +4225,7 @@
     renderValidationExplanation(dto, observedTraits);
     renderReadOnlyDurProfile(dto);
     getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
+    refreshAllStationMarkers();
     renderDururStationPreview();
   }
 
@@ -4570,6 +4523,7 @@
 
         if (action === 'edit') {
           fillStationForm(station);
+          selectDururStation(station.id, { centerMap: false, triggerAnalysis: false });
           selectStationForAnalysis(station);
           return;
         }
@@ -4605,7 +4559,7 @@
       });
     });
     renderReferenceStationsTable();
-    refreshDururMarkers();
+    refreshAllStationMarkers();
     updateDururStationInfoPanel();
   }
 
@@ -5050,10 +5004,6 @@
       }
     });
 
-    ['dururStationTypeFilter','dururCurrentDurFilter','dururSeasonEventFilter'].forEach(function (id) {
-      var el = getEl(id);
-      if (el) el.addEventListener('change', applyDururFilters);
-    });
     var stationsReferenceOnlyToggle = getEl('stationsReferenceOnlyToggle');
     if (stationsReferenceOnlyToggle) stationsReferenceOnlyToggle.addEventListener('change', function () { loadStations(); });
 
@@ -5121,7 +5071,6 @@
     });
 
     initStationsAdminMap();
-    initDururAdminMap();
     initStationFormBindings();
     ensureDururManagementPanel();
 

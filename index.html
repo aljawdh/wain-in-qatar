@@ -1056,6 +1056,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <script src="/shared/station-map-ui.js"></script>
   <script src="/shared/navidur-live-analysis.js"></script>
   <script>
     const COUNTRY_TIMEZONES = {
@@ -1607,6 +1608,7 @@
     let dayRefreshInFlight = null;
     let lastKnownAppIsoDay = getAppIsoDay(new Date());
     let stationMap = null;
+    let stationMapContext = null;
     let stationMarkerLayer = null;
     let evaluatedLayer = null;
     let analysisCircle = null;
@@ -3040,26 +3042,24 @@
       renderFlowStations();
     }
 
-    function getMarkerStyle(station) {
-      const selected = selectedStation && selectedStation.id === station.id;
-      return {
-        radius: selected ? 9 : 6,
-        color: selected ? '#7ae2ff' : '#9ad9ff',
-        fillColor: selected ? '#27beff' : '#0f5f8f',
-        fillOpacity: selected ? 0.95 : 0.75,
-        weight: selected ? 2 : 1
-      };
+    function isAdminMode() {
+      return !!(memberAuthState && memberAuthState.user && (memberAuthState.user.role === 'admin' || memberAuthState.user.role === 'super_admin'));
     }
 
     function renderStationMarkers() {
-      if (!stationMap || !stationMarkerLayer) return;
-      stationMarkerLayer.clearLayers();
-      stationMarkerMap = new Map();
-
-      navidurEngine.getStations().forEach(function (st) {
-        const marker = L.circleMarker([st.lat, st.lng], getMarkerStyle(st));
-        marker.bindPopup('<strong>' + st.name + '</strong><br>' + st.country);
-        marker.on('click', function () {
+      if (!stationMapContext || !window.NavidurStationMap) return;
+      window.NavidurStationMap.renderStations(stationMapContext, {
+        stations: navidurEngine.getStations(),
+        isAdminMode: isAdminMode(),
+        selectedStationId: selectedStation && selectedStation.id ? selectedStation.id : '',
+        popupBuilder: function (station) {
+          return '<div style="text-align:right;line-height:1.5;font-size:.9rem"><strong>'
+            + window.NavidurStationMap.escapeHtml(station.name || station.id || '--')
+            + '</strong><div>الحالة: '
+            + window.NavidurStationMap.escapeHtml(station.status || 'active')
+            + '</div></div>';
+        },
+        onMarkerClick: function (st) {
           var cSel = document.getElementById('countrySelect');
           var rSel = document.getElementById('regionFlowSelect');
           if (cSel) cSel.value = st.country || '';
@@ -3072,15 +3072,15 @@
           var sSel = document.getElementById('stationFlowSelect');
           if (sSel) sSel.value = String(st.id);
           onStationChange(st.index, { source: 'map', silentPopup: true });
-        });
-        marker.addTo(stationMarkerLayer);
-        stationMarkerMap.set(st.id, marker);
+        }
       });
+      stationMarkerLayer = stationMapContext.markerLayer;
+      stationMarkerMap = stationMapContext.markerMap;
     }
 
     function focusStationOnMap(station) {
-      if (!stationMap || !station) return;
-      stationMap.flyTo([station.lat, station.lng], 8, { duration: 0.6 });
+      if (!stationMapContext || !station) return;
+      window.NavidurStationMap.focusStation(stationMapContext, station, 8, true);
       renderStationMarkers();
     }
 
@@ -3329,13 +3329,19 @@
     }
 
     function initStationMap() {
-      if (stationMap) return;
+      if (stationMapContext) return;
       if (!selectedStation) return;
-      stationMap = L.map('stationMap', { zoomControl: true, attributionControl: false }).setView([selectedStation.lat, selectedStation.lng], 7);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
-      }).addTo(stationMap);
-      stationMarkerLayer = L.layerGroup().addTo(stationMap);
+      stationMapContext = window.NavidurStationMap
+        ? window.NavidurStationMap.createContext({
+            elementId: 'stationMap',
+            center: [selectedStation.lat, selectedStation.lng],
+            zoom: 7,
+            attributionControl: false
+          })
+        : null;
+      if (!stationMapContext) return;
+      stationMap = stationMapContext.map;
+      stationMarkerLayer = stationMapContext.markerLayer;
       evaluatedLayer = L.layerGroup().addTo(stationMap);
       renderStationMarkers();
     }
