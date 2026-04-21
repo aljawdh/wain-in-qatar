@@ -127,6 +127,26 @@
     return context;
   }
 
+  function fitBoundsToStations(context, stations, options) {
+    if (!context || !context.map) return;
+    var rows = Array.isArray(stations) ? stations : [];
+    var validCoords = rows.map(getCoords).filter(function (coords) {
+      return Number.isFinite(coords.lat) && Number.isFinite(coords.lon);
+    });
+    if (!validCoords.length || typeof L === 'undefined') return;
+    if (validCoords.length === 1) {
+      context.map.setView([validCoords[0].lat, validCoords[0].lon], Math.max(context.map.getZoom(), Number(options && options.singleZoom || 6)));
+      return;
+    }
+    var bounds = L.latLngBounds(validCoords.map(function (coords) {
+      return [coords.lat, coords.lon];
+    }));
+    context.map.fitBounds(bounds, {
+      padding: Array.isArray(options && options.padding) ? options.padding : [24, 24],
+      maxZoom: Number(options && options.maxZoom || 7)
+    });
+  }
+
   function focusStation(context, station, zoom, useFlyTo) {
     if (!context || !context.map || !station) return;
     var coords = getCoords(station);
@@ -148,6 +168,7 @@
   global.NavidurStationMap = {
     createContext: createContext,
     renderStations: renderStations,
+    fitBoundsToStations: fitBoundsToStations,
     focusStation: focusStation,
     openPopupForStation: openPopupForStation,
     escapeHtml: escapeHtml

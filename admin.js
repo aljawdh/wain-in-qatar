@@ -1528,10 +1528,50 @@
     return (Array.isArray(rows) ? rows : stationsCache).filter(isReferenceCalibrationStation).length;
   }
 
+  function hasValidStationCoords(station) {
+    return !!(station && Number.isFinite(Number(station.lat)) && Number.isFinite(Number(station.lon)));
+  }
+
+  function getReferenceStationSamples(rows, limit) {
+    return (Array.isArray(rows) ? rows : stationsCache)
+      .filter(isReferenceCalibrationStation)
+      .slice(0, Math.max(0, Number(limit) || 3))
+      .map(function (station) {
+        return {
+          name: station.name || station.id || '--',
+          lat: Number(station.lat),
+          lon: Number(station.lon)
+        };
+      });
+  }
+
+  function getInvalidReferenceStations(rows) {
+    return (Array.isArray(rows) ? rows : stationsCache)
+      .filter(isReferenceCalibrationStation)
+      .filter(function (station) { return !hasValidStationCoords(station); })
+      .map(function (station) {
+        return {
+          name: station.name || station.id || '--',
+          lat: station.lat,
+          lon: station.lon
+        };
+      });
+  }
+
   function getVisibleAdminStations() {
     var referenceOnly = getAdminReferenceOnlyEnabled();
     return stationsCache.filter(function (st) {
+      if (!hasValidStationCoords(st)) return false;
       return !referenceOnly || isReferenceCalibrationStation(st);
+    });
+  }
+
+  function fitAdminMapToStations(rows) {
+    if (!stationsAdminMapState || !window.NavidurStationMap || !Array.isArray(rows) || !rows.length) return;
+    window.NavidurStationMap.fitBoundsToStations(stationsAdminMapState, rows, {
+      padding: [24, 24],
+      maxZoom: 7,
+      singleZoom: 6
     });
   }
 
@@ -3333,9 +3373,6 @@
       stations: rows,
       isAdminMode: isAdminMode(),
       selectedStationId: selectedDururStationId || currentStationId || '',
-      filterStation: function (station) {
-        return !(editingId && station.id === editingId && !selectedDururStationId);
-      },
       popupBuilder: createDururPopupContent,
       tooltipBuilder: function (station) {
         return isReferenceCalibrationStation(station) ? 'محطة مرجعية' : '';
@@ -3350,6 +3387,9 @@
     allStationMarkersList = Array.from(stationsAdminMapState.markerMap.entries()).map(function (entry) {
       return { id: entry[0], marker: entry[1] };
     });
+    if (getAdminReferenceOnlyEnabled() && rows.length) {
+      fitAdminMapToStations(rows);
+    }
     console.info('[admin][stations-map]', {
       totalStationsLoaded: stationsCache.length,
       totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
@@ -4522,6 +4562,8 @@
     var data = await res.json();
     stationsCache = Array.isArray(data.stations) ? data.stations.map(normalizeAdminStationRecord) : [];
     dururMapFilters.stationType = getAdminReferenceOnlyEnabled() ? 'reference_only' : 'all';
+    var visibleStations = getVisibleAdminStations();
+    var invalidReferenceStations = getInvalidReferenceStations(stationsCache);
 
     // Gulf warning bar
     var gulfCount = stationsCache.filter(function (s) { return (s.region || '').toLowerCase() === 'gulf'; }).length;
@@ -4537,14 +4579,17 @@
 
     // Refresh background map markers
     var editingId = _stationEditMode ? (getEl('stId').value.trim() || null) : null;
-    var visibleStations = getVisibleAdminStations();
     refreshAllStationMarkers(editingId, visibleStations);
     console.info('[admin][stations-load]', {
       totalStationsLoaded: stationsCache.length,
       totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
       totalFilteredStationsShown: visibleStations.length,
-      referenceOnly: getAdminReferenceOnlyEnabled()
+      referenceOnly: getAdminReferenceOnlyEnabled(),
+      referenceSamples: getReferenceStationSamples(stationsCache, 3)
     });
+    if (invalidReferenceStations.length) {
+      console.warn('[admin][stations-invalid-reference-coords]', invalidReferenceStations);
+    }
 
     var body = getEl('stationsBody');
     body.innerHTML = '';
