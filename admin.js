@@ -1592,6 +1592,12 @@
       });
   }
 
+  function countDrawableReferenceStations(list) {
+    return (Array.isArray(list) ? list : []).filter(function (s) {
+      return isReferenceCalibrationStation(s) && hasValidStationCoords(s);
+    }).length;
+  }
+
   function getVisibleAdminStations() {
     var referenceOnly = getAdminReferenceOnlyEnabled();
     return stationsCache.filter(function (st) {
@@ -3531,8 +3537,9 @@
     if (isAdminMode()) {
       console.info('[admin][stations-map]', {
         totalStationsLoaded: stationsCache.length,
-        totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
+        totalReferenceStationsLoadedIntoCache: getReferenceStationCount(stationsCache),
         referenceStationsInFilteredView: rows.filter(isReferenceCalibrationStation).length,
+        drawableReferenceStationsOnMap: countDrawableReferenceStations(rows),
         totalMarkersDrawn: actualMarkerCount,
         totalFilteredStationsShown: rows.length,
         referenceOnly: refOnly,
@@ -4696,7 +4703,11 @@
     var res = await apiFetch(STATIONS_ENDPOINT, { method: 'GET' });
     if (!res.ok) throw new Error('stations_load_failed');
     var data = await res.json();
-    stationsCache = Array.isArray(data.stations) ? data.stations.map(normalizeAdminStationRecord) : [];
+    var rawFromApi = Array.isArray(data.stations) ? data.stations : [];
+    var storedRefStrictTrueAtSource = rawFromApi.filter(function (r) {
+      return r && r.is_reference_station === true;
+    }).length;
+    stationsCache = rawFromApi.map(normalizeAdminStationRecord);
     dururMapFilters.stationType = getAdminReferenceOnlyEnabled() ? 'reference_only' : 'all';
     var visibleStations = getVisibleAdminStations();
     var invalidReferenceStations = getInvalidReferenceStations(stationsCache);
@@ -4717,9 +4728,12 @@
     var refInTable = visibleStations.filter(isReferenceCalibrationStation).length;
     if (isAdminMode()) {
       console.info('[admin][stations-load]', {
+        totalStationRecordsFromSource: rawFromApi.length,
+        storedReferenceStationsStrictTrueAtSource: storedRefStrictTrueAtSource,
+        totalReferenceStationsLoadedIntoCache: getReferenceStationCount(stationsCache),
         totalStationsLoaded: stationsCache.length,
-        totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
         totalReferenceStationsShownInTable: refInTable,
+        drawableReferenceStationsInCurrentView: countDrawableReferenceStations(visibleStations),
         totalFilteredStationsShown: visibleStations.length,
         referenceOnly: getAdminReferenceOnlyEnabled(),
         referenceSamples: getReferenceStationSamples(stationsCache, 3)
