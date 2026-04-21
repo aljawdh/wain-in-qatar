@@ -5,7 +5,8 @@
   "main": "sw.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "run:navidur": "node run.js"
+    "run:navidur": "node run.js",
+    "import:astro-workbook": "node serverless_api/import-astro-workbook.js"
   },
   "repository": {
     "type": "git",
@@ -24,6 +25,7 @@
     "@vercel/analytics": "^2.0.1"
   },
   "devDependencies": {
-    "playwright": "^1.59.1"
+    "playwright": "^1.59.1",
+    "xlsx": "^0.18.5"
   }
 }

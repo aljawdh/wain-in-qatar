@@ -30,7 +30,11 @@ const FILES = {
   durur_master: 'durur_master.json',
   trait_dictionaries: 'trait_dictionaries.json',
   fish_season_tags: 'fish_season_tags.json',
-  advice_basis_tags: 'advice_basis_tags.json'
+  advice_basis_tags: 'advice_basis_tags.json',
+  dur_sequence_map: 'dur_sequence_map.json',
+  star_events: 'star_events.json',
+  dur_windows: 'dur_windows.json',
+  dur_generation_audit: 'dur_generation_audit.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

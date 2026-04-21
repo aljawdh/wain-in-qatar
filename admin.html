@@ -38,6 +38,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="stations"]{border-right:4px solid rgba(141,232,191,.55)}
 .admin-section[data-section="feedback"]{border-right:4px solid rgba(255,214,127,.6)}
 .admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
+.admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
 .admin-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .as-card{background:linear-gradient(160deg,#0d2235,#0b1f30);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;text-align:center}
 .as-val{font-size:1.45rem;font-weight:800;color:var(--accent)}
@@ -184,6 +185,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <button class="admin-nav" data-filter="durur" disabled style="opacity:0.5; cursor:not-allowed;" title="واجهة الدرور القديمة معطلة. استخدم NAVIDUROR">إدارة الدرور مغلق (NAVIDUROR)</button>
           <button class="admin-nav" data-filter="feedback">التقييمات</button>
           <button class="admin-nav" data-filter="analytics">التحليلات</button>
+          <button class="admin-nav" data-filter="astro-dur">الدر الفلكي</button>
           <button class="admin-nav" data-filter="settings">الإعدادات</button>
         </aside>
 
@@ -757,7 +759,34 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               </div>
             </div>
 
-          <div class="admin-section admin-block" data-section="feedback">
+          <div class="admin-section admin-block" data-section="feedback"></div>
+
+          <div class="admin-section admin-block" data-section="astro-dur" id="astroDurSection">
+            <h4><i class="fa-solid fa-satellite"></i> مراقبة الدر الفلكي (طور 1)</h4>
+            <div class="section-subtitle">طبقة زمنية إضافية — لا تغيّر المحرك الحالي. المعاينة للمراجعة فقط.</div>
+            <div class="admin-form-grid" style="margin-bottom:12px">
+              <label class="admin-field" style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" id="astroDurEngineToggle">
+                <span>astro_dur_engine_enabled (إيقاف افتراضياً)</span>
+              </label>
+              <label class="admin-field" style="display:flex;align-items:center;gap:8px">
+                <input type="checkbox" id="astroAdminPreviewToggle" checked>
+                <span>astro_admin_preview_enabled</span>
+              </label>
+            </div>
+            <div class="settings-actions" style="margin-bottom:10px">
+              <button type="button" class="settings-btn secondary" id="astroDurRefreshBtn">تحديث حالة الطبقة</button>
+              <span id="astroDurFlagsHint" style="font-size:.82rem;color:#8ea4ba">فعّل المعاينة من الإعدادات ثم احفظ.</span>
+            </div>
+            <pre id="astroDurStatusPre" style="background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;font-size:.78rem;max-height:280px;overflow:auto;white-space:pre-wrap">—</pre>
+            <div class="admin-form-grid" style="margin-top:12px">
+              <div class="admin-field"><label>خط العرض (latitude_band_key)</label><input id="astroPreviewBandInput" type="text" placeholder="gulf_mid_south"></div>
+              <div class="admin-field"><label>السنة</label><input id="astroPreviewYearInput" type="number" min="2020" max="2100" value="2026"></div>
+              <div class="admin-field"><label>محطة (اختياري)</label><select id="astroPreviewStationSelect"><option value="">—</option></select></div>
+              <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="astroPreviewBtn">معاينة النوافذ</button></div>
+            </div>
+            <pre id="astroDurPreviewPre" style="margin-top:10px;background:rgba(92,225,255,.06);border:1px solid rgba(92,225,255,.2);border-radius:10px;padding:12px;font-size:.78rem;max-height:220px;overflow:auto;white-space:pre-wrap">—</pre>
+          </div>
 
           <div class="admin-section admin-block" data-section="settings">
             <h4><i class="fa-solid fa-sliders"></i> التحكم في المنصة</h4>

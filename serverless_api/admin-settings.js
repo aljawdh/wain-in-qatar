@@ -77,7 +77,9 @@ function defaultSettings() {
       }
     },
     features: {
-      featurePrediction: true
+      featurePrediction: true,
+      astro_dur_engine_enabled: false,
+      astro_admin_preview_enabled: true
     },
     fishData: {
       featured: []
@@ -145,6 +147,14 @@ function normalizeSettings(input) {
     features.featurePrediction !== undefined ? features.featurePrediction : src.featurePrediction,
     true
   );
+  const astroDurEngineEnabled = normalizeBoolean(
+    features.astro_dur_engine_enabled !== undefined ? features.astro_dur_engine_enabled : src.astro_dur_engine_enabled,
+    false
+  );
+  const astroAdminPreviewEnabled = normalizeBoolean(
+    features.astro_admin_preview_enabled !== undefined ? features.astro_admin_preview_enabled : src.astro_admin_preview_enabled,
+    true
+  );
 
   const rawHijriOffset = typeof src.hijriOffset === 'number' ? src.hijriOffset : parseInt(String(src.hijriOffset || '').trim(), 10);
   const hijriOffset = Number.isNaN(rawHijriOffset) ? -1 : Math.round(Math.max(-5, Math.min(5, rawHijriOffset)));
@@ -172,7 +182,9 @@ function normalizeSettings(input) {
       }
     },
     features: {
-      featurePrediction: featurePrediction
+      featurePrediction: featurePrediction,
+      astro_dur_engine_enabled: astroDurEngineEnabled,
+      astro_admin_preview_enabled: astroAdminPreviewEnabled
     },
     fishData: {
       featured: Array.isArray(fishData.featured) ? fishData.featured.slice(0, 50) : []

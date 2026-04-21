@@ -2,6 +2,7 @@
   var API_ENDPOINT = '/api?route=admin-analytics';
   var SETTINGS_ENDPOINT = '/api?route=admin-settings';
   var STATIONS_ENDPOINT = '/api?route=admin&path=stations';
+  var ASTRO_DUR_ENDPOINT = '/api?route=astro-dur';
   var USERS_ENDPOINT = '/api?route=admin&path=users';
   var SUMMARY_ENDPOINT = '/api?route=admin-summary';
   var FEEDBACK_ENDPOINT = '/api?route=admin&path=feedback';
@@ -482,7 +483,9 @@
         }
       },
       features: {
-        featurePrediction: features.featurePrediction !== false
+        featurePrediction: features.featurePrediction !== false,
+        astro_dur_engine_enabled: features.astro_dur_engine_enabled === true,
+        astro_admin_preview_enabled: features.astro_admin_preview_enabled !== false
       },
       fishData: {
         featured: Array.isArray(fishData.featured) ? fishData.featured : []
@@ -532,6 +535,8 @@
     setTextField(['#adBannerImageInput', '#adBannerImage', '#adImageInput', '#adImage', 'input[name="adImage"]'], s.ads.adBanner.imageUrl);
     setTextField(['#adBannerLinkInput', '#adBannerLink', '#adLinkInput', '#adLink', 'input[name="adLink"]'], s.ads.adBanner.linkUrl);
     setCheckboxField(['#featurePredictionToggle', '#featurePrediction', 'input[name="featurePrediction"]'], s.features.featurePrediction);
+    setCheckboxField(['#astroDurEngineToggle'], s.features.astro_dur_engine_enabled === true);
+    setCheckboxField(['#astroAdminPreviewToggle'], s.features.astro_admin_preview_enabled !== false);
 
     setTextField(
       ['#fishDataInput', '#fishData', 'textarea[name="fishData"]'],
@@ -618,9 +623,17 @@
           linkUrl: getTextField(['#adBannerLinkInput', '#adBannerLink', '#adLinkInput', '#adLink', 'input[name="adLink"]'], '')
         }
       },
-      features: featuresFromJson || {
-        featurePrediction: getCheckboxField(['#featurePredictionToggle', '#featurePrediction', 'input[name="featurePrediction"]'], true)
-      },
+      features: (function () {
+        var fromForm = {
+          featurePrediction: getCheckboxField(['#featurePredictionToggle', '#featurePrediction', 'input[name="featurePrediction"]'], true),
+          astro_dur_engine_enabled: getCheckboxField(['#astroDurEngineToggle'], false),
+          astro_admin_preview_enabled: getCheckboxField(['#astroAdminPreviewToggle'], true)
+        };
+        if (featuresFromJson && typeof featuresFromJson === 'object') {
+          return Object.assign({}, fromForm, featuresFromJson);
+        }
+        return fromForm;
+      })(),
       fishData: fishDataFromText
     };
 
@@ -4747,6 +4760,83 @@
     renderReferenceStationsTable();
     refreshAllStationMarkers(editingId, visibleStations);
     updateDururStationInfoPanel();
+    updateAstroPreviewStationOptions();
+  }
+
+  function updateAstroPreviewStationOptions() {
+    var sel = getEl('astroPreviewStationSelect');
+    if (!sel) return;
+    var keep = sel.value;
+    sel.innerHTML = '<option value="">—</option>';
+    stationsCache.forEach(function (s) {
+      if (!s || !s.id) return;
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = (s.name || s.id) + ' (' + (s.latitude_band_key || '\u2014') + ')';
+      sel.appendChild(opt);
+    });
+    if (keep) sel.value = keep;
+  }
+
+  async function refreshAstroDurStatus() {
+    var pre = getEl('astroDurStatusPre');
+    if (!pre) return;
+    if (!isAdminMode()) {
+      pre.textContent = 'تتطلب صلاحية إدارة.';
+      return;
+    }
+    pre.textContent = '...';
+    try {
+      var res = await apiFetch(ASTRO_DUR_ENDPOINT + '&path=status', { method: 'GET' });
+      if (!res.ok) throw new Error('http_' + res.status);
+      var j = await res.json();
+      pre.textContent = JSON.stringify(j, null, 2);
+    } catch (e) {
+      pre.textContent = 'Error: ' + (e && e.message ? e.message : e);
+    }
+  }
+
+  async function runAstroPreview() {
+    var pre = getEl('astroDurPreviewPre');
+    if (!pre) return;
+    if (!isAdminMode()) {
+      pre.textContent = 'تتطلب صلاحية إدارة.';
+      return;
+    }
+    pre.textContent = '...';
+    var bandEl = getEl('astroPreviewBandInput');
+    var yearEl = getEl('astroPreviewYearInput');
+    var stEl = getEl('astroPreviewStationSelect');
+    var st = stEl && stEl.value ? stEl.value.trim() : '';
+    var band = bandEl && bandEl.value ? bandEl.value.trim() : '';
+    var year = yearEl && yearEl.value ? yearEl.value : '';
+    var q = 'path=preview';
+    if (st) q += '&station_id=' + encodeURIComponent(st);
+    else if (band) q += '&band=' + encodeURIComponent(band);
+    if (year) q += '&year=' + encodeURIComponent(year);
+    try {
+      var res = await apiFetch(ASTRO_DUR_ENDPOINT + '&' + q, { method: 'GET' });
+      if (!res.ok) throw new Error('http_' + res.status);
+      var j = await res.json();
+      pre.textContent = JSON.stringify(j, null, 2);
+    } catch (e) {
+      pre.textContent = 'Error: ' + (e && e.message ? e.message : e);
+    }
+  }
+
+  function initAstroDurPanel() {
+    var r = getEl('astroDurRefreshBtn');
+    if (r) {
+      r.addEventListener('click', function () {
+        void refreshAstroDurStatus();
+      });
+    }
+    var p = getEl('astroPreviewBtn');
+    if (p) {
+      p.addEventListener('click', function () {
+        void runAstroPreview();
+      });
+    }
   }
 
   async function saveStationFromForm() {
@@ -5340,6 +5430,7 @@
     ensureDururManagementPanel();
 
     bindSettingsActions();
+    initAstroDurPanel();
 
     if (authToken) {
       getEl('adminLoginForm').style.display = 'none';

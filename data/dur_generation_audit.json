@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "id": "gen_mo93r7bv",
+      "started_at": "2026-04-21T20:54:49.819Z",
+      "default_year_hint": 2026,
+      "bands_generated_ok": 0,
+      "bands_generated": [],
+      "bands_skipped": [
+        {
+          "scope": "sequence_map",
+          "reason": "null_offsets_in_rules"
+        }
+      ],
+      "dry_run": false,
+      "finished_at": "2026-04-21T20:54:49.819Z"
+    }
+  ]
+}

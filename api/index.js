@@ -16,6 +16,7 @@ const adminHandler = require('../serverless_api/admin/[...path]');
 const vercelAnalyticsHandler = require('../serverless_api/vercel-analytics');
 const runtimeStoreHandler = require('../serverless_api/runtime-store');
 const storeHandler = require('../serverless_api/_store');
+const astroDurApiHandler = require('../serverless_api/astro-dur-api');
 
 function normalizeRoute(value) {
   return String(value || '').trim().toLowerCase();
@@ -65,6 +66,7 @@ module.exports = async function handler(req, res) {
   if (route === 'capture-snapshot' || route === 'snapshot-capture') return snapshotHandler(req, res);
   if (route === 'run-snapshots') return runSnapshotsHandler(req, res);
   if (route === 'admin-settings') return adminSettingsHandler(req, res);
+  if (route === 'astro-dur') return astroDurApiHandler(req, res);
   if (route === 'admin-analytics') return adminAnalyticsHandler(req, res);
   if (route === 'admin-summary') return adminSummaryHandler(req, res);
   if (route === 'log-catch') {
