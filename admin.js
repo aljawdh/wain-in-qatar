@@ -15,6 +15,11 @@
   var latestSettings = null;
   var authToken = localStorage.getItem('navidur_admin_token') || '';
   var me = null;
+  try {
+    me = JSON.parse(localStorage.getItem('navidur_admin_user') || 'null');
+  } catch (_err) {
+    me = null;
+  }
   var stationsCache = [];
   var usersCache = [];
   var latestSummaryCache = null;
@@ -213,6 +218,8 @@
         authToken = '';
         adminAuthenticated = false;
         localStorage.removeItem('navidur_admin_token');
+        localStorage.removeItem('navidur_admin_user');
+        me = null;
         var contentEl = getEl('adminContent');
         var loginEl = getEl('adminLoginForm');
         var passEl = getEl('adminPass');
@@ -872,8 +879,8 @@
   }
 
   function applyDururFilters() {
-    dururMapFilters.stationType = getEl('stationsReferenceOnlyToggle') && getEl('stationsReferenceOnlyToggle').checked ? 'reference_only' : 'all';
-    refreshAllStationMarkers();
+    dururMapFilters.stationType = getAdminReferenceOnlyEnabled() ? 'reference_only' : 'all';
+    refreshAllStationMarkers(null, getVisibleAdminStations());
     updateDururStationInfoPanel();
   }
 
@@ -1489,7 +1496,35 @@
   }
 
   function isAdminMode() {
-    return !!(adminAuthenticated && me && (me.role === 'admin' || me.role === 'super_admin'));
+    return !!(adminAuthenticated && (!me || me.role === 'admin' || me.role === 'super_admin'));
+  }
+
+  function normalizeAdminStationRecord(station) {
+    var row = station && typeof station === 'object' ? Object.assign({}, station) : {};
+    return Object.assign(row, {
+      is_reference_station: !!row.is_reference_station,
+      is_verified: !!row.is_verified,
+      reference_priority: row.reference_priority != null && Number.isFinite(Number(row.reference_priority)) ? Number(row.reference_priority) : null,
+      latitude_band_key: row.latitude_band_key || null,
+      manual_suhail_anchor_date: row.manual_suhail_anchor_date || null,
+      manual_cycle_start_date: row.manual_cycle_start_date || null,
+      calibration_notes: row.calibration_notes || null
+    });
+  }
+
+  function getAdminReferenceOnlyEnabled() {
+    return !!(getEl('stationsReferenceOnlyToggle') && getEl('stationsReferenceOnlyToggle').checked);
+  }
+
+  function getReferenceStationCount(rows) {
+    return (Array.isArray(rows) ? rows : stationsCache).filter(isReferenceCalibrationStation).length;
+  }
+
+  function getVisibleAdminStations() {
+    var referenceOnly = getAdminReferenceOnlyEnabled();
+    return stationsCache.filter(function (st) {
+      return !referenceOnly || isReferenceCalibrationStation(st);
+    });
   }
 
   function getAdminMapTimingDetails(station) {
@@ -3268,16 +3303,15 @@
 
   // ── End water placement validation ─────────────────────────────────────────
 
-  function refreshAllStationMarkers(editingId) {
+  function refreshAllStationMarkers(editingId, visibleStations) {
     if (!stationsAdminMapState || !window.NavidurStationMap) return;
-    var referenceOnly = dururMapFilters.stationType === 'reference_only';
+    var rows = Array.isArray(visibleStations) ? visibleStations : getVisibleAdminStations();
     window.NavidurStationMap.renderStations(stationsAdminMapState, {
-      stations: stationsCache,
+      stations: rows,
       isAdminMode: isAdminMode(),
       selectedStationId: selectedDururStationId || currentStationId || '',
       filterStation: function (station) {
-        if (editingId && station.id === editingId && !selectedDururStationId) return false;
-        return !referenceOnly || isReferenceCalibrationStation(station);
+        return !(editingId && station.id === editingId && !selectedDururStationId);
       },
       popupBuilder: createDururPopupContent,
       tooltipBuilder: function (station) {
@@ -3292,6 +3326,13 @@
     });
     allStationMarkersList = Array.from(stationsAdminMapState.markerMap.entries()).map(function (entry) {
       return { id: entry[0], marker: entry[1] };
+    });
+    console.info('[admin][stations-map]', {
+      totalStationsLoaded: stationsCache.length,
+      totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
+      totalFilteredStationsShown: rows.length,
+      referenceOnly: getAdminReferenceOnlyEnabled(),
+      isAdminMode: isAdminMode()
     });
   }
 
@@ -4451,7 +4492,8 @@
     var res = await apiFetch(STATIONS_ENDPOINT, { method: 'GET' });
     if (!res.ok) throw new Error('stations_load_failed');
     var data = await res.json();
-    stationsCache = Array.isArray(data.stations) ? data.stations : [];
+    stationsCache = Array.isArray(data.stations) ? data.stations.map(normalizeAdminStationRecord) : [];
+    dururMapFilters.stationType = getAdminReferenceOnlyEnabled() ? 'reference_only' : 'all';
 
     // Gulf warning bar
     var gulfCount = stationsCache.filter(function (s) { return (s.region || '').toLowerCase() === 'gulf'; }).length;
@@ -4467,14 +4509,17 @@
 
     // Refresh background map markers
     var editingId = _stationEditMode ? (getEl('stId').value.trim() || null) : null;
-    refreshAllStationMarkers(editingId);
+    var visibleStations = getVisibleAdminStations();
+    refreshAllStationMarkers(editingId, visibleStations);
+    console.info('[admin][stations-load]', {
+      totalStationsLoaded: stationsCache.length,
+      totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
+      totalFilteredStationsShown: visibleStations.length,
+      referenceOnly: getAdminReferenceOnlyEnabled()
+    });
 
     var body = getEl('stationsBody');
     body.innerHTML = '';
-    var referenceOnly = !!(getEl('stationsReferenceOnlyToggle') && getEl('stationsReferenceOnlyToggle').checked);
-    var visibleStations = stationsCache.filter(function (st) {
-      return !referenceOnly || isReferenceCalibrationStation(st);
-    });
     if (!visibleStations.length) {
       body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8ea4ba">لا توجد محطات مطابقة للفلتر الحالي.</td></tr>';
     }
@@ -4793,6 +4838,7 @@
       authToken = data.token || '';
       me = data.user || null;
       localStorage.setItem('navidur_admin_token', authToken);
+      localStorage.setItem('navidur_admin_user', JSON.stringify(me || null));
 
       if (!me || (me.role !== 'admin' && me.role !== 'super_admin')) throw new Error('role_not_allowed');
 
@@ -4815,7 +4861,9 @@
       await fetch(LOGOUT_ENDPOINT, { method: 'POST', credentials: 'include' });
     } catch (_e) {}
     localStorage.removeItem('navidur_admin_token');
+    localStorage.removeItem('navidur_admin_user');
     authToken = '';
+    me = null;
     adminAuthenticated = false;
     getEl('adminContent').classList.remove('active');
     getEl('adminLoginForm').style.display = 'block';
