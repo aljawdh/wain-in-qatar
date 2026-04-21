@@ -1503,6 +1503,9 @@
     var row = station && typeof station === 'object' ? Object.assign({}, station) : {};
     return Object.assign(row, {
       is_reference_station: !!row.is_reference_station,
+      is_operational_station: row.is_operational_station !== false,
+      operational_visibility: row.operational_visibility !== false,
+      reference_anchor_mode: row.reference_anchor_mode || (row.is_reference_station ? 'coastal_land_anchor' : null),
       is_verified: !!row.is_verified,
       reference_priority: row.reference_priority != null && Number.isFinite(Number(row.reference_priority)) ? Number(row.reference_priority) : null,
       latitude_band_key: row.latitude_band_key || null,
@@ -1514,6 +1517,11 @@
 
   function getAdminReferenceOnlyEnabled() {
     return !!(getEl('stationsReferenceOnlyToggle') && getEl('stationsReferenceOnlyToggle').checked);
+  }
+
+  function isReferenceAnchorDraft() {
+    var checkbox = getEl('stIsReferenceStation');
+    return !!(checkbox && checkbox.checked);
   }
 
   function getReferenceStationCount(rows) {
@@ -2927,6 +2935,10 @@
     el.style.display = msg ? '' : 'none';
   }
 
+  function setReferenceAnchorStatus() {
+    setWaterStatus('unknown', 'محطة مرجعية: يسمح بوضعها على اليابسة كمرساة معايرة ساحلية.');
+  }
+
   async function callOverpass(query, timeoutMs) {
     var ctrl = new AbortController();
     var tid = setTimeout(function () { ctrl.abort(); }, timeoutMs || 10000);
@@ -3291,6 +3303,17 @@
   }
 
   function scheduleWaterCheck(lat, lon) {
+    if (isReferenceAnchorDraft()) {
+      if (_waterCheckTimer) clearTimeout(_waterCheckTimer);
+      _waterCheckTimer = null;
+      waterCheckState.isWater = null;
+      waterCheckState.checking = false;
+      waterCheckState.result = 'unknown';
+      waterCheckState.lat = lat;
+      waterCheckState.lon = lon;
+      setReferenceAnchorStatus();
+      return;
+    }
     if (_waterCheckTimer) clearTimeout(_waterCheckTimer);
     waterCheckState.isWater = null;
     waterCheckState.checking = false;
@@ -3330,6 +3353,7 @@
     console.info('[admin][stations-map]', {
       totalStationsLoaded: stationsCache.length,
       totalReferenceStationsLoaded: getReferenceStationCount(stationsCache),
+      totalRenderedOnAdminMap: stationsAdminMapState && stationsAdminMapState.markerMap ? stationsAdminMapState.markerMap.size : 0,
       totalFilteredStationsShown: rows.length,
       referenceOnly: getAdminReferenceOnlyEnabled(),
       isAdminMode: isAdminMode()
@@ -3494,6 +3518,7 @@
 
   function readStationForm() {
     var active = !!getEl('stActive').checked;
+    var isReferenceStation = getEl('stIsReferenceStation') ? getEl('stIsReferenceStation').checked : false;
     return {
       id: getEl('stId').value.trim() || undefined,
       name: getEl('stName').value.trim(),
@@ -3507,7 +3532,10 @@
       default_radius: Number(getEl('stRadius').value || 0.02),
       station_role_type: getEl('stRoleType') ? getEl('stRoleType').value : 'secondary_linked',
       primary_reference: getEl('stPrimaryReference') ? getEl('stPrimaryReference').checked : false,
-      is_reference_station: getEl('stIsReferenceStation') ? getEl('stIsReferenceStation').checked : false,
+      is_reference_station: isReferenceStation,
+      is_operational_station: !isReferenceStation,
+      operational_visibility: !isReferenceStation,
+      reference_anchor_mode: isReferenceStation ? 'coastal_land_anchor' : null,
       reference_priority: getEl('stReferencePriority') && getEl('stReferencePriority').value ? Number(getEl('stReferencePriority').value) : null,
       latitude_band_key: getEl('stLatitudeBandKey') ? (getEl('stLatitudeBandKey').value.trim() || null) : null,
       manual_suhail_anchor_date: getEl('stManualSuhailAnchorDate') ? (getEl('stManualSuhailAnchorDate').value || null) : null,
@@ -4619,29 +4647,38 @@
       }
 
       // ── Water placement validation ──────────────────────────────────────────
-      if (waterCheckState.checking) {
-        status.textContent = 'جاري التحقق من موقع المحطة، يرجى الانتظار...';
-        return;
-      }
-      var latMatch = Math.abs((waterCheckState.lat || 0) - payload.lat) < 1e-5;
-      var lonMatch = Math.abs((waterCheckState.lon || 0) - payload.lon) < 1e-5;
-      if (!latMatch || !lonMatch || waterCheckState.isWater === null) {
-        status.textContent = 'جاري التحقق من موقع المحطة...';
-        await detectAndAutoOffsetWater(payload.lat, payload.lon);
-        payload = readStationForm(); // re-read in case pin was auto-shifted
-      }
-      if (waterCheckState.result === 'confirmed_land' || waterCheckState.isWater === false) {
-        status.textContent = '⛔ يرجى وضع المحطة داخل البحر وليس على اليابسة';
-        return;
-      }
-      if (waterCheckState.result === 'uncertain') {
-        // Uncertain (waterfront / harbour fringe) — not a confirmed marine point; block save
-        status.textContent = '⚠️ الموقع غير مؤكد (منطقة ساحلية / ميناء) — انقل نقطة المحطة إلى البحر المفتوح وأعد الفحص';
-        return;
+      if (!payload.is_reference_station) {
+        if (waterCheckState.checking) {
+          status.textContent = 'جاري التحقق من موقع المحطة، يرجى الانتظار...';
+          return;
+        }
+        var latMatch = Math.abs((waterCheckState.lat || 0) - payload.lat) < 1e-5;
+        var lonMatch = Math.abs((waterCheckState.lon || 0) - payload.lon) < 1e-5;
+        if (!latMatch || !lonMatch || waterCheckState.isWater === null) {
+          status.textContent = 'جاري التحقق من موقع المحطة...';
+          await detectAndAutoOffsetWater(payload.lat, payload.lon);
+          payload = readStationForm(); // re-read in case pin was auto-shifted
+        }
+        if (waterCheckState.result === 'confirmed_land' || waterCheckState.isWater === false) {
+          status.textContent = '⛔ يرجى وضع المحطة داخل البحر وليس على اليابسة';
+          return;
+        }
+        if (waterCheckState.result === 'uncertain') {
+          // Uncertain (waterfront / harbour fringe) — not a confirmed marine point; block save
+          status.textContent = '⚠️ الموقع غير مؤكد (منطقة ساحلية / ميناء) — انقل نقطة المحطة إلى البحر المفتوح وأعد الفحص';
+          return;
+        }
+      } else {
+        waterCheckState.lat = payload.lat;
+        waterCheckState.lon = payload.lon;
+        waterCheckState.isWater = null;
+        waterCheckState.checking = false;
+        waterCheckState.result = 'unknown';
+        setReferenceAnchorStatus();
       }
       // ── End water validation ────────────────────────────────────────────────
 
-      status.textContent = 'جاري الحفظ...';
+      status.textContent = payload.is_reference_station ? 'جاري حفظ المحطة المرجعية...' : 'جاري الحفظ...';
       var res = await apiFetch(STATIONS_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -4951,6 +4988,30 @@
       nameEl.addEventListener('input', function () {
         _stationNameUserEdited = true;
         if (hintEl) hintEl.textContent = '';
+      });
+    }
+
+    var isReferenceEl = getEl('stIsReferenceStation');
+    if (isReferenceEl) {
+      isReferenceEl.addEventListener('change', function () {
+        var lat = Number(getEl('stLat').value);
+        var lon = Number(getEl('stLon').value);
+        if (isReferenceEl.checked) {
+          setReferenceAnchorStatus();
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            waterCheckState.lat = lat;
+            waterCheckState.lon = lon;
+          }
+          waterCheckState.isWater = null;
+          waterCheckState.checking = false;
+          waterCheckState.result = 'unknown';
+          return;
+        }
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          scheduleWaterCheck(lat, lon);
+        } else {
+          setWaterStatus('unknown', '');
+        }
       });
     }
 

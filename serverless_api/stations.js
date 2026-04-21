@@ -5,6 +5,15 @@ const { isAllowedOrigin, setNoCache, parseBody, cleanString } = require('./_lib/
 const { getAuthUser, canUserAddStations } = require('./_lib/auth');
 const { normalizeStationInput, hasDuplicateStation } = require('./_lib/stations');
 
+function isPublicOperationalStation(station) {
+  if (!station) return false;
+  if (station.status === 'archived' || station.status === 'disabled') return false;
+  if (station.is_reference_station) return false;
+  if (station.is_operational_station === false) return false;
+  if (station.operational_visibility === false) return false;
+  return true;
+}
+
 function normalizeSpeciesName(value) {
   return cleanString(value, 80);
 }
@@ -145,7 +154,7 @@ module.exports = async function handler(req, res) {
 
   const all = await readJsonFile('stations', []);
   const active = all
-    .filter((s) => s && s.status !== 'archived' && s.status !== 'disabled')
+    .filter((s) => isPublicOperationalStation(s))
     .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 
   return res.status(200).json({

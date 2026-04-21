@@ -27,6 +27,12 @@ function normalizeNullableString(value, maxLen) {
   return cleaned || null;
 }
 
+function normalizeNullableBoolean(value, fallback) {
+  if (value === true || value === false) return value;
+  if (fallback === true || fallback === false) return fallback;
+  return null;
+}
+
 function normalizeIsoDate(value) {
   const cleaned = cleanString(value, 20);
   if (!cleaned) return null;
@@ -60,6 +66,15 @@ function normalizeStationInput(input, existing) {
   const category = normalizeCategory(input.category || base.category || 'all');
   const featured = input.featured != null ? !!input.featured : !!base.featured;
   const fishingMode = normalizeFishingMode(input.fishing_mode, base.fishing_mode);
+  const isReferenceStation = input.is_reference_station != null ? !!input.is_reference_station : !!base.is_reference_station;
+  const isOperationalStation = normalizeNullableBoolean(
+    input.is_operational_station,
+    base.is_operational_station != null ? !!base.is_operational_station : !isReferenceStation
+  );
+  const operationalVisibility = normalizeNullableBoolean(
+    input.operational_visibility,
+    base.operational_visibility != null ? !!base.operational_visibility : !isReferenceStation
+  );
   const station = {
     id: cleanString(base.id || input.id, 80),
     name: cleanString(input.name != null ? input.name : base.name, 100),
@@ -92,7 +107,12 @@ function normalizeStationInput(input, existing) {
     station_quality_score: input.station_quality_score != null ? Number(input.station_quality_score) : (base.station_quality_score != null ? Number(base.station_quality_score) : null),
     seabed_type: cleanString(input.seabed_type != null ? input.seabed_type : base.seabed_type, 80) || null,
     depth_profile: cleanString(input.depth_profile != null ? input.depth_profile : base.depth_profile, 120) || null,
-    is_reference_station: input.is_reference_station != null ? !!input.is_reference_station : !!base.is_reference_station,
+    is_reference_station: isReferenceStation,
+    is_operational_station: isOperationalStation == null ? !isReferenceStation : isOperationalStation,
+    operational_visibility: operationalVisibility == null ? !isReferenceStation : operationalVisibility,
+    reference_anchor_mode: isReferenceStation
+      ? (normalizeNullableString(input.reference_anchor_mode != null ? input.reference_anchor_mode : base.reference_anchor_mode, 80) || 'coastal_land_anchor')
+      : normalizeNullableString(input.reference_anchor_mode != null ? input.reference_anchor_mode : base.reference_anchor_mode, 80),
     reference_priority: input.reference_priority != null
       ? (Number.isFinite(Number(input.reference_priority)) ? Number(input.reference_priority) : null)
       : (base.reference_priority != null && Number.isFinite(Number(base.reference_priority)) ? Number(base.reference_priority) : null),
