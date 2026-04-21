@@ -117,7 +117,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 2,
+    "latitude_band_key": "gulf_far_north",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع أقصى شمال الخليج"
   },
   {
     "id": "st_006",
@@ -187,7 +194,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 2,
+    "latitude_band_key": "gulf_east_sa_north",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع شرق السعودية الشمالي"
   },
   {
     "id": "st_009",
@@ -235,7 +249,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 1,
+    "latitude_band_key": "gulf_east_sa_mid",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع شرق السعودية الأوسط"
   },
   {
     "id": "st_011",
@@ -257,7 +278,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "north_sa_aqaba",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع شمال السعودية / خليج العقبة"
   },
   {
     "id": "st_012",
@@ -301,7 +329,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "redsea_north",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع أقصى شمال البحر الأحمر"
   },
   {
     "id": "st_014",
@@ -347,7 +382,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "redsea_north_mid",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع شمال البحر الأحمر الأوسط"
   },
   {
     "id": "st_016",
@@ -393,7 +435,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "redsea_central",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع وسط البحر الأحمر"
   },
   {
     "id": "st_018",
@@ -437,7 +486,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "redsea_south_mid",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع جنوب البحر الأحمر الأوسط"
   },
   {
     "id": "st_020",
@@ -461,7 +517,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 2,
+    "latitude_band_key": "redsea_south_deep",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع جنوب البحر الأحمر العميق"
   },
   {
     "id": "st_021",
@@ -485,7 +548,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "gulf_central_west",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع غرب وسط الخليج"
   },
   {
     "id": "st_022",
@@ -509,7 +579,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "gulf_mid_south",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع جنوب وسط الخليج"
   },
   {
     "id": "st_023",
@@ -533,7 +610,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "gulf_south",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع جنوب الخليج"
   },
   {
     "id": "st_024",
@@ -647,7 +731,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "oman_north",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع شمال عمان"
   },
   {
     "id": "st_029",
@@ -693,7 +784,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 2,
+    "latitude_band_key": "musandam_gate",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع بوابة الخليج / مسندم"
   },
   {
     "id": "st_031",
@@ -715,7 +813,14 @@
     "seabed_type": null,
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
-    "updated_at": "2026-04-06T22:56:02.403Z"
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "oman_central",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع وسط عمان"
   },
   {
     "id": "st_032",
@@ -738,5 +843,121 @@
     "depth_profile": null,
     "created_at": "2026-04-06T22:56:02.403Z",
     "updated_at": "2026-04-06T22:56:02.403Z"
+  },
+  {
+    "id": "st_033",
+    "name": "أم باب",
+    "lat": 24.9501,
+    "lon": 51.2007,
+    "country": "قطر",
+    "region": "أم باب",
+    "category": "all",
+    "status": "active",
+    "featured": false,
+    "tags": [],
+    "sort_order": 33,
+    "default_radius": 0.02,
+    "notes": "",
+    "assigned_members": [],
+    "trust_priority": null,
+    "station_quality_score": null,
+    "seabed_type": null,
+    "depth_profile": null,
+    "created_at": "2026-04-20T00:00:00.000Z",
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 1,
+    "latitude_band_key": "gulf_central_qatar",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع وسط الخليج - قطر"
+  },
+  {
+    "id": "st_034",
+    "name": "صلالة",
+    "lat": 17.0197,
+    "lon": 54.0897,
+    "country": "عمان",
+    "region": "صلالة",
+    "category": "all",
+    "status": "active",
+    "featured": false,
+    "tags": [],
+    "sort_order": 34,
+    "default_radius": 0.02,
+    "notes": "",
+    "assigned_members": [],
+    "trust_priority": null,
+    "station_quality_score": null,
+    "seabed_type": null,
+    "depth_profile": null,
+    "created_at": "2026-04-20T00:00:00.000Z",
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "oman_south",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع جنوب عمان"
+  },
+  {
+    "id": "st_035",
+    "name": "الحديدة",
+    "lat": 14.7978,
+    "lon": 42.9545,
+    "country": "اليمن",
+    "region": "الحديدة",
+    "category": "all",
+    "status": "active",
+    "featured": false,
+    "tags": [],
+    "sort_order": 35,
+    "default_radius": 0.02,
+    "notes": "",
+    "assigned_members": [],
+    "trust_priority": null,
+    "station_quality_score": null,
+    "seabed_type": null,
+    "depth_profile": null,
+    "created_at": "2026-04-20T00:00:00.000Z",
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "yemen_redsea",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع اليمن على البحر الأحمر"
+  },
+  {
+    "id": "st_036",
+    "name": "المكلا",
+    "lat": 14.5417,
+    "lon": 49.1242,
+    "country": "اليمن",
+    "region": "المكلا",
+    "category": "all",
+    "status": "active",
+    "featured": false,
+    "tags": [],
+    "sort_order": 36,
+    "default_radius": 0.02,
+    "notes": "",
+    "assigned_members": [],
+    "trust_priority": null,
+    "station_quality_score": null,
+    "seabed_type": null,
+    "depth_profile": null,
+    "created_at": "2026-04-20T00:00:00.000Z",
+    "updated_at": "2026-04-20T00:00:00.000Z",
+    "is_reference_station": true,
+    "reference_priority": 3,
+    "latitude_band_key": "yemen_arabian_sea",
+    "manual_suhail_anchor_date": null,
+    "manual_cycle_start_date": null,
+    "is_verified": false,
+    "calibration_notes": "مرجع اليمن على بحر العرب"
   }
 ]
