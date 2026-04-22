@@ -2,8 +2,8 @@
 /**
  * Rebuilds data/dur_windows.json from data/navidur_operational_durur_2025_2026.xlsx only.
  * - Template windows: sheet "نوافذ_الدرور" (serial dates in columns).
- * - City list: sheet "ملخص_المحطات" (column "المحطة"); each city gets the same window rows as the template.
- * Does not read existing dur_windows.json.
+ * - Station list: "ملخص_المحطات" (column "المحطة") only. Each station gets the same window rows as the template.
+ * Does not read or merge existing dur_windows.json.
  */
 'use strict';
 
@@ -18,6 +18,7 @@ const OUT_PATH = path.join(REPO, 'data', 'dur_windows.json');
 const SHEET_WINDOWS = 'نوافذ_الدرور';
 const SHEET_CITIES = 'ملخص_المحطات';
 const COL_CITY = 'المحطة';
+const REPORT_PATH = path.join(REPO, 'data', 'dur_windows_rebuild_report.json');
 
 function nowIso() {
   return new Date().toISOString();
@@ -65,8 +66,8 @@ function mustGetSheet(wb, name) {
   return sh;
 }
 
-function getCitiesFromSummary(wb) {
-  var sh = mustGetSheet(wb, SHEET_CITIES);
+function getCitiesFromSheetInOrder(wb, sheetName) {
+  var sh = mustGetSheet(wb, sheetName);
   var rows = XLSX.utils.sheet_to_json(sh, { defval: null, raw: false });
   var cities = [];
   var seen = Object.create(null);
@@ -76,8 +77,19 @@ function getCitiesFromSummary(wb) {
     seen[c] = true;
     cities.push(c);
   });
-  if (!cities.length) throw new Error('no_cities_in_' + SHEET_CITIES);
+  if (!cities.length) throw new Error('no_cities_in_' + sheetName);
   return cities;
+}
+
+function getCitiesFromSummary(wb) {
+  return getCitiesFromSheetInOrder(wb, SHEET_CITIES);
+}
+
+/**
+ * All cities from the operational summary sheet (authoritative per NAVIDUR alignment).
+ */
+function getCitiesFromWorkbook(wb) {
+  return getCitiesFromSummary(wb);
 }
 
 function getWindowTemplate(wb) {
@@ -85,9 +97,22 @@ function getWindowTemplate(wb) {
   return XLSX.utils.sheet_to_json(sh, { defval: null, raw: true });
 }
 
+function perStationCounts(workbookWindows, cities) {
+  var m = Object.create(null);
+  cities.forEach(function (c) { m[c] = 0; });
+  workbookWindows.forEach(function (r) {
+    var c = r.city;
+    if (m[c] == null) m[c] = 0;
+    m[c]++;
+  });
+  var out = Object.create(null);
+  cities.forEach(function (c) { out[c] = m[c] || 0; });
+  return out;
+}
+
 function buildDoc(wb) {
   var templateRows = getWindowTemplate(wb);
-  var cities = getCitiesFromSummary(wb);
+  var cities = getCitiesFromWorkbook(wb);
   var warnings = [];
   var malformed = [];
   var out = [];
@@ -149,13 +174,15 @@ function buildDoc(wb) {
     return a.dur_index - b.dur_index;
   });
 
+  var psc = perStationCounts(out, cities);
+
   return {
     doc: {
       version: 2,
       incomplete: malformed.length > 0,
       incomplete_reason: malformed.length ? 'operational_workbook_rebuild_malformed_rows' : null,
       message_ar:
-        'مبني بالكامل من الملف: navidur_operational_durur_2025_2026.xlsx — الورقة نوافذ_الدرور (النوافذ) × ملخص_المحطات (المدن). لا دمج من dur_windows.json السابق.',
+        'مبني بالكامل من الملف: navidur_operational_durur_2025_2026.xlsx — الورقة نوافذ_الدرور (القالب) × الورقة ملخص_المحطات. لا دمج ولا بيانات من dur_windows.json السابق.',
       generated_at: nowIso(),
       bands: {},
       workbook_windows: out,
@@ -165,24 +192,29 @@ function buildDoc(wb) {
         source_file_name: 'navidur_operational_durur_2025_2026.xlsx',
         source_sheets: [SHEET_WINDOWS, SHEET_CITIES],
         city_count: cities.length,
+        workbook_city_list_ordered: cities.slice(),
         template_row_count: templateRows.length,
         output_row_count: out.length,
+        per_station_dur_window_counts: psc,
         malformed_row_count: malformed.length,
         malformed: malformed,
         warnings: warnings
       }
     },
     cities: cities,
+    per_station_dur_window_counts: psc,
     malformed: malformed,
     warnings: warnings
   };
 }
 
-function verifyAbuDhabi() {
+/**
+ * @param {object} doc parsed dur_windows.json
+ * @returns {{ ok: boolean, current?: object, next?: object, error?: object }}
+ */
+function verifyOperDoc(doc) {
   var wb = require(path.join(REPO, 'shared', 'workbook-dur-lookup.js'));
-  var raw = fs.readFileSync(OUT_PATH, 'utf8');
-  var doc = JSON.parse(raw);
-  var rows = Array.isArray(doc.workbook_windows) ? doc.workbook_windows : [];
+  var rows = Array.isArray(doc && doc.workbook_windows) ? doc.workbook_windows : [];
   var found = wb.findWorkbookCurrentNextStrict(rows, wb.normalizeWorkbookCityKey('أبوظبي'), '2026-04-22');
   if (!found.ok) {
     return { ok: false, error: found };
@@ -203,6 +235,11 @@ function verifyAbuDhabi() {
   };
 }
 
+function verifyAbuDhabi() {
+  var raw = fs.readFileSync(OUT_PATH, 'utf8');
+  return verifyOperDoc(JSON.parse(raw));
+}
+
 function main() {
   if (!fs.existsSync(XLSX_PATH)) {
     console.error('missing', XLSX_PATH);
@@ -218,21 +255,47 @@ function main() {
   var tmp = OUT_PATH + '.tmp';
   fs.writeFileSync(tmp, json, 'utf8');
   fs.renameSync(tmp, OUT_PATH);
+  var report = {
+    generated_at: result.doc.generated_at,
+    source_workbook: path.relative(REPO, XLSX_PATH).replace(/\\/g, '/'),
+    rebuild: {
+      no_merge: true,
+      no_read_of_previous_dur_windows_json: true
+    },
+    tool_chain: {
+      this_script_does_not_run_git: true,
+      this_script_does_not_run_vercel: true
+    },
+    total_stations_extracted: result.cities.length,
+    station_list: result.cities.slice(),
+    total_dur_windows_generated: result.doc.workbook_windows.length,
+    per_station_dur_window_counts: result.per_station_dur_window_counts,
+    local_files_written: [
+      path.relative(REPO, OUT_PATH).replace(/\\/g, '/'),
+      path.relative(REPO, REPORT_PATH).replace(/\\/g, '/')
+    ]
+  };
+  var repTmp = REPORT_PATH + '.tmp';
+  fs.writeFileSync(repTmp, JSON.stringify(report, null, 2) + '\n', 'utf8');
+  fs.renameSync(repTmp, REPORT_PATH);
   var v = verifyAbuDhabi();
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        written: OUT_PATH,
-        workbook_window_rows: result.doc.workbook_windows.length,
-        cities: result.cities.length,
-        warnings: result.warnings,
-        verify_abu_dhabi_2026_04_22: v
-      },
-      null,
-      2
-    )
-  );
+  if (process.env.NAVIDUR_REBUILD_QUIET !== '1') {
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          written: OUT_PATH,
+          report: path.relative(REPO, REPORT_PATH).replace(/\\/g, '/'),
+          workbook_window_rows: result.doc.workbook_windows.length,
+          cities: result.cities.length,
+          warnings: result.warnings,
+          verify_abu_dhabi_2026_04_22: v
+        },
+        null,
+        2
+      )
+    );
+  }
   if (!v.ok) {
     process.exit(2);
   }
@@ -247,4 +310,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { buildDoc, main, XLSX_PATH, OUT_PATH };
+module.exports = { buildDoc, main, XLSX_PATH, OUT_PATH, REPORT_PATH, verifyOperDoc, verifyAbuDhabi };

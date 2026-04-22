@@ -35,7 +35,8 @@ const FILES = {
   star_events: 'star_events.json',
   dur_windows: 'dur_windows.json',
   dur_generation_audit: 'dur_generation_audit.json',
-  station_dur_windows: 'station_dur_windows.json'
+  station_dur_windows: 'station_dur_windows.json',
+  fixed_annual_reference: 'fixed_annual_reference.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────
