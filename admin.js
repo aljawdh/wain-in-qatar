@@ -2383,7 +2383,9 @@
 
   function getTimingSourceLabel(dur) {
     var source = dur && dur.timing_source ? dur.timing_source : '';
-    if (source === 'resolved_local_station_windows') return 'نوافذ الدور المحلية (المصنف التشغيلي)';
+    if (source === 'operational_workbook' || source === 'resolved_local_station_windows') {
+      return 'المصنف التشغيلي (dur_windows.json)';
+    }
     if (source === 'calibrated_reference_anchor') return 'مرجع يدوي معتمد';
     if (source === 'nearest_reference_station') return 'محطة مرجعية قريبة';
     return 'المحرك الأساسي';

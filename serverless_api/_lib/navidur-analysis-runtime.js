@@ -38,7 +38,9 @@ function normalizeRequestedStation(body, stations) {
     manual_suhail_anchor_date: cleanString(raw.manual_suhail_anchor_date, 20),
     manual_cycle_start_date: cleanString(raw.manual_cycle_start_date, 20),
     is_verified: !!raw.is_verified,
-    calibration_notes: cleanString(raw.calibration_notes, 1200)
+    calibration_notes: cleanString(raw.calibration_notes, 1200),
+    workbook_city_key: cleanString(raw.workbook_city_key, 80),
+    workbook_city_name: cleanString(raw.workbook_city_name, 200)
   };
 }
 
@@ -139,7 +141,8 @@ async function loadReferenceData() {
     readJsonFile('station_dur_profiles', []),
     readJsonFile('station_dur_overrides', []),
     readJsonFile('durur_overrides', []),
-    readJsonFile('station_dur_windows', { version: 1, stations: {} })
+    readJsonFile('station_dur_windows', { version: 1, stations: {} }),
+    readJsonFile('dur_windows', { version: 2, workbook_windows: [] })
   ]);
 
   return {
@@ -152,7 +155,8 @@ async function loadReferenceData() {
     station_profiles: Array.isArray(rows[6]) ? rows[6] : [],
     overrides: Array.isArray(rows[7]) ? rows[7] : [],
     durur_overrides: Array.isArray(rows[8]) ? rows[8] : [],
-    station_dur_windows: rows[9] && typeof rows[9] === 'object' ? rows[9] : { version: 1, stations: {} }
+    station_dur_windows: rows[9] && typeof rows[9] === 'object' ? rows[9] : { version: 1, stations: {} },
+    dur_windows: rows[10] && typeof rows[10] === 'object' ? rows[10] : { version: 2, workbook_windows: [] }
   };
 }
 

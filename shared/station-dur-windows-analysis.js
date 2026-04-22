@@ -1,32 +1,34 @@
 'use strict';
 
 /**
- * Maps shared/resolved-station-dur-snapshot.js to durInfo shape for analyzeLiveStation.
- * When this returns non-null, the engine must NOT call buildDurTimeline.
+ * Maps getResolvedLocalDurSnapshot (operational workbook only) to durInfo for analyzeLiveStation.
+ * When non-null, engine must NOT call buildDurTimeline / resolveTimingCalibration.
  */
 
 var getResolvedLocalDurSnapshot = require('./resolved-station-dur-snapshot').getResolvedLocalDurSnapshot;
 
+function normalizeString(value) {
+  return String(value == null ? '' : value).trim();
+}
+
 /**
- * @param {object} referenceData normalized (must include station_dur_windows, durur_reference)
- * @param {object} station normalized station with id
- * @param {Date} analysisDate UTC day (as_of = analysisDate.toISOString().slice(0, 10))
+ * @param {object} referenceData normalized
+ * @param {object} station normalized
+ * @param {Date} analysisDate UTC day
  * @returns {object | null}
  */
 function buildResolvedLocalDurTimelineInfo(referenceData, station, analysisDate) {
   var asOfIso = analysisDate && analysisDate.toISOString
     ? analysisDate.toISOString().slice(0, 10)
     : '';
-  var sid = (function (s) {
-    return String(s == null ? '' : s).trim();
-  })(station && station.id);
-  if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso) || !sid) return null;
+  if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) return null;
 
   var snap = getResolvedLocalDurSnapshot({
-    station_dur_windows: referenceData && referenceData.station_dur_windows,
-    stationId: sid,
+    station: station,
+    stationId: normalizeString(station && station.id),
     asOfIso: asOfIso,
-    durur_reference: referenceData && referenceData.durur_reference
+    durur_reference: referenceData && referenceData.durur_reference,
+    workbook_windows: (referenceData && referenceData.workbook_windows) || []
   });
   if (!snap) return null;
 
@@ -36,13 +38,14 @@ function buildResolvedLocalDurTimelineInfo(referenceData, station, analysisDate)
     timeline: null,
     suhail_anchor: snap.suhail_anchor,
     cycle_start: snap.cycle_start,
-    timing_source: 'resolved_local_station_windows',
-    timing_source_label_ar: 'نوافذ الدور المحلية (المصنف التشغيلي)',
+    timing_source: 'operational_workbook',
+    timing_source_label_ar: 'المصنف التشغيلي (dur_windows.json)',
     timing_as_of: asOfIso,
     timing_from_resolved_local: true,
+    timing_from_operational_workbook: true,
     calibration_reference_station: null,
     calibration_latitude_band_key: null,
-    calibration_selection_reason: 'resolved_from_station_dur_windows',
+    calibration_selection_reason: 'operational_workbook_direct',
     calibration_delta_days: 0,
     base_suhail_anchor: snap.base_suhail_anchor,
     resolved_window_snapshot: snap.resolved_window_snapshot

@@ -6,7 +6,7 @@ const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require(
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
 const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
 const { regenerateStationLocalDurWindows, removeStationLocalDurWindowsRecord } = require('../_lib/station-local-dur-persist');
-const { resolveStationLocalDurAtDate, utcTodayIso } = require('../_lib/station-local-dur-resolver');
+const { utcTodayIso } = require('../_lib/station-local-dur-resolver');
 const { getResolvedLocalDurSnapshot } = require('../../shared/resolved-station-dur-snapshot');
 
 async function writeAudit(action, actor, details) {
@@ -837,6 +837,8 @@ module.exports = async function handler(req, res) {
     const doc = await readJsonFile('station_dur_windows', { version: 1, stations: {} });
     const record = doc.stations && doc.stations[stationId] ? doc.stations[stationId] : null;
     const dururMaster = await readJsonFile('durur_master', []);
+    const dwDoc = await readJsonFile('dur_windows', { version: 2, workbook_windows: [] });
+    const wbw = Array.isArray(dwDoc.workbook_windows) ? dwDoc.workbook_windows : [];
     const stationRows = await readJsonFile('stations', []);
     const stationRow = Array.isArray(stationRows)
       ? stationRows.find(function (s) {
@@ -855,24 +857,21 @@ module.exports = async function handler(req, res) {
         anchor_day_in_dur: record.anchor_day_in_dur
       };
     }
-    var current = null;
-    if (record && record.generation_ok && Array.isArray(record.windows)) {
-      const snap = getResolvedLocalDurSnapshot({
-        station_dur_windows: doc,
-        stationId: stationId,
-        asOfIso: isoDate,
-        durur_reference: Array.isArray(dururMaster) ? dururMaster : []
-      });
-      current = snap && snap.resolved_window_snapshot
-        ? snap.resolved_window_snapshot
-        : resolveStationLocalDurAtDate(record.windows, isoDate);
-    }
+    const snap = getResolvedLocalDurSnapshot({
+      station: stationRow || {},
+      stationId: stationId,
+      asOfIso: isoDate,
+      durur_reference: Array.isArray(dururMaster) ? dururMaster : [],
+      workbook_windows: wbw
+    });
+    const current = snap && snap.resolved_window_snapshot ? snap.resolved_window_snapshot : null;
     return res.status(200).json({
       ok: true,
       station_id: stationId,
       as_of: isoDate,
       anchor_rule_from_config: anchorRule,
       record,
+      timing_source: 'operational_workbook',
       current
     });
   }

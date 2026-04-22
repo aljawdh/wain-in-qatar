@@ -1,18 +1,18 @@
 'use strict';
 
 /**
- * Single shared resolved local dur snapshot from persisted station_dur_windows
- * (same inputs as admin GET station-dur-windows + analysis engine).
+ * Single shared resolved dur snapshot: operational workbook truth only
+ * (data/dur_windows.json → workbook_windows, from Excel import).
+ * Does NOT use generated station_dur_windows for timing.
  */
 
-var resolver = require('./station-local-dur-resolver');
-var resolveStationLocalDurAtDate = resolver.resolveStationLocalDurAtDate;
-
-function parseIsoDateUtcMidnight(iso) {
-  var m = String(iso || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0));
-}
+var wb = require('./workbook-dur-lookup');
+var findWorkbookCurrentNext = wb.findWorkbookCurrentNext;
+var getStationWorkbookCityName = wb.getStationWorkbookCityName;
+var computeDayMetricsForWorkbookRow = wb.computeDayMetricsForWorkbookRow;
+var buildResolvedSnapshotShapeFromWorkbookRow = wb.buildResolvedSnapshotShapeFromWorkbookRow;
+var parseIsoDateUtcMidnight = wb.parseIsoDateUtcMidnight;
+var toNumber = wb.toNumber;
 
 var DEFAULT_DUR_DAYS = 13;
 
@@ -33,11 +33,6 @@ function nfcString(value) {
   }
 }
 
-function toNumber(value) {
-  var n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
 function sortDurRows(rows) {
   return toArray(rows).slice().sort(function (a, b) {
     var aOrder = Number(a && (a.order_index != null ? a.order_index : a.dur_number) || 0);
@@ -46,34 +41,26 @@ function sortDurRows(rows) {
   });
 }
 
-function matchDurRowForWindow(durRows, w) {
+function matchDurRowByWorkbookName(durRows, durNameAr) {
   var rows = sortDurRows(durRows);
-  var byId = normalizeString(w && w.dur_id);
-  var byName = nfcString(w && w.dur_name_ar);
+  var byName = nfcString(durNameAr);
+  if (!byName) return null;
   var ri;
-  if (byId) {
-    for (ri = 0; ri < rows.length; ri += 1) {
-      if (normalizeString(rows[ri] && rows[ri].id) === byId) return rows[ri];
-    }
-  }
-  if (byName) {
-    for (ri = 0; ri < rows.length; ri += 1) {
-      var row = rows[ri];
-      var rn = nfcString(row && (row.name_ar || row.name || row.name_en));
-      if (rn === byName) return row;
-    }
+  for (ri = 0; ri < rows.length; ri += 1) {
+    var row = rows[ri];
+    var rn = nfcString(row && (row.name_ar || row.name || row.name_en));
+    if (rn === byName) return row;
   }
   return null;
 }
 
-function buildSyntheticDurRowFromWindow(w) {
-  var days = Math.max(1, toNumber(w && w.days) || DEFAULT_DUR_DAYS);
+function buildSyntheticDurFromWorkbook(wbRow) {
   return {
-    id: normalizeString(w && w.dur_id) || ('local_' + normalizeString(w && w.dur_name_ar)),
-    dur_number: null,
-    order_index: null,
-    default_days_count: days,
-    name_ar: normalizeString(w && w.dur_name_ar),
+    id: 'wb_' + String(wbRow.year) + '_' + String(wbRow.dur_index),
+    dur_number: toNumber(wbRow.dur_index),
+    order_index: toNumber(wbRow.dur_index),
+    default_days_count: Math.max(1, toNumber(wbRow.dur_length_days) || DEFAULT_DUR_DAYS),
+    name_ar: normalizeString(wbRow.dur_name_ar),
     name_en: '',
     phases: []
   };
@@ -81,64 +68,83 @@ function buildSyntheticDurRowFromWindow(w) {
 
 /**
  * @param {object} params
- * @param {object} params.station_dur_windows – doc { stations: { [id]: record } }
+ * @param {object} params.station – must include workbook_city_name when using workbook
  * @param {string} params.stationId
- * @param {string} params.asOfIso – YYYY-MM-DD (must match analysis UTC calendar day)
- * @param {Array} params.durur_reference – normalized dur rows
+ * @param {string} params.asOfIso
+ * @param {Array} params.durur_reference
+ * @param {Array} params.workbook_windows – from dur_windows.json
  * @returns {object|null}
  */
 function getResolvedLocalDurSnapshot(params) {
-  var doc = params && params.station_dur_windows;
-  var stationId = normalizeString(params && params.stationId);
   var asOfIso = normalizeString(params && params.asOfIso);
   var durRows = sortDurRows(params && params.durur_reference);
+  var station = params && params.station;
+  var stationId = normalizeString(params && params.stationId);
+  var allW = toArray(params && params.workbook_windows);
 
-  if (!doc || typeof doc.stations !== 'object' || !stationId) return null;
-  if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) return null;
+  if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso) || !stationId) return null;
 
-  var rec = doc.stations[stationId];
-  if (!rec || !rec.generation_ok || !Array.isArray(rec.windows) || rec.windows.length < 1) return null;
+  var city = getStationWorkbookCityName(station);
+  if (!city) return null;
 
-  var resolved = resolveStationLocalDurAtDate(rec.windows, asOfIso);
-  if (!resolved) return null;
+  var found = findWorkbookCurrentNext(allW, city, asOfIso);
+  if (!found || !found.current) return null;
 
-  var windows = rec.windows;
-  var idx = -1;
-  var wi;
-  for (wi = 0; wi < windows.length; wi += 1) {
-    var w = windows[wi];
-    if (!w || !w.start_date || !w.end_date) continue;
-    if (asOfIso >= w.start_date && asOfIso <= w.end_date) {
-      idx = wi;
-      break;
-    }
+  var cr = found.current;
+  var nr = found.next;
+  var metrics = computeDayMetricsForWorkbookRow(cr, asOfIso);
+
+  var curDurRow = matchDurRowByWorkbookName(durRows, cr.dur_name_ar) || buildSyntheticDurFromWorkbook(cr);
+  var nextDurRow = nr
+    ? (matchDurRowByWorkbookName(durRows, nr.dur_name_ar) || buildSyntheticDurFromWorkbook(nr))
+    : { id: '', name_ar: '', default_days_count: DEFAULT_DUR_DAYS, dur_number: null, order_index: null, name_en: '', phases: [] };
+
+  var start = parseIsoDateUtcMidnight(cr.dur_start);
+  var end = parseIsoDateUtcMidnight(cr.dur_end);
+  var nstart = nr ? parseIsoDateUtcMidnight(nr.dur_start) : null;
+  var nend = nr ? parseIsoDateUtcMidnight(nr.dur_end) : null;
+
+  if (!start || !end) return null;
+  if (nr && (!nstart || !nend)) return null;
+
+  var manual = normalizeString(station && station.manual_suhail_anchor_date);
+  var suhailAnchor = manual ? parseIsoDateUtcMidnight(manual) : null;
+
+  var y = String(cr.year != null ? cr.year : '');
+  var yearRows = (found.cityRows || []).filter(function (r) {
+    return r && String(r.year) === y;
+  });
+  var cycleStart = null;
+  if (yearRows.length) {
+    var minS = yearRows
+      .map(function (r) {
+        return r.dur_start;
+      })
+      .filter(Boolean)
+      .sort()[0];
+    cycleStart = minS ? parseIsoDateUtcMidnight(minS) : null;
   }
-  if (idx < 0) return null;
 
-  var cw = windows[idx];
-  var nw = windows[(idx + 1) % windows.length];
-  var curRow = matchDurRowForWindow(durRows, cw) || buildSyntheticDurRowFromWindow(cw);
-  var nextRow = matchDurRowForWindow(durRows, nw) || buildSyntheticDurRowFromWindow(nw);
-
-  var start = parseIsoDateUtcMidnight(cw.start_date);
-  var end = parseIsoDateUtcMidnight(cw.end_date);
-  var nstart = parseIsoDateUtcMidnight(nw.start_date);
-  var nend = parseIsoDateUtcMidnight(nw.end_date);
-  if (!start || !end || !nstart || !nend) return null;
-
-  var anchorIso = normalizeString(rec.anchor_date);
-  var anchorDateParsed = anchorIso ? parseIsoDateUtcMidnight(anchorIso) : null;
-  var cycleStartDate = windows[0] && windows[0].start_date ? parseIsoDateUtcMidnight(windows[0].start_date) : null;
+  var snapShape = buildResolvedSnapshotShapeFromWorkbookRow(cr, nr, asOfIso, metrics);
 
   return {
     timing_as_of: asOfIso,
-    record: rec,
-    resolved_window_snapshot: resolved,
-    current: { durRow: curRow, start: start, end: end },
-    next: { durRow: nextRow, start: nstart, end: nend },
-    suhail_anchor: anchorDateParsed,
-    cycle_start: cycleStartDate,
-    base_suhail_anchor: anchorDateParsed
+    record: {
+      source: 'operational_workbook',
+      station_id: stationId,
+      workbook_file: 'dur_windows.json',
+      city: city
+    },
+    resolved_window_snapshot: snapShape,
+    current: { durRow: curDurRow, start: start, end: end },
+    next: {
+      durRow: nextDurRow,
+      start: nr ? nstart : null,
+      end: nr ? nend : null
+    },
+    suhail_anchor: suhailAnchor,
+    cycle_start: cycleStart || start,
+    base_suhail_anchor: suhailAnchor
   };
 }
 

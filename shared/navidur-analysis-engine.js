@@ -164,7 +164,9 @@
       manual_suhail_anchor_date: normalizeString(item.manual_suhail_anchor_date),
       manual_cycle_start_date: normalizeString(item.manual_cycle_start_date),
       is_verified: !!item.is_verified,
-      calibration_notes: normalizeString(item.calibration_notes)
+      calibration_notes: normalizeString(item.calibration_notes),
+      workbook_city_key: normalizeString(item.workbook_city_key),
+      workbook_city_name: normalizeString(item.workbook_city_name)
     };
   }
 
@@ -1023,6 +1025,8 @@
     if (!sdw.stations || typeof sdw.stations !== 'object') {
       sdw = Object.assign({}, sdw, { stations: {} });
     }
+    var dwc = source.dur_windows;
+    var wbw = toArray(dwc && dwc.workbook_windows);
 
     return {
       stations: toArray(source.stations).map(normalizeStationRecord),
@@ -1036,7 +1040,8 @@
       overrides: toArray(source.overrides || source.station_dur_overrides),
       reference_overrides: toArray(source.durur_overrides || source.reference_overrides),
       rules_config: source.rules_config || null,
-      station_dur_windows: sdw
+      station_dur_windows: sdw,
+      workbook_windows: wbw
     };
   }
 
@@ -1145,14 +1150,15 @@
           : '',
         next_period_start_date: nextDur && nextDur.start ? nextDur.start.toISOString().slice(0, 10) : '',
         next_period_end_date: nextDur && nextDur.end ? nextDur.end.toISOString().slice(0, 10) : '',
-        timing_resolution: fromResolved ? 'resolved_local_station_windows' : 'legacy_suhail_engine',
+        timing_resolution: fromResolved ? 'operational_workbook' : 'legacy_suhail_engine',
         timing_as_of: fromResolved && durInfo && durInfo.timing_as_of ? normalizeString(durInfo.timing_as_of) : '',
         timing_from_resolved_local: fromResolved,
+        timing_from_operational_workbook: !!(fromResolved && durInfo && durInfo.timing_from_operational_workbook),
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
         base_suhail_anchor_date: durInfo && durInfo.base_suhail_anchor ? durInfo.base_suhail_anchor.toISOString().slice(0, 10) : '',
         cycle_start_date: durInfo && durInfo.cycle_start ? durInfo.cycle_start.toISOString().slice(0, 10) : '',
         timing_source: fromResolved
-          ? 'resolved_local_station_windows'
+          ? normalizeString(durInfo && durInfo.timing_source) || 'operational_workbook'
           : normalizeString(durInfo && durInfo.timing_source),
         timing_source_label_ar: normalizeString(durInfo && durInfo.timing_source_label_ar),
         calibration_reference_station_id: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.id),
