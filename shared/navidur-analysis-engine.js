@@ -7,13 +7,13 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var buildResolvedLocalDurTimelineInfo;
+  var getResolvedLocalDurSnapshot;
   try {
     if (typeof require === 'function') {
-      buildResolvedLocalDurTimelineInfo = require('./station-dur-windows-analysis').buildResolvedLocalDurTimelineInfo;
+      getResolvedLocalDurSnapshot = require('./resolved-station-dur-snapshot').getResolvedLocalDurSnapshot;
     }
   } catch (_reqErr) {
-    buildResolvedLocalDurTimelineInfo = null;
+    getResolvedLocalDurSnapshot = null;
   }
 
   function toNumber(value) {
@@ -1056,6 +1056,11 @@
     return false;
   }
 
+  /** Reference station with workbook city mapping: workbook-only timing (no legacy fallback). */
+  function isReferenceWorkbookEnforced(st) {
+    return !!(st && st.is_reference_station && engineWorkbookCitySet(st));
+  }
+
   function analyzeLiveStation(params) {
     var options = params || {};
     var referenceData = normalizeReferenceData(options.reference_data);
@@ -1068,29 +1073,47 @@
     var runtimeOverride = normalizeRuntimeOverride(options.overrides);
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
-    var durInfo = null;
+    var asOfIso = analysisDate && analysisDate.toISOString ? analysisDate.toISOString().slice(0, 10) : '';
+    var refWb = isReferenceWorkbookEnforced(station);
+    var hasWbCity = engineWorkbookCitySet(station);
     var workbookLookupError = null;
-    if (buildResolvedLocalDurTimelineInfo) {
+    var snap = null;
+    if (getResolvedLocalDurSnapshot && asOfIso && /^\d{4}-\d{2}-\d{2}$/.test(asOfIso) && hasWbCity) {
       try {
-        var wR = buildResolvedLocalDurTimelineInfo(referenceData, station, analysisDate);
-        if (wR && wR.ok === false) {
-          workbookLookupError = wR.error;
-        } else if (wR && wR.ok) {
-          durInfo = wR.durInfo;
-        }
+        snap = getResolvedLocalDurSnapshot({
+          station: station,
+          stationId: normalizeString(station && station.id),
+          asOfIso: asOfIso,
+          durur_reference: referenceData.durur_reference,
+          workbook_windows: referenceData.workbook_windows
+        });
       } catch (bdErr) {
-        if (engineWorkbookCitySet(station)) {
+        if (refWb) {
           workbookLookupError = {
-            code: 'WORKBOOK_PATH_EXCEPTION',
-            message: bdErr && bdErr.message ? String(bdErr.message) : 'workbook path threw'
+            code: 'WORKBOOK_LOOKUP_FAILED',
+            message: bdErr && bdErr.message ? String(bdErr.message) : 'getResolvedLocalDurSnapshot threw',
+            reason: 'exception'
           };
         }
+        snap = null;
+      }
+    }
+    if (snap && snap.error) {
+      if (refWb) {
+        workbookLookupError = {
+          code: 'WORKBOOK_LOOKUP_FAILED',
+          message: 'operational_workbook_lookup_failed',
+          detail: snap.error
+        };
+      } else {
+        snap = null;
       }
     }
     if (workbookLookupError) {
       return {
         station_id: station.id || null,
         analysis_timestamp: analysisDateTime.toISOString(),
+        reference_workbook_enforced: refWb,
         workbook_lookup_failed: true,
         dur: {
           timing_error: workbookLookupError,
@@ -1142,18 +1165,105 @@
         }
       };
     }
-    if (!durInfo) {
-      durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
+    if (snap && snap.resolved_window_snapshot && !snap.error) {
+      var rwS = snap.resolved_window_snapshot;
+      var mDurRow = snap.current && snap.current.durRow
+        ? snap.current.durRow
+        : {
+          id: normalizeString(rwS.dur_id),
+          name_ar: normalizeString(rwS.dur_name_ar),
+          name: '',
+          name_en: '',
+          dur_number: null,
+          order_index: null,
+          default_days_count: null,
+          phases: []
+        };
+      var minCurrentDur = {
+        durRow: mDurRow,
+        start: snap.current && snap.current.start,
+        end: snap.current && snap.current.end
+      };
+      var snapRefOnly = buildDurReferenceMetadata(mDurRow, snap.next, []);
+      var fishingOnly = buildFishingDecision(
+        referenceData,
+        station,
+        liveEnvironment,
+        tideState,
+        minCurrentDur,
+        {},
+        [],
+        runtimeOverride,
+        options.field_validation || null
+      );
+      return {
+        station_id: station.id || null,
+        analysis_timestamp: analysisDateTime.toISOString(),
+        reference_workbook_enforced: refWb,
+        workbook_snapshot_only: true,
+        dur: (function () {
+          var d = {
+            period_id: normalizeString(rwS.dur_id),
+            period_number: mDurRow ? toNumber(mDurRow.dur_number) : null,
+            period_name: normalizeString(rwS.dur_name_ar),
+            day_in_period: toNumber(rwS.day_in_dur),
+            next_period_id: normalizeString(rwS.next_dur_id),
+            next_period_name: rwS.next_dur_name_ar != null ? normalizeString(rwS.next_dur_name_ar) : '',
+            days_remaining: toNumber(rwS.days_remaining_in_dur),
+            period_start_date: normalizeString(rwS.start_date),
+            period_end_date: normalizeString(rwS.end_date),
+            next_period_start_date: snap.next && snap.next.start ? snap.next.start.toISOString().slice(0, 10) : '',
+            next_period_end_date: snap.next && snap.next.end ? snap.next.end.toISOString().slice(0, 10) : '',
+            timing_resolution: 'operational_workbook',
+            timing_as_of: normalizeString(snap.timing_as_of || asOfIso),
+            timing_from_resolved_local: true,
+            timing_from_operational_workbook: true,
+            suhail_anchor_date: snap.suhail_anchor ? snap.suhail_anchor.toISOString().slice(0, 10) : '',
+            base_suhail_anchor_date: snap.base_suhail_anchor ? snap.base_suhail_anchor.toISOString().slice(0, 10) : '',
+            cycle_start_date: snap.cycle_start ? snap.cycle_start.toISOString().slice(0, 10) : '',
+            timing_source: 'operational_workbook',
+            timing_source_label_ar: 'المصنف التشغيلي (dur_windows.json)',
+            calibration_reference_station_id: '',
+            calibration_reference_station_name: '',
+            calibration_latitude_band_key: '',
+            calibration_selection_reason: 'workbook_snapshot_only',
+            calibration_delta_days: 0,
+            reference: snapRefOnly,
+            active_phase_id: '',
+            active_phase_reference: null,
+            overrides_applied: false
+          };
+          if (refWb) {
+            d.suhail_anchor_source = 'navidur_durur_master_workbook_v1';
+            d.operational_durur_workbook = 'navidur_operational_durur_2025_2026';
+            d.reference_workbook_only_timing = true;
+          }
+          return d;
+        })(),
+        environment: {
+          temp_c: liveEnvironment.temp_c,
+          wind_speed_kmh: liveEnvironment.wind_speed_kmh,
+          wind_direction_deg: liveEnvironment.wind_direction_deg,
+          wave_height_m: liveEnvironment.wave_height_m
+        },
+        tide: {
+          state: tideState,
+          current_speed_ms: liveEnvironment.current_speed_ms
+        },
+        fishing: {
+          is_recommended: fishingOnly.is_recommended,
+          species_activity: fishingOnly.species_activity,
+          confidence_score: fishingOnly.confidence_score,
+          advice_text: fishingOnly.advice_text
+        }
+      };
     }
+    var durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
     var currentDur = durInfo.current;
     var nextDur = durInfo.next;
     var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
     var seasonKey = getSeasonKeyFromDate(analysisDate);
-    var resolvedSnap = durInfo && durInfo.resolved_window_snapshot;
-    var fromResolved = !!(durInfo && durInfo.timing_from_resolved_local);
-    var dayInPeriod = fromResolved && resolvedSnap && resolvedSnap.day_in_dur != null
-      ? toNumber(resolvedSnap.day_in_dur)
-      : (currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null);
+    var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
     var activePhase = resolveActiveDurPhase(currentDur && currentDur.durRow, dayInPeriod);
     var baseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, false);
     var phaseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, true);
@@ -1208,23 +1318,17 @@
       dur: {
         period_id: currentDur && currentDur.durRow ? normalizeString(currentDur.durRow.id) : '',
         period_number: currentDur && currentDur.durRow ? toNumber(currentDur.durRow.dur_number) : null,
-        period_name:
-          fromResolved && resolvedSnap && resolvedSnap.dur_name_ar
-            ? normalizeString(resolvedSnap.dur_name_ar)
-            : currentDur && currentDur.durRow
-              ? normalizeString(currentDur.durRow.name_ar || currentDur.durRow.name || currentDur.durRow.name_en)
-              : '',
+        period_name: currentDur && currentDur.durRow
+          ? normalizeString(currentDur.durRow.name_ar || currentDur.durRow.name || currentDur.durRow.name_en)
+          : '',
         day_in_period: dayInPeriod,
         next_period_id: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.id) : '',
-        next_period_name:
-          fromResolved && resolvedSnap && resolvedSnap.next_dur_name_ar != null
-            ? normalizeString(resolvedSnap.next_dur_name_ar)
-            : nextDur && nextDur.durRow
-              ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en)
-              : '',
-        days_remaining: fromResolved && resolvedSnap && resolvedSnap.days_remaining_in_dur != null
-          ? toNumber(resolvedSnap.days_remaining_in_dur)
-          : (currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null),
+        next_period_name: nextDur && nextDur.durRow
+          ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en)
+          : '',
+        days_remaining: currentDur && currentDur.end
+          ? Math.max(0, getDaysBetween(analysisDate, currentDur.end))
+          : null,
         period_start_date: currentDur && currentDur.start
           ? currentDur.start.toISOString().slice(0, 10)
           : '',
@@ -1233,16 +1337,14 @@
           : '',
         next_period_start_date: nextDur && nextDur.start ? nextDur.start.toISOString().slice(0, 10) : '',
         next_period_end_date: nextDur && nextDur.end ? nextDur.end.toISOString().slice(0, 10) : '',
-        timing_resolution: fromResolved ? 'operational_workbook' : 'legacy_suhail_engine',
-        timing_as_of: fromResolved && durInfo && durInfo.timing_as_of ? normalizeString(durInfo.timing_as_of) : '',
-        timing_from_resolved_local: fromResolved,
-        timing_from_operational_workbook: !!(fromResolved && durInfo && durInfo.timing_from_operational_workbook),
+        timing_resolution: 'legacy_suhail_engine',
+        timing_as_of: '',
+        timing_from_resolved_local: false,
+        timing_from_operational_workbook: false,
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
         base_suhail_anchor_date: durInfo && durInfo.base_suhail_anchor ? durInfo.base_suhail_anchor.toISOString().slice(0, 10) : '',
         cycle_start_date: durInfo && durInfo.cycle_start ? durInfo.cycle_start.toISOString().slice(0, 10) : '',
-        timing_source: fromResolved
-          ? normalizeString(durInfo && durInfo.timing_source) || 'operational_workbook'
-          : normalizeString(durInfo && durInfo.timing_source),
+        timing_source: normalizeString(durInfo && durInfo.timing_source),
         timing_source_label_ar: normalizeString(durInfo && durInfo.timing_source_label_ar),
         calibration_reference_station_id: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.id),
         calibration_reference_station_name: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.name),
