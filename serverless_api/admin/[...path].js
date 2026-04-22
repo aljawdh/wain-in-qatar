@@ -1,6 +1,9 @@
 'use strict';
 
-const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv } = require('../_lib/data-store');
+const path = require('path');
+const fs = require('fs/promises');
+const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv, kvStoreKey } = require('../_lib/data-store');
+const wbLook = require('../../shared/workbook-dur-lookup');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
@@ -536,6 +539,81 @@ module.exports = async function handler(req, res) {
       mapped_stations: mapped,
       unmapped_stations: list.length - mapped,
       stations: stations
+    });
+  }
+
+  if (root === 'sync-dur-windows-kv') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    if (!getKv()) {
+      return res.status(503).json({ ok: false, error: 'kv_not_configured' });
+    }
+    const durFile = path.join(__dirname, '..', '..', 'data', 'dur_windows.json');
+    let raw;
+    try {
+      raw = await fs.readFile(durFile, 'utf8');
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: 'dur_windows_read_failed', path: durFile });
+    }
+    let doc;
+    try {
+      doc = JSON.parse(raw);
+    } catch (_e) {
+      return res.status(400).json({ ok: false, error: 'dur_windows_json_invalid' });
+    }
+    if (!doc || !Array.isArray(doc.workbook_windows)) {
+      return res.status(400).json({ ok: false, error: 'workbook_windows_array_required' });
+    }
+    const wbw = doc.workbook_windows;
+    const found = wbLook.findWorkbookCurrentNextStrict(
+      wbw,
+      wbLook.normalizeWorkbookCityKey('أبوظبي'),
+      '2026-04-22'
+    );
+    if (!found.ok || !found.current) {
+      return res.status(400).json({
+        ok: false,
+        error: 'abudhabi_verification_failed',
+        found: found
+      });
+    }
+    const c = found.current;
+    const n = found.next;
+    const abuDhabiOk =
+      c.dur_name_ar === 'المؤخر' &&
+      c.dur_start === '2026-04-13' &&
+      c.dur_end === '2026-04-25' &&
+      n &&
+      n.dur_name_ar === 'الرشاء';
+    if (!abuDhabiOk) {
+      return res.status(400).json({
+        ok: false,
+        error: 'abudhabi_verification_mismatch',
+        current: c,
+        next: n
+      });
+    }
+    await writeJsonFile('dur_windows', doc);
+    const ts = nowIso();
+    const rowCount = doc.workbook_windows.length;
+    await writeAudit('sync_dur_windows_kv', actor, { kv_key: kvStoreKey('dur_windows'), total_rows: rowCount });
+    return res.status(200).json({
+      ok: true,
+      path: 'sync-dur-windows-kv',
+      success: true,
+      total_rows_written: rowCount,
+      timestamp: ts,
+      kv_key: kvStoreKey('dur_windows'),
+      verify_abu_dhabi_2026_04_22: {
+        current_dur: c.dur_name_ar,
+        period: { start: c.dur_start, end: c.dur_end },
+        next_dur: n ? n.dur_name_ar : null
+      }
     });
   }
 

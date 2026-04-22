@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:navidur": "node run.js",
-    "import:astro-workbook": "node serverless_api/import-astro-workbook.js"
+    "import:astro-workbook": "node serverless_api/import-astro-workbook.js",
+    "rebuild:dur-windows": "node scripts/rebuild-dur-windows-from-operational-xlsx.js"
   },
   "repository": {
     "type": "git",

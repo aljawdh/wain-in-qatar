@@ -391,6 +391,7 @@ module.exports = {
   nowIso,
   createId,
   getKv,
+  kvStoreKey,
   appendCatchLog,
   getCatchLogs,
   appendStationSnapshot,
