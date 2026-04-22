@@ -15,6 +15,9 @@ const {
   normalizeWorkbookCityName
 } = require('./_lib/workbook-city-index');
 const { deriveWorkbookDurPreviewAcrossCityCycles } = require('./_lib/workbook-dur-preview');
+const { getOperationalWindows } = require('./_lib/operational-durur-workbook');
+const { resolveSuhailAnchorFromSources } = require('./_lib/suhail-anchor-resolution-engine');
+const { nowIso } = require('./_lib/data-store');
 
 function applyCorsHeaders(res) {
   res.setHeader('Content-Type', 'application/json');
@@ -247,38 +250,76 @@ module.exports = async function astroDurApiHandler(req, res) {
           message_ar: 'يجب ربط المحطة بمدينة المصنف أولاً',
           station_id: anchorSid,
           year: anchorYear,
-          workbook_city_name: null
+          workbook_city_name: null,
+          resolution_engine: 'suhail_operational_v1'
         });
       }
 
-      var normCity = String(cityNameA || '')
-        .trim()
-        .normalize('NFC');
-      var starList = Array.isArray(starEvents.events) ? starEvents.events : [];
-      var hit = starList.find(function (ev) {
-        if (!ev || !ev.city) return false;
-        if (String(ev.star_key || '').toLowerCase() !== 'suhail') return false;
-        if (ev.calendar_profile !== 'operational_v1') return false;
-        if (Number(ev.year) !== anchorYear) return false;
-        return (
-          String(ev.city || '')
-            .trim()
-            .normalize('NFC') === normCity
-        );
-      });
-
-      if (!hit || !hit.event_date) {
+      var operLoad = await getOperationalWindows();
+      if (!operLoad.ok || !Array.isArray(operLoad.windows)) {
         return res.status(200).json({
           ok: true,
           path: 'workbook-suhail-anchor',
           found: false,
-          state: 'not_found',
-          message_ar: 'لم يتم العثور على مرساة سهيل لهذه المدينة',
+          state: 'operational_workbook_error',
+          message_ar: 'تعذّر قراءة مصنف الدور التشغيلي.',
           station_id: anchorSid,
           year: anchorYear,
-          workbook_city_name: cityNameA
+          workbook_city_name: cityNameA,
+          operational_reason: operLoad.reason || null,
+          resolution_engine: 'suhail_operational_v1'
         });
       }
+
+      var resolved = await resolveSuhailAnchorFromSources({
+        star_events_doc: starEvents,
+        operational_windows: operLoad.windows,
+        city_name: cityNameA,
+        year: anchorYear
+      });
+
+      if (!resolved.ok) {
+        var stMap = resolved.reason === 'star_event_not_found' ? 'not_found' : 'resolution_failed';
+        var msg =
+          resolved.reason === 'star_event_not_found'
+            ? 'لم يتم العثور على مرساة سهيل لهذه المدينة'
+            : resolved.reason === 'date_outside_operational_workbook'
+              ? 'تاريخ سهيل الفلكي خارج مصنف الدور التشغيلي لهذه الفترة.'
+              : 'تعذّر حساب مرساة الدور.';
+        return res.status(200).json({
+          ok: true,
+          path: 'workbook-suhail-anchor',
+          found: resolved.reason !== 'star_event_not_found',
+          state: stMap,
+          message_ar: msg,
+          station_id: anchorSid,
+          year: anchorYear,
+          workbook_city_name: cityNameA,
+          astronomical_event_date: resolved.astronomical_event_date || null,
+          resolution_failure: resolved.reason || null,
+          resolution_engine: resolved.engine_version || 'suhail_operational_v1'
+        });
+      }
+
+      var star = resolved.star_event;
+      var oper = resolved.operational;
+
+      var suhail_anchor_resolution = {
+        engine_version: resolved.engine_version,
+        resolved_at: nowIso(),
+        astronomical_event_date: star.event_date,
+        operational_workbook_file: 'data/navidur_operational_durur_2025_2026.xlsx',
+        operational_cycle_label: oper.cycle_label || null,
+        dur_name_ar: oper.dur_name_ar,
+        day_in_dur: oper.day_in_dur,
+        days_remaining_in_dur: oper.days_remaining_in_dur,
+        next_dur_name_ar: oper.next_dur_name_ar || null,
+        current_dur_start_iso: oper.current_dur_start_iso || null,
+        current_dur_end_iso: oper.current_dur_end_iso || null,
+        next_dur_start_iso: oper.next_dur_start_iso || null,
+        star_events_year: anchorYear,
+        workbook_city_name_used: cityNameA
+      };
 
       return res.status(200).json({
         ok: true,
@@ -288,13 +329,26 @@ module.exports = async function astroDurApiHandler(req, res) {
         station_id: anchorSid,
         year: anchorYear,
         workbook_city_name: cityNameA,
-        event_date: String(hit.event_date).trim(),
-        time_utc: hit.time_utc != null && String(hit.time_utc).trim() !== '' ? String(hit.time_utc).trim() : null,
-        star_alt_deg: hit.star_alt_deg != null ? Number(hit.star_alt_deg) : null,
-        source: hit.source || 'workbook_import',
-        source_sheet: hit.source_sheet || null,
-        star_key: String(hit.star_key || '').toLowerCase() || 'suhail',
-        calendar_profile: hit.calendar_profile || 'operational_v1'
+        resolution_engine: resolved.engine_version,
+        event_date: star.event_date,
+        time_utc: star.time_utc || null,
+        star_alt_deg: star.star_alt_deg != null ? Number(star.star_alt_deg) : null,
+        source: star.source || 'workbook_import',
+        source_sheet: star.source_sheet || null,
+        star_key: 'suhail',
+        calendar_profile: 'operational_v1',
+        operational_cycle_label: oper.cycle_label,
+        dur_name_ar: oper.dur_name_ar,
+        day_in_dur: oper.day_in_dur,
+        days_remaining_in_dur: oper.days_remaining_in_dur,
+        days_elapsed_in_dur: oper.days_elapsed_in_dur != null ? oper.days_elapsed_in_dur : null,
+        next_dur_name_ar: oper.next_dur_name_ar || null,
+        current_dur_start_iso: oper.current_dur_start_iso || null,
+        current_dur_end_iso: oper.current_dur_end_iso || null,
+        next_dur_start_iso: oper.next_dur_start_iso || null,
+        operational_windows_preview: Array.isArray(oper.windows_28) ? oper.windows_28.slice(0, 4) : [],
+        operational_windows_total: Array.isArray(oper.windows_28) ? oper.windows_28.length : 0,
+        suhail_anchor_resolution: suhail_anchor_resolution
       });
     }
 

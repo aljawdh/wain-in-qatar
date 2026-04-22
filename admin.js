@@ -63,6 +63,8 @@
   var _waterCheckTimer = null;
   var _stationEditMode = false;
   var _stationNameUserEdited = false;
+  var _lastStationFormId = null;
+  var _pendingSuhailAnchorResolution = null;
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -3797,6 +3799,12 @@
         payload.workbook_assignment_status = 'needs_review';
       }
     }
+    payload.suhail_anchor_resolution =
+      _pendingSuhailAnchorResolution != null
+        ? _pendingSuhailAnchorResolution
+        : prev && prev.suhail_anchor_resolution
+          ? prev.suhail_anchor_resolution
+          : null;
     if (prev && !!prev.is_reference_station === !!payload.is_reference_station) {
       payload.is_operational_station = prev.is_operational_station;
       payload.operational_visibility = prev.operational_visibility;
@@ -3984,6 +3992,10 @@
   function fillStationForm(st, editMode) {
     _stationEditMode = (editMode !== false);
     _stationNameUserEdited = false;
+    if (String(_lastStationFormId || '') !== String((st && st.id) || '')) {
+      _pendingSuhailAnchorResolution = null;
+    }
+    _lastStationFormId = (st && st.id) || '';
     getEl('stId').value = st.id || '';
     if (isAdminMode()) {
       console.info('[admin][station-edit]', { stationIdLoaded: st.id || null });
@@ -4121,6 +4133,8 @@
     clearReadOnlyDurProfile('--');
     clearStationLocalDurPanel();
     clearAdminAnalysisDisplay('جاهز');
+    _lastStationFormId = null;
+    _pendingSuhailAnchorResolution = null;
     console.info('[RESET_DONE]');
   }
 
@@ -5476,8 +5490,16 @@
         alert('يجب ربط المحطة بمدينة المصنف أولاً');
         return;
       }
+      if (j.state === 'operational_workbook_error') {
+        alert(j.message_ar || 'تعذّر قراءة مصنف الدور التشغيلي.');
+        return;
+      }
+      if (j.state && j.state !== 'ok') {
+        alert(j.message_ar || 'تعذّر إكمال الربط التشغيلي لمرساة سهيل.');
+        return;
+      }
       if (!j.found) {
-        alert('لم يتم العثور على مرساة سهيل لهذه المدينة');
+        alert(j.message_ar || 'لم يتم العثور على مرساة سهيل أو فشل الربط التشغيلي.');
         return;
       }
       var d = j.event_date;
@@ -5486,15 +5508,30 @@
         return;
       }
       var ds = String(d).slice(0, 10);
-      var msg = 'تم العثور على مرساة سهيل: ' + ds + ' — هل تريد اعتمادها؟';
-      if (!window.confirm(msg)) return;
+      var durN = j.dur_name_ar != null ? String(j.dur_name_ar) : '—';
+      var dayIn = j.day_in_dur != null ? String(j.day_in_dur) : '—';
+      var rem = j.days_remaining_in_dur != null ? String(j.days_remaining_in_dur) : '—';
+      var nextN = j.next_dur_name_ar != null ? String(j.next_dur_name_ar) : '—';
+      var summary =
+        'تاريخ سهيل الفلكي: ' +
+        ds +
+        '\nالدر (من مصنف التشغيل): ' +
+        durN +
+        '\nاليوم داخل الدر: ' +
+        dayIn +
+        '\nالمتبقي في الدر: ' +
+        rem +
+        ' يومًا' +
+        '\nالدر التالي: ' +
+        nextN +
+        '\n\nاعتماد المراساة وحفظ حالة الدور المحلولة مع المحطة؟';
+      if (!window.confirm(summary)) return;
+      _pendingSuhailAnchorResolution = j.suhail_anchor_resolution ? Object.assign({}, j.suhail_anchor_resolution) : null;
       var suhailEl = getEl('stManualSuhailAnchorDate');
-      var cycleEl = getEl('stManualCycleStartDate');
       if (suhailEl) suhailEl.value = ds;
-      if (cycleEl) cycleEl.value = ds;
       if (status) {
         status.textContent =
-          'تم تعبئة مرساة سهيل من المصنف في النموذج فقط — اضغط «حفظ محطة» لتثبيت التغيير.';
+          'تم تعبئة المراساة وحالة الدور من محرّك المصنف التشغيلي — اضغط «حفظ محطة» لتثبيت البيانات.';
       }
     } catch (e) {
       alert('خطأ: ' + (e && e.message ? e.message : e));

@@ -7,7 +7,6 @@ const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib
 const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
 const { regenerateStationLocalDurWindows, removeStationLocalDurWindowsRecord } = require('../_lib/station-local-dur-persist');
 const { resolveStationLocalDurAtDate, utcTodayIso } = require('../_lib/station-local-dur-resolver');
-const { getManualAnchorRuleForStation } = require('../_lib/station-local-dur-anchor-config');
 
 async function writeAudit(action, actor, details) {
   const audit = await readJsonFile('audit', []);
@@ -842,7 +841,18 @@ module.exports = async function handler(req, res) {
         return s && String(s.id) === stationId;
       })
       : null;
-    const anchorRule = stationRow ? getManualAnchorRuleForStation(stationRow) : null;
+    var anchorRule = null;
+    if (stationRow && stationRow.suhail_anchor_resolution && stationRow.suhail_anchor_resolution.dur_name_ar != null) {
+      anchorRule = {
+        anchor_dur_name_ar: stationRow.suhail_anchor_resolution.dur_name_ar,
+        anchor_day_in_dur: stationRow.suhail_anchor_resolution.day_in_dur
+      };
+    } else if (record && record.anchor_dur_name_ar != null) {
+      anchorRule = {
+        anchor_dur_name_ar: record.anchor_dur_name_ar,
+        anchor_day_in_dur: record.anchor_day_in_dur
+      };
+    }
     var current = null;
     if (record && record.generation_ok && Array.isArray(record.windows)) {
       current = resolveStationLocalDurAtDate(record.windows, isoDate);

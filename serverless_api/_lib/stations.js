@@ -64,6 +64,28 @@ function normalizeTags(tags, category, featured) {
   return Array.from(new Set(cleaned)).slice(0, 20);
 }
 
+function normalizeSuhailAnchorResolution(input, base) {
+  const use = input !== undefined ? input : base;
+  if (use == null) return null;
+  if (typeof use !== 'object' || Array.isArray(use)) return null;
+  return {
+    engine_version: cleanString(use.engine_version, 40) || null,
+    resolved_at: cleanString(use.resolved_at, 40) || null,
+    astronomical_event_date: normalizeIsoDate(use.astronomical_event_date) || null,
+    operational_workbook_file: cleanString(use.operational_workbook_file, 200) || null,
+    operational_cycle_label: cleanString(use.operational_cycle_label, 40) || null,
+    dur_name_ar: cleanString(use.dur_name_ar, 120) || null,
+    day_in_dur: Number.isFinite(Number(use.day_in_dur)) ? Number(use.day_in_dur) : null,
+    days_remaining_in_dur: Number.isFinite(Number(use.days_remaining_in_dur)) ? Number(use.days_remaining_in_dur) : null,
+    next_dur_name_ar: cleanString(use.next_dur_name_ar, 120) || null,
+    current_dur_start_iso: normalizeIsoDate(use.current_dur_start_iso) || null,
+    current_dur_end_iso: normalizeIsoDate(use.current_dur_end_iso) || null,
+    next_dur_start_iso: normalizeIsoDate(use.next_dur_start_iso) || null,
+    star_events_year: Number.isFinite(Number(use.star_events_year)) ? Number(use.star_events_year) : null,
+    workbook_city_name_used: cleanString(use.workbook_city_name_used, 120) || null
+  };
+}
+
 function validateStationInput(input) {
   const name = cleanString(input.name, 100);
   const lat = toNumber(input.lat);
@@ -150,6 +172,10 @@ function normalizeStationInput(input, existing) {
     ),
     workbook_assignment_status: normalizeWorkbookAssignmentStatus(
       input.workbook_assignment_status !== undefined ? input.workbook_assignment_status : base.workbook_assignment_status
+    ),
+    suhail_anchor_resolution: normalizeSuhailAnchorResolution(
+      input.suhail_anchor_resolution,
+      base.suhail_anchor_resolution
     ),
     created_at: base.created_at || now,
     updated_at: now
