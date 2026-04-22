@@ -593,6 +593,117 @@
     }) || phases[phases.length - 1];
   }
 
+  function nfcString(value) {
+    var raw = normalizeString(value);
+    try {
+      return raw.normalize ? raw.normalize('NFC') : raw;
+    } catch (_err) {
+      return raw;
+    }
+  }
+
+  function parseIsoDateUtcMidnight(iso) {
+    var m = String(iso || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    var d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function matchDurMasterRowForLocalWindow(durRows, localWindow) {
+    var rows = sortDurRows(durRows);
+    var byId = normalizeString(localWindow && localWindow.dur_id);
+    var byName = nfcString(localWindow && localWindow.dur_name_ar);
+    var ri;
+    if (byId) {
+      for (ri = 0; ri < rows.length; ri += 1) {
+        if (normalizeString(rows[ri] && rows[ri].id) === byId) return rows[ri];
+      }
+    }
+    if (byName) {
+      for (ri = 0; ri < rows.length; ri += 1) {
+        var row = rows[ri];
+        var rn = nfcString(row && (row.name_ar || row.name || row.name_en));
+        if (rn === byName) return row;
+      }
+    }
+    return null;
+  }
+
+  function buildSyntheticDurRowFromLocalWindow(localWindow) {
+    var days = Math.max(1, toNumber(localWindow && localWindow.days) || DEFAULT_DURUR_LENGTH_DAYS);
+    var seq = toNumber(localWindow && localWindow.sequence_index);
+    return normalizeDurRow({
+      id: normalizeString(localWindow && localWindow.dur_id) || ('local_' + normalizeString(localWindow && localWindow.dur_name_ar)),
+      dur_number: seq,
+      order_index: seq,
+      default_days_count: days,
+      name_ar: normalizeString(localWindow && localWindow.dur_name_ar),
+      phases: []
+    });
+  }
+
+  /**
+   * When station_dur_windows exists for this station and analysis date falls inside a window,
+   * use it as the ONLY dur timeline source (aligned with admin anchor pipeline).
+   * @returns {object|null} durInfo compatible with buildDurTimeline output, or null to fall back.
+   */
+  function tryResolveStationLocalDurTimeline(referenceData, station, analysisDate) {
+    var doc = referenceData && referenceData.station_dur_windows;
+    if (!doc || typeof doc.stations !== 'object') return null;
+    var sid = normalizeString(station && station.id);
+    if (!sid) return null;
+    var rec = doc.stations[sid];
+    if (!rec || !rec.generation_ok || !Array.isArray(rec.windows) || rec.windows.length < 1) return null;
+
+    var iso = analysisDate.toISOString().slice(0, 10);
+    var windows = rec.windows;
+    var idx = -1;
+    var lw = null;
+    var wi;
+    for (wi = 0; wi < windows.length; wi += 1) {
+      var w = windows[wi];
+      if (!w || !w.start_date || !w.end_date) continue;
+      if (iso >= w.start_date && iso <= w.end_date) {
+        idx = wi;
+        lw = w;
+        break;
+      }
+    }
+    if (!lw || idx < 0) return null;
+
+    var durRows = referenceData && referenceData.durur_reference;
+    var durRow = matchDurMasterRowForLocalWindow(durRows, lw) || buildSyntheticDurRowFromLocalWindow(lw);
+    var nextIdx = (idx + 1) % windows.length;
+    var nw = windows[nextIdx];
+    var nextDurRow = matchDurMasterRowForLocalWindow(durRows, nw) || buildSyntheticDurRowFromLocalWindow(nw);
+
+    var start = parseIsoDateUtcMidnight(lw.start_date);
+    var end = parseIsoDateUtcMidnight(lw.end_date);
+    var nstart = parseIsoDateUtcMidnight(nw.start_date);
+    var nend = parseIsoDateUtcMidnight(nw.end_date);
+    if (!start || !end || !nstart || !nend) return null;
+
+    var anchorIso = normalizeString(rec.anchor_date);
+    var anchorDateParsed = anchorIso ? parseIsoDateUtcMidnight(anchorIso) : null;
+    var cycleStartDate = windows[0] && windows[0].start_date ? parseIsoDateUtcMidnight(windows[0].start_date) : null;
+
+    return {
+      current: { durRow: durRow, start: start, end: end },
+      next: { durRow: nextDurRow, start: nstart, end: nend },
+      timeline: null,
+      suhail_anchor: anchorDateParsed,
+      cycle_start: cycleStartDate,
+      timing_source: 'station_local_windows',
+      timing_source_label_ar: 'نوافذ الدور المحلية للمحطة',
+      calibration_reference_station: null,
+      calibration_latitude_band_key: null,
+      calibration_selection_reason: '',
+      calibration_delta_days: 0,
+      base_suhail_anchor: anchorDateParsed,
+      from_station_local_windows: true
+    };
+  }
+
   function buildDurTimeline(referenceData, station, analysisDate, runtimeOverride) {
     var durRows = sortDurRows(referenceData && referenceData.durur_reference);
     if (!durRows.length) return { current: null, next: null };
@@ -1009,6 +1120,9 @@
   function normalizeReferenceData(referenceData) {
     var source = referenceData || {};
     var dururReference = sortDurRows(source.durur_master || []).map(normalizeDurRow);
+    var sdw = source.station_dur_windows;
+    if (!sdw || typeof sdw !== 'object') sdw = { version: 1, stations: {} };
+    if (!sdw.stations || typeof sdw.stations !== 'object') sdw = Object.assign({}, sdw, { stations: {} });
 
     return {
       stations: toArray(source.stations).map(normalizeStationRecord),
@@ -1021,7 +1135,8 @@
       station_profiles: toArray(source.station_profiles || source.station_dur_profiles),
       overrides: toArray(source.overrides || source.station_dur_overrides),
       reference_overrides: toArray(source.durur_overrides || source.reference_overrides),
-      rules_config: source.rules_config || null
+      rules_config: source.rules_config || null,
+      station_dur_windows: sdw
     };
   }
 
@@ -1041,7 +1156,10 @@
     var runtimeOverride = normalizeRuntimeOverride(options.overrides);
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
-    var durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
+    var durInfo = tryResolveStationLocalDurTimeline(referenceData, station, analysisDate);
+    if (!durInfo) {
+      durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
+    }
     var currentDur = durInfo.current;
     var nextDur = durInfo.next;
     var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
@@ -1116,6 +1234,7 @@
         calibration_latitude_band_key: normalizeString(durInfo && durInfo.calibration_latitude_band_key),
         calibration_selection_reason: normalizeString(durInfo && durInfo.calibration_selection_reason),
         calibration_delta_days: toNumber(durInfo && durInfo.calibration_delta_days),
+        timing_from_station_local_windows: !!(durInfo && durInfo.from_station_local_windows),
         reference: durReferenceMetadata,
         active_phase_id: normalizeString(activePhase && activePhase.phase_id),
         active_phase_reference: activePhaseReferenceMetadata,
