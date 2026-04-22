@@ -7,6 +7,7 @@ const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib
 const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
 const { regenerateStationLocalDurWindows, removeStationLocalDurWindowsRecord } = require('../_lib/station-local-dur-persist');
 const { resolveStationLocalDurAtDate, utcTodayIso } = require('../_lib/station-local-dur-resolver');
+const { getResolvedLocalDurSnapshot } = require('../../shared/resolved-station-dur-snapshot');
 
 async function writeAudit(action, actor, details) {
   const audit = await readJsonFile('audit', []);
@@ -835,6 +836,7 @@ module.exports = async function handler(req, res) {
     const isoDate = isoRaw && /^\d{4}-\d{2}-\d{2}$/.test(isoRaw) ? isoRaw : utcTodayIso();
     const doc = await readJsonFile('station_dur_windows', { version: 1, stations: {} });
     const record = doc.stations && doc.stations[stationId] ? doc.stations[stationId] : null;
+    const dururMaster = await readJsonFile('durur_master', []);
     const stationRows = await readJsonFile('stations', []);
     const stationRow = Array.isArray(stationRows)
       ? stationRows.find(function (s) {
@@ -855,7 +857,15 @@ module.exports = async function handler(req, res) {
     }
     var current = null;
     if (record && record.generation_ok && Array.isArray(record.windows)) {
-      current = resolveStationLocalDurAtDate(record.windows, isoDate);
+      const snap = getResolvedLocalDurSnapshot({
+        station_dur_windows: doc,
+        stationId: stationId,
+        asOfIso: isoDate,
+        durur_reference: Array.isArray(dururMaster) ? dururMaster : []
+      });
+      current = snap && snap.resolved_window_snapshot
+        ? snap.resolved_window_snapshot
+        : resolveStationLocalDurAtDate(record.windows, isoDate);
     }
     return res.status(200).json({
       ok: true,

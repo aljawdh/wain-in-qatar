@@ -2383,6 +2383,7 @@
 
   function getTimingSourceLabel(dur) {
     var source = dur && dur.timing_source ? dur.timing_source : '';
+    if (source === 'resolved_local_station_windows') return 'نوافذ الدور المحلية (المصنف التشغيلي)';
     if (source === 'calibrated_reference_anchor') return 'مرجع يدوي معتمد';
     if (source === 'nearest_reference_station') return 'محطة مرجعية قريبة';
     return 'المحرك الأساسي';
@@ -2398,6 +2399,9 @@
 
   function buildTimingStatusText(dur) {
     var parts = [getTimingSourceLabel(dur)];
+    if (dur && dur.timing_as_of) {
+      parts.push('اعتباراً من ' + dur.timing_as_of);
+    }
     if (dur && dur.calibration_reference_station_name && dur.timing_source !== 'pure_engine') {
       parts.push(dur.calibration_reference_station_name);
     }
@@ -4047,7 +4051,7 @@
     _currentDururProfileSource = dururProfile.source || 'reference';
     fillDururProfile(st);
     _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
-    void refreshStationLocalDurReadout(st);
+    void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
 
   }
 
@@ -4055,8 +4059,14 @@
     opts = opts || {};
     var dto = currentStationAnalysisDto;
     var manualAnchor = !!(station && station.manual_suhail_anchor_date && station.id);
+    if (dto && station && station.id && dto.station_id === station.id && dto.dur && dto.dur.timing_from_resolved_local) {
+      renderReadOnlyDurProfile(dto);
+      if (manualAnchor) syncLocalDurPanelFromResolvedAnalysisDto(dto, station);
+      return;
+    }
     if (manualAnchor && !opts.forceEngine) {
       clearReadOnlyDurProfile('جاري تحميل الدر من النوافذ المحلية للمرساة...');
+      void refreshStationLocalDurReadout(station, opts.as_of_iso || getCanonicalNavidurAsOfIso());
       return;
     }
     if (dto && station && station.id && dto.station_id === station.id) {
@@ -4162,7 +4172,30 @@
     if (statusEl) statusEl.textContent = 'من النوافذ المحلية للمرساة اليدوية (ليست قراءة المحرك العام)';
   }
 
-  function refreshStationLocalDurReadout(st) {
+  /** When analysis DTO is resolved_local, local panel + ملف الدرة share the same numbers (no parallel GET). */
+  function syncLocalDurPanelFromResolvedAnalysisDto(dto, st) {
+    if (!st || !st.id || !dto || !dto.dur) return;
+    var dur = dto.dur;
+    if (!getEl('stStationLocalDurDetails')) return;
+    setReadOnlyFieldValue('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date || '--');
+    var sar = st.suhail_anchor_resolution;
+    if (sar && sar.dur_name_ar != null) {
+      setReadOnlyFieldValue('stStationLocalAnchorMeaningRo', sar.dur_name_ar + ' / اليوم ' + String(sar.day_in_dur));
+    }
+    setReadOnlyFieldValue('stStationLocalDurNameRo', dur.period_name || '--');
+    setReadOnlyFieldValue('stStationLocalDayInDurRo', dur.day_in_period != null ? String(dur.day_in_period) : '--');
+    setReadOnlyFieldValue('stStationLocalStartRo', dur.period_start_date || '--');
+    setReadOnlyFieldValue('stStationLocalEndRo', dur.period_end_date || '--');
+    setReadOnlyFieldValue('stStationLocalNextRo', dur.next_period_name || '--');
+    var msg = getEl('stStationLocalDurMsg');
+    if (msg) {
+      msg.textContent = dur.timing_as_of
+        ? 'موحّد مع تحليل المحطة (اعتباراً من ' + dur.timing_as_of + ')'
+        : 'موحّد مع تحليل المحطة';
+    }
+  }
+
+  function refreshStationLocalDurReadout(st, asOfIso) {
     if (!getEl('stStationLocalDurDetails')) return;
     if (!st || !st.id) {
       clearStationLocalDurPanel();
@@ -4172,9 +4205,15 @@
       clearStationLocalDurPanel();
       return;
     }
+    var asOf = (asOfIso && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfIso).trim()))
+      ? String(asOfIso).trim()
+      : getCanonicalNavidurAsOfIso();
     var msg = getEl('stStationLocalDurMsg');
     if (msg) msg.textContent = 'جاري تحميل النوافذ المحلية...';
-    apiFetch('/api?route=admin&path=station-dur-windows&station_id=' + encodeURIComponent(st.id), { method: 'GET' })
+    apiFetch(
+      '/api?route=admin&path=station-dur-windows&station_id=' + encodeURIComponent(st.id) + '&iso_date=' + encodeURIComponent(asOf),
+      { method: 'GET' }
+    )
       .then(function (res) {
         if (!res.ok) throw new Error('station_dur_windows_fetch_failed');
         return res.json();
@@ -4183,7 +4222,7 @@
         var anchorRule = data.anchor_rule_from_config;
         var record = data.record;
         var current = data.current;
-        var asOf = data.as_of || '';
+        var asOfLabel = data.as_of || '';
 
         setReadOnlyFieldValue('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date || '--');
         if (anchorRule && anchorRule.anchor_dur_name_ar != null) {
@@ -4207,7 +4246,7 @@
           if (msg) {
             msg.textContent =
               'اعتباراً من ' +
-              asOf +
+              asOfLabel +
               (record.generated_at ? ' · أُنشئت النوافذ عند ' + record.generated_at : '');
           }
           renderReadOnlyDurProfileFromLocal(current);
@@ -4229,7 +4268,7 @@
               : !record || !record.generation_ok
                 ? 'لم تُولَّد نوافذ محلية (تحقق من التاريخ أو تسلسل الدور في الخادم).'
                 : 'التاريخ ' +
-                  asOf +
+                  asOfLabel +
                   ' خارج نطاق دورة المحطة المحلية المحسوبة.';
         }
         fillDururProfile(st, { forceEngine: true });
@@ -4265,19 +4304,24 @@
     var analysisDate = dto && dto.analysis_timestamp ? new Date(dto.analysis_timestamp) : null;
     var startDate = null;
     var endDate = null;
-    if (analysisDate && dur.day_in_period != null) {
-      startDate = new Date(analysisDate.getTime());
-      startDate.setUTCDate(startDate.getUTCDate() - Math.max(0, Number(dur.day_in_period || 1) - 1));
+    if (dur.timing_from_resolved_local && dur.period_start_date && dur.period_end_date) {
+      startDate = dur.period_start_date;
+      endDate = dur.period_end_date;
+    } else if (analysisDate && dur.day_in_period != null) {
+      var sd = new Date(analysisDate.getTime());
+      sd.setUTCDate(sd.getUTCDate() - Math.max(0, Number(dur.day_in_period || 1) - 1));
+      startDate = sd.toISOString().slice(0, 10);
     }
-    if (analysisDate && dur.days_remaining != null) {
-      endDate = new Date(analysisDate.getTime());
-      endDate.setUTCDate(endDate.getUTCDate() + Math.max(0, Number(dur.days_remaining || 0)));
+    if (!endDate && analysisDate && dur.days_remaining != null) {
+      var ed = new Date(analysisDate.getTime());
+      ed.setUTCDate(ed.getUTCDate() + Math.max(0, Number(dur.days_remaining || 0)));
+      endDate = ed.toISOString().slice(0, 10);
     }
     setReadOnlyFieldValue('stDururCurrentName', dur.period_name || '--');
     setReadOnlyFieldValue('stDururDayInPeriod', dur.day_in_period != null ? dur.day_in_period : '--');
     setReadOnlyFieldValue('stDururActivePhase', phase.title_ar || phase.phase_id || dur.active_phase_id || '--');
-    setReadOnlyFieldValue('stDururStartDate', startDate ? startDate.toISOString().slice(0, 10) : '--');
-    setReadOnlyFieldValue('stDururEndDate', endDate ? endDate.toISOString().slice(0, 10) : '--');
+    setReadOnlyFieldValue('stDururStartDate', startDate || '--');
+    setReadOnlyFieldValue('stDururEndDate', endDate || '--');
     setReadOnlyFieldValue('stDururNextName', dur.next_period_name || '--');
     setReadOnlyFieldValue('stDururDaysRemaining', dur.days_remaining != null ? dur.days_remaining : '--');
     var statusEl = getEl('stDururStatus');
@@ -4700,6 +4744,11 @@
     return date ? date.toISOString().split('T')[0] : '--';
   }
 
+  /** One explicit UTC calendar day for NaviDur: local GET, analysis POST, and profile must align. */
+  function getCanonicalNavidurAsOfIso() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   function getDurEndDate(dur, entryDate) {
     if (!dur || !entryDate || !dur.gregorian_end_month || !dur.gregorian_end_day) return null;
     var year = entryDate.getFullYear();
@@ -4743,12 +4792,14 @@
     renderStationAnalytics();
   }
 
-  async function fetchSharedLiveAnalysisBundle(station) {
+  async function fetchSharedLiveAnalysisBundle(station, opts) {
+    opts = opts || {};
     if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationAnalysis !== 'function') {
       throw new Error('shared_live_engine_unavailable');
     }
+    var nowIso = opts.datetime || new Date().toISOString();
     return window.NavidurLiveAnalysis.getStationAnalysis(station, {
-      datetime: new Date().toISOString()
+      datetime: nowIso
     });
   }
 
@@ -4789,7 +4840,9 @@
     };
 
     getEl('stAnalyticsDurName').textContent = dto.dur.period_name || '--';
-    getEl('stAnalyticsDurEntryDate').textContent = dto.analysis_timestamp ? dto.analysis_timestamp.slice(0, 10) : '--';
+    getEl('stAnalyticsDurEntryDate').textContent = (dto.dur && dto.dur.timing_as_of)
+      ? dto.dur.timing_as_of
+      : (dto.analysis_timestamp ? dto.analysis_timestamp.slice(0, 10) : '--');
     getEl('stAnalyticsDaysRemaining').textContent = dto.dur.days_remaining != null ? String(dto.dur.days_remaining) : '--';
     getEl('stAnalyticsNextDur').textContent = dto.dur.next_period_name || '--';
     var expectedPreviewTraits = uniqueNonEmptyValues([]
@@ -4815,7 +4868,13 @@
       var stSynced = stationsCache.find(function (s) {
         return s && String(s.id) === editedSid;
       });
-      if (stSynced && stSynced.manual_suhail_anchor_date) void refreshStationLocalDurReadout(stSynced);
+      if (stSynced && stSynced.manual_suhail_anchor_date) {
+        if (dto.dur && dto.dur.timing_from_resolved_local) {
+          syncLocalDurPanelFromResolvedAnalysisDto(dto, stSynced);
+        } else {
+          void refreshStationLocalDurReadout(stSynced, (dto.dur && dto.dur.timing_as_of) ? dto.dur.timing_as_of : getCanonicalNavidurAsOfIso());
+        }
+      }
     }
     getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
     refreshAllStationMarkers();
@@ -4877,8 +4936,9 @@
     today.setHours(0, 0, 0, 0);
     var currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
     var staticDur = currentDur && currentDur.id ? getDururById(currentDur.id) : null;
+    var analysisNowIso = new Date().toISOString();
     try {
-      var dto = await fetchSharedLiveAnalysisBundle(station);
+      var dto = await fetchSharedLiveAnalysisBundle(station, { datetime: analysisNowIso });
       if (requestToken !== currentAnalysisRequestToken) return;
       staticDur = dto && dto.dur ? dto.dur : staticDur;
       renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', currentAnalyticsPeriod === 'now' ? 'تم تحديث القراءة الحية' : 'تم تحديث القراءة الحالية');

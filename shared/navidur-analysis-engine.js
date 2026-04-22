@@ -1072,7 +1072,7 @@
     var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
     var seasonKey = getSeasonKeyFromDate(analysisDate);
     var resolvedSnap = durInfo && durInfo.resolved_window_snapshot;
-    var fromResolved = !!(durInfo && durInfo.from_resolved_local_stations_dur_windows);
+    var fromResolved = !!(durInfo && durInfo.timing_from_resolved_local);
     var dayInPeriod = fromResolved && resolvedSnap && resolvedSnap.day_in_dur != null
       ? toNumber(resolvedSnap.day_in_dur)
       : (currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null);
@@ -1145,11 +1145,15 @@
           : '',
         next_period_start_date: nextDur && nextDur.start ? nextDur.start.toISOString().slice(0, 10) : '',
         next_period_end_date: nextDur && nextDur.end ? nextDur.end.toISOString().slice(0, 10) : '',
-        timing_resolution: fromResolved ? 'resolved_local_stations_dur_windows' : 'legacy_suhail_engine',
+        timing_resolution: fromResolved ? 'resolved_local_station_windows' : 'legacy_suhail_engine',
+        timing_as_of: fromResolved && durInfo && durInfo.timing_as_of ? normalizeString(durInfo.timing_as_of) : '',
+        timing_from_resolved_local: fromResolved,
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
         base_suhail_anchor_date: durInfo && durInfo.base_suhail_anchor ? durInfo.base_suhail_anchor.toISOString().slice(0, 10) : '',
         cycle_start_date: durInfo && durInfo.cycle_start ? durInfo.cycle_start.toISOString().slice(0, 10) : '',
-        timing_source: normalizeString(durInfo && durInfo.timing_source),
+        timing_source: fromResolved
+          ? 'resolved_local_station_windows'
+          : normalizeString(durInfo && durInfo.timing_source),
         timing_source_label_ar: normalizeString(durInfo && durInfo.timing_source_label_ar),
         calibration_reference_station_id: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.id),
         calibration_reference_station_name: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.name),
