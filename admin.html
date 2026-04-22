@@ -832,7 +832,13 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </details>
             <div class="admin-form-grid" style="margin-top:14px">
               <div class="admin-field"><label>خط العرض (latitude_band_key)</label><input id="astroPreviewBandInput" type="text" placeholder="gulf_mid_south"></div>
-              <div class="admin-field"><label>السنة</label><input id="astroPreviewYearInput" type="number" min="2020" max="2100" value="2026"></div>
+              <div class="admin-field"><label>سنة دورة المصنف (مساعد — اختياري)</label><input id="astroPreviewYearInput" type="number" min="2020" max="2100" value="2026"></div>
+              <div class="admin-field full">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input type="checkbox" id="astroPreviewRestrictWorkbookCycle">
+                  <span>تقييد البحث بتلك السنة فقط (عرض دورة واحدة؛ يترك المعاينة عبر الدورات عند الإيقاف)</span>
+                </label>
+              </div>
               <div class="admin-field"><label>محطة (اختياري)</label><select id="astroPreviewStationSelect"><option value="">—</option></select></div>
               <div class="admin-field"><label>تاريخ المعاينة (غرينتش، اختياري)</label><input id="astroPreviewDateInput" type="date"></div>
               <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="astroPreviewBtn">معاينة النوافذ</button></div>

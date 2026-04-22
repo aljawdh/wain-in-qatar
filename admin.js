@@ -3892,13 +3892,9 @@
       pre.textContent = '—';
       return;
     }
-    var yEl = getEl('stWorkbookPreviewYear');
     var dEl = getEl('stWorkbookPreviewDate');
-    var y = yEl ? Number(yEl.value) : NaN;
     var iso = dEl && dEl.value ? String(dEl.value).trim() : '';
-    var q =
-      'path=workbook-preview&station_id=' + encodeURIComponent(sid) +
-      '&year=' + encodeURIComponent(Number.isFinite(y) ? y : new Date().getUTCFullYear());
+    var q = 'path=workbook-preview&station_id=' + encodeURIComponent(sid);
     if (iso) q += '&date=' + encodeURIComponent(iso);
     pre.textContent = '...';
     apiFetch(ASTRO_DUR_ENDPOINT + '&' + q)
@@ -5118,14 +5114,34 @@
         '</p></div>'
       );
     }
-    if (j.state === 'missing_year_source') {
+    if (j.state === 'missing_year_source' || j.state === 'no_windows_for_city') {
       return (
         src +
         '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
-        escapeHtml(j.message_ar || 'لا توجد نوافذ لهذه السنة.') +
+        escapeHtml(j.message_ar || 'لا توجد نوافذ لهذه المدينة في المصنف.') +
         '</p><div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' +
         escapeHtml(j.workbook_city_name || '—') +
         '</span></div></div>'
+      );
+    }
+
+    if (j.state === 'date_outside_workbook_windows' || j.state === 'no_windows_for_workbook_cycle' || j.state === 'bad_iso_date') {
+      return (
+        src +
+        '<div class="astro-card">' +
+        '<h5 class="astro-card-title">معاينة الدر الميلادي (المصنف)</h5>' +
+        '<div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' +
+        escapeHtml(j.workbook_city_name || '—') +
+        '</span></div>' +
+        '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ المعاينة الميلادي</span><span class="astro-kv-v">' +
+        escapeHtml(j.gregorian_preview_date || j.iso_date || '—') +
+        '</span></div>' +
+        '<div class="astro-kv-row"><span class="astro-kv-k">سنة دورة المصنف</span><span class="astro-kv-v">' +
+        astroFmtNum(j.workbook_cycle_year) +
+        '</span></div>' +
+        '<p style="margin:10px 0 0;color:#ffb3b3">' +
+        escapeHtml(j.message_ar || '—') +
+        '</p></div>'
       );
     }
 
@@ -5135,30 +5151,46 @@
     var modeAr = astroWorkbookModeAr(st.workbook_match_mode);
     var statAr = astroAssignmentAr(st.workbook_assignment_status);
 
+    var gregDate = escapeHtml(j.gregorian_preview_date || j.iso_date || '—');
+    var gYear = j.gregorian_year_of_preview_date != null ? astroFmtNum(j.gregorian_year_of_preview_date) : '—';
+    var cycleY = j.workbook_cycle_year != null ? astroFmtNum(j.workbook_cycle_year) : astroFmtNum(j.year);
+    var diffNote =
+      j.cycle_year_differs_from_gregorian_year === true
+        ? '<div class="astro-kv-row"><span class="astro-kv-k">ملاحظة</span><span class="astro-kv-v">سنة التقويم الميلادي للتاريخ (' +
+          gYear +
+          ') تختلف عن سنة دورة المصنف (' +
+          cycleY +
+          ')</span></div>'
+        : '';
+
     var durHtml =
       '<div class="astro-card">' +
       '<h5 class="astro-card-title">معاينة الدر الميلادي (المصنف)</h5>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' + wbCity + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">وضع المطابقة</span><span class="astro-kv-v">' + modeAr + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">حالة التعيين</span><span class="astro-kv-v">' + statAr + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">السنة</span><span class="astro-kv-v">' + astroFmtNum(j.year) + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">اليوم (GMT)</span><span class="astro-kv-v">' + escapeHtml(j.iso_date || '—') + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">حالة الطلب</span><span class="astro-kv-v">' + escapeHtml(j.state || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ المعاينة الميلادي</span><span class="astro-kv-v">' + gregDate + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">سنة دورة المصنف</span><span class="astro-kv-v">' + cycleY + '</span></div>' +
+      diffNote +
+      '<div class="astro-kv-row"><span class="astro-kv-k">وضع البحث</span><span class="astro-kv-v">' +
+      escapeHtml(j.lookup_mode === 'restricted_workbook_cycle_year' ? 'مقيّد بدورة محددة' : 'بحث بالتاريخ عبر دورات المصنف') +
+      '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">المصدر</span><span class="astro-kv-v">workbook_import · معاينة إدارية فقط</span></div>' +
       '</div>';
 
     var curHtml =
       '<div class="astro-card">' +
-      '<h5 class="astro-card-title">الدر الحالي</h5>' +
+      '<h5 class="astro-card-title">الدرة الحالية</h5>' +
       '<div class="astro-grid">' +
-      '<div class="astro-stat"><span class="astro-stat-label">الاسم</span><span class="astro-stat-value">' + escapeHtml(cur.dur_name_ar || '—') + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">البداية</span><span class="astro-stat-value">' + escapeHtml(cur.dur_start || '—') + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">النهاية</span><span class="astro-stat-value">' + escapeHtml(cur.dur_end || '—') + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">اسم الدرة</span><span class="astro-stat-value">' + escapeHtml(cur.dur_name_ar || '—') + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">بداية الدر</span><span class="astro-stat-value">' + escapeHtml(cur.dur_start || '—') + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">نهاية الدر</span><span class="astro-stat-value">' + escapeHtml(cur.dur_end || '—') + '</span></div>' +
       '<div class="astro-stat"><span class="astro-stat-label">اليوم داخل الدر</span><span class="astro-stat-value">' + astroFmtNum(cur.day_in_dur) + '</span></div>' +
       '</div></div>';
 
     var nextHtml =
       '<div class="astro-card">' +
-      '<h5 class="astro-card-title">الدر التالي</h5>' +
+      '<h5 class="astro-card-title">الدرة التالية</h5>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">الاسم</span><span class="astro-kv-v">' + escapeHtml(nx.dur_name_ar || '—') + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">البداية</span><span class="astro-kv-v">' + escapeHtml(nx.dur_start || '—') + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">النهاية</span><span class="astro-kv-v">' + escapeHtml(nx.dur_end || '—') + '</span></div>' +
@@ -5168,7 +5200,7 @@
       return (
         src +
         durHtml +
-        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">لا يوجد در يغطي هذا التاريخ في نوافذ المصنف لهذه السنة.</p></div>'
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">لا يوجد در يطابق هذا التاريخ ضمن استجابة المعاينة.</p></div>'
       );
     }
 
@@ -5254,12 +5286,12 @@
 
     try {
       if (st) {
-        var qWb =
-          'path=workbook-preview&station_id=' +
-          encodeURIComponent(st) +
-          '&year=' +
-          encodeURIComponent(year || new Date().getUTCFullYear());
+        var qWb = 'path=workbook-preview&station_id=' + encodeURIComponent(st);
         if (isoDate) qWb += '&date=' + encodeURIComponent(isoDate);
+        var restrictEl = getEl('astroPreviewRestrictWorkbookCycle');
+        if (restrictEl && restrictEl.checked && year) {
+          qWb += '&workbook_cycle_year=' + encodeURIComponent(year);
+        }
         var resWb = await apiFetch(ASTRO_DUR_ENDPOINT + '&' + qWb, { method: 'GET' });
         if (!resWb.ok) throw new Error('http_' + resWb.status);
         var jWb = await resWb.json();

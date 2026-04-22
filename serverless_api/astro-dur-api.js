@@ -14,10 +14,7 @@ const {
   summarizeWorkbookMappingStats,
   normalizeWorkbookCityName
 } = require('./_lib/workbook-city-index');
-const {
-  filterWindowsForCityYear,
-  deriveWorkbookDurPreviewForDate
-} = require('./_lib/workbook-dur-preview');
+const { deriveWorkbookDurPreviewAcrossCityCycles } = require('./_lib/workbook-dur-preview');
 
 function applyCorsHeaders(res) {
   res.setHeader('Content-Type', 'application/json');
@@ -214,7 +211,9 @@ module.exports = async function astroDurApiHandler(req, res) {
 
     if (path === 'workbook-preview') {
       var previewSid = req.query.station_id ? String(req.query.station_id).trim() : '';
-      var previewYear = req.query.year != null ? Number(req.query.year) : new Date().getUTCFullYear();
+      /** Optional: restrict search to one workbook cycle year column (admin browse). Omit for Gregorian date resolution across cycles. */
+      var browseCycleYearRaw = req.query.workbook_cycle_year != null ? Number(req.query.workbook_cycle_year) : NaN;
+      var browseCycleYear = Number.isFinite(browseCycleYearRaw) ? browseCycleYearRaw : null;
       var previewDate = req.query.date ? String(req.query.date).trim() : isoTodayUtc();
       if (!previewSid) return res.status(400).json({ error: 'station_id_required' });
       var pst = Array.isArray(stationsAll)
@@ -248,42 +247,88 @@ module.exports = async function astroDurApiHandler(req, res) {
           message_ar: 'المحطة غير مربوطة بمدينة من المصنف.',
           station_id: previewSid,
           iso_date: previewDate,
-          year: Number.isFinite(previewYear) ? previewYear : null
+          gregorian_preview_date: previewDate,
+          workbook_cycle_year: null,
+          gregorian_year_of_preview_date: null,
+          cycle_year_differs_from_gregorian_year: false
         });
       }
 
       var wbRows = Array.isArray(durWindows.workbook_windows) ? durWindows.workbook_windows : [];
-      var yearRows = filterWindowsForCityYear(wbRows, cityName, previewYear);
-      if (!yearRows.length) {
+
+      var cityOnly = wbRows.filter(function (w) {
+        return (
+          w &&
+          String(w.city || '')
+            .trim()
+            .normalize('NFC') === String(cityName || '').trim().normalize('NFC')
+        );
+      });
+      if (!cityOnly.length) {
         return res.status(200).json({
           ok: true,
           path: 'workbook-preview',
           source: 'workbook_import',
           preview_engine: 'admin_workbook_only',
-          state: 'missing_year_source',
-          message_ar: 'لا توجد نوافذ مصنف لهذه المدينة والسنة.',
+          state: 'no_windows_for_city',
+          message_ar: 'لا توجد نوافذ مصنف لهذه المدينة في البيانات المستوردة.',
           station_id: previewSid,
           workbook_city_name: cityName,
+          gregorian_preview_date: previewDate,
           iso_date: previewDate,
-          year: Number.isFinite(previewYear) ? previewYear : null
+          workbook_cycle_year: null,
+          gregorian_year_of_preview_date: null,
+          cycle_year_differs_from_gregorian_year: false,
+          workbook_cycle_year_browse_restricted: browseCycleYear != null
         });
       }
 
-      var derived = deriveWorkbookDurPreviewForDate(yearRows, previewDate);
+      var derived = deriveWorkbookDurPreviewAcrossCityCycles(wbRows, cityName, previewDate, browseCycleYear);
       var active = derived.active;
       var next = derived.next;
+
+      var gregY = null;
+      var ym = String(previewDate || '').trim().match(/^(\d{4})-/);
+      if (ym) gregY = Number(ym[1]);
+
+      var wCycleY = derived.workbook_cycle_year;
+      var differs =
+        gregY != null && wCycleY != null && Number.isFinite(gregY) && Number.isFinite(wCycleY)
+          ? gregY !== wCycleY
+          : false;
+
+      var stateOk = derived.ok === true;
+      var stateReason = stateOk ? 'ok' : derived.reason || 'unknown';
 
       return res.status(200).json({
         ok: true,
         path: 'workbook-preview',
         source: 'workbook_import',
         preview_engine: 'admin_workbook_only',
-        state: derived.ok ? 'ok' : derived.reason || 'unknown',
+        lookup_mode: browseCycleYear != null ? 'restricted_workbook_cycle_year' : 'gregorian_date_across_cycles',
+        workbook_cycle_year_browse_restricted: browseCycleYear != null,
+        requested_workbook_cycle_year: browseCycleYear,
+        state: stateReason,
+        message_ar: stateOk
+          ? null
+          : derived.reason === 'date_outside_workbook_windows'
+            ? 'التاريخ خارج جميع نوافذ المصنف لهذه المدينة.'
+            : derived.reason === 'no_windows_for_workbook_cycle'
+              ? 'لا توجد نوافذ لهذه السنة ضمن المصنف (بحث مقيّد بدورة).'
+              : derived.reason === 'bad_iso_date'
+                ? 'تاريخ غير صالح.'
+                : derived.reason === 'no_windows_for_city'
+                  ? 'لا توجد نوافذ لهذه المدينة.'
+                  : null,
         station_id: previewSid,
         workbook_city_key: cityLookup || null,
         workbook_city_name: cityName,
+        gregorian_preview_date: previewDate,
         iso_date: previewDate,
-        year: Number.isFinite(previewYear) ? previewYear : null,
+        gregorian_year_of_preview_date: Number.isFinite(gregY) ? gregY : null,
+        workbook_cycle_year: wCycleY,
+        cycle_year_differs_from_gregorian_year: differs,
+        year: wCycleY,
         current_dur: active
           ? {
               dur_index: active.dur_index,
