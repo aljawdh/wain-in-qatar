@@ -209,6 +209,95 @@ module.exports = async function astroDurApiHandler(req, res) {
       });
     }
 
+    if (path === 'workbook-suhail-anchor') {
+      var anchorSid = req.query.station_id ? String(req.query.station_id).trim() : '';
+      var anchorYearRaw = req.query.year != null ? Number(req.query.year) : NaN;
+      var anchorYear = Number.isFinite(anchorYearRaw) ? anchorYearRaw : NaN;
+      if (!anchorSid) return res.status(400).json({ error: 'station_id_required' });
+      if (!Number.isFinite(anchorYear)) return res.status(400).json({ error: 'year_required' });
+
+      var stationRow =
+        Array.isArray(stationsAll)
+          ? stationsAll.find(function (s) {
+              return s && String(s.id) === anchorSid;
+            })
+          : null;
+      if (!stationRow) return res.status(404).json({ error: 'station_not_found' });
+
+      var cityLookupA =
+        stationRow.workbook_city_key != null && String(stationRow.workbook_city_key).trim() !== ''
+          ? normalizeWorkbookCityName(stationRow.workbook_city_key)
+          : '';
+      var cityNameA =
+        stationRow.workbook_city_name != null && String(stationRow.workbook_city_name).trim() !== ''
+          ? String(stationRow.workbook_city_name).trim()
+          : '';
+      if (cityLookupA && workbookIndex.byKey.has(cityLookupA)) {
+        cityNameA = workbookIndex.byKey.get(cityLookupA).name;
+      } else if (cityLookupA && !cityNameA) {
+        cityNameA = cityLookupA;
+      }
+
+      if (!cityNameA) {
+        return res.status(200).json({
+          ok: true,
+          path: 'workbook-suhail-anchor',
+          found: false,
+          state: 'unmapped',
+          message_ar: 'يجب ربط المحطة بمدينة المصنف أولاً',
+          station_id: anchorSid,
+          year: anchorYear,
+          workbook_city_name: null
+        });
+      }
+
+      var normCity = String(cityNameA || '')
+        .trim()
+        .normalize('NFC');
+      var starList = Array.isArray(starEvents.events) ? starEvents.events : [];
+      var hit = starList.find(function (ev) {
+        if (!ev || !ev.city) return false;
+        if (String(ev.star_key || '').toLowerCase() !== 'suhail') return false;
+        if (ev.calendar_profile !== 'operational_v1') return false;
+        if (Number(ev.year) !== anchorYear) return false;
+        return (
+          String(ev.city || '')
+            .trim()
+            .normalize('NFC') === normCity
+        );
+      });
+
+      if (!hit || !hit.event_date) {
+        return res.status(200).json({
+          ok: true,
+          path: 'workbook-suhail-anchor',
+          found: false,
+          state: 'not_found',
+          message_ar: 'لم يتم العثور على مرساة سهيل لهذه المدينة',
+          station_id: anchorSid,
+          year: anchorYear,
+          workbook_city_name: cityNameA
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        path: 'workbook-suhail-anchor',
+        found: true,
+        state: 'ok',
+        station_id: anchorSid,
+        year: anchorYear,
+        workbook_city_name: cityNameA,
+        event_date: String(hit.event_date).trim(),
+        time_utc: hit.time_utc != null && String(hit.time_utc).trim() !== '' ? String(hit.time_utc).trim() : null,
+        star_alt_deg: hit.star_alt_deg != null ? Number(hit.star_alt_deg) : null,
+        source: hit.source || 'workbook_import',
+        source_sheet: hit.source_sheet || null,
+        star_key: String(hit.star_key || '').toLowerCase() || 'suhail',
+        calendar_profile: hit.calendar_profile || 'operational_v1'
+      });
+    }
+
     if (path === 'workbook-preview') {
       var previewSid = req.query.station_id ? String(req.query.station_id).trim() : '';
       /** Optional: restrict search to one workbook cycle year column (admin browse). Omit for Gregorian date resolution across cycles. */
@@ -399,7 +488,8 @@ module.exports = async function astroDurApiHandler(req, res) {
 
     return res.status(400).json({
       error: 'unknown_path',
-      hint: 'status|preview|workbook-cities|workbook-suggest|workbook-preview'
+      hint:
+        'status|preview|workbook-cities|workbook-suggest|workbook-preview|workbook-suhail-anchor'
     });
   } catch (err) {
     return res.status(500).json({

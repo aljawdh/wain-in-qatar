@@ -5322,6 +5322,66 @@
     }
   }
 
+  async function fetchWorkbookSuhailAnchorIntoForm() {
+    if (!isAdminMode()) return;
+    var sid = getEl('stId') && getEl('stId').value.trim();
+    if (!sid) {
+      alert('اختر محطة ذات معرف أو افتح محطة محفوظة.');
+      return;
+    }
+    var yEl = getEl('stSuhailAnchorYearInput');
+    var y =
+      yEl && yEl.value !== '' && yEl.value != null ? Number(yEl.value) : new Date().getUTCFullYear();
+    if (!Number.isFinite(y)) {
+      alert('أدخل سنة صالحة لمرساة سهيل.');
+      return;
+    }
+    var status = getEl('stationsStatus');
+    try {
+      var res = await apiFetch(
+        ASTRO_DUR_ENDPOINT +
+          '&path=workbook-suhail-anchor&station_id=' +
+          encodeURIComponent(sid) +
+          '&year=' +
+          encodeURIComponent(y),
+        { method: 'GET' }
+      );
+      var j = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok) {
+        alert('طلب غير ناجح: ' + (j.error || String(res.status)));
+        return;
+      }
+      if (j.state === 'unmapped') {
+        alert('يجب ربط المحطة بمدينة المصنف أولاً');
+        return;
+      }
+      if (!j.found) {
+        alert('لم يتم العثور على مرساة سهيل لهذه المدينة');
+        return;
+      }
+      var d = j.event_date;
+      if (!d) {
+        alert('لا يوجد تاريخ في السجل.');
+        return;
+      }
+      var ds = String(d).slice(0, 10);
+      var msg = 'تم العثور على مرساة سهيل: ' + ds + ' — هل تريد اعتمادها؟';
+      if (!window.confirm(msg)) return;
+      var suhailEl = getEl('stManualSuhailAnchorDate');
+      var cycleEl = getEl('stManualCycleStartDate');
+      if (suhailEl) suhailEl.value = ds;
+      if (cycleEl) cycleEl.value = ds;
+      if (status) {
+        status.textContent =
+          'تم تعبئة مرساة سهيل من المصنف في النموذج فقط — اضغط «حفظ محطة» لتثبيت التغيير.';
+      }
+    } catch (e) {
+      alert('خطأ: ' + (e && e.message ? e.message : e));
+    }
+  }
+
   function initAstroDurPanel() {
     var r = getEl('astroDurRefreshBtn');
     if (r) {
@@ -5826,6 +5886,13 @@
         var sl = getEl('stWorkbookStatusLabel');
         if (ml) ml.value = 'manual';
         if (sl) sl.value = 'needs_review';
+      });
+    }
+
+    var fetchSuhailBtn = getEl('stFetchWorkbookSuhailBtn');
+    if (fetchSuhailBtn) {
+      fetchSuhailBtn.addEventListener('click', function () {
+        void fetchWorkbookSuhailAnchorIntoForm();
       });
     }
   }
