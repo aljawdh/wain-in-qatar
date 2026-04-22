@@ -1049,6 +1049,13 @@
     return Object.assign({}, overrides || {});
   }
 
+  function engineWorkbookCitySet(st) {
+    if (!st) return false;
+    if (String(st.workbook_city_name != null ? st.workbook_city_name : '').trim() !== '') return true;
+    if (String(st.workbook_city_key != null ? st.workbook_city_key : '').trim() !== '') return true;
+    return false;
+  }
+
   function analyzeLiveStation(params) {
     var options = params || {};
     var referenceData = normalizeReferenceData(options.reference_data);
@@ -1062,12 +1069,78 @@
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
     var durInfo = null;
+    var workbookLookupError = null;
     if (buildResolvedLocalDurTimelineInfo) {
       try {
-        durInfo = buildResolvedLocalDurTimelineInfo(referenceData, station, analysisDate);
-      } catch (_bdErr) {
-        durInfo = null;
+        var wR = buildResolvedLocalDurTimelineInfo(referenceData, station, analysisDate);
+        if (wR && wR.ok === false) {
+          workbookLookupError = wR.error;
+        } else if (wR && wR.ok) {
+          durInfo = wR.durInfo;
+        }
+      } catch (bdErr) {
+        if (engineWorkbookCitySet(station)) {
+          workbookLookupError = {
+            code: 'WORKBOOK_PATH_EXCEPTION',
+            message: bdErr && bdErr.message ? String(bdErr.message) : 'workbook path threw'
+          };
+        }
       }
+    }
+    if (workbookLookupError) {
+      return {
+        station_id: station.id || null,
+        analysis_timestamp: analysisDateTime.toISOString(),
+        workbook_lookup_failed: true,
+        dur: {
+          timing_error: workbookLookupError,
+          period_id: '',
+          period_number: null,
+          period_name: '',
+          day_in_period: null,
+          next_period_id: '',
+          next_period_name: '',
+          days_remaining: null,
+          period_start_date: '',
+          period_end_date: '',
+          next_period_start_date: '',
+          next_period_end_date: '',
+          timing_resolution: 'workbook_error',
+          timing_as_of: analysisDateTime.toISOString().slice(0, 10),
+          timing_from_resolved_local: false,
+          timing_from_operational_workbook: true,
+          suhail_anchor_date: '',
+          base_suhail_anchor_date: '',
+          cycle_start_date: '',
+          timing_source: 'operational_workbook',
+          timing_source_label_ar: '',
+          calibration_reference_station_id: '',
+          calibration_reference_station_name: '',
+          calibration_latitude_band_key: '',
+          calibration_selection_reason: '',
+          calibration_delta_days: 0,
+          reference: { periods: [] },
+          active_phase_id: '',
+          active_phase_reference: { events: [] },
+          overrides_applied: false
+        },
+        environment: {
+          temp_c: liveEnvironment.temp_c,
+          wind_speed_kmh: liveEnvironment.wind_speed_kmh,
+          wind_direction_deg: liveEnvironment.wind_direction_deg,
+          wave_height_m: liveEnvironment.wave_height_m
+        },
+        tide: {
+          state: tideState,
+          current_speed_ms: liveEnvironment.current_speed_ms
+        },
+        fishing: {
+          is_recommended: false,
+          species_activity: [],
+          confidence_score: 0,
+          advice_text: ''
+        }
+      };
     }
     if (!durInfo) {
       durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
@@ -1135,10 +1208,20 @@
       dur: {
         period_id: currentDur && currentDur.durRow ? normalizeString(currentDur.durRow.id) : '',
         period_number: currentDur && currentDur.durRow ? toNumber(currentDur.durRow.dur_number) : null,
-        period_name: currentDur && currentDur.durRow ? normalizeString(currentDur.durRow.name_ar || currentDur.durRow.name || currentDur.durRow.name_en) : '',
+        period_name:
+          fromResolved && resolvedSnap && resolvedSnap.dur_name_ar
+            ? normalizeString(resolvedSnap.dur_name_ar)
+            : currentDur && currentDur.durRow
+              ? normalizeString(currentDur.durRow.name_ar || currentDur.durRow.name || currentDur.durRow.name_en)
+              : '',
         day_in_period: dayInPeriod,
         next_period_id: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.id) : '',
-        next_period_name: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en) : '',
+        next_period_name:
+          fromResolved && resolvedSnap && resolvedSnap.next_dur_name_ar != null
+            ? normalizeString(resolvedSnap.next_dur_name_ar)
+            : nextDur && nextDur.durRow
+              ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en)
+              : '',
         days_remaining: fromResolved && resolvedSnap && resolvedSnap.days_remaining_in_dur != null
           ? toNumber(resolvedSnap.days_remaining_in_dur)
           : (currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null),

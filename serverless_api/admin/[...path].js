@@ -1,6 +1,6 @@
 'use strict';
 
-const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs } = require('../_lib/data-store');
+const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv } = require('../_lib/data-store');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
@@ -485,6 +485,60 @@ module.exports = async function handler(req, res) {
   const segments = getPathSegments(req);
   const [root, id, action] = segments;
 
+  /** Read-only: full station list as stored (KV when configured, else data/stations.json). */
+  if (root === 'export-stations-kv') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const rows = await readJsonFile('stations', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const dataSource = getKv() ? 'upstash_kv' : 'local_data_file';
+    var mapped = 0;
+    var si;
+    for (si = 0; si < list.length; si += 1) {
+      const s = list[si];
+      if (s && (String(s.workbook_city_name || '').trim() || String(s.workbook_city_key || '').trim())) {
+        mapped += 1;
+      }
+    }
+    const stations = list.map(function (s) {
+      if (!s) return null;
+      return {
+        id: s.id,
+        name: s.name,
+        lat: s.lat != null ? s.lat : null,
+        lon: s.lon != null ? s.lon : s.lng != null ? s.lng : null,
+        is_operational: s.is_operational_station == null ? null : !!s.is_operational_station,
+        is_reference_station: !!s.is_reference_station,
+        workbook_city_name: s.workbook_city_name != null && String(s.workbook_city_name).trim() !== '' ? s.workbook_city_name : null,
+        workbook_city_key: s.workbook_city_key != null && String(s.workbook_city_key).trim() !== '' ? s.workbook_city_key : null,
+        workbook_match_mode: s.workbook_match_mode != null ? s.workbook_match_mode : null,
+        workbook_assignment_status: s.workbook_assignment_status != null ? s.workbook_assignment_status : null,
+        manual_suhail_anchor_date: s.manual_suhail_anchor_date != null ? s.manual_suhail_anchor_date : null,
+        suhail_anchor_resolution: s.suhail_anchor_resolution != null ? s.suhail_anchor_resolution : null
+      };
+    }).filter(Boolean);
+    await writeAudit('export_stations_kv_read', actor, {
+      total: list.length,
+      mapped,
+      unmapped: list.length - mapped,
+      data_source: dataSource
+    });
+    return res.status(200).json({
+      ok: true,
+      path: 'export-stations-kv',
+      data_source: dataSource,
+      total_stations: list.length,
+      mapped_stations: mapped,
+      unmapped_stations: list.length - mapped,
+      stations: stations
+    });
+  }
+
   if (root === 'feedback') {
     if (req.method === 'GET') {
       const station = cleanString(req.query && req.query.station, 100);
@@ -864,6 +918,18 @@ module.exports = async function handler(req, res) {
       durur_reference: Array.isArray(dururMaster) ? dururMaster : [],
       workbook_windows: wbw
     });
+    if (snap && snap.error) {
+      return res.status(200).json({
+        ok: false,
+        station_id: stationId,
+        as_of: isoDate,
+        anchor_rule_from_config: anchorRule,
+        record,
+        timing_source: 'operational_workbook',
+        timing_error: snap.error,
+        current: null
+      });
+    }
     const current = snap && snap.resolved_window_snapshot ? snap.resolved_window_snapshot : null;
     return res.status(200).json({
       ok: true,

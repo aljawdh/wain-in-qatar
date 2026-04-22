@@ -1,13 +1,15 @@
 'use strict';
 
 /**
- * Single shared resolved dur snapshot: operational workbook truth only
- * (data/dur_windows.json → workbook_windows, from Excel import).
- * Does NOT use generated station_dur_windows for timing.
+ * Single shared resolved dur snapshot: operational workbook only.
+ * City keys match dur_windows via normalizeWorkbookCityKey; display names and dates from workbook rows.
+ * durRow is synthetic (workbook) only — never from durur_master.
  */
 
 var wb = require('./workbook-dur-lookup');
-var findWorkbookCurrentNext = wb.findWorkbookCurrentNext;
+var buildWorkbookCityCatalog = wb.buildWorkbookCityCatalog;
+var resolveStationWorkbookCity = wb.resolveStationWorkbookCity;
+var findWorkbookCurrentNextStrict = wb.findWorkbookCurrentNextStrict;
 var getStationWorkbookCityName = wb.getStationWorkbookCityName;
 var computeDayMetricsForWorkbookRow = wb.computeDayMetricsForWorkbookRow;
 var buildResolvedSnapshotShapeFromWorkbookRow = wb.buildResolvedSnapshotShapeFromWorkbookRow;
@@ -16,42 +18,8 @@ var toNumber = wb.toNumber;
 
 var DEFAULT_DUR_DAYS = 13;
 
-function toArray(a) {
-  return Array.isArray(a) ? a : [];
-}
-
 function normalizeString(value) {
   return String(value == null ? '' : value).trim();
-}
-
-function nfcString(value) {
-  var raw = normalizeString(value);
-  try {
-    return raw.normalize ? raw.normalize('NFC') : raw;
-  } catch (_err) {
-    return raw;
-  }
-}
-
-function sortDurRows(rows) {
-  return toArray(rows).slice().sort(function (a, b) {
-    var aOrder = Number(a && (a.order_index != null ? a.order_index : a.dur_number) || 0);
-    var bOrder = Number(b && (b.order_index != null ? b.order_index : b.dur_number) || 0);
-    return aOrder - bOrder;
-  });
-}
-
-function matchDurRowByWorkbookName(durRows, durNameAr) {
-  var rows = sortDurRows(durRows);
-  var byName = nfcString(durNameAr);
-  if (!byName) return null;
-  var ri;
-  for (ri = 0; ri < rows.length; ri += 1) {
-    var row = rows[ri];
-    var rn = nfcString(row && (row.name_ar || row.name || row.name_en));
-    if (rn === byName) return row;
-  }
-  return null;
 }
 
 function buildSyntheticDurFromWorkbook(wbRow) {
@@ -68,35 +36,63 @@ function buildSyntheticDurFromWorkbook(wbRow) {
 
 /**
  * @param {object} params
- * @param {object} params.station – must include workbook_city_name when using workbook
- * @param {string} params.stationId
- * @param {string} params.asOfIso
- * @param {Array} params.durur_reference
- * @param {Array} params.workbook_windows – from dur_windows.json
- * @returns {object|null}
+ * @returns {object|null} null = no workbook_city on station (caller may use legacy)
+ *  | { error: { code, message, ... } }
+ *  | { resolved_window_snapshot, current, next, record, ... } success (no .error)
  */
 function getResolvedLocalDurSnapshot(params) {
   var asOfIso = normalizeString(params && params.asOfIso);
-  var durRows = sortDurRows(params && params.durur_reference);
   var station = params && params.station;
   var stationId = normalizeString(params && params.stationId);
-  var allW = toArray(params && params.workbook_windows);
+  var allW = Array.isArray(params && params.workbook_windows) ? params.workbook_windows : [];
 
   if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso) || !stationId) return null;
 
-  var city = getStationWorkbookCityName(station);
-  if (!city) return null;
+  if (!getStationWorkbookCityName(station)) return null;
 
-  var found = findWorkbookCurrentNext(allW, city, asOfIso);
-  if (!found || !found.current) return null;
+  var catalog = buildWorkbookCityCatalog(allW);
+  var resolved = resolveStationWorkbookCity(station, catalog);
+  if (!resolved.ok) {
+    return {
+      error: {
+        code: resolved.code,
+        message:
+          resolved.code === 'WORKBOOK_CITY_UNMAPPED'
+            ? 'workbook_city_name does not match any city in dur_windows.json'
+            : 'workbook city could not be resolved',
+        input: resolved.input,
+        key: resolved.key
+      }
+    };
+  }
+
+  var found = findWorkbookCurrentNextStrict(allW, resolved.key, asOfIso);
+  if (!found.ok) {
+    var msg = {
+      NO_ROWS_FOR_CITY: 'no workbook rows for resolved city',
+      NO_WINDOW_CONTAINS_DATE: 'no row contains as_of in [dur_start, dur_end]',
+      DUPLICATE_CONTAINING_ROWS: 'multiple rows contain the same as_of (data error)',
+      BAD_INPUT: 'invalid workbook lookup input'
+    }[found.code] || 'workbook lookup failed';
+    return {
+      error: {
+        code: found.code,
+        message: msg,
+        city: resolved.canonical,
+        as_of: asOfIso,
+        count: found.count,
+        rows: found.rows
+      }
+    };
+  }
 
   var cr = found.current;
   var nr = found.next;
   var metrics = computeDayMetricsForWorkbookRow(cr, asOfIso);
 
-  var curDurRow = matchDurRowByWorkbookName(durRows, cr.dur_name_ar) || buildSyntheticDurFromWorkbook(cr);
+  var curDurRow = buildSyntheticDurFromWorkbook(cr);
   var nextDurRow = nr
-    ? (matchDurRowByWorkbookName(durRows, nr.dur_name_ar) || buildSyntheticDurFromWorkbook(nr))
+    ? buildSyntheticDurFromWorkbook(nr)
     : { id: '', name_ar: '', default_days_count: DEFAULT_DUR_DAYS, dur_number: null, order_index: null, name_en: '', phases: [] };
 
   var start = parseIsoDateUtcMidnight(cr.dur_start);
@@ -104,8 +100,12 @@ function getResolvedLocalDurSnapshot(params) {
   var nstart = nr ? parseIsoDateUtcMidnight(nr.dur_start) : null;
   var nend = nr ? parseIsoDateUtcMidnight(nr.dur_end) : null;
 
-  if (!start || !end) return null;
-  if (nr && (!nstart || !nend)) return null;
+  if (!start || !end) {
+    return { error: { code: 'INVALID_WINDOW_DATES', message: 'current row has invalid dur_start/dur_end' } };
+  }
+  if (nr && (!nstart || !nend)) {
+    return { error: { code: 'INVALID_NEXT_WINDOW_DATES', message: 'next row has invalid dates' } };
+  }
 
   var manual = normalizeString(station && station.manual_suhail_anchor_date);
   var suhailAnchor = manual ? parseIsoDateUtcMidnight(manual) : null;
@@ -133,7 +133,7 @@ function getResolvedLocalDurSnapshot(params) {
       source: 'operational_workbook',
       station_id: stationId,
       workbook_file: 'dur_windows.json',
-      city: city
+      city: resolved.canonical
     },
     resolved_window_snapshot: snapShape,
     current: { durRow: curDurRow, start: start, end: end },

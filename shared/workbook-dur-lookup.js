@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * Direct operational dur window lookup from dur_windows.json workbook_windows
- * (imported from data/navidur_operational_durur_2025_2026.xlsx sheet نوافذ_الدرور).
- * No recomputation, no station_dur_windows generation — row truth only.
+ * Strict operational dur lookup: dur_windows.json workbook_windows only.
+ * Selection rule: exactly one row with dur_start <= as_of <= dur_end (per city after normalization).
+ * Next: following row in same city sorted by dur_start (ISO), then (year, dur_index).
  */
 
 function normalizeString(value) {
@@ -19,6 +19,20 @@ function nfcString(value) {
   }
 }
 
+/**
+ * Whitespace, tatweel, and optional alef/alef-hamza unification for city KEY matching.
+ * Does not modify meaning for unrelated letters.
+ */
+function normalizeWorkbookCityKey(value) {
+  var s = nfcString(value);
+  if (!s) return '';
+  s = s.replace(/\u0640/g, ''); // tatweel
+  s = s.replace(/\s+/g, ''); // join tokens so e.g. "أبو ظبي" matches "أبوظبي"
+  // Unify common alef + hamza to plain alef (city name keys; conservative)
+  s = s.replace(/[\u0623\u0625\u0622]/g, '\u0627');
+  return s;
+}
+
 function toNumber(value) {
   var n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -30,44 +44,113 @@ function parseIsoDateUtcMidnight(iso) {
   return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0));
 }
 
-function getDaysBetweenInclusiveUtc(startIso, endIso) {
-  var a = parseIsoDateUtcMidnight(startIso);
-  var b = parseIsoDateUtcMidnight(endIso);
-  if (!a || !b) return 0;
-  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000));
+/**
+ * @param {Array} workbookWindows
+ * @returns {object} map: normalizedKey -> canonical city string (first occurrence in data)
+ */
+function buildWorkbookCityCatalog(workbookWindows) {
+  var map = Object.create(null);
+  if (!Array.isArray(workbookWindows)) return map;
+  var i;
+  for (i = 0; i < workbookWindows.length; i += 1) {
+    var r = workbookWindows[i];
+    if (!r || r.city == null) continue;
+    var canon = nfcString(r.city);
+    if (!canon) continue;
+    var k = normalizeWorkbookCityKey(canon);
+    if (!k) continue;
+    if (map[k] == null) map[k] = canon;
+  }
+  return map;
+}
+
+/**
+ * @param {object} station
+ * @param {object} cityCatalog
+ * @returns {{ ok: true, key: string, canonical: string } | { ok: false, code: string, input: string, key: string } }
+ */
+function resolveStationWorkbookCity(station, cityCatalog) {
+  var name = getStationWorkbookCityName(station);
+  if (!name) {
+    return { ok: false, code: 'NO_WORKBOOK_CITY', input: '', key: '' };
+  }
+  var k = normalizeWorkbookCityKey(name);
+  if (!k) {
+    return { ok: false, code: 'WORKBOOK_CITY_EMPTY', input: name, key: '' };
+  }
+  if (cityCatalog[k] == null) {
+    return { ok: false, code: 'WORKBOOK_CITY_UNMAPPED', input: name, key: k };
+  }
+  return { ok: true, key: k, canonical: cityCatalog[k] };
 }
 
 /**
  * @param {Array<object>} workbookWindows
- * @param {string} cityName Arabic city name (must match catalog row.city)
- * @param {string} asOfIso YYYY-MM-DD
- * @returns {{ current: object, next: object|null, cityRows: object[] } | null}
+ * @param {string} cityKey — normalized key (must match buildWorkbookCityCatalog)
+ * @param {string} asOfIso
+ * @returns
+ *  | { ok: true, current: object, next: object|null, cityRows: object[] }
+ *  | { ok: false, code: string, input?: string, count?: number, rows?: object[] }
  */
-function findWorkbookCurrentNext(workbookWindows, cityName, asOfIso) {
-  if (!Array.isArray(workbookWindows) || !asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) return null;
-  var cTarget = nfcString(cityName);
-  if (!cTarget) return null;
+function findWorkbookCurrentNextStrict(workbookWindows, cityKey, asOfIso) {
+  if (!Array.isArray(workbookWindows) || !asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) {
+    return { ok: false, code: 'BAD_INPUT' };
+  }
+  if (!cityKey) {
+    return { ok: false, code: 'NO_CITY' };
+  }
   var same = workbookWindows.filter(function (r) {
-    return r && nfcString(r.city) === cTarget;
+    if (!r || r.city == null) return false;
+    return normalizeWorkbookCityKey(r.city) === cityKey;
   });
-  if (!same.length) return null;
+  if (!same.length) {
+    return { ok: false, code: 'NO_ROWS_FOR_CITY' };
+  }
   same.sort(function (a, b) {
-    return String(a.dur_start).localeCompare(String(b.dur_start));
+    var c = String(a.dur_start).localeCompare(String(b.dur_start));
+    if (c !== 0) return c;
+    c = Number(a.year) - Number(b.year);
+    if (c !== 0) return c;
+    return Number(a.dur_index) - Number(b.dur_index);
   });
+
+  var containing = same.filter(function (r) {
+    if (!r.dur_start || !r.dur_end) return false;
+    return asOfIso >= r.dur_start && asOfIso <= r.dur_end;
+  });
+  if (containing.length === 0) {
+    return { ok: false, code: 'NO_WINDOW_CONTAINS_DATE', as_of: asOfIso };
+  }
+  if (containing.length > 1) {
+    return { ok: false, code: 'DUPLICATE_CONTAINING_ROWS', count: containing.length, rows: containing };
+  }
+  var current = containing[0];
+  var idx = -1;
   var i;
   for (i = 0; i < same.length; i += 1) {
-    var row = same[i];
-    if (!row.dur_start || !row.dur_end) continue;
-    if (asOfIso >= row.dur_start && asOfIso <= row.dur_end) {
-      var nxt = i + 1 < same.length ? same[i + 1] : null;
-      return { current: row, next: nxt, cityRows: same };
+    if (rowIdentityEqual(same[i], current)) {
+      idx = i;
+      break;
     }
   }
-  return null;
+  if (idx < 0) {
+    return { ok: false, code: 'CURRENT_NOT_IN_CITY_LIST' };
+  }
+  var nxt = idx + 1 < same.length ? same[idx + 1] : null;
+  return { ok: true, current: current, next: nxt, cityRows: same };
+}
+
+function rowIdentityEqual(a, b) {
+  if (!a || !b) return false;
+  if (String(a.dur_start) !== String(b.dur_start)) return false;
+  if (String(a.dur_end) !== String(b.dur_end)) return false;
+  if (String(a.year) !== String(b.year)) return false;
+  if (String(a.dur_index) !== String(b.dur_index)) return false;
+  return true;
 }
 
 /**
- * @param {object} row — workbook_windows row
+ * @param {object} row
  * @param {string} asOfIso
  */
 function computeDayMetricsForWorkbookRow(row, asOfIso) {
@@ -86,13 +169,13 @@ function computeDayMetricsForWorkbookRow(row, asOfIso) {
 
 /**
  * @param {object} station
- * @returns {string} city name for workbook match
+ * @returns {string} raw city string for catalog lookup (name preferred, else key)
  */
 function getStationWorkbookCityName(station) {
   if (!station) return '';
-  var name = normalizeString(station.workbook_city_name);
-  if (name) return name;
-  return '';
+  var n = normalizeString(station.workbook_city_name);
+  if (n) return n;
+  return normalizeString(station.workbook_city_key);
 }
 
 function buildResolvedSnapshotShapeFromWorkbookRow(currentRow, nextRow, asOfIso, metrics) {
@@ -111,11 +194,13 @@ function buildResolvedSnapshotShapeFromWorkbookRow(currentRow, nextRow, asOfIso,
 }
 
 module.exports = {
-  findWorkbookCurrentNext: findWorkbookCurrentNext,
+  normalizeWorkbookCityKey: normalizeWorkbookCityKey,
+  buildWorkbookCityCatalog: buildWorkbookCityCatalog,
+  resolveStationWorkbookCity: resolveStationWorkbookCity,
+  findWorkbookCurrentNextStrict: findWorkbookCurrentNextStrict,
   getStationWorkbookCityName: getStationWorkbookCityName,
   computeDayMetricsForWorkbookRow: computeDayMetricsForWorkbookRow,
   buildResolvedSnapshotShapeFromWorkbookRow: buildResolvedSnapshotShapeFromWorkbookRow,
   parseIsoDateUtcMidnight: parseIsoDateUtcMidnight,
-  getDaysBetweenInclusiveUtc: getDaysBetweenInclusiveUtc,
   toNumber: toNumber
 };
