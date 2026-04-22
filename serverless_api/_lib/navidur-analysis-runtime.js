@@ -138,8 +138,7 @@ async function loadReferenceData() {
     readJsonFile('advice_basis_tags', []),
     readJsonFile('station_dur_profiles', []),
     readJsonFile('station_dur_overrides', []),
-    readJsonFile('durur_overrides', []),
-    readJsonFile('station_dur_windows', { version: 1, stations: {} })
+    readJsonFile('durur_overrides', [])
   ]);
 
   return {
@@ -151,8 +150,7 @@ async function loadReferenceData() {
     advice_templates: Array.isArray(rows[5]) ? rows[5] : [],
     station_profiles: Array.isArray(rows[6]) ? rows[6] : [],
     overrides: Array.isArray(rows[7]) ? rows[7] : [],
-    durur_overrides: Array.isArray(rows[8]) ? rows[8] : [],
-    station_dur_windows: rows[9] && typeof rows[9] === 'object' ? rows[9] : { version: 1, stations: {} }
+    durur_overrides: Array.isArray(rows[8]) ? rows[8] : []
   };
 }
 
