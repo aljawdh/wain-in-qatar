@@ -51,7 +51,12 @@
     var timing = options && typeof options.getTimingDetails === 'function'
       ? (options.getTimingDetails(station) || {})
       : {};
-    var timingSource = escapeHtml(timing.timing_source_label_ar || timing.timing_source || '--');
+    var tsRaw = timing.timing_source || '';
+    var tsLabel = timing.timing_source_label_ar;
+    if (!tsLabel && tsRaw === 'true_final_station_reference') {
+      tsLabel = 'المرجع النهائي الخاص بالمحطة (يوم/شهر)';
+    }
+    var timingSource = escapeHtml(tsLabel || tsRaw || '--');
     var suhailAnchorDate = escapeHtml(timing.suhail_anchor_date || '--');
     var cycleStartDate = escapeHtml(timing.cycle_start_date || '--');
     var latitudeBandKey = escapeHtml(station && station.latitude_band_key || '--');

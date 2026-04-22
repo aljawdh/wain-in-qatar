@@ -2382,16 +2382,35 @@
   }
 
   function getTimingSourceLabel(dur) {
+    if (dur && dur.timing_source_label_ar) return dur.timing_source_label_ar;
     var source = dur && dur.timing_source ? dur.timing_source : '';
-    if (source === 'operational_workbook' || source === 'resolved_local_station_windows') {
-      return 'المصنف التشغيلي (dur_windows.json)';
+    if (source === 'true_final_station_reference') {
+      return 'المرجع النهائي الخاص بالمحطة (يوم/شهر فقط)';
     }
-    if (source === 'calibrated_reference_anchor') return 'مرجع يدوي معتمد';
+    if (source === 'operational_workbook' || source === 'resolved_local_station_windows') {
+      return 'ملف الدرور المحلي (قديم) — dur_windows';
+    }
+    if (source === 'calibrated_reference_anchor') return 'مرساة معايرة يدوية';
     if (source === 'nearest_reference_station') return 'محطة مرجعية قريبة';
-    return 'المحرك الأساسي';
+    return '—';
+  }
+
+  function formatTimingModeAr(dur) {
+    if (!dur || !dur.timing_mode) return '—';
+    if (dur.timing_mode === 'month_day_only') return 'يوم/شهر فقط (دون الاعتماد على السنة الميلادية)';
+    return String(dur.timing_mode);
+  }
+
+  function formatDurTableSourceAr(dur) {
+    if (!dur || !dur.source) return '—';
+    if (dur.source === 'true_final_station_reference') {
+      return 'المرجع النهائي المشتق لكل محطة (الجدول المرجعي المحلي)';
+    }
+    return String(dur.source);
   }
 
   function getCalibrationReasonLabel(reason) {
+    if (reason === 'true_final_station_workbook_only') return 'المرجع النهائي لكل محطة (الملف المشتق)';
     if (reason === 'self') return 'مرجع ذاتي';
     if (reason === 'linked_reference_station') return 'محطة مرتبطة مباشرة';
     if (reason === 'latitude_band_key') return 'حزام عرض مطابق';
@@ -3024,11 +3043,12 @@
     var analysisDate = dto.analysis_timestamp ? new Date(dto.analysis_timestamp) : null;
     var startDate = null;
     var endDate = null;
-    if (analysisDate && dto.dur.day_in_period != null) {
+    var useMmddPeriod = normalizeString(dto.dur.period_start) && normalizeString(dto.dur.period_end);
+    if (!useMmddPeriod && analysisDate && dto.dur.day_in_period != null) {
       startDate = new Date(analysisDate.getTime());
       startDate.setUTCDate(startDate.getUTCDate() - Math.max(0, Number(dto.dur.day_in_period || 1) - 1));
     }
-    if (analysisDate && dto.dur.days_remaining != null) {
+    if (!useMmddPeriod && analysisDate && dto.dur.days_remaining != null) {
       endDate = new Date(analysisDate.getTime());
       endDate.setUTCDate(endDate.getUTCDate() + Math.max(0, Number(dto.dur.days_remaining || 0)));
     }
@@ -3066,8 +3086,8 @@
       + '  <div><strong style="color:#9fc1d7">الدر الحالي الآن:</strong><br>' + escapeHtml(dto.dur.period_name || '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">اليوم داخل الدر:</strong><br>' + escapeHtml(dto.dur.day_in_period != null ? dto.dur.day_in_period : '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">المرحلة الحالية:</strong><br>' + escapeHtml(phaseLabel) + '</div>'
-      + '  <div><strong style="color:#9fc1d7">بداية الدر:</strong><br>' + escapeHtml(startDate ? startDate.toISOString().slice(0, 10) : '--') + '</div>'
-      + '  <div><strong style="color:#9fc1d7">نهاية الدر:</strong><br>' + escapeHtml(endDate ? endDate.toISOString().slice(0, 10) : '--') + '</div>'
+      + '  <div><strong style="color:#9fc1d7">بداية الدر (يوم/شهر):</strong><br>' + escapeHtml(useMmddPeriod ? dto.dur.period_start : (startDate ? startDate.toISOString().slice(0, 10) : '--')) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">نهاية الدر (يوم/شهر):</strong><br>' + escapeHtml(useMmddPeriod ? dto.dur.period_end : (endDate ? endDate.toISOString().slice(0, 10) : '--')) + '</div>'
       + '  <div><strong style="color:#9fc1d7">الدر التالي:</strong><br>' + escapeHtml(dto.dur.next_period_name || '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">الأيام المتبقية:</strong><br>' + escapeHtml(dto.dur.days_remaining != null ? dto.dur.days_remaining : '--') + '</div>'
       + '  <div><strong style="color:#9fc1d7">المرجع المطبق:</strong><br>' + escapeHtml(appliedReferenceLabel) + '</div>'
@@ -3083,14 +3103,17 @@
       + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (unique.length ? buildTraitChipHtml(unique, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea') : '<span style="color:#9fc1d7">-- لا توجد سمات فعالة --</span>') + '</div>'
       + '</div>'
       + '<div style="margin-top:10px;padding:10px;border:1px solid rgba(255,82,82,.18);border-radius:10px;background:rgba(255,82,82,.05)">'
-      + '<div style="margin-bottom:6px"><strong style="color:#ffb3b3">مصدر التوقيت</strong></div>'
+      + '<div style="margin-bottom:6px"><strong style="color:#ffb3b3">مصدر التوقيت (المرجع النهائي)</strong></div>'
+      + '<p style="margin:0 0 8px;font-size:.76rem;color:#b8a8a8;line-height:1.4">توقيم يوم/شهر لكل محطة — دون المحرك القديم ودون الاعتماد على السنة الميلادية.</p>'
       + '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">'
-      + '  <div><strong style="color:#9fc1d7">النمط المستخدم:</strong><br>' + escapeHtml(timingSourceLabel) + '</div>'
-      + '  <div><strong style="color:#9fc1d7">سبب الاختيار:</strong><br>' + escapeHtml(calibrationReasonLabel) + '</div>'
-      + '  <div><strong style="color:#9fc1d7">المحطة المرجعية:</strong><br>' + escapeHtml(calibrationReferenceLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">وصف مصدر التوقيت:</strong><br>' + escapeHtml(timingSourceLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">وضع التوقيت:</strong><br>' + escapeHtml(formatTimingModeAr(dto.dur)) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">مصدر جدول الدر:</strong><br>' + escapeHtml(formatDurTableSourceAr(dto.dur)) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">سبب اختيار المعايرة:</strong><br>' + escapeHtml(calibrationReasonLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">المحطة المستخدمة في المعايرة:</strong><br>' + escapeHtml(calibrationReferenceLabel) + '</div>'
       + '  <div><strong style="color:#9fc1d7">حزام العرض:</strong><br>' + escapeHtml(calibrationBandLabel) + '</div>'
-      + '  <div><strong style="color:#9fc1d7">مرساة سهيل النهائية:</strong><br>' + escapeHtml(resolvedAnchorLabel) + '</div>'
-      + '  <div><strong style="color:#9fc1d7">بداية الدورة النهائية:</strong><br>' + escapeHtml(resolvedCycleStartLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">مرساة سهيل (للملاحظة):</strong><br>' + escapeHtml(resolvedAnchorLabel) + '</div>'
+      + '  <div><strong style="color:#9fc1d7">بداية الدورة (للملاحظة):</strong><br>' + escapeHtml(resolvedCycleStartLabel) + '</div>'
       + '</div>'
       + '</div>';
   }
@@ -3916,7 +3939,7 @@
         return res.ok ? res.json() : Promise.reject(new Error('http_' + res.status));
       })
       .then(function (j) {
-        var tag = '[workbook_import · معاينة إدارية فقط — ليس محرك التشغيل]';
+        var tag = '[معلومات اختيارية من دليل المدن — ليست مصدر التوقيت التشغيلي ولا المحرك الحالي]';
         pre.textContent = tag + '\n\n' + JSON.stringify(j, null, 2);
       })
       .catch(function (e) {
@@ -4235,7 +4258,7 @@
         } else {
           setReadOnlyFieldValue(
             'stStationLocalAnchorMeaningRo',
-            'لا يوجد إعداد مرساة داخل الدورة لهذه مدينة المصنف — لن تُولَّد نوافذ محلية'
+            'لا يوجد إعداد مرساة داخل الدورة لهذه المدينة في الدليل — لن تُولَّد نوافذ محلية'
           );
         }
 
@@ -5202,14 +5225,15 @@
     var starPartial = star.partial === true;
     var wbPartial = wb.partial === true;
 
-    var srcLabel = wb.source_label || 'workbook_import';
+    var srcLabel = wb.source_label;
+    if (!srcLabel || srcLabel === 'workbook_import') srcLabel = 'وارد من ملف الربط (بيانات مساعدة)';
     var summaryHtml =
       '<div class="astro-card">' +
-      '<h5 class="astro-card-title"><span class="astro-badge">' + escapeHtml(srcLabel) + '</span> ملخص المصنف والربط</h5>' +
+      '<h5 class="astro-card-title"><span class="astro-badge">' + escapeHtml(srcLabel) + '</span> ملخص الربط والدليل (لا يضبط التوقيت)</h5>' +
       '<div class="astro-grid">' +
-      '<div class="astro-stat"><span class="astro-stat-label">مدن المصنف</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_cities) + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">سنوات المصنف</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_years) + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">نوافذ الدور</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_dur_windows != null ? wb.imported_dur_windows : wb.workbook_windows_row_count) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">المدن في الدليل</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_cities) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">سنوات في الدليل</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_years) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">نوافذ الدرور (دليل)</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_dur_windows != null ? wb.imported_dur_windows : wb.workbook_windows_row_count) + '</span></div>' +
       '<div class="astro-stat"><span class="astro-stat-label">حجم الدليل</span><span class="astro-stat-value">' + astroFmtNum(map.workbook_city_catalog_size) + '</span></div>' +
       '<div class="astro-stat"><span class="astro-stat-label">محطات مربوطة</span><span class="astro-stat-value">' + astroFmtNum(map.mapped_stations) + '</span></div>' +
       '<div class="astro-stat"><span class="astro-stat-label">غير مربوطة</span><span class="astro-stat-value">' + astroFmtNum(map.unmapped_stations) + '</span></div>' +
@@ -5254,7 +5278,7 @@
       '<div class="astro-card">' +
       '<h5 class="astro-card-title">استيراد تسلسل الدور</h5>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">صفوف</span><span class="astro-kv-v">' + astroFmtNum(seq.row_count) + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">أوراق المصنف</span><span class="astro-kv-v">' + escapeHtml(Array.isArray(seq.source_sheet_names) ? seq.source_sheet_names.join('، ') : '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">أوراق الاستيراد</span><span class="astro-kv-v">' + escapeHtml(Array.isArray(seq.source_sheet_names) ? seq.source_sheet_names.join('، ') : '—') + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">جزئي</span><span class="astro-kv-v">' + astroYnAr(seqPartial) + '</span></div>' +
       '</div>';
 
@@ -5263,7 +5287,7 @@
       '<h5 class="astro-card-title">استيراد أحداث النجوم</h5>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">صفوف</span><span class="astro-kv-v">' + astroFmtNum(star.row_count) + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">صفوف متخطاة</span><span class="astro-kv-v">' + astroFmtNum(star.skipped_rows) + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">أوراق المصنف</span><span class="astro-kv-v">' + escapeHtml(Array.isArray(star.source_sheet_names) ? star.source_sheet_names.join('، ') : '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">أوراق الاستيراد</span><span class="astro-kv-v">' + escapeHtml(Array.isArray(star.source_sheet_names) ? star.source_sheet_names.join('، ') : '—') + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">جزئي</span><span class="astro-kv-v">' + astroYnAr(starPartial) + '</span></div>' +
       '</div>';
 
@@ -5285,18 +5309,22 @@
   function renderWorkbookPreviewCards(apiJson, stationRow) {
     var j = apiJson || {};
     var st = stationRow || {};
+    var srcTag =
+      !j.source || j.source === 'workbook_import'
+        ? 'دليل المدن (للمقارنة — ليس التوقيت التشغيلي)'
+        : escapeHtml(String(j.source));
     var src =
       '<div class="astro-card">' +
       '<span class="astro-badge">' +
-      escapeHtml(j.source || 'workbook_import') +
-      '</span> <span style="font-size:.78rem;color:#8ea4ba">معاينة إدارية فقط — ليس محرك التشغيل العام</span>' +
+      srcTag +
+      '</span> <span style="font-size:.78rem;color:#8ea4ba">للمسؤولين فقط؛ لا تُستبدل المرجع النهائي لكل محطة</span>' +
       '</div>';
 
     if (j.state === 'unmapped') {
       return (
         src +
         '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
-        escapeHtml(j.message_ar || 'المحطة غير مربوطة بمدينة المصنف.') +
+        escapeHtml(j.message_ar || 'المحطة غير مربوطة بمفتاح مدينة في الدليل.') +
         '</p></div>'
       );
     }
@@ -5304,8 +5332,8 @@
       return (
         src +
         '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
-        escapeHtml(j.message_ar || 'لا توجد نوافذ لهذه المدينة في المصنف.') +
-        '</p><div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' +
+        escapeHtml(j.message_ar || 'لا توجد نوافذ لهذه المدينة في بيانات الدليل المستوردة.') +
+        '</p><div class="astro-kv-row"><span class="astro-kv-k">مفتاح المدينة في الدليل</span><span class="astro-kv-v">' +
         escapeHtml(j.workbook_city_name || '—') +
         '</span></div></div>'
       );
@@ -5315,14 +5343,14 @@
       return (
         src +
         '<div class="astro-card">' +
-        '<h5 class="astro-card-title">معاينة الدر الميلادي (المصنف)</h5>' +
-        '<div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' +
+        '<h5 class="astro-card-title">معاينة من الدليل (للمقارنة فقط)</h5>' +
+        '<div class="astro-kv-row"><span class="astro-kv-k">مفتاح المدينة في الدليل</span><span class="astro-kv-v">' +
         escapeHtml(j.workbook_city_name || '—') +
         '</span></div>' +
-        '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ المعاينة الميلادي</span><span class="astro-kv-v">' +
+        '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ الاستعلام</span><span class="astro-kv-v">' +
         escapeHtml(j.gregorian_preview_date || j.iso_date || '—') +
         '</span></div>' +
-        '<div class="astro-kv-row"><span class="astro-kv-k">سنة دورة المصنف</span><span class="astro-kv-v">' +
+        '<div class="astro-kv-row"><span class="astro-kv-k">سنة الدورة في الدليل</span><span class="astro-kv-v">' +
         astroFmtNum(j.workbook_cycle_year) +
         '</span></div>' +
         '<p style="margin:10px 0 0;color:#ffb3b3">' +
@@ -5342,26 +5370,26 @@
     var cycleY = j.workbook_cycle_year != null ? astroFmtNum(j.workbook_cycle_year) : astroFmtNum(j.year);
     var diffNote =
       j.cycle_year_differs_from_gregorian_year === true
-        ? '<div class="astro-kv-row"><span class="astro-kv-k">ملاحظة</span><span class="astro-kv-v">سنة التقويم الميلادي للتاريخ (' +
+        ? '<div class="astro-kv-row"><span class="astro-kv-k">ملاحظة</span><span class="astro-kv-v">سنة التاريخ (' +
           gYear +
-          ') تختلف عن سنة دورة المصنف (' +
+          ') تختلف عن سنة الدورة في الدليل (' +
           cycleY +
           ')</span></div>'
         : '';
 
     var durHtml =
       '<div class="astro-card">' +
-      '<h5 class="astro-card-title">معاينة الدر الميلادي (المصنف)</h5>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' + wbCity + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">وضع المطابقة</span><span class="astro-kv-v">' + modeAr + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">حالة التعيين</span><span class="astro-kv-v">' + statAr + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ المعاينة الميلادي</span><span class="astro-kv-v">' + gregDate + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">سنة دورة المصنف</span><span class="astro-kv-v">' + cycleY + '</span></div>' +
+      '<h5 class="astro-card-title">معاينة من الدليل (للمقارنة — ليس التوقيت التشغيلي)</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">مفتاح المدينة في الدليل</span><span class="astro-kv-v">' + wbCity + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">وضع المطابقة في الدليل</span><span class="astro-kv-v">' + modeAr + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">حالة الربط</span><span class="astro-kv-v">' + statAr + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ الاستعلام</span><span class="astro-kv-v">' + gregDate + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">سنة الدورة في الدليل</span><span class="astro-kv-v">' + cycleY + '</span></div>' +
       diffNote +
-      '<div class="astro-kv-row"><span class="astro-kv-k">وضع البحث</span><span class="astro-kv-v">' +
-      escapeHtml(j.lookup_mode === 'restricted_workbook_cycle_year' ? 'مقيّد بدورة محددة' : 'بحث بالتاريخ عبر دورات المصنف') +
+      '<div class="astro-kv-row"><span class="astro-kv-k">وضع البحث في الدليل</span><span class="astro-kv-v">' +
+      escapeHtml(j.lookup_mode === 'restricted_workbook_cycle_year' ? 'مقيّد بدورة محددة' : 'بحث بالتاريخ عبر دورات الدليل') +
       '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">المصدر</span><span class="astro-kv-v">workbook_import · معاينة إدارية فقط</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">مصدر السطور</span><span class="astro-kv-v">دليل المدن المستورد (غير المرجع النهائي)</span></div>' +
       '</div>';
 
     var curHtml =
@@ -5414,7 +5442,7 @@
 
     return (
       '<div class="astro-card">' +
-      '<h5 class="astro-card-title">معاينة حزام العرض (قديمة — غير المصنف)</h5>' +
+      '<h5 class="astro-card-title">معاينة حزام العرض (طريقة قديمة)</h5>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">حزام العرض</span><span class="astro-kv-v">' + band + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">السنة</span><span class="astro-kv-v">' + astroFmtNum(j.year) + '</span></div>' +
       '<div class="astro-kv-row"><span class="astro-kv-k">اليوم</span><span class="astro-kv-v">' + escapeHtml(j.iso_date || '—') + '</span></div>' +
@@ -5540,19 +5568,19 @@
         return;
       }
       if (j.state === 'unmapped') {
-        alert('يجب ربط المحطة بمدينة المصنف أولاً');
+        alert('عيّن مفتاح مدينة في الدليل أولاً لهذه المحطة.');
         return;
       }
       if (j.state === 'operational_workbook_error') {
-        alert(j.message_ar || 'تعذّر قراءة مصنف الدور التشغيلي.');
+        alert(j.message_ar || 'تعذّر قراءة بيانات الدليل لمرساة سهيل.');
         return;
       }
       if (j.state && j.state !== 'ok') {
-        alert(j.message_ar || 'تعذّر إكمال الربط التشغيلي لمرساة سهيل.');
+        alert(j.message_ar || 'تعذّر إكمال الاستدعاء من بيانات الدليل لمرساة سهيل.');
         return;
       }
       if (!j.found) {
-        alert(j.message_ar || 'لم يتم العثور على مرساة سهيل أو فشل الربط التشغيلي.');
+        alert(j.message_ar || 'لم يتم العثور على مرساة سهيل في بيانات الدليل المرتبط.');
         return;
       }
       var d = j.event_date;
@@ -5568,7 +5596,7 @@
       var summary =
         'تاريخ سهيل الفلكي: ' +
         ds +
-        '\nالدر (من مصنف التشغيل): ' +
+        '\nالدر (من بيانات الدليل): ' +
         durN +
         '\nاليوم داخل الدر: ' +
         dayIn +
@@ -5584,7 +5612,7 @@
       if (suhailEl) suhailEl.value = ds;
       if (status) {
         status.textContent =
-          'تم تعبئة المراساة وحالة الدور من محرّك المصنف التشغيلي — اضغط «حفظ محطة» لتثبيت البيانات.';
+          'تم تعبئة المراساة وحالة الدر حسب ارتباط المدينة في الدليل — اضغط «حفظ محطة» لتثبيت البيانات.';
       }
     } catch (e) {
       alert('خطأ: ' + (e && e.message ? e.message : e));
