@@ -5,9 +5,9 @@
  */
 'use strict';
 
-var wb = require('./workbook-dur-lookup');
-var parseIsoYmd = wb.ymdFromIso;
-var computeDayMetricsForWorkbookRow = wb.computeDayMetricsForWorkbookRow;
+var metrics = require('./dur-day-metrics');
+var parseIsoYmd = metrics.ymdFromIso;
+var computeDayMetricsForWorkbookRow = metrics.computeDayMetricsForWorkbookRow;
 
 function normalizeString(value) {
   return String(value == null ? '' : value).trim();

@@ -6,11 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:navidur": "node run.js",
-    "import:astro-workbook": "node serverless_api/import-astro-workbook.js",
-    "rebuild:dur-windows": "node scripts/rebuild-dur-windows-from-operational-xlsx.js",
-    "align:operational-workbook": "node scripts/operational-workbook-full-align.js",
-    "build:true-final": "node scripts/build-true-final-station-reference-json.js",
-    "validate:true-final": "node scripts/validate-true-final-vs-stable.js"
+    "build:true-final": "node scripts/build-true-final-station-reference-json.js"
   },
   "repository": {
     "type": "git",

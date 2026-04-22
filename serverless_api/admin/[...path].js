@@ -3,14 +3,11 @@
 const path = require('path');
 const fs = require('fs/promises');
 const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv, kvStoreKey } = require('../_lib/data-store');
-const wbLook = require('../../shared/workbook-dur-lookup');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
 const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
-const { regenerateStationLocalDurWindows, removeStationLocalDurWindowsRecord } = require('../_lib/station-local-dur-persist');
 const { utcTodayIso } = require('../_lib/station-local-dur-resolver');
-const { getResolvedLocalDurSnapshot } = require('../../shared/resolved-station-dur-snapshot');
 
 async function writeAudit(action, actor, details) {
   const audit = await readJsonFile('audit', []);
@@ -543,78 +540,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (root === 'sync-dur-windows-kv') {
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET');
-      return res.status(405).json({ error: 'method_not_allowed' });
-    }
-    if (id) {
-      return res.status(404).json({ error: 'admin_route_not_found' });
-    }
-    if (!getKv()) {
-      return res.status(503).json({ ok: false, error: 'kv_not_configured' });
-    }
-    const durFile = path.join(__dirname, '..', '..', 'data', 'dur_windows.json');
-    let raw;
-    try {
-      raw = await fs.readFile(durFile, 'utf8');
-    } catch (e) {
-      return res.status(500).json({ ok: false, error: 'dur_windows_read_failed', path: durFile });
-    }
-    let doc;
-    try {
-      doc = JSON.parse(raw);
-    } catch (_e) {
-      return res.status(400).json({ ok: false, error: 'dur_windows_json_invalid' });
-    }
-    if (!doc || !Array.isArray(doc.workbook_windows)) {
-      return res.status(400).json({ ok: false, error: 'workbook_windows_array_required' });
-    }
-    const wbw = doc.workbook_windows;
-    const found = wbLook.findWorkbookCurrentNextStrict(
-      wbw,
-      wbLook.normalizeWorkbookCityKey('أبوظبي'),
-      '2026-04-22'
-    );
-    if (!found.ok || !found.current) {
-      return res.status(400).json({
-        ok: false,
-        error: 'abudhabi_verification_failed',
-        found: found
-      });
-    }
-    const c = found.current;
-    const n = found.next;
-    const abuDhabiOk =
-      c.dur_name_ar === 'المؤخر' &&
-      c.dur_start === '2026-04-13' &&
-      c.dur_end === '2026-04-25' &&
-      n &&
-      n.dur_name_ar === 'الرشاء';
-    if (!abuDhabiOk) {
-      return res.status(400).json({
-        ok: false,
-        error: 'abudhabi_verification_mismatch',
-        current: c,
-        next: n
-      });
-    }
-    await writeJsonFile('dur_windows', doc);
-    const ts = nowIso();
-    const rowCount = doc.workbook_windows.length;
-    await writeAudit('sync_dur_windows_kv', actor, { kv_key: kvStoreKey('dur_windows'), total_rows: rowCount });
-    return res.status(200).json({
-      ok: true,
-      path: 'sync-dur-windows-kv',
-      success: true,
-      total_rows_written: rowCount,
-      timestamp: ts,
-      kv_key: kvStoreKey('dur_windows'),
-      verify_abu_dhabi_2026_04_22: {
-        current_dur: c.dur_name_ar,
-        period: { start: c.dur_start, end: c.dur_end },
-        next_dur: n ? n.dur_name_ar : null
-      }
-    });
+    return res.status(410).json({ ok: false, error: 'dur_windows_sync_removed', message: 'NAVIDUR uses data/true_final_station_reference.json only' });
   }
 
   if (root === 'feedback') {
@@ -676,9 +602,6 @@ module.exports = async function handler(req, res) {
             }
             rows[existingIdx] = station;
             await writeJsonFile('stations', rows);
-            try {
-              await regenerateStationLocalDurWindows(station, readJsonFile, writeJsonFile);
-            } catch (_) {}
             await writeAudit('station_updated', actor, { station_id: station.id, station_name: station.name });
             return res.status(200).json({ ok: true, station });
           }
@@ -694,9 +617,6 @@ module.exports = async function handler(req, res) {
           }
           rows.push(station);
           await writeJsonFile('stations', rows);
-          try {
-            await regenerateStationLocalDurWindows(station, readJsonFile, writeJsonFile);
-          } catch (_) {}
           await writeAudit('station_created', actor, { station_id: station.id, station_name: station.name });
           return res.status(201).json({ ok: true, station });
         } catch (err) {
@@ -736,9 +656,6 @@ module.exports = async function handler(req, res) {
         }
         rows[idx] = next;
         await writeJsonFile('stations', rows);
-        try {
-          await regenerateStationLocalDurWindows(next, readJsonFile, writeJsonFile);
-        } catch (_) {}
         await writeAudit('station_updated', actor, { station_id: next.id, station_name: next.name });
         return res.status(200).json({ ok: true, station: next });
       } catch (err) {
@@ -750,9 +667,6 @@ module.exports = async function handler(req, res) {
       const deleted = rows[idx];
       rows.splice(idx, 1);
       await writeJsonFile('stations', rows);
-      try {
-        await removeStationLocalDurWindowsRecord(deleted.id, readJsonFile, writeJsonFile);
-      } catch (_) {}
       await writeAudit('station_deleted', actor, { station_id: deleted.id, station_name: deleted.name });
       return res.status(200).json({ ok: true, deleted: true, station_id: deleted.id });
     }
@@ -958,66 +872,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (root === 'station-dur-windows') {
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET');
-      return res.status(405).json({ error: 'method_not_allowed' });
-    }
-    const stationId = cleanString((req.query && req.query.station_id) || id, 80);
-    if (!stationId) return res.status(400).json({ error: 'station_id_required' });
-    const isoRaw = cleanString(req.query && req.query.iso_date, 12);
-    const isoDate = isoRaw && /^\d{4}-\d{2}-\d{2}$/.test(isoRaw) ? isoRaw : utcTodayIso();
-    const doc = await readJsonFile('station_dur_windows', { version: 1, stations: {} });
-    const record = doc.stations && doc.stations[stationId] ? doc.stations[stationId] : null;
-    const dururMaster = await readJsonFile('durur_master', []);
-    const dwDoc = await readJsonFile('dur_windows', { version: 2, workbook_windows: [] });
-    const wbw = Array.isArray(dwDoc.workbook_windows) ? dwDoc.workbook_windows : [];
-    const stationRows = await readJsonFile('stations', []);
-    const stationRow = Array.isArray(stationRows)
-      ? stationRows.find(function (s) {
-        return s && String(s.id) === stationId;
-      })
-      : null;
-    var anchorRule = null;
-    if (stationRow && stationRow.suhail_anchor_resolution && stationRow.suhail_anchor_resolution.dur_name_ar != null) {
-      anchorRule = {
-        anchor_dur_name_ar: stationRow.suhail_anchor_resolution.dur_name_ar,
-        anchor_day_in_dur: stationRow.suhail_anchor_resolution.day_in_dur
-      };
-    } else if (record && record.anchor_dur_name_ar != null) {
-      anchorRule = {
-        anchor_dur_name_ar: record.anchor_dur_name_ar,
-        anchor_day_in_dur: record.anchor_day_in_dur
-      };
-    }
-    const snap = getResolvedLocalDurSnapshot({
-      station: stationRow || {},
-      stationId: stationId,
-      asOfIso: isoDate,
-      durur_reference: Array.isArray(dururMaster) ? dururMaster : [],
-      workbook_windows: wbw
-    });
-    if (snap && snap.error) {
-      return res.status(200).json({
-        ok: false,
-        station_id: stationId,
-        as_of: isoDate,
-        anchor_rule_from_config: anchorRule,
-        record,
-        timing_source: 'operational_workbook',
-        timing_error: snap.error,
-        current: null
-      });
-    }
-    const current = snap && snap.resolved_window_snapshot ? snap.resolved_window_snapshot : null;
-    return res.status(200).json({
-      ok: true,
-      station_id: stationId,
-      as_of: isoDate,
-      anchor_rule_from_config: anchorRule,
-      record,
-      timing_source: 'operational_workbook',
-      current
-    });
+    return res.status(410).json({ ok: false, error: 'station_dur_windows_api_removed', message: 'Use data/true_final_station_reference.json; timing is in navidur analysis API only' });
   }
 
   const collectionRoots = ['durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons', 'durur-master', 'trait-dictionaries', 'fish-season-tags', 'advice-basis-tags'];

@@ -7,15 +7,6 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  var getResolvedLocalDurSnapshot;
-  try {
-    if (typeof require === 'function') {
-      getResolvedLocalDurSnapshot = require('./resolved-station-dur-snapshot').getResolvedLocalDurSnapshot;
-    }
-  } catch (_reqErr) {
-    getResolvedLocalDurSnapshot = null;
-  }
-
   var getTrueFinalDurState;
   try {
     if (typeof require === 'function') {
@@ -76,84 +67,7 @@
     return date;
   }
 
-  var SOHAIL_STATION_ANCHORS = {
-    'جازان': { month: 8, day: 16 },
-    'فرسان': { month: 8, day: 16 },
-    'صلالة': { month: 8, day: 16 },
-    'الدقم': { month: 8, day: 19 },
-    'القنفذة': { month: 8, day: 19 },
-    'جدة': { month: 8, day: 20 },
-    'الليث': { month: 8, day: 20 },
-    'رابغ': { month: 8, day: 22 },
-    'ينبع': { month: 8, day: 23 },
-    'أبوظبي': { month: 8, day: 23 },
-    'مسقط': { month: 8, day: 23 },
-    'أملج': { month: 8, day: 23 },
-    'صحار': { month: 8, day: 23 },
-    'مسندم (خصب)': { month: 8, day: 23 },
-    'الفجيرة': { month: 8, day: 23 },
-    'بوشهر': { month: 8, day: 23 },
-    'الدوحة': { month: 8, day: 24 },
-    'دبي': { month: 8, day: 24 },
-    'العقير': { month: 8, day: 24 },
-    'الخور': { month: 8, day: 24 },
-    'الرويس': { month: 8, day: 24 },
-    'المنامة': { month: 8, day: 25 },
-    'الخبر': { month: 8, day: 25 },
-    'الدمام': { month: 8, day: 25 },
-    'الجبيل': { month: 8, day: 26 },
-    'خفجي': { month: 8, day: 27 },
-    'ضبا': { month: 8, day: 27 },
-    'الوجه': { month: 8, day: 27 },
-    'حقل': { month: 8, day: 27 },
-    'نيوم': { month: 8, day: 27 },
-    'الكويت': { month: 8, day: 28 },
-    'الجهراء': { month: 8, day: 28 }
-  };
-
-  var DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS = 106;
   var DEFAULT_DURUR_LENGTH_DAYS = 13;
-
-  function normalizeStationName(value) {
-    return normalizeString(value);
-  }
-
-  function clampNumber(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  function getFallbackSuhailAnchorDay(station) {
-    var lat = toNumber(station && station.lat);
-    if (lat == null) return 24;
-    return clampNumber(Math.round(24 + ((lat - 25.3) * 0.75)), 16, 28);
-  }
-
-  function getStationSuhailAnchorConfig(station) {
-    var byName = SOHAIL_STATION_ANCHORS[normalizeStationName(station && station.name)];
-    if (byName) return { month: byName.month, day: byName.day, source: 'station_lookup' };
-    return { month: 8, day: getFallbackSuhailAnchorDay(station), source: 'latitude_fallback' };
-  }
-
-  function createUtcDate(year, month, day) {
-    return new Date(Date.UTC(Number(year || new Date().getUTCFullYear()), Number(month || 1) - 1, Number(day || 1), 0, 0, 0, 0));
-  }
-
-  function getStationSuhailAnchorDate(station, year) {
-    var cfg = getStationSuhailAnchorConfig(station);
-    return createUtcDate(year, cfg.month, cfg.day);
-  }
-
-  function getRelevantSuhailAnchor(station, analysisDate) {
-    var year = analysisDate.getUTCFullYear();
-    var currentAnchor = getStationSuhailAnchorDate(station, year);
-    var currentCycleStart = addDays(currentAnchor, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
-    if (analysisDate >= currentCycleStart) return currentAnchor;
-    return getStationSuhailAnchorDate(station, year - 1);
-  }
-
-  function normalizeLatitudeBandKey(value) {
-    return normalizeString(value).toLowerCase();
-  }
 
   function normalizeStationRecord(station) {
     var item = station || {};
@@ -187,156 +101,12 @@
     return startOfUtcDay(date);
   }
 
-  function rebaseIsoDateToYear(value, year) {
-    var date = parseIsoDateOnly(value);
-    if (!date) return null;
-    return createUtcDate(year, date.getUTCMonth() + 1, date.getUTCDate());
-  }
-
-  function buildManualCalibrationForYear(station, year) {
-    var manualAnchor = rebaseIsoDateToYear(station && station.manual_suhail_anchor_date, year);
-    var manualCycleStart = rebaseIsoDateToYear(station && station.manual_cycle_start_date, year);
-    if (!manualAnchor && manualCycleStart) manualAnchor = addDays(manualCycleStart, DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
-    if (!manualCycleStart && manualAnchor) manualCycleStart = addDays(manualAnchor, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
-    if (!manualAnchor || !manualCycleStart) return null;
-    return {
-      anchor: manualAnchor,
-      cycleStart: manualCycleStart
-    };
-  }
-
-  function getStationEngineTiming(station, analysisDate) {
-    var anchor = getRelevantSuhailAnchor(station, analysisDate);
-    return {
-      anchor: anchor,
-      cycleStart: addDays(anchor, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS)
-    };
-  }
-
-  function getStationManualCalibrationTiming(station, analysisDate) {
-    if (!station || (!station.manual_suhail_anchor_date && !station.manual_cycle_start_date)) return null;
-    var year = analysisDate.getUTCFullYear();
-    var currentCycle = buildManualCalibrationForYear(station, year);
-    if (!currentCycle) return null;
-    if (analysisDate >= currentCycle.cycleStart) return currentCycle;
-    return buildManualCalibrationForYear(station, year - 1) || currentCycle;
-  }
-
-  function isVerifiedReferenceStation(station) {
-    return !!(station && station.is_reference_station && station.is_verified && (station.manual_suhail_anchor_date || station.manual_cycle_start_date));
-  }
-
   function findStoredStation(referenceData, stationInput) {
     var stationId = normalizeString(stationInput && stationInput.id);
     if (!stationId) return null;
     return toArray(referenceData && referenceData.stations).find(function (station) {
       return normalizeString(station && station.id) === stationId;
     }) || null;
-  }
-
-  function getTimingSourceLabel(source) {
-    if (source === 'calibrated_reference_anchor') return 'مرجع يدوي معتمد';
-    if (source === 'nearest_reference_station') return 'محطة مرجعية قريبة';
-    return 'المحرك الأساسي';
-  }
-
-  function pickCalibrationReferenceStation(referenceData, station) {
-    var stationId = normalizeString(station && station.id);
-    var explicitReferenceId = normalizeString(station && station.reference_station_id);
-    var targetLat = toNumber(station && station.lat);
-    var targetBandKey = normalizeLatitudeBandKey(station && station.latitude_band_key);
-    var candidates = toArray(referenceData && referenceData.stations).filter(function (item) {
-      return item && normalizeString(item.id) !== stationId && isVerifiedReferenceStation(item);
-    });
-    if (!candidates.length) return null;
-    if (explicitReferenceId) {
-      var explicitMatch = candidates.find(function (item) {
-        return normalizeString(item.id) === explicitReferenceId;
-      });
-      if (explicitMatch) {
-        return { station: explicitMatch, selection_reason: 'linked_reference_station' };
-      }
-    }
-    var bandCandidates = targetBandKey ? candidates.filter(function (item) {
-      return normalizeLatitudeBandKey(item.latitude_band_key) === targetBandKey;
-    }) : [];
-    var pool = bandCandidates.length ? bandCandidates : candidates;
-    pool = pool.slice().sort(function (a, b) {
-      var aPriority = toNumber(a && a.reference_priority);
-      var bPriority = toNumber(b && b.reference_priority);
-      if (aPriority == null) aPriority = 999999;
-      if (bPriority == null) bPriority = 999999;
-      if (aPriority !== bPriority) return aPriority - bPriority;
-      var aLat = toNumber(a && a.lat);
-      var bLat = toNumber(b && b.lat);
-      var aDistance = targetLat == null || aLat == null ? 999999 : Math.abs(aLat - targetLat);
-      var bDistance = targetLat == null || bLat == null ? 999999 : Math.abs(bLat - targetLat);
-      if (aDistance !== bDistance) return aDistance - bDistance;
-      return normalizeString(a && a.name).localeCompare(normalizeString(b && b.name), 'ar');
-    });
-    return {
-      station: pool[0],
-      selection_reason: bandCandidates.length ? 'latitude_band_key' : 'nearest_latitude'
-    };
-  }
-
-  function applyCalibrationFromReference(station, referenceStation, analysisDate, selectionReason) {
-    var targetBaseTiming = getStationEngineTiming(station, analysisDate);
-    var referenceBaseTiming = getStationEngineTiming(referenceStation, analysisDate);
-    var referenceManualTiming = getStationManualCalibrationTiming(referenceStation, analysisDate);
-    if (!referenceManualTiming) return null;
-    var deltaDays = getDaysBetween(referenceBaseTiming.cycleStart, referenceManualTiming.cycleStart);
-    return {
-      anchor: addDays(targetBaseTiming.anchor, deltaDays),
-      cycleStart: addDays(targetBaseTiming.cycleStart, deltaDays),
-      source: 'nearest_reference_station',
-      source_label_ar: getTimingSourceLabel('nearest_reference_station'),
-      referenceStation: referenceStation,
-      latitudeBandKey: normalizeString(referenceStation.latitude_band_key) || normalizeString(station.latitude_band_key) || null,
-      selection_reason: selectionReason || 'nearest_latitude',
-      deltaDays: deltaDays,
-      baseAnchor: targetBaseTiming.anchor
-    };
-  }
-
-  function resolveTimingCalibration(referenceData, station, analysisDate) {
-    var baseTiming = getStationEngineTiming(station, analysisDate);
-    if (isVerifiedReferenceStation(station)) {
-      var manualTiming = getStationManualCalibrationTiming(station, analysisDate);
-      if (manualTiming) {
-        return {
-          anchor: manualTiming.anchor,
-          cycleStart: manualTiming.cycleStart,
-          source: 'calibrated_reference_anchor',
-          source_label_ar: getTimingSourceLabel('calibrated_reference_anchor'),
-          referenceStation: station,
-          latitudeBandKey: normalizeString(station.latitude_band_key) || null,
-          selection_reason: 'self',
-          deltaDays: getDaysBetween(baseTiming.cycleStart, manualTiming.cycleStart),
-          baseAnchor: baseTiming.anchor
-        };
-      }
-    }
-    var selectedReference = pickCalibrationReferenceStation(referenceData, station);
-    if (selectedReference && selectedReference.station) {
-      var propagated = applyCalibrationFromReference(station, selectedReference.station, analysisDate, selectedReference.selection_reason);
-      if (propagated) return propagated;
-    }
-    return {
-      anchor: baseTiming.anchor,
-      cycleStart: baseTiming.cycleStart,
-      source: 'pure_engine',
-      source_label_ar: getTimingSourceLabel('pure_engine'),
-      referenceStation: null,
-      latitudeBandKey: normalizeString(station.latitude_band_key) || null,
-      selection_reason: 'engine_only',
-      deltaDays: 0,
-      baseAnchor: baseTiming.anchor
-    };
-  }
-
-  function getDaysBetween(start, end) {
-    return Math.floor((end.getTime() - start.getTime()) / 86400000);
   }
 
   function sortDurRows(rows) {
@@ -507,25 +277,6 @@
     }) || candidates[0] || null;
   }
 
-  function findStoredOverride(referenceData, station, durRow, seasonKey) {
-    var stationId = normalizeString(station && station.id);
-    if (!stationId) return null;
-    var targetDurNumber = toNumber(durRow && durRow.dur_number);
-    var targetDurId = normalizeString(durRow && durRow.id);
-    var allowedSeasons = getSeasonAliases(seasonKey).map(normalizeForMatch);
-    return toArray(referenceData && referenceData.overrides).find(function (item) {
-      if (!item || item.is_active === false) return false;
-      if (normalizeString(item.station_id) !== stationId) return false;
-      var itemDurNumber = toNumber(item.dur_number);
-      var itemDurId = normalizeString(item.dur_id);
-      if (targetDurId && itemDurId && itemDurId !== targetDurId) return false;
-      if (targetDurNumber != null && itemDurNumber != null && itemDurNumber !== targetDurNumber) return false;
-      var seasonValue = normalizeForMatch(item.season_key || item.season || '');
-      if (seasonValue && allowedSeasons.length && allowedSeasons.indexOf(seasonValue) < 0) return false;
-      return true;
-    }) || null;
-  }
-
   function normalizeOverrideFields(fields) {
     var item = fields || {};
     var out = {};
@@ -611,63 +362,6 @@
     return phases.find(function (phase) {
       return day < phase.start_day;
     }) || phases[phases.length - 1];
-  }
-
-  function buildDurTimeline(referenceData, station, analysisDate, runtimeOverride) {
-    var durRows = sortDurRows(referenceData && referenceData.durur_reference);
-    if (!durRows.length) return { current: null, next: null };
-
-    var timingCalibration = resolveTimingCalibration(referenceData, station, analysisDate);
-    var suhailStart = timingCalibration.anchor;
-    var seasonKey = getSeasonKeyFromDate(analysisDate);
-    var cycleStart = timingCalibration.cycleStart || addDays(suhailStart, -DURUR_CYCLE_ALIGNMENT_OFFSET_DAYS);
-    var cursor = cycleStart;
-
-    var timeline = durRows.map(function (durRow, index) {
-      var daysCount = Math.max(1, Number(durRow && durRow.default_days_count || DEFAULT_DURUR_LENGTH_DAYS));
-      var storedOverride = findStoredOverride(referenceData, station, durRow, seasonKey) || {};
-      var mergedOverride = Object.assign({}, storedOverride, runtimeOverride || {});
-      var start = addDays(cursor, toNumber(mergedOverride.start_offset_days) || 0);
-      var end = addDays(start, daysCount - 1);
-      end = addDays(end, toNumber(mergedOverride.end_offset_days) || 0);
-      var item = {
-        durRow: durRow,
-        start: start,
-        end: end
-      };
-      cursor = addDays(end, 1);
-      return item;
-    });
-
-    var current = null;
-    for (var i = 0; i < timeline.length; i += 1) {
-      if (analysisDate >= timeline[i].start && analysisDate <= timeline[i].end) {
-        current = timeline[i];
-        break;
-      }
-    }
-    if (!current) {
-      current = timeline.find(function (item) {
-        return analysisDate < item.start;
-      }) || timeline[timeline.length - 1];
-    }
-
-    var currentIndex = timeline.indexOf(current);
-    var next = timeline[(currentIndex + 1) % timeline.length];
-    return {
-      current: current,
-      next: next,
-      timeline: timeline,
-      suhail_anchor: suhailStart,
-      cycle_start: timeline[0] ? timeline[0].start : cycleStart,
-      timing_source: timingCalibration.source,
-      timing_source_label_ar: timingCalibration.source_label_ar,
-      calibration_reference_station: timingCalibration.referenceStation || null,
-      calibration_latitude_band_key: timingCalibration.latitudeBandKey || null,
-      calibration_selection_reason: timingCalibration.selection_reason || '',
-      calibration_delta_days: timingCalibration.deltaDays != null ? timingCalibration.deltaDays : 0,
-      base_suhail_anchor: timingCalibration.baseAnchor || suhailStart
-    };
   }
 
   function dateRangeContains(date, startMonth, startDay, endMonth, endDay) {
@@ -1029,13 +723,6 @@
   function normalizeReferenceData(referenceData) {
     var source = referenceData || {};
     var dururReference = sortDurRows(source.durur_master || []).map(normalizeDurRow);
-    var sdw = source.station_dur_windows;
-    if (!sdw || typeof sdw !== 'object') sdw = { version: 1, stations: {} };
-    if (!sdw.stations || typeof sdw.stations !== 'object') {
-      sdw = Object.assign({}, sdw, { stations: {} });
-    }
-    var dwc = source.dur_windows;
-    var wbw = toArray(dwc && dwc.workbook_windows);
     var tfr0 = source.true_final_station_reference;
     var tfr = tfr0 && typeof tfr0 === 'object' ? tfr0 : { version: 0, stations: [] };
 
@@ -1051,26 +738,12 @@
       overrides: toArray(source.overrides || source.station_dur_overrides),
       reference_overrides: toArray(source.durur_overrides || source.reference_overrides),
       rules_config: source.rules_config || null,
-      station_dur_windows: sdw,
-      workbook_windows: wbw,
       true_final_station_reference: tfr
     };
   }
 
   function normalizeRuntimeOverride(overrides) {
     return Object.assign({}, overrides || {});
-  }
-
-  function engineWorkbookCitySet(st) {
-    if (!st) return false;
-    if (String(st.workbook_city_name != null ? st.workbook_city_name : '').trim() !== '') return true;
-    if (String(st.workbook_city_key != null ? st.workbook_city_key : '').trim() !== '') return true;
-    return false;
-  }
-
-  /** Reference station with workbook city mapping: workbook-only timing (no legacy fallback). */
-  function isReferenceWorkbookEnforced(st) {
-    return !!(st && st.is_reference_station && engineWorkbookCitySet(st));
   }
 
   function analyzeLiveStation(params) {
@@ -1086,305 +759,18 @@
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
     var asOfIso = analysisDate && analysisDate.toISOString ? analysisDate.toISOString().slice(0, 10) : '';
-    var isRef = !!(station && station.is_reference_station);
     var trueFinalDoc = referenceData.true_final_station_reference;
+    var stationsArr = trueFinalDoc && Array.isArray(trueFinalDoc.stations) ? trueFinalDoc.stations : [];
 
-    if (isRef) {
-      if (!getTrueFinalDurState) {
-        return {
-          station_id: station.id || null,
-          analysis_timestamp: analysisDateTime.toISOString(),
-          true_final_reference_active: false,
-          true_final_lookup_failed: true,
-          dur: {
-            timing_error: { code: 'TRUE_FINAL_MODULE_MISSING', message: 'true_final_station_reference lookup not available' },
-            period_id: '',
-            period_number: null,
-            period_name: '',
-            day_in_period: null,
-            next_period_id: '',
-            next_period_name: '',
-            days_remaining: null,
-            period_start_date: '',
-            period_end_date: '',
-            next_period_start_date: '',
-            next_period_end_date: '',
-            timing_resolution: 'true_final_error',
-            timing_as_of: asOfIso,
-            timing_from_resolved_local: false,
-            timing_from_operational_workbook: false,
-            suhail_anchor_date: '',
-            base_suhail_anchor_date: '',
-            cycle_start_date: '',
-            timing_source: 'true_final_station_reference',
-            timing_source_label_ar: '',
-            calibration_reference_station_id: '',
-            calibration_reference_station_name: '',
-            calibration_latitude_band_key: '',
-            calibration_selection_reason: '',
-            calibration_delta_days: 0,
-            reference: { periods: [] },
-            active_phase_id: '',
-            active_phase_reference: { events: [] },
-            overrides_applied: false
-          },
-          environment: {
-            temp_c: liveEnvironment.temp_c,
-            wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-            wind_direction_deg: liveEnvironment.wind_direction_deg,
-            wave_height_m: liveEnvironment.wave_height_m
-          },
-          tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
-          fishing: { is_recommended: false, species_activity: [], confidence_score: 0, advice_text: '' }
-        };
-      }
-      if (!normalizeString(station.name)) {
-        return {
-          station_id: station.id || null,
-          analysis_timestamp: analysisDateTime.toISOString(),
-          true_final_lookup_failed: true,
-          dur: {
-            timing_error: { code: 'REFERENCE_STATION_NAME_REQUIRED', message: 'reference station must have Arabic name for true_final_station_reference match' },
-            period_id: '',
-            period_number: null,
-            period_name: '',
-            day_in_period: null,
-            next_period_id: '',
-            next_period_name: '',
-            days_remaining: null,
-            period_start_date: '',
-            period_end_date: '',
-            next_period_start_date: '',
-            next_period_end_date: '',
-            timing_resolution: 'true_final_error',
-            timing_as_of: asOfIso,
-            timing_from_resolved_local: false,
-            timing_from_operational_workbook: false,
-            suhail_anchor_date: '',
-            base_suhail_anchor_date: '',
-            cycle_start_date: '',
-            timing_source: 'true_final_station_reference',
-            timing_source_label_ar: '',
-            calibration_reference_station_id: '',
-            calibration_reference_station_name: '',
-            calibration_latitude_band_key: '',
-            calibration_selection_reason: '',
-            calibration_delta_days: 0,
-            reference: { periods: [] },
-            active_phase_id: '',
-            active_phase_reference: { events: [] },
-            overrides_applied: false
-          },
-          environment: {
-            temp_c: liveEnvironment.temp_c,
-            wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-            wind_direction_deg: liveEnvironment.wind_direction_deg,
-            wave_height_m: liveEnvironment.wave_height_m
-          },
-          tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
-          fishing: { is_recommended: false, species_activity: [], confidence_score: 0, advice_text: '' }
-        };
-      }
-      var tf;
-      try {
-        tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: station.name, asOfIso: asOfIso });
-      } catch (tfEx) {
-        tf = { ok: false, code: 'EXCEPTION', message: String((tfEx && tfEx.message) || tfEx) };
-      }
-      if (!tf || !tf.ok) {
-        return {
-          station_id: station.id || null,
-          analysis_timestamp: analysisDateTime.toISOString(),
-          true_final_reference_active: true,
-          true_final_lookup_failed: true,
-          operational_workbook_inactive: true,
-          legacy_suhail_engine_inactive: true,
-          dur: {
-            timing_error: tf && !tf.ok ? { code: tf.code, message: tf.message, detail: tf } : { code: 'TRUE_FINAL_UNKNOWN', message: 'lookup failed' },
-            period_id: '',
-            period_number: null,
-            period_name: '',
-            day_in_period: null,
-            next_period_id: '',
-            next_period_name: '',
-            days_remaining: null,
-            period_start_date: '',
-            period_end_date: '',
-            next_period_start_date: '',
-            next_period_end_date: '',
-            timing_resolution: 'true_final_error',
-            timing_as_of: asOfIso,
-            timing_from_resolved_local: false,
-            timing_from_operational_workbook: false,
-            suhail_anchor_date: '',
-            base_suhail_anchor_date: '',
-            cycle_start_date: '',
-            timing_source: 'true_final_station_reference',
-            timing_source_label_ar: '',
-            calibration_reference_station_id: '',
-            calibration_reference_station_name: '',
-            calibration_latitude_band_key: '',
-            calibration_selection_reason: '',
-            calibration_delta_days: 0,
-            reference: { periods: [] },
-            active_phase_id: '',
-            active_phase_reference: { events: [] },
-            overrides_applied: false
-          },
-          environment: {
-            temp_c: liveEnvironment.temp_c,
-            wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-            wind_direction_deg: liveEnvironment.wind_direction_deg,
-            wave_height_m: liveEnvironment.wave_height_m
-          },
-          tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
-          fishing: { is_recommended: false, species_activity: [], confidence_score: 0, advice_text: '' }
-        };
-      }
-      var tfDurRow = {
-        id: 'true_final:' + normalizeString(station.id),
-        name_ar: tf.current_dur_name_ar,
-        name: '',
-        name_en: '',
-        dur_number: null,
-        order_index: null,
-        default_days_count: null,
-        phases: []
-      };
-      var tfNextRow = {
-        id: '',
-        name_ar: tf.next_dur_name_ar,
-        name: '',
-        name_en: '',
-        dur_number: null,
-        order_index: null,
-        default_days_count: null,
-        phases: []
-      };
-      var tfStart = parseIsoDateOnly(tf.current_dur_start);
-      var tfEnd = parseIsoDateOnly(tf.current_dur_end);
-      var minTfCurrent = { durRow: tfDurRow, start: tfStart, end: tfEnd };
-      var minTfNext = { durRow: tfNextRow, start: null, end: null };
-      var tfRefOnly = buildDurReferenceMetadata(tfDurRow, minTfNext, []);
-      var fishingTf = buildFishingDecision(
-        referenceData,
-        station,
-        liveEnvironment,
-        tideState,
-        minTfCurrent,
-        {},
-        [],
-        runtimeOverride,
-        options.field_validation || null
-      );
+    function failResponse(timingError) {
       return {
         station_id: station.id || null,
         analysis_timestamp: analysisDateTime.toISOString(),
-        true_final_reference_active: true,
+        true_final_lookup_failed: true,
         operational_workbook_inactive: true,
         legacy_suhail_engine_inactive: true,
         dur: {
-          period_id: normalizeString(tfDurRow.id),
-          period_number: null,
-          period_name: normalizeString(tf.current_dur_name_ar),
-          day_in_period: toNumber(tf.day_in_dur),
-          next_period_id: '',
-          next_period_name: normalizeString(tf.next_dur_name_ar),
-          days_remaining: toNumber(tf.days_remaining_in_dur),
-          period_start_date: normalizeString(tf.current_dur_start),
-          period_end_date: normalizeString(tf.current_dur_end),
-          next_period_start_date: '',
-          next_period_end_date: '',
-          timing_resolution: 'true_final_station_workbook',
-          timing_as_of: asOfIso,
-          timing_from_resolved_local: true,
-          timing_from_operational_workbook: false,
-          suhail_anchor_date: '',
-          base_suhail_anchor_date: '',
-          cycle_start_date: '',
-          timing_source: 'true_final_station_reference',
-          timing_source_label_ar: 'المرجع النهائي للمحطات (navidur_true_final_station_reference.xlsx)',
-          calibration_reference_station_id: '',
-          calibration_reference_station_name: '',
-          calibration_latitude_band_key: '',
-          calibration_selection_reason: 'true_final_station_workbook_only',
-          calibration_delta_days: 0,
-          reference: tfRefOnly,
-          active_phase_id: '',
-          active_phase_reference: null,
-          overrides_applied: false,
-          true_final_station_workbook: 'navidur_true_final_station_reference',
-          true_final_data_json: 'true_final_station_reference.json'
-        },
-        environment: {
-          temp_c: liveEnvironment.temp_c,
-          wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-          wind_direction_deg: liveEnvironment.wind_direction_deg,
-          wave_height_m: liveEnvironment.wave_height_m
-        },
-        tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
-        fishing: {
-          is_recommended: fishingTf.is_recommended,
-          species_activity: fishingTf.species_activity,
-          confidence_score: fishingTf.confidence_score,
-          advice_text: fishingTf.advice_text
-        }
-      };
-    }
-
-    var refWb = isReferenceWorkbookEnforced(station);
-    var hasWbCity = engineWorkbookCitySet(station);
-    var workbookLookupError = null;
-    var snap = null;
-    if (getResolvedLocalDurSnapshot && asOfIso && /^\d{4}-\d{2}-\d{2}$/.test(asOfIso) && hasWbCity) {
-      try {
-        snap = getResolvedLocalDurSnapshot({
-          station: station,
-          stationId: normalizeString(station && station.id),
-          asOfIso: asOfIso,
-          durur_reference: referenceData.durur_reference,
-          workbook_windows: referenceData.workbook_windows
-        });
-      } catch (bdErr) {
-        if (refWb) {
-          workbookLookupError = {
-            code: 'WORKBOOK_LOOKUP_FAILED',
-            message: bdErr && bdErr.message ? String(bdErr.message) : 'getResolvedLocalDurSnapshot threw',
-            reason: 'exception'
-          };
-        }
-        snap = null;
-      }
-    }
-    if (snap && snap.error) {
-      if (refWb) {
-        workbookLookupError = {
-          code: 'WORKBOOK_LOOKUP_FAILED',
-          message: 'operational_workbook_lookup_failed',
-          detail: snap.error
-        };
-      } else {
-        snap = null;
-      }
-    }
-    if (refWb && hasWbCity && !workbookLookupError) {
-      var snapWbOk = snap && !snap.error && snap.resolved_window_snapshot;
-      if (!snapWbOk) {
-        workbookLookupError = {
-          code: 'WORKBOOK_LOOKUP_FAILED',
-          message: 'operational_workbook_lookup_incomplete',
-          detail: snap && snap.error ? snap.error : { code: 'WORKBOOK_SNAPSHOT_REQUIRED', message: 'no_resolved_workbook_snapshot' }
-        };
-      }
-    }
-    if (workbookLookupError) {
-      return {
-        station_id: station.id || null,
-        analysis_timestamp: analysisDateTime.toISOString(),
-        reference_workbook_enforced: refWb,
-        workbook_lookup_failed: true,
-        dur: {
-          timing_error: workbookLookupError,
+          timing_error: timingError,
           period_id: '',
           period_number: null,
           period_name: '',
@@ -1396,14 +782,14 @@
           period_end_date: '',
           next_period_start_date: '',
           next_period_end_date: '',
-          timing_resolution: 'workbook_error',
-          timing_as_of: analysisDateTime.toISOString().slice(0, 10),
+          timing_resolution: 'true_final_error',
+          timing_as_of: asOfIso,
           timing_from_resolved_local: false,
-          timing_from_operational_workbook: true,
+          timing_from_operational_workbook: false,
           suhail_anchor_date: '',
           base_suhail_anchor_date: '',
           cycle_start_date: '',
-          timing_source: 'operational_workbook',
+          timing_source: 'true_final_station_reference',
           timing_source_label_ar: '',
           calibration_reference_station_id: '',
           calibration_reference_station_name: '',
@@ -1421,208 +807,108 @@
           wind_direction_deg: liveEnvironment.wind_direction_deg,
           wave_height_m: liveEnvironment.wave_height_m
         },
-        tide: {
-          state: tideState,
-          current_speed_ms: liveEnvironment.current_speed_ms
-        },
-        fishing: {
-          is_recommended: false,
-          species_activity: [],
-          confidence_score: 0,
-          advice_text: ''
-        }
+        tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
+        fishing: { is_recommended: false, species_activity: [], confidence_score: 0, advice_text: '' }
       };
     }
-    if (snap && snap.resolved_window_snapshot && !snap.error) {
-      var rwS = snap.resolved_window_snapshot;
-      var mDurRow = snap.current && snap.current.durRow
-        ? snap.current.durRow
-        : {
-          id: normalizeString(rwS.dur_id),
-          name_ar: normalizeString(rwS.dur_name_ar),
-          name: '',
-          name_en: '',
-          dur_number: null,
-          order_index: null,
-          default_days_count: null,
-          phases: []
-        };
-      var minCurrentDur = {
-        durRow: mDurRow,
-        start: snap.current && snap.current.start,
-        end: snap.current && snap.current.end
-      };
-      var snapRefOnly = buildDurReferenceMetadata(mDurRow, snap.next, []);
-      var fishingOnly = buildFishingDecision(
-        referenceData,
-        station,
-        liveEnvironment,
-        tideState,
-        minCurrentDur,
-        {},
-        [],
-        runtimeOverride,
-        options.field_validation || null
-      );
-      return {
-        station_id: station.id || null,
-        analysis_timestamp: analysisDateTime.toISOString(),
-        reference_workbook_enforced: refWb,
-        workbook_snapshot_only: true,
-        dur: (function () {
-          var d = {
-            period_id: normalizeString(rwS.dur_id),
-            period_number: mDurRow ? toNumber(mDurRow.dur_number) : null,
-            period_name: normalizeString(rwS.dur_name_ar),
-            day_in_period: toNumber(rwS.day_in_dur),
-            next_period_id: normalizeString(rwS.next_dur_id),
-            next_period_name: rwS.next_dur_name_ar != null ? normalizeString(rwS.next_dur_name_ar) : '',
-            days_remaining: toNumber(rwS.days_remaining_in_dur),
-            period_start_date: normalizeString(rwS.start_date),
-            period_end_date: normalizeString(rwS.end_date),
-            next_period_start_date: snap.next && snap.next.start ? snap.next.start.toISOString().slice(0, 10) : '',
-            next_period_end_date: snap.next && snap.next.end ? snap.next.end.toISOString().slice(0, 10) : '',
-            timing_resolution: 'operational_workbook',
-            timing_as_of: normalizeString(snap.timing_as_of || asOfIso),
-            timing_from_resolved_local: true,
-            timing_from_operational_workbook: true,
-            suhail_anchor_date: snap.suhail_anchor ? snap.suhail_anchor.toISOString().slice(0, 10) : '',
-            base_suhail_anchor_date: snap.base_suhail_anchor ? snap.base_suhail_anchor.toISOString().slice(0, 10) : '',
-            cycle_start_date: snap.cycle_start ? snap.cycle_start.toISOString().slice(0, 10) : '',
-            timing_source: 'operational_workbook',
-            timing_source_label_ar: 'المصنف التشغيلي (dur_windows.json)',
-            calibration_reference_station_id: '',
-            calibration_reference_station_name: '',
-            calibration_latitude_band_key: '',
-            calibration_selection_reason: 'workbook_snapshot_only',
-            calibration_delta_days: 0,
-            reference: snapRefOnly,
-            active_phase_id: '',
-            active_phase_reference: null,
-            overrides_applied: false
-          };
-          if (refWb) {
-            d.suhail_anchor_source = 'navidur_durur_master_workbook_v1';
-            d.operational_durur_workbook = 'navidur_operational_durur_2025_2026';
-            d.reference_workbook_only_timing = true;
-          }
-          return d;
-        })(),
-        environment: {
-          temp_c: liveEnvironment.temp_c,
-          wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-          wind_direction_deg: liveEnvironment.wind_direction_deg,
-          wave_height_m: liveEnvironment.wave_height_m
-        },
-        tide: {
-          state: tideState,
-          current_speed_ms: liveEnvironment.current_speed_ms
-        },
-        fishing: {
-          is_recommended: fishingOnly.is_recommended,
-          species_activity: fishingOnly.species_activity,
-          confidence_score: fishingOnly.confidence_score,
-          advice_text: fishingOnly.advice_text
-        }
-      };
-    }
-    var durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
-    var currentDur = durInfo.current;
-    var nextDur = durInfo.next;
-    var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
-    var seasonKey = getSeasonKeyFromDate(analysisDate);
-    var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
-    var activePhase = resolveActiveDurPhase(currentDur && currentDur.durRow, dayInPeriod);
-    var baseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, false);
-    var phaseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, true);
-    var overrideApplied = Object.keys(phaseReferenceOverrideFields).length > 0;
-    var effectiveDurRow = cloneDurRowWithOverrides(currentDur && currentDur.durRow, baseReferenceOverrideFields);
-    var effectiveActivePhase = cloneDurRowWithOverrides(activePhase, phaseReferenceOverrideFields);
-    var baseReferenceEvents = resolveReferenceSeasonalEvents(
-      referenceData,
-      effectiveDurRow,
-      analysisDate,
-      effectiveDurRow && effectiveDurRow.related_event_ids,
-      true
-    );
-    var activePhaseEvents = resolveReferenceSeasonalEvents(
-      referenceData,
-      effectiveDurRow,
-      analysisDate,
-      effectiveActivePhase && effectiveActivePhase.related_event_ids,
-      false
-    );
-    var seasonalEvents = resolveSeasonalEvents(referenceData, effectiveDurRow, analysisDate, runtimeOverride, effectiveActivePhase);
-    var traitBundle = collectReferenceTraits(
-      referenceData,
-      effectiveDurRow,
-      effectiveActivePhase,
-      stationProfile,
-      seasonalEvents,
-      runtimeOverride
-    );
-    var durReferenceMetadata = buildDurReferenceMetadata(
-      effectiveDurRow,
-      nextDur,
-      baseReferenceEvents
-    );
-    var activePhaseReferenceMetadata = buildActivePhaseReferenceMetadata(effectiveActivePhase, activePhaseEvents);
 
-    var fishing = buildFishingDecision(
+    if (!getTrueFinalDurState) {
+      return failResponse({ code: 'TRUE_FINAL_MODULE_MISSING', message: 'true_final_station_reference lookup not available' });
+    }
+    if (!trueFinalDoc || !stationsArr.length) {
+      return failResponse({ code: 'TRUE_FINAL_DATA_REQUIRED', message: 'data/true_final_station_reference.json is missing, empty, or invalid' });
+    }
+    if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) {
+      return failResponse({ code: 'INVALID_ANALYSIS_DATE', message: 'analysis date must be a valid calendar day' });
+    }
+    if (!normalizeString(station.name)) {
+      return failResponse({ code: 'STATION_NAME_REQUIRED', message: 'station name (Arabic) required to match true_final_station_reference' });
+    }
+
+    var tf;
+    try {
+      tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: station.name, asOfIso: asOfIso });
+    } catch (tfEx) {
+      tf = { ok: false, code: 'EXCEPTION', message: String((tfEx && tfEx.message) || tfEx) };
+    }
+    if (!tf || !tf.ok) {
+      return failResponse(tf && !tf.ok ? { code: tf.code, message: tf.message, detail: tf } : { code: 'TRUE_FINAL_LOOKUP_FAILED', message: 'station not in true_final dataset or as_of outside window' });
+    }
+
+    var tfDurRow = {
+      id: 'true_final:' + normalizeString(station.id),
+      name_ar: tf.current_dur_name_ar,
+      name: '',
+      name_en: '',
+      dur_number: null,
+      order_index: null,
+      default_days_count: null,
+      phases: []
+    };
+    var tfNextRow = {
+      id: '',
+      name_ar: tf.next_dur_name_ar,
+      name: '',
+      name_en: '',
+      dur_number: null,
+      order_index: null,
+      default_days_count: null,
+      phases: []
+    };
+    var tfStart = parseIsoDateOnly(tf.current_dur_start);
+    var tfEnd = parseIsoDateOnly(tf.current_dur_end);
+    var minTfCurrent = { durRow: tfDurRow, start: tfStart, end: tfEnd };
+    var minTfNext = { durRow: tfNextRow, start: null, end: null };
+    var tfRefOnly = buildDurReferenceMetadata(tfDurRow, minTfNext, []);
+    var fishingTf = buildFishingDecision(
       referenceData,
       station,
       liveEnvironment,
       tideState,
-      currentDur,
-      traitBundle,
-      seasonalEvents,
+      minTfCurrent,
+      {},
+      [],
       runtimeOverride,
       options.field_validation || null
     );
-
     return {
       station_id: station.id || null,
       analysis_timestamp: analysisDateTime.toISOString(),
+      true_final_reference_active: true,
+      operational_workbook_inactive: true,
+      legacy_suhail_engine_inactive: true,
       dur: {
-        period_id: currentDur && currentDur.durRow ? normalizeString(currentDur.durRow.id) : '',
-        period_number: currentDur && currentDur.durRow ? toNumber(currentDur.durRow.dur_number) : null,
-        period_name: currentDur && currentDur.durRow
-          ? normalizeString(currentDur.durRow.name_ar || currentDur.durRow.name || currentDur.durRow.name_en)
-          : '',
-        day_in_period: dayInPeriod,
-        next_period_id: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.id) : '',
-        next_period_name: nextDur && nextDur.durRow
-          ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en)
-          : '',
-        days_remaining: currentDur && currentDur.end
-          ? Math.max(0, getDaysBetween(analysisDate, currentDur.end))
-          : null,
-        period_start_date: currentDur && currentDur.start
-          ? currentDur.start.toISOString().slice(0, 10)
-          : '',
-        period_end_date: currentDur && currentDur.end
-          ? currentDur.end.toISOString().slice(0, 10)
-          : '',
-        next_period_start_date: nextDur && nextDur.start ? nextDur.start.toISOString().slice(0, 10) : '',
-        next_period_end_date: nextDur && nextDur.end ? nextDur.end.toISOString().slice(0, 10) : '',
-        timing_resolution: 'legacy_suhail_engine',
-        timing_as_of: '',
-        timing_from_resolved_local: false,
+        period_id: normalizeString(tfDurRow.id),
+        period_number: null,
+        period_name: normalizeString(tf.current_dur_name_ar),
+        day_in_period: toNumber(tf.day_in_dur),
+        next_period_id: '',
+        next_period_name: normalizeString(tf.next_dur_name_ar),
+        days_remaining: toNumber(tf.days_remaining_in_dur),
+        period_start_date: normalizeString(tf.current_dur_start),
+        period_end_date: normalizeString(tf.current_dur_end),
+        next_period_start_date: '',
+        next_period_end_date: '',
+        timing_resolution: 'true_final_station_workbook',
+        timing_as_of: asOfIso,
+        timing_from_resolved_local: true,
         timing_from_operational_workbook: false,
-        suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
-        base_suhail_anchor_date: durInfo && durInfo.base_suhail_anchor ? durInfo.base_suhail_anchor.toISOString().slice(0, 10) : '',
-        cycle_start_date: durInfo && durInfo.cycle_start ? durInfo.cycle_start.toISOString().slice(0, 10) : '',
-        timing_source: normalizeString(durInfo && durInfo.timing_source),
-        timing_source_label_ar: normalizeString(durInfo && durInfo.timing_source_label_ar),
-        calibration_reference_station_id: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.id),
-        calibration_reference_station_name: normalizeString(durInfo && durInfo.calibration_reference_station && durInfo.calibration_reference_station.name),
-        calibration_latitude_band_key: normalizeString(durInfo && durInfo.calibration_latitude_band_key),
-        calibration_selection_reason: normalizeString(durInfo && durInfo.calibration_selection_reason),
-        calibration_delta_days: toNumber(durInfo && durInfo.calibration_delta_days),
-        reference: durReferenceMetadata,
-        active_phase_id: normalizeString(activePhase && activePhase.phase_id),
-        active_phase_reference: activePhaseReferenceMetadata,
-        overrides_applied: overrideApplied
+        suhail_anchor_date: '',
+        base_suhail_anchor_date: '',
+        cycle_start_date: '',
+        timing_source: 'true_final_station_reference',
+        timing_source_label_ar: 'المرجع النهائي للمحطات (navidur_true_final_station_reference.xlsx)',
+        calibration_reference_station_id: '',
+        calibration_reference_station_name: '',
+        calibration_latitude_band_key: '',
+        calibration_selection_reason: 'true_final_station_workbook_only',
+        calibration_delta_days: 0,
+        reference: tfRefOnly,
+        active_phase_id: '',
+        active_phase_reference: null,
+        overrides_applied: false,
+        true_final_station_workbook: 'navidur_true_final_station_reference',
+        true_final_data_json: 'true_final_station_reference.json'
       },
       environment: {
         temp_c: liveEnvironment.temp_c,
@@ -1630,15 +916,12 @@
         wind_direction_deg: liveEnvironment.wind_direction_deg,
         wave_height_m: liveEnvironment.wave_height_m
       },
-      tide: {
-        state: tideState,
-        current_speed_ms: liveEnvironment.current_speed_ms
-      },
+      tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
       fishing: {
-        is_recommended: fishing.is_recommended,
-        species_activity: fishing.species_activity,
-        confidence_score: fishing.confidence_score,
-        advice_text: fishing.advice_text
+        is_recommended: fishingTf.is_recommended,
+        species_activity: fishingTf.species_activity,
+        confidence_score: fishingTf.confidence_score,
+        advice_text: fishingTf.advice_text
       }
     };
   }

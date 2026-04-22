@@ -33,9 +33,7 @@ const FILES = {
   advice_basis_tags: 'advice_basis_tags.json',
   dur_sequence_map: 'dur_sequence_map.json',
   star_events: 'star_events.json',
-  dur_windows: 'dur_windows.json',
   dur_generation_audit: 'dur_generation_audit.json',
-  station_dur_windows: 'station_dur_windows.json',
   true_final_station_reference: 'true_final_station_reference.json'
 };
 
