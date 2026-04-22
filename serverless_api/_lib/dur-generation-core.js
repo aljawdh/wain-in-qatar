@@ -67,5 +67,6 @@ function buildWindowsFromAnchor(anchorIso, rules) {
 module.exports = {
   parseIsoDate,
   formatIsoDate,
+  addUtcDays,
   buildWindowsFromAnchor
 };

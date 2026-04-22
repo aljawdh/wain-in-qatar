@@ -5,6 +5,9 @@ const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
 const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
+const { regenerateStationLocalDurWindows, removeStationLocalDurWindowsRecord } = require('../_lib/station-local-dur-persist');
+const { resolveStationLocalDurAtDate, utcTodayIso } = require('../_lib/station-local-dur-resolver');
+const { getManualAnchorRuleForStation } = require('../_lib/station-local-dur-anchor-config');
 
 async function writeAudit(action, actor, details) {
   const audit = await readJsonFile('audit', []);
@@ -541,6 +544,9 @@ module.exports = async function handler(req, res) {
             }
             rows[existingIdx] = station;
             await writeJsonFile('stations', rows);
+            try {
+              await regenerateStationLocalDurWindows(station, readJsonFile, writeJsonFile);
+            } catch (_) {}
             await writeAudit('station_updated', actor, { station_id: station.id, station_name: station.name });
             return res.status(200).json({ ok: true, station });
           }
@@ -556,6 +562,9 @@ module.exports = async function handler(req, res) {
           }
           rows.push(station);
           await writeJsonFile('stations', rows);
+          try {
+            await regenerateStationLocalDurWindows(station, readJsonFile, writeJsonFile);
+          } catch (_) {}
           await writeAudit('station_created', actor, { station_id: station.id, station_name: station.name });
           return res.status(201).json({ ok: true, station });
         } catch (err) {
@@ -595,6 +604,9 @@ module.exports = async function handler(req, res) {
         }
         rows[idx] = next;
         await writeJsonFile('stations', rows);
+        try {
+          await regenerateStationLocalDurWindows(next, readJsonFile, writeJsonFile);
+        } catch (_) {}
         await writeAudit('station_updated', actor, { station_id: next.id, station_name: next.name });
         return res.status(200).json({ ok: true, station: next });
       } catch (err) {
@@ -606,6 +618,9 @@ module.exports = async function handler(req, res) {
       const deleted = rows[idx];
       rows.splice(idx, 1);
       await writeJsonFile('stations', rows);
+      try {
+        await removeStationLocalDurWindowsRecord(deleted.id, readJsonFile, writeJsonFile);
+      } catch (_) {}
       await writeAudit('station_deleted', actor, { station_id: deleted.id, station_name: deleted.name });
       return res.status(200).json({ ok: true, deleted: true, station_id: deleted.id });
     }
@@ -808,6 +823,38 @@ module.exports = async function handler(req, res) {
     } catch (err) {
       return res.status(400).json({ error: err && err.message ? err.message : 'durur_override_save_failed' });
     }
+  }
+
+  if (root === 'station-dur-windows') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const stationId = cleanString((req.query && req.query.station_id) || id, 80);
+    if (!stationId) return res.status(400).json({ error: 'station_id_required' });
+    const isoRaw = cleanString(req.query && req.query.iso_date, 12);
+    const isoDate = isoRaw && /^\d{4}-\d{2}-\d{2}$/.test(isoRaw) ? isoRaw : utcTodayIso();
+    const doc = await readJsonFile('station_dur_windows', { version: 1, stations: {} });
+    const record = doc.stations && doc.stations[stationId] ? doc.stations[stationId] : null;
+    const stationRows = await readJsonFile('stations', []);
+    const stationRow = Array.isArray(stationRows)
+      ? stationRows.find(function (s) {
+        return s && String(s.id) === stationId;
+      })
+      : null;
+    const anchorRule = stationRow ? getManualAnchorRuleForStation(stationRow) : null;
+    var current = null;
+    if (record && record.generation_ok && Array.isArray(record.windows)) {
+      current = resolveStationLocalDurAtDate(record.windows, isoDate);
+    }
+    return res.status(200).json({
+      ok: true,
+      station_id: stationId,
+      as_of: isoDate,
+      anchor_rule_from_config: anchorRule,
+      record,
+      current
+    });
   }
 
   const collectionRoots = ['durur-reference', 'season-events', 'station-dur-profiles', 'station-dur-overrides', 'annual-comparisons', 'durur-master', 'trait-dictionaries', 'fish-season-tags', 'advice-basis-tags'];

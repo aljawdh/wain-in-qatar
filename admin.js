@@ -4035,11 +4035,18 @@
     _currentDururProfileSource = dururProfile.source || 'reference';
     fillDururProfile(st);
     _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
+    void refreshStationLocalDurReadout(st);
 
   }
 
-  function fillDururProfile(station) {
+  function fillDururProfile(station, opts) {
+    opts = opts || {};
     var dto = currentStationAnalysisDto;
+    var manualAnchor = !!(station && station.manual_suhail_anchor_date && station.id);
+    if (manualAnchor && !opts.forceEngine) {
+      clearReadOnlyDurProfile('جاري تحميل الدر من النوافذ المحلية للمرساة...');
+      return;
+    }
     if (dto && station && station.id && dto.station_id === station.id) {
       renderReadOnlyDurProfile(dto);
       return;
@@ -4112,8 +4119,112 @@
     setWaterStatus('unknown', '');
 
     clearReadOnlyDurProfile('--');
+    clearStationLocalDurPanel();
     clearAdminAnalysisDisplay('جاهز');
     console.info('[RESET_DONE]');
+  }
+
+  function clearStationLocalDurPanel() {
+    setReadOnlyFieldValue('stStationLocalAnchorDateRo', '--');
+    setReadOnlyFieldValue('stStationLocalAnchorMeaningRo', '--');
+    setReadOnlyFieldValue('stStationLocalDurNameRo', '--');
+    setReadOnlyFieldValue('stStationLocalDayInDurRo', '--');
+    setReadOnlyFieldValue('stStationLocalStartRo', '--');
+    setReadOnlyFieldValue('stStationLocalEndRo', '--');
+    setReadOnlyFieldValue('stStationLocalNextRo', '--');
+    var msg = getEl('stStationLocalDurMsg');
+    if (msg) msg.textContent = '—';
+  }
+
+  function renderReadOnlyDurProfileFromLocal(current) {
+    setReadOnlyFieldValue('stDururCurrentName', current.dur_name_ar || '--');
+    setReadOnlyFieldValue('stDururDayInPeriod', current.day_in_dur != null ? String(current.day_in_dur) : '--');
+    setReadOnlyFieldValue('stDururActivePhase', '--');
+    setReadOnlyFieldValue('stDururStartDate', current.start_date || '--');
+    setReadOnlyFieldValue('stDururEndDate', current.end_date || '--');
+    setReadOnlyFieldValue('stDururNextName', current.next_dur_name_ar || '--');
+    setReadOnlyFieldValue('stDururDaysRemaining', current.days_remaining_in_dur != null ? String(current.days_remaining_in_dur) : '--');
+    var statusEl = getEl('stDururStatus');
+    if (statusEl) statusEl.textContent = 'من النوافذ المحلية للمرساة اليدوية (ليست قراءة المحرك العام)';
+  }
+
+  function refreshStationLocalDurReadout(st) {
+    if (!getEl('stStationLocalDurDetails')) return;
+    if (!st || !st.id) {
+      clearStationLocalDurPanel();
+      return;
+    }
+    if (!st.manual_suhail_anchor_date) {
+      clearStationLocalDurPanel();
+      return;
+    }
+    var msg = getEl('stStationLocalDurMsg');
+    if (msg) msg.textContent = 'جاري تحميل النوافذ المحلية...';
+    apiFetch('/api?route=admin&path=station-dur-windows&station_id=' + encodeURIComponent(st.id), { method: 'GET' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('station_dur_windows_fetch_failed');
+        return res.json();
+      })
+      .then(function (data) {
+        var anchorRule = data.anchor_rule_from_config;
+        var record = data.record;
+        var current = data.current;
+        var asOf = data.as_of || '';
+
+        setReadOnlyFieldValue('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date || '--');
+        if (anchorRule && anchorRule.anchor_dur_name_ar != null) {
+          setReadOnlyFieldValue(
+            'stStationLocalAnchorMeaningRo',
+            anchorRule.anchor_dur_name_ar + ' / اليوم ' + String(anchorRule.anchor_day_in_dur)
+          );
+        } else {
+          setReadOnlyFieldValue(
+            'stStationLocalAnchorMeaningRo',
+            'لا يوجد إعداد مرساة داخل الدورة لهذه مدينة المصنف — لن تُولَّد نوافذ محلية'
+          );
+        }
+
+        if (record && record.generation_ok && Array.isArray(record.windows) && current) {
+          setReadOnlyFieldValue('stStationLocalDurNameRo', current.dur_name_ar || '--');
+          setReadOnlyFieldValue('stStationLocalDayInDurRo', current.day_in_dur != null ? String(current.day_in_dur) : '--');
+          setReadOnlyFieldValue('stStationLocalStartRo', current.start_date || '--');
+          setReadOnlyFieldValue('stStationLocalEndRo', current.end_date || '--');
+          setReadOnlyFieldValue('stStationLocalNextRo', current.next_dur_name_ar || '--');
+          if (msg) {
+            msg.textContent =
+              'اعتباراً من ' +
+              asOf +
+              (record.generated_at ? ' · أُنشئت النوافذ عند ' + record.generated_at : '');
+          }
+          renderReadOnlyDurProfileFromLocal(current);
+          return;
+        }
+
+        clearStationLocalDurPanel();
+        setReadOnlyFieldValue('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date || '--');
+        if (anchorRule && anchorRule.anchor_dur_name_ar != null) {
+          setReadOnlyFieldValue(
+            'stStationLocalAnchorMeaningRo',
+            anchorRule.anchor_dur_name_ar + ' / اليوم ' + String(anchorRule.anchor_day_in_dur)
+          );
+        }
+        if (msg) {
+          msg.textContent =
+            !anchorRule
+              ? 'لا يمكن توليد نوافذ محلية بدون قاعدة مرساة لهذه المدينة.'
+              : !record || !record.generation_ok
+                ? 'لم تُولَّد نوافذ محلية (تحقق من التاريخ أو تسلسل الدور في الخادم).'
+                : 'التاريخ ' +
+                  asOf +
+                  ' خارج نطاق دورة المحطة المحلية المحسوبة.';
+        }
+        fillDururProfile(st, { forceEngine: true });
+      })
+      .catch(function () {
+        clearStationLocalDurPanel();
+        if (msg) msg.textContent = 'تعذّر تحميل النوافذ المحلية.';
+        fillDururProfile(st, { forceEngine: true });
+      });
   }
 
   function setReadOnlyFieldValue(id, value) {
@@ -4684,6 +4795,14 @@
     getEl('stWeatherLastUpdate').textContent = dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '--';
     renderValidationExplanation(dto, observedTraits);
     renderReadOnlyDurProfile(dto);
+    var editedSid = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
+    var analysisStationId = dto.station_id ? String(dto.station_id).trim() : '';
+    if (editedSid && analysisStationId === editedSid) {
+      var stSynced = stationsCache.find(function (s) {
+        return s && String(s.id) === editedSid;
+      });
+      if (stSynced && stSynced.manual_suhail_anchor_date) void refreshStationLocalDurReadout(stSynced);
+    }
     getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
     refreshAllStationMarkers();
     renderDururStationPreview();
