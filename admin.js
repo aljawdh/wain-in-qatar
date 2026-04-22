@@ -4977,49 +4977,316 @@
     if (keep) sel.value = keep;
   }
 
+  function astroYnAr(v) {
+    return v === true || v === 'true' || v === 1 ? 'نعم' : 'لا';
+  }
+
+  function astroFmtNum(v) {
+    if (v == null || v === '') return '—';
+    var n = Number(v);
+    return Number.isFinite(n) ? String(n) : escapeHtml(v);
+  }
+
+  function astroWorkbookModeAr(code) {
+    var m = {
+      exact_name: 'تطابق الاسم',
+      manual: 'يدوي',
+      nearest_city: 'أقرب مدينة',
+      same_region: 'منطقة / تجميعة'
+    };
+    return m[code] || escapeHtml(code || '—');
+  }
+
+  function astroAssignmentAr(code) {
+    var m = {
+      auto_assigned: 'معيّن آليًا',
+      manual_confirmed: 'معتمد يدويًا',
+      needs_review: 'يحتاج مراجعة'
+    };
+    return m[code] || escapeHtml(code || '—');
+  }
+
+  function renderAstroMonitoringCards(payload) {
+    var j = payload || {};
+    if (!j.ok) {
+      return '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تعذّر تحميل حالة الطبقة.</p></div>';
+    }
+
+    var wb = j.workbook_import_monitoring || {};
+    var map = j.workbook_station_mapping_stats || {};
+    var seq = j.dur_sequence_import_summary || {};
+    var star = j.star_events_import_summary || {};
+    var seqPartial = seq.partial === true;
+    var starPartial = star.partial === true;
+    var wbPartial = wb.partial === true;
+
+    var srcLabel = wb.source_label || 'workbook_import';
+    var summaryHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title"><span class="astro-badge">' + escapeHtml(srcLabel) + '</span> ملخص المصنف والربط</h5>' +
+      '<div class="astro-grid">' +
+      '<div class="astro-stat"><span class="astro-stat-label">مدن المصنف</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_cities) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">سنوات المصنف</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_years) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">نوافذ الدور</span><span class="astro-stat-value">' + astroFmtNum(wb.imported_dur_windows != null ? wb.imported_dur_windows : wb.workbook_windows_row_count) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">حجم الدليل</span><span class="astro-stat-value">' + astroFmtNum(map.workbook_city_catalog_size) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">محطات مربوطة</span><span class="astro-stat-value">' + astroFmtNum(map.mapped_stations) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">غير مربوطة</span><span class="astro-stat-value">' + astroFmtNum(map.unmapped_stations) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">معتمد يدويًا</span><span class="astro-stat-value">' + astroFmtNum(map.manual_confirmed) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">تحت المراجعة</span><span class="astro-stat-value">' + astroFmtNum(map.needs_review) + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">مفتاح غير صالح</span><span class="astro-stat-value">' + astroFmtNum(map.invalid_workbook_key) + '</span></div>' +
+      '</div></div>';
+
+    var metaHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">بيانات الاستيراد والمصدر</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">اسم الملف</span><span class="astro-kv-v">' +
+      escapeHtml((wb.source_file_path || '').split('/').pop() || seq.source_file_name || star.source_file_name || '—') +
+      '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">المسار</span><span class="astro-kv-v">' + escapeHtml(wb.source_file_path || seq.source_file_path || star.source_file_path || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ الاستيراد</span><span class="astro-kv-v">' + escapeHtml(wb.imported_at || seq.imported_at || star.imported_at || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">إصدار الاستيراد</span><span class="astro-kv-v">' + escapeHtml(wb.import_version || seq.import_version || star.import_version || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">عدد التحذيرات</span><span class="astro-kv-v">' +
+      astroFmtNum(
+        wb.warnings_count != null
+          ? wb.warnings_count
+          : Array.isArray(seq.warnings)
+            ? seq.warnings.length
+            : Array.isArray(star.warnings)
+              ? star.warnings.length
+              : null
+      ) +
+      '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">استيراد جزئي</span><span class="astro-kv-v">' + astroYnAr(wbPartial || seqPartial || starPartial) + '</span></div>' +
+      '</div>';
+
+    var techHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">حالة الطبقة التقنية</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">نسخة خريطة التسلسل</span><span class="astro-kv-v">' + astroFmtNum(j.sequence_map_version) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">نسخة أحداث النجوم</span><span class="astro-kv-v">' + astroFmtNum(j.star_events_version) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">نوافذ الدور ناقصة</span><span class="astro-kv-v">' + astroYnAr(!!j.dur_windows_incomplete) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">سبب النقص</span><span class="astro-kv-v">' + escapeHtml(j.dur_windows_reason || '—') + '</span></div>' +
+      '</div>';
+
+    var seqHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">استيراد تسلسل الدور</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">صفوف</span><span class="astro-kv-v">' + astroFmtNum(seq.row_count) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">أوراق المصنف</span><span class="astro-kv-v">' + escapeHtml(Array.isArray(seq.source_sheet_names) ? seq.source_sheet_names.join('، ') : '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">جزئي</span><span class="astro-kv-v">' + astroYnAr(seqPartial) + '</span></div>' +
+      '</div>';
+
+    var starHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">استيراد أحداث النجوم</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">صفوف</span><span class="astro-kv-v">' + astroFmtNum(star.row_count) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">صفوف متخطاة</span><span class="astro-kv-v">' + astroFmtNum(star.skipped_rows) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">أوراق المصنف</span><span class="astro-kv-v">' + escapeHtml(Array.isArray(star.source_sheet_names) ? star.source_sheet_names.join('، ') : '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">جزئي</span><span class="astro-kv-v">' + astroYnAr(starPartial) + '</span></div>' +
+      '</div>';
+
+    var anchors = j.anchors || {};
+    var bands = Array.isArray(anchors.bands_tracked_from_star_events) ? anchors.bands_tracked_from_star_events : [];
+    var anchorsHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">مراسي حزام العرض (مرجع قديم)</h5>' +
+      '<p style="margin:0 0 8px;font-size:.78rem;color:#8ea4ba">عدد الحزم المعروضة: ' +
+      astroFmtNum(bands.length) +
+      '. المعروف من السجل: ' +
+      astroFmtNum((anchors.known_keys_from_registry || []).length) +
+      '</p>' +
+      '</div>';
+
+    return summaryHtml + metaHtml + techHtml + seqHtml + starHtml + anchorsHtml;
+  }
+
+  function renderWorkbookPreviewCards(apiJson, stationRow) {
+    var j = apiJson || {};
+    var st = stationRow || {};
+    var src =
+      '<div class="astro-card">' +
+      '<span class="astro-badge">' +
+      escapeHtml(j.source || 'workbook_import') +
+      '</span> <span style="font-size:.78rem;color:#8ea4ba">معاينة إدارية فقط — ليس محرك التشغيل العام</span>' +
+      '</div>';
+
+    if (j.state === 'unmapped') {
+      return (
+        src +
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
+        escapeHtml(j.message_ar || 'المحطة غير مربوطة بمدينة المصنف.') +
+        '</p></div>'
+      );
+    }
+    if (j.state === 'missing_year_source') {
+      return (
+        src +
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
+        escapeHtml(j.message_ar || 'لا توجد نوافذ لهذه السنة.') +
+        '</p><div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' +
+        escapeHtml(j.workbook_city_name || '—') +
+        '</span></div></div>'
+      );
+    }
+
+    var cur = j.current_dur || {};
+    var nx = j.next_dur || {};
+    var wbCity = escapeHtml(j.workbook_city_name || '—');
+    var modeAr = astroWorkbookModeAr(st.workbook_match_mode);
+    var statAr = astroAssignmentAr(st.workbook_assignment_status);
+
+    var durHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">معاينة الدر الميلادي (المصنف)</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">مدينة المصنف</span><span class="astro-kv-v">' + wbCity + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">وضع المطابقة</span><span class="astro-kv-v">' + modeAr + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">حالة التعيين</span><span class="astro-kv-v">' + statAr + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">السنة</span><span class="astro-kv-v">' + astroFmtNum(j.year) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">اليوم (GMT)</span><span class="astro-kv-v">' + escapeHtml(j.iso_date || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">حالة الطلب</span><span class="astro-kv-v">' + escapeHtml(j.state || '—') + '</span></div>' +
+      '</div>';
+
+    var curHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">الدر الحالي</h5>' +
+      '<div class="astro-grid">' +
+      '<div class="astro-stat"><span class="astro-stat-label">الاسم</span><span class="astro-stat-value">' + escapeHtml(cur.dur_name_ar || '—') + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">البداية</span><span class="astro-stat-value">' + escapeHtml(cur.dur_start || '—') + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">النهاية</span><span class="astro-stat-value">' + escapeHtml(cur.dur_end || '—') + '</span></div>' +
+      '<div class="astro-stat"><span class="astro-stat-label">اليوم داخل الدر</span><span class="astro-stat-value">' + astroFmtNum(cur.day_in_dur) + '</span></div>' +
+      '</div></div>';
+
+    var nextHtml =
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">الدر التالي</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">الاسم</span><span class="astro-kv-v">' + escapeHtml(nx.dur_name_ar || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">البداية</span><span class="astro-kv-v">' + escapeHtml(nx.dur_start || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">النهاية</span><span class="astro-kv-v">' + escapeHtml(nx.dur_end || '—') + '</span></div>' +
+      '</div>';
+
+    if (!cur || !cur.dur_name_ar) {
+      return (
+        src +
+        durHtml +
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">لا يوجد در يغطي هذا التاريخ في نوافذ المصنف لهذه السنة.</p></div>'
+      );
+    }
+
+    return src + durHtml + curHtml + nextHtml;
+  }
+
+  function renderBandPreviewCards(apiJson) {
+    var j = apiJson || {};
+    var band = escapeHtml(j.latitude_band_key || '—');
+    var wins = Array.isArray(j.windows_preview) ? j.windows_preview : [];
+    var der = j.derived_current_state || {};
+    var rows = wins
+      .slice(0, 12)
+      .map(function (w) {
+        return (
+          '<div class="astro-kv-row"><span class="astro-kv-k">' +
+          escapeHtml(w.dur_name_ar || w.dur_id || '—') +
+          '</span><span class="astro-kv-v">' +
+          escapeHtml((w.start_date || '') + ' ← ' + (w.end_date || '')) +
+          '</span></div>'
+        );
+      })
+      .join('');
+    var more = wins.length > 12 ? '<p style="margin:8px 0 0;font-size:.76rem;color:#8ea4ba">عرض 12 من أصل ' + wins.length + '</p>' : '';
+
+    return (
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">معاينة حزام العرض (قديمة — غير المصنف)</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">حزام العرض</span><span class="astro-kv-v">' + band + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">السنة</span><span class="astro-kv-v">' + astroFmtNum(j.year) + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">اليوم</span><span class="astro-kv-v">' + escapeHtml(j.iso_date || '—') + '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">ناقص / غير جاهز</span><span class="astro-kv-v">' + astroYnAr(!!der.incomplete) + '</span></div>' +
+      '</div>' +
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title">قائمة النوافذ (مختصرة)</h5>' +
+      (rows || '<p class="astro-placeholder">لا توجد نوافذ متولدة لهذا الحزام.</p>') +
+      more +
+      '</div>'
+    );
+  }
+
   async function refreshAstroDurStatus() {
-    var pre = getEl('astroDurStatusPre');
-    if (!pre) return;
+    var root = getEl('astroDurMonitoringRoot');
+    var raw = getEl('astroDurStatusRaw');
+    if (!root) return;
     if (!isAdminMode()) {
-      pre.textContent = 'تتطلب صلاحية إدارة.';
+      root.innerHTML = '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تتطلب صلاحية إدارة.</p></div>';
       return;
     }
-    pre.textContent = '...';
+    root.innerHTML = '<p class="astro-placeholder">جاري التحميل...</p>';
     try {
       var res = await apiFetch(ASTRO_DUR_ENDPOINT + '&path=status', { method: 'GET' });
       if (!res.ok) throw new Error('http_' + res.status);
       var j = await res.json();
-      pre.textContent = JSON.stringify(j, null, 2);
+      root.innerHTML = renderAstroMonitoringCards(j);
+      if (raw) raw.textContent = JSON.stringify(j, null, 2);
     } catch (e) {
-      pre.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      root.innerHTML =
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">خطأ: ' +
+        escapeHtml(e && e.message ? e.message : String(e)) +
+        '</p></div>';
+      if (raw) raw.textContent = '';
     }
   }
 
   async function runAstroPreview() {
-    var pre = getEl('astroDurPreviewPre');
-    if (!pre) return;
+    var root = getEl('astroDurPreviewRoot');
+    var raw = getEl('astroDurPreviewRaw');
+    if (!root) return;
     if (!isAdminMode()) {
-      pre.textContent = 'تتطلب صلاحية إدارة.';
+      root.innerHTML = '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تتطلب صلاحية إدارة.</p></div>';
       return;
     }
-    pre.textContent = '...';
+    root.innerHTML = '<p class="astro-placeholder">جاري التحميل...</p>';
     var bandEl = getEl('astroPreviewBandInput');
     var yearEl = getEl('astroPreviewYearInput');
+    var dateEl = getEl('astroPreviewDateInput');
     var stEl = getEl('astroPreviewStationSelect');
     var st = stEl && stEl.value ? stEl.value.trim() : '';
     var band = bandEl && bandEl.value ? bandEl.value.trim() : '';
     var year = yearEl && yearEl.value ? yearEl.value : '';
-    var q = 'path=preview';
-    if (st) q += '&station_id=' + encodeURIComponent(st);
-    else if (band) q += '&band=' + encodeURIComponent(band);
-    if (year) q += '&year=' + encodeURIComponent(year);
+    var isoDate = dateEl && dateEl.value ? String(dateEl.value).trim() : '';
+
     try {
+      if (st) {
+        var qWb =
+          'path=workbook-preview&station_id=' +
+          encodeURIComponent(st) +
+          '&year=' +
+          encodeURIComponent(year || new Date().getUTCFullYear());
+        if (isoDate) qWb += '&date=' + encodeURIComponent(isoDate);
+        var resWb = await apiFetch(ASTRO_DUR_ENDPOINT + '&' + qWb, { method: 'GET' });
+        if (!resWb.ok) throw new Error('http_' + resWb.status);
+        var jWb = await resWb.json();
+        var stRow =
+          stationsCache.find(function (s) {
+            return s && String(s.id) === String(st);
+          }) || {};
+        root.innerHTML = renderWorkbookPreviewCards(jWb, stRow);
+        if (raw) raw.textContent = JSON.stringify(jWb, null, 2);
+        return;
+      }
+
+      var q = 'path=preview';
+      if (band) q += '&band=' + encodeURIComponent(band);
+      if (year) q += '&year=' + encodeURIComponent(year);
+      if (isoDate) q += '&date=' + encodeURIComponent(isoDate);
       var res = await apiFetch(ASTRO_DUR_ENDPOINT + '&' + q, { method: 'GET' });
       if (!res.ok) throw new Error('http_' + res.status);
       var j = await res.json();
-      pre.textContent = JSON.stringify(j, null, 2);
+      root.innerHTML = renderBandPreviewCards(j);
+      if (raw) raw.textContent = JSON.stringify(j, null, 2);
     } catch (e) {
-      pre.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      root.innerHTML =
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">خطأ: ' +
+        escapeHtml(e && e.message ? e.message : String(e)) +
+        '</p></div>';
+      if (raw) raw.textContent = '';
     }
   }
 

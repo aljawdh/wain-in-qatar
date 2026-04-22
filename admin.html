@@ -39,6 +39,23 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="feedback"]{border-right:4px solid rgba(255,214,127,.6)}
 .admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
 .admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
+.astro-monitoring-root,.astro-preview-root{font-size:.82rem;line-height:1.45}
+.astro-card{background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.astro-card-title{margin:0 0 10px;font-size:.9rem;color:#cfeaff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.astro-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+.astro-stat{background:rgba(255,255,255,.04);border-radius:8px;padding:10px}
+.astro-stat-label{display:block;font-size:.72rem;color:#8ea4ba;margin-bottom:4px}
+.astro-stat-value{font-size:1.05rem;color:#e8eef4;font-weight:600;word-break:break-word}
+.astro-kv-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:.8rem;flex-wrap:wrap}
+.astro-kv-row:last-child{border-bottom:none}
+.astro-kv-k{color:#8ea4ba;flex:0 0 auto}
+.astro-kv-v{color:#e8eef4;text-align:left;flex:1;min-width:0;word-break:break-word}
+.astro-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.72rem;background:rgba(92,225,255,.12);border:1px solid rgba(92,225,255,.25);color:#dff8ff}
+.astro-raw-debug{margin-top:10px}
+.astro-raw-debug summary{cursor:pointer;user-select:none;padding:8px 0;color:#8ea4ba;font-size:.82rem}
+.astro-raw-debug[open] summary{margin-bottom:8px}
+.astro-raw-pre{background:rgba(6,20,32,.45);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;font-size:.72rem;max-height:220px;overflow:auto;white-space:pre-wrap;margin:0}
+.astro-placeholder{color:#8ea4ba;font-size:.82rem;padding:8px 0}
 .admin-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .as-card{background:linear-gradient(160deg,#0d2235,#0b1f30);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px;text-align:center}
 .as-val{font-size:1.45rem;font-weight:800;color:var(--accent)}
@@ -806,14 +823,27 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <button type="button" class="settings-btn secondary" id="astroDurRefreshBtn">تحديث حالة الطبقة</button>
               <span id="astroDurFlagsHint" style="font-size:.82rem;color:#8ea4ba">فعّل المعاينة من الإعدادات ثم احفظ.</span>
             </div>
-            <pre id="astroDurStatusPre" style="background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;font-size:.78rem;max-height:280px;overflow:auto;white-space:pre-wrap">—</pre>
-            <div class="admin-form-grid" style="margin-top:12px">
+            <div id="astroDurMonitoringRoot" class="astro-monitoring-root">
+              <p class="astro-placeholder">اضغط «تحديث حالة الطبقة» لعرض المراقبة.</p>
+            </div>
+            <details class="astro-raw-debug">
+              <summary>عرض البيانات الخام للتشخيص</summary>
+              <pre id="astroDurStatusRaw" class="astro-raw-pre">—</pre>
+            </details>
+            <div class="admin-form-grid" style="margin-top:14px">
               <div class="admin-field"><label>خط العرض (latitude_band_key)</label><input id="astroPreviewBandInput" type="text" placeholder="gulf_mid_south"></div>
               <div class="admin-field"><label>السنة</label><input id="astroPreviewYearInput" type="number" min="2020" max="2100" value="2026"></div>
               <div class="admin-field"><label>محطة (اختياري)</label><select id="astroPreviewStationSelect"><option value="">—</option></select></div>
+              <div class="admin-field"><label>تاريخ المعاينة (غرينتش، اختياري)</label><input id="astroPreviewDateInput" type="date"></div>
               <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="astroPreviewBtn">معاينة النوافذ</button></div>
             </div>
-            <pre id="astroDurPreviewPre" style="margin-top:10px;background:rgba(92,225,255,.06);border:1px solid rgba(92,225,255,.2);border-radius:10px;padding:12px;font-size:.78rem;max-height:220px;overflow:auto;white-space:pre-wrap">—</pre>
+            <div id="astroDurPreviewRoot" class="astro-preview-root" style="margin-top:12px">
+              <p class="astro-placeholder">اختر محطة أو حزاماً ثم «معاينة النوافذ».</p>
+            </div>
+            <details class="astro-raw-debug">
+              <summary>عرض البيانات الخام للتشخيص</summary>
+              <pre id="astroDurPreviewRaw" class="astro-raw-pre">—</pre>
+            </details>
           </div>
 
           <div class="admin-section admin-block" data-section="settings">
