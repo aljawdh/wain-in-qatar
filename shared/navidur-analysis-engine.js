@@ -855,8 +855,8 @@
       default_days_count: null,
       phases: []
     };
-    var tfStart = parseIsoDateOnly(tf.current_dur_start);
-    var tfEnd = parseIsoDateOnly(tf.current_dur_end);
+    var tfStart = tf._fishing_start;
+    var tfEnd = tf._fishing_end;
     var minTfCurrent = { durRow: tfDurRow, start: tfStart, end: tfEnd };
     var minTfNext = { durRow: tfNextRow, start: null, end: null };
     var tfRefOnly = buildDurReferenceMetadata(tfDurRow, minTfNext, []);
@@ -881,12 +881,16 @@
         period_id: normalizeString(tfDurRow.id),
         period_number: null,
         period_name: normalizeString(tf.current_dur_name_ar),
+        period_start: normalizeString(tf.period_start_mmdd),
+        period_end: normalizeString(tf.period_end_mmdd),
         day_in_period: toNumber(tf.day_in_dur),
         next_period_id: '',
         next_period_name: normalizeString(tf.next_dur_name_ar),
         days_remaining: toNumber(tf.days_remaining_in_dur),
-        period_start_date: normalizeString(tf.current_dur_start),
-        period_end_date: normalizeString(tf.current_dur_end),
+        timing_mode: 'month_day_only',
+        source: 'true_final_station_reference',
+        period_start_date: '',
+        period_end_date: '',
         next_period_start_date: '',
         next_period_end_date: '',
         timing_resolution: 'true_final_station_workbook',
