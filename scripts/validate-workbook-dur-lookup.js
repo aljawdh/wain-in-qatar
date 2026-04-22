@@ -15,6 +15,8 @@ var resolveStationWorkbookCity = wb.resolveStationWorkbookCity;
 var findWorkbookCurrentNextStrict = wb.findWorkbookCurrentNextStrict;
 var normalizeWorkbookCityKey = wb.normalizeWorkbookCityKey;
 var getStationWorkbookCityName = wb.getStationWorkbookCityName;
+var isMonthDayInSeasonalWindow = wb.isMonthDayInSeasonalWindow;
+var ymdFromIso = wb.ymdFromIso;
 
 function addDaysIso(iso, delta) {
   var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -24,18 +26,35 @@ function addDaysIso(iso, delta) {
 }
 
 function expectedContainingRow(cityRows, asOfIso) {
+  var a = ymdFromIso(asOfIso);
+  if (!a) return { expected: null, count: 0 };
   var containing = cityRows.filter(function (r) {
     if (!r || !r.dur_start || !r.dur_end) return false;
-    return asOfIso >= r.dur_start && asOfIso <= r.dur_end;
+    return isMonthDayInSeasonalWindow(a.m, a.d, r.dur_start, r.dur_end);
   });
   if (containing.length === 0) return { expected: null, count: 0 };
-  if (containing.length > 1) return { expected: 'DUPLICATE', count: containing.length, rows: containing };
+  if (containing.length > 1) {
+    containing.sort(function (x, y) {
+      return Math.abs((x.year || 0) - a.y) - Math.abs((y.year || 0) - a.y) || (y.year || 0) - (x.year || 0);
+    });
+  }
   return { expected: containing[0], count: 1 };
 }
 
 function rowSig(r) {
   if (!r) return '';
   return [r.city, r.year, r.dur_index, r.dur_start, r.dur_end, r.dur_name_ar].join('|');
+}
+
+function rowSeasonalSig(r) {
+  if (!r) return '';
+  var s = ymdFromIso(r.dur_start);
+  var e = ymdFromIso(r.dur_end);
+  if (!s || !e) return '';
+  return [s.m, s.d, e.m, e.d, normalizeString(r.dur_name_ar || '')].join(':');
+}
+function normalizeString(v) {
+  return String(v == null ? '' : v).trim();
 }
 
 function main() {
@@ -135,12 +154,12 @@ function main() {
         });
         continue;
       }
-      if (rowSig(found.current) !== rowSig(exp.expected)) {
+      if (rowSeasonalSig(found.current) !== rowSeasonalSig(exp.expected)) {
         mismatchLog.push({
           station_id: st.id,
           as_of: iso,
-          actual: rowSig(found.current),
-          expected: rowSig(exp.expected)
+          actual: rowSeasonalSig(found.current) + ' ' + rowSig(found.current),
+          expected: rowSeasonalSig(exp.expected) + ' ' + rowSig(exp.expected)
         });
         lookupErrors.push({
           station_id: st.id,
@@ -171,8 +190,8 @@ function main() {
     lookup_errors_sample: lookupErrors.slice(0, 50),
     row_mismatch_samples: mismatchLog.slice(0, 20),
     summary: {
-      strict_rule: 'dur_start <= as_of <= dur_end; exactly one row or error',
-      next_rule: 'next row in same city sorted by dur_start',
+      strict_rule: 'MM-DD in seasonal window (dur_start/dur_end, year-agnostic; wrap allowed)',
+      next_rule: 'next distinct seasonal window (circular, by start day-of-year)',
       name_source: 'workbook row dur_name_ar only (synthetic durRow)',
       notes: 'City key: NFC, tatweel removed, whitespace removed, alef/hamza unified to alef'
     }

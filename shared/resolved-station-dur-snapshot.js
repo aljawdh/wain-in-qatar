@@ -15,6 +15,8 @@ var computeDayMetricsForWorkbookRow = wb.computeDayMetricsForWorkbookRow;
 var buildResolvedSnapshotShapeFromWorkbookRow = wb.buildResolvedSnapshotShapeFromWorkbookRow;
 var parseIsoDateUtcMidnight = wb.parseIsoDateUtcMidnight;
 var toNumber = wb.toNumber;
+var ymdFromIso = wb.ymdFromIso;
+var dayOfYear2004 = wb.dayOfYear2004;
 
 var DEFAULT_DUR_DAYS = 13;
 
@@ -71,7 +73,6 @@ function getResolvedLocalDurSnapshot(params) {
     var msg = {
       NO_ROWS_FOR_CITY: 'no workbook rows for resolved city',
       NO_WINDOW_CONTAINS_DATE: 'no row contains as_of in [dur_start, dur_end]',
-      DUPLICATE_CONTAINING_ROWS: 'multiple rows contain the same as_of (data error)',
       BAD_INPUT: 'invalid workbook lookup input'
     }[found.code] || 'workbook lookup failed';
     return {
@@ -110,19 +111,29 @@ function getResolvedLocalDurSnapshot(params) {
   var manual = normalizeString(station && station.manual_suhail_anchor_date);
   var suhailAnchor = manual ? parseIsoDateUtcMidnight(manual) : null;
 
-  var y = String(cr.year != null ? cr.year : '');
-  var yearRows = (found.cityRows || []).filter(function (r) {
-    return r && String(r.year) === y;
-  });
+  var asParts = ymdFromIso(asOfIso);
+  var asY = asParts ? asParts.y : new Date().getUTCFullYear();
   var cycleStart = null;
-  if (yearRows.length) {
-    var minS = yearRows
-      .map(function (r) {
-        return r.dur_start;
-      })
-      .filter(Boolean)
-      .sort()[0];
-    cycleStart = minS ? parseIsoDateUtcMidnight(minS) : null;
+  var crList = Array.isArray(found.cityRows) ? found.cityRows : [];
+  var minDoy = Infinity;
+  var minRow = null;
+  var ri;
+  for (ri = 0; ri < crList.length; ri += 1) {
+    var br = crList[ri];
+    if (!br || !br.dur_start) continue;
+    var p = ymdFromIso(br.dur_start);
+    if (!p) continue;
+    var d = dayOfYear2004(p.m, p.d);
+    if (d < minDoy) {
+      minDoy = d;
+      minRow = br;
+    }
+  }
+  if (minRow) {
+    var p0 = ymdFromIso(minRow.dur_start);
+    if (p0) {
+      cycleStart = new Date(Date.UTC(asY, p0.m - 1, p0.d, 0, 0, 0, 0));
+    }
   }
 
   var snapShape = buildResolvedSnapshotShapeFromWorkbookRow(cr, nr, asOfIso, metrics);

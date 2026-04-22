@@ -1,9 +1,10 @@
 'use strict';
 
 /**
- * Strict operational dur lookup: dur_windows.json workbook_windows only.
- * Selection rule: exactly one row with dur_start <= as_of <= dur_end (per city after normalization).
- * Next: following row in same city sorted by dur_start (ISO), then (year, dur_index).
+ * Operational dur lookup: dur_windows.json workbook_windows only.
+ * City: strict key match.
+ * Containment: MM-DD only (year-agnostic) with wrap for windows that cross year.
+ * Next: next distinct seasonal window for the same city (circular, year not used in ordering).
  */
 
 function normalizeString(value) {
@@ -19,16 +20,11 @@ function nfcString(value) {
   }
 }
 
-/**
- * Whitespace, tatweel, and optional alef/alef-hamza unification for city KEY matching.
- * Does not modify meaning for unrelated letters.
- */
 function normalizeWorkbookCityKey(value) {
   var s = nfcString(value);
   if (!s) return '';
-  s = s.replace(/\u0640/g, ''); // tatweel
-  s = s.replace(/\s+/g, ''); // join tokens so e.g. "أبو ظبي" matches "أبوظبي"
-  // Unify common alef + hamza to plain alef (city name keys; conservative)
+  s = s.replace(/\u0640/g, '');
+  s = s.replace(/\s+/g, '');
   s = s.replace(/[\u0623\u0625\u0622]/g, '\u0627');
   return s;
 }
@@ -38,10 +34,105 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseIsoDateUtcMidnight(iso) {
+function parseIsoYmd(iso) {
   var m = String(iso || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0));
+  return { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) };
+}
+
+function parseIsoDateUtcMidnight(iso) {
+  var p = parseIsoYmd(iso);
+  if (!p) return null;
+  return new Date(Date.UTC(p.y, p.m - 1, p.d, 0, 0, 0, 0));
+}
+
+/** Month and day to sort key; use monotonic within calendar (not for wrap). */
+function monthDayKey(m, d) {
+  return m * 100 + d;
+}
+
+/**
+ * Fixed leap year 2004 for day-of-year so Feb 29 exists.
+ * @returns {number} 1..366
+ */
+function dayOfYear2004(m, d) {
+  return (
+    Math.floor(
+      (Date.UTC(2004, m - 1, d, 0, 0, 0, 0) - Date.UTC(2004, 0, 1, 0, 0, 0, 0)) / 86400000
+    ) + 1
+  );
+}
+
+function ymdFromIso(iso) {
+  var p = parseIsoYmd(iso);
+  if (!p) return null;
+  return p;
+}
+
+/**
+ * as_of (month,day) in [dur_start, dur_end] on seasonal calendar, ignoring years on bounds.
+ * Supports ranges that cross calendar year (e.g. Nov 1 → Mar 15).
+ */
+function isMonthDayInSeasonalWindow(asM, asD, startIso, endIso) {
+  if (!asM || !asD) return false;
+  var s = ymdFromIso(startIso);
+  var e = ymdFromIso(endIso);
+  if (!s || !e) return false;
+  var vk = monthDayKey(asM, asD);
+  var sk = monthDayKey(s.m, s.d);
+  var ek = monthDayKey(e.m, e.d);
+  if (sk <= ek) {
+    return vk >= sk && vk <= ek;
+  }
+  return vk >= sk || vk <= ek;
+}
+
+/**
+ * Fingerprint of seasonal window + name (ignores year on row).
+ */
+function seasonalRowFingerprint(r) {
+  if (!r || !r.dur_start || !r.dur_end) return '';
+  var a = ymdFromIso(r.dur_start);
+  var b = ymdFromIso(r.dur_end);
+  if (!a || !b) return '';
+  return [a.m, a.d, b.m, b.d, normalizeString(r.dur_name_ar)].join(':');
+}
+
+/**
+ * @returns { day_in_dur: number|null, days_remaining_in_dur: number|null }
+ * Uses only MM-DD; span uses leap reference for length.
+ */
+function computeDayMetricsForWorkbookRow(row, asOfIso) {
+  if (!row || !asOfIso) return { day_in_dur: null, days_remaining_in_dur: null };
+  var a = ymdFromIso(asOfIso);
+  var s = ymdFromIso(row.dur_start);
+  var e = ymdFromIso(row.dur_end);
+  if (!a || !s || !e) return { day_in_dur: null, days_remaining_in_dur: null };
+  if (!isMonthDayInSeasonalWindow(a.m, a.d, row.dur_start, row.dur_end)) {
+    return { day_in_dur: null, days_remaining_in_dur: null };
+  }
+  var S = dayOfYear2004(s.m, s.d);
+  var A = dayOfYear2004(a.m, a.d);
+  var E = dayOfYear2004(e.m, e.d);
+  var dayIn;
+  var daysRem;
+  if (S <= E) {
+    dayIn = A - S + 1;
+    daysRem = E - A;
+  } else {
+    if (A >= S) {
+      dayIn = A - S + 1;
+      daysRem = 366 - A + E;
+    } else if (A <= E) {
+      dayIn = 366 - S + 1 + (A - 1);
+      daysRem = E - A;
+    } else {
+      return { day_in_dur: null, days_remaining_in_dur: null };
+    }
+  }
+  if (dayIn < 1) return { day_in_dur: null, days_remaining_in_dur: null };
+  if (daysRem < 0) daysRem = 0;
+  return { day_in_dur: dayIn, days_remaining_in_dur: daysRem };
 }
 
 /**
@@ -86,8 +177,8 @@ function resolveStationWorkbookCity(station, cityCatalog) {
 
 /**
  * @param {Array<object>} workbookWindows
- * @param {string} cityKey — normalized key (must match buildWorkbookCityCatalog)
- * @param {string} asOfIso
+ * @param {string} cityKey
+ * @param {string} asOfIso YYYY-MM-DD (Gregorian; only MM-DD used for match)
  * @returns
  *  | { ok: true, current: object, next: object|null, cityRows: object[] }
  *  | { ok: false, code: string, input?: string, count?: number, rows?: object[] }
@@ -99,6 +190,14 @@ function findWorkbookCurrentNextStrict(workbookWindows, cityKey, asOfIso) {
   if (!cityKey) {
     return { ok: false, code: 'NO_CITY' };
   }
+  var asParts = ymdFromIso(asOfIso);
+  if (!asParts) {
+    return { ok: false, code: 'BAD_INPUT' };
+  }
+  var asY = asParts.y;
+  var asM = asParts.m;
+  var asD = asParts.d;
+
   var same = workbookWindows.filter(function (r) {
     if (!r || r.city == null) return false;
     return normalizeWorkbookCityKey(r.city) === cityKey;
@@ -106,65 +205,77 @@ function findWorkbookCurrentNextStrict(workbookWindows, cityKey, asOfIso) {
   if (!same.length) {
     return { ok: false, code: 'NO_ROWS_FOR_CITY' };
   }
-  same.sort(function (a, b) {
-    var c = String(a.dur_start).localeCompare(String(b.dur_start));
-    if (c !== 0) return c;
-    c = Number(a.year) - Number(b.year);
-    if (c !== 0) return c;
-    return Number(a.dur_index) - Number(b.dur_index);
-  });
 
   var containing = same.filter(function (r) {
     if (!r.dur_start || !r.dur_end) return false;
-    return asOfIso >= r.dur_start && asOfIso <= r.dur_end;
+    return isMonthDayInSeasonalWindow(asM, asD, r.dur_start, r.dur_end);
   });
   if (containing.length === 0) {
     return { ok: false, code: 'NO_WINDOW_CONTAINS_DATE', as_of: asOfIso };
   }
   if (containing.length > 1) {
-    return { ok: false, code: 'DUPLICATE_CONTAINING_ROWS', count: containing.length, rows: containing };
+    containing.sort(function (a, b) {
+      var ya = toNumber(a.year) || 0;
+      var yb = toNumber(b.year) || 0;
+      if (asY) {
+        var pa = Math.abs(ya - asY);
+        var pb = Math.abs(yb - asY);
+        if (pa !== pb) return pa - pb;
+      }
+      return yb - ya;
+    });
   }
   var current = containing[0];
-  var idx = -1;
-  var i;
-  for (i = 0; i < same.length; i += 1) {
-    if (rowIdentityEqual(same[i], current)) {
-      idx = i;
+
+  var seen = Object.create(null);
+  var uniques = [];
+  var u;
+  for (u = 0; u < same.length; u += 1) {
+    var row = same[u];
+    if (!row || !row.dur_start) continue;
+    var fp = seasonalRowFingerprint(row);
+    if (!fp || seen[fp]) continue;
+    var candidates = same.filter(function (r2) {
+      return seasonalRowFingerprint(r2) === fp;
+    });
+    var pick = candidates[0];
+    var cj;
+    for (cj = 0; cj < candidates.length; cj += 1) {
+      if ((toNumber(candidates[cj].year) || 0) === asY) {
+        pick = candidates[cj];
+        break;
+      }
+    }
+    seen[fp] = true;
+    uniques.push(pick);
+  }
+  uniques.sort(function (a, b) {
+    var ap = ymdFromIso(a.dur_start);
+    var bp = ymdFromIso(b.dur_start);
+    if (!ap || !bp) return 0;
+    return dayOfYear2004(ap.m, ap.d) - dayOfYear2004(bp.m, bp.d);
+  });
+
+  if (!uniques.length) {
+    return { ok: false, code: 'CURRENT_NOT_IN_CITY_LIST' };
+  }
+  var curFp = seasonalRowFingerprint(current);
+  var uidx = -1;
+  for (var ui = 0; ui < uniques.length; ui += 1) {
+    if (seasonalRowFingerprint(uniques[ui]) === curFp) {
+      uidx = ui;
       break;
     }
   }
-  if (idx < 0) {
-    return { ok: false, code: 'CURRENT_NOT_IN_CITY_LIST' };
+  if (uidx < 0) {
+    uidx = 0;
   }
-  var nxt = idx + 1 < same.length ? same[idx + 1] : null;
+  var nxt = null;
+  if (uniques.length > 1) {
+    nxt = uniques[(uidx + 1) % uniques.length];
+  }
+
   return { ok: true, current: current, next: nxt, cityRows: same };
-}
-
-function rowIdentityEqual(a, b) {
-  if (!a || !b) return false;
-  if (String(a.dur_start) !== String(b.dur_start)) return false;
-  if (String(a.dur_end) !== String(b.dur_end)) return false;
-  if (String(a.year) !== String(b.year)) return false;
-  if (String(a.dur_index) !== String(b.dur_index)) return false;
-  return true;
-}
-
-/**
- * @param {object} row
- * @param {string} asOfIso
- */
-function computeDayMetricsForWorkbookRow(row, asOfIso) {
-  if (!row || !asOfIso) return { day_in_dur: null, days_remaining_in_dur: null };
-  var s = row.dur_start;
-  var e = row.dur_end;
-  if (!s || !e) return { day_in_dur: null, days_remaining_in_dur: null };
-  var asMs = parseIsoDateUtcMidnight(asOfIso);
-  var sMs = parseIsoDateUtcMidnight(s);
-  var eMs = parseIsoDateUtcMidnight(e);
-  if (!asMs || !sMs || !eMs) return { day_in_dur: null, days_remaining_in_dur: null };
-  var dayIn = Math.floor((asMs.getTime() - sMs.getTime()) / 86400000) + 1;
-  var daysRem = Math.max(0, Math.round((eMs.getTime() - asMs.getTime()) / 86400000));
-  return { day_in_dur: dayIn, days_remaining_in_dur: daysRem };
 }
 
 /**
@@ -202,5 +313,8 @@ module.exports = {
   computeDayMetricsForWorkbookRow: computeDayMetricsForWorkbookRow,
   buildResolvedSnapshotShapeFromWorkbookRow: buildResolvedSnapshotShapeFromWorkbookRow,
   parseIsoDateUtcMidnight: parseIsoDateUtcMidnight,
-  toNumber: toNumber
+  toNumber: toNumber,
+  isMonthDayInSeasonalWindow: isMonthDayInSeasonalWindow,
+  ymdFromIso: ymdFromIso,
+  dayOfYear2004: dayOfYear2004
 };
