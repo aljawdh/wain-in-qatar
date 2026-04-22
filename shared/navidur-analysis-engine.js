@@ -7,6 +7,15 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  var buildResolvedLocalDurTimelineInfo;
+  try {
+    if (typeof require === 'function') {
+      buildResolvedLocalDurTimelineInfo = require('./station-dur-windows-analysis').buildResolvedLocalDurTimelineInfo;
+    }
+  } catch (_reqErr) {
+    buildResolvedLocalDurTimelineInfo = null;
+  }
+
   function toNumber(value) {
     var n = Number(value);
     return Number.isFinite(n) ? n : null;
@@ -1009,6 +1018,11 @@
   function normalizeReferenceData(referenceData) {
     var source = referenceData || {};
     var dururReference = sortDurRows(source.durur_master || []).map(normalizeDurRow);
+    var sdw = source.station_dur_windows;
+    if (!sdw || typeof sdw !== 'object') sdw = { version: 1, stations: {} };
+    if (!sdw.stations || typeof sdw.stations !== 'object') {
+      sdw = Object.assign({}, sdw, { stations: {} });
+    }
 
     return {
       stations: toArray(source.stations).map(normalizeStationRecord),
@@ -1021,7 +1035,8 @@
       station_profiles: toArray(source.station_profiles || source.station_dur_profiles),
       overrides: toArray(source.overrides || source.station_dur_overrides),
       reference_overrides: toArray(source.durur_overrides || source.reference_overrides),
-      rules_config: source.rules_config || null
+      rules_config: source.rules_config || null,
+      station_dur_windows: sdw
     };
   }
 
@@ -1041,12 +1056,26 @@
     var runtimeOverride = normalizeRuntimeOverride(options.overrides);
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
-    var durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
+    var durInfo = null;
+    if (buildResolvedLocalDurTimelineInfo) {
+      try {
+        durInfo = buildResolvedLocalDurTimelineInfo(referenceData, station, analysisDate);
+      } catch (_bdErr) {
+        durInfo = null;
+      }
+    }
+    if (!durInfo) {
+      durInfo = buildDurTimeline(referenceData, station, analysisDate, runtimeOverride);
+    }
     var currentDur = durInfo.current;
     var nextDur = durInfo.next;
     var stationProfile = findStationProfile(referenceData, station, currentDur && currentDur.durRow);
     var seasonKey = getSeasonKeyFromDate(analysisDate);
-    var dayInPeriod = currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null;
+    var resolvedSnap = durInfo && durInfo.resolved_window_snapshot;
+    var fromResolved = !!(durInfo && durInfo.from_resolved_local_stations_dur_windows);
+    var dayInPeriod = fromResolved && resolvedSnap && resolvedSnap.day_in_dur != null
+      ? toNumber(resolvedSnap.day_in_dur)
+      : (currentDur ? (getDaysBetween(currentDur.start, analysisDate) + 1) : null);
     var activePhase = resolveActiveDurPhase(currentDur && currentDur.durRow, dayInPeriod);
     var baseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, false);
     var phaseReferenceOverrideFields = resolveReferenceOverrideFields(referenceData, station, currentDur && currentDur.durRow, activePhase, seasonKey, true);
@@ -1105,7 +1134,18 @@
         day_in_period: dayInPeriod,
         next_period_id: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.id) : '',
         next_period_name: nextDur && nextDur.durRow ? normalizeString(nextDur.durRow.name_ar || nextDur.durRow.name || nextDur.durRow.name_en) : '',
-        days_remaining: currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null,
+        days_remaining: fromResolved && resolvedSnap && resolvedSnap.days_remaining_in_dur != null
+          ? toNumber(resolvedSnap.days_remaining_in_dur)
+          : (currentDur && currentDur.end ? Math.max(0, getDaysBetween(analysisDate, currentDur.end)) : null),
+        period_start_date: currentDur && currentDur.start
+          ? currentDur.start.toISOString().slice(0, 10)
+          : '',
+        period_end_date: currentDur && currentDur.end
+          ? currentDur.end.toISOString().slice(0, 10)
+          : '',
+        next_period_start_date: nextDur && nextDur.start ? nextDur.start.toISOString().slice(0, 10) : '',
+        next_period_end_date: nextDur && nextDur.end ? nextDur.end.toISOString().slice(0, 10) : '',
+        timing_resolution: fromResolved ? 'resolved_local_stations_dur_windows' : 'legacy_suhail_engine',
         suhail_anchor_date: durInfo && durInfo.suhail_anchor ? durInfo.suhail_anchor.toISOString().slice(0, 10) : '',
         base_suhail_anchor_date: durInfo && durInfo.base_suhail_anchor ? durInfo.base_suhail_anchor.toISOString().slice(0, 10) : '',
         cycle_start_date: durInfo && durInfo.cycle_start ? durInfo.cycle_start.toISOString().slice(0, 10) : '',

@@ -4876,16 +4876,7 @@
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
-    if (!currentDur) {
-      if (currentAnalyticsPeriod === 'now') {
-        getEl('stAnalyticsMsg').textContent = 'لا توجد قراءة حالية جاهزة لهذه المحطة';
-      } else {
-        getEl('stAnalyticsMsg').textContent = 'لا يوجد در حالياً';
-      }
-      return;
-    }
-
-    var staticDur = getDururById(currentDur.id);
+    var staticDur = currentDur && currentDur.id ? getDururById(currentDur.id) : null;
     try {
       var dto = await fetchSharedLiveAnalysisBundle(station);
       if (requestToken !== currentAnalysisRequestToken) return;
