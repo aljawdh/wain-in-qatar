@@ -1,9 +1,10 @@
 'use strict';
 
-const { readJsonFile, writeJsonFile, createId } = require('./_lib/data-store');
+const { readJsonFile, writeJsonFile, createId, nowIso } = require('./_lib/data-store');
 const { isAllowedOrigin, setNoCache, parseBody, cleanString } = require('./_lib/security');
 const { getAuthUser, canUserAddStations } = require('./_lib/auth');
 const { normalizeStationInput, hasDuplicateStation } = require('./_lib/stations');
+const { resolveAutoReferenceInheritance } = require('./_lib/reference-station-inheritance');
 
 function isPublicOperationalStation(station) {
   if (!station) return false;
@@ -126,7 +127,7 @@ module.exports = async function handler(req, res) {
       const rows = await readJsonFile('stations', []);
 
       const requestedId = cleanString(body.id, 80);
-      const station = normalizeStationInput({
+      let station = normalizeStationInput({
         ...body,
         id: requestedId || createId('st'),
         sort_order: body.sort_order != null ? body.sort_order : (rows.length + 1),
@@ -134,6 +135,21 @@ module.exports = async function handler(req, res) {
         added_from_field: body.added_from_field != null ? !!body.added_from_field : true,
         source_tag: body.source_tag || 'field'
       });
+      if (!station.is_reference_station) {
+        if (!cleanString(station.reference_station_id, 80)) {
+          const resolved = resolveAutoReferenceInheritance(station, rows);
+          if (resolved) {
+            station = normalizeStationInput(
+              {
+                ...station,
+                reference_station_id: resolved.id,
+                reference_inheritance: { method: resolved.method, decided_at: nowIso() }
+              },
+              station
+            );
+          }
+        }
+      }
 
       if (hasDuplicateStation(rows, station)) {
         return res.status(409).json({ error: 'duplicate_station_name_coordinates' });

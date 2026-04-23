@@ -64,6 +64,19 @@ function normalizeTags(tags, category, featured) {
   return Array.from(new Set(cleaned)).slice(0, 20);
 }
 
+function normalizeReferenceInheritance(input, base, isReferenceStation) {
+  if (isReferenceStation) return null;
+  const use = input.reference_inheritance !== undefined ? input.reference_inheritance : base.reference_inheritance;
+  if (use == null || typeof use !== 'object' || Array.isArray(use)) return null;
+  const method = cleanString(use.method, 40).toLowerCase();
+  const allowed = new Set(['exact_area_match', 'latitude_band_match', 'country_region_closest', 'manual']);
+  if (!method || !allowed.has(method)) return null;
+  return {
+    method,
+    decided_at: cleanString(use.decided_at, 80) || null
+  };
+}
+
 function normalizeSuhailAnchorResolution(input, base) {
   const use = input !== undefined ? input : base;
   if (use == null) return null;
@@ -134,7 +147,10 @@ function normalizeStationInput(input, existing) {
       return 'secondary_linked';
     })(),
     primary_reference: input.primary_reference != null ? !!input.primary_reference : !!base.primary_reference,
-    reference_station_id: cleanString(input.reference_station_id != null ? input.reference_station_id : base.reference_station_id, 80),
+    reference_station_id: isReferenceStation
+      ? ''
+      : cleanString(input.reference_station_id != null ? input.reference_station_id : base.reference_station_id, 80),
+    reference_inheritance: normalizeReferenceInheritance(input, base, isReferenceStation),
     notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
     added_from_field: input.added_from_field != null ? !!input.added_from_field : !!base.added_from_field,
     source_tag: cleanString(input.source_tag != null ? input.source_tag : base.source_tag, 40),

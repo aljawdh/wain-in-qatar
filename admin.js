@@ -1751,12 +1751,22 @@
 
   function createDururPopupContent(station) {
     var timing = getAdminMapTimingDetails(station);
+    var refId = (station && station.reference_station_id) ? String(station.reference_station_id).trim() : '';
+    var refNameLine = '';
+    if (!isReferenceCalibrationStation(station) && refId) {
+      var refForPopup = stationsCache.find(function (s) { return s && s.id === refId; });
+      var refDisp = (refForPopup && refForPopup.name) ? refForPopup.name : refId;
+      refNameLine = '<div>مرجع DUR/التوقيت: ' + escapeHtml(refDisp) + '</div>';
+    } else if (!isReferenceCalibrationStation(station) && !refId) {
+      refNameLine = '<div>مرجع DUR/التوقيت: —</div>';
+    }
     return ''
       + '<div style="text-align:right;line-height:1.5;font-size:.9rem">'
       + '<strong>' + escapeHtml(station.name || station.id || '--') + '</strong>'
       + (isReferenceCalibrationStation(station) ? '<div style="margin:4px 0 6px">' + buildReferenceBadgeHtml(station) + '</div>' : '')
       + '<div>الحالة: ' + escapeHtml(station.status || '--') + '</div>'
       + '<div>مرجع معايرة: ' + escapeHtml(station.is_reference_station ? 'نعم' : 'لا') + '</div>'
+      + refNameLine
       + '<div>موثق: ' + escapeHtml(station.is_verified ? 'نعم' : 'لا') + '</div>'
       + '<div>حزام العرض: ' + escapeHtml(station.latitude_band_key || '--') + '</div>'
       + '<div>مصدر التوقيت: ' + escapeHtml(timing.timing_source_label_ar || '--') + '</div>'
@@ -1808,7 +1818,23 @@
     html += '<div><strong>مفتاح الحزام:</strong> ' + (station.latitude_band_key || '--') + '</div>';
     html += '<div><strong>مرساة سهيل اليدوية:</strong> ' + (station.manual_suhail_anchor_date || '--') + '</div>';
     html += '<div><strong>بداية الدورة اليدوية:</strong> ' + (station.manual_cycle_start_date || '--') + '</div>';
-    html += '<div><strong>محطة مرجعية مرتبطة:</strong> ' + (station.reference_station_id || '--') + '</div>';
+    (function () {
+      var refId0 = (station.reference_station_id || '').trim();
+      if (isReferenceCalibrationStation(station)) {
+        html += '<div><strong>توقيت DUR:</strong> هذه المحطة مرجعية (مصدر التوقيت منها مباشرة، لا مرتبط بمرجع آخر)</div>';
+        return;
+      }
+      if (refId0) {
+        var refS = stationsCache.find(function (s) { return s && s.id === refId0; });
+        var refDisp = (refS && (refS.name || refS.id)) ? (refS.name + ' (' + refId0 + ')') : refId0;
+        html += '<div><strong>توقيت DUR/الدور يرتبط بمحطة:</strong> ' + escapeHtml(refDisp) + '</div>';
+        if (station.reference_inheritance && station.reference_inheritance.method) {
+          html += '<div><strong>طريقة ربط المرجع:</strong> ' + escapeHtml(getReferenceInheritanceMethodLabelAr(station.reference_inheritance.method)) + '</div>';
+        }
+      } else {
+        html += '<div><strong>توقيت DUR/الدور يرتبط بمحطة:</strong> — (لم تُعيّن)</div>';
+      }
+    }());
     if (timingDur) {
       html += '<div><strong>مصدر التوقيت الحالي:</strong> ' + getTimingSourceLabel(timingDur) + '</div>';
       html += '<div><strong>سبب الاختيار:</strong> ' + getCalibrationReasonLabel(timingDur.calibration_selection_reason) + '</div>';
@@ -2421,6 +2447,14 @@
     if (reason === 'latitude_band_key') return 'حزام عرض مطابق';
     if (reason === 'nearest_latitude') return 'أقرب مرجع عرضي';
     return 'بدون معايرة';
+  }
+
+  function getReferenceInheritanceMethodLabelAr(method) {
+    if (method === 'exact_area_match') return 'مطابقة دولة/منطقة/منطقة محلية';
+    if (method === 'latitude_band_match') return 'مطابقة حزام العرض (latitude_band_key)';
+    if (method === 'country_region_closest') return 'أقرب محطة مرجعية ضمن نفس الدولة والمنطقة (حد أقصى للمسافة)';
+    if (method === 'manual') return 'تعيين يدوي';
+    return method ? String(method) : '—';
   }
 
   function buildTimingStatusText(dur) {

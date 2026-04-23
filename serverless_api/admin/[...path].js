@@ -3,6 +3,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv, kvStoreKey } = require('../_lib/data-store');
+const { resolveAutoReferenceInheritance } = require('../_lib/reference-station-inheritance');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
@@ -689,12 +690,27 @@ module.exports = async function handler(req, res) {
             return res.status(200).json({ ok: true, station });
           }
 
-          const station = normalizeStationInput({
+          let station = normalizeStationInput({
             ...body,
             id: requestedId || createId('st'),
             sort_order: body.sort_order != null ? body.sort_order : (rows.length + 1),
             status: body.status || 'active'
           });
+          if (!station.is_reference_station) {
+            if (!cleanString(station.reference_station_id, 80)) {
+              const resolved = resolveAutoReferenceInheritance(station, rows);
+              if (resolved) {
+                station = normalizeStationInput(
+                  {
+                    ...station,
+                    reference_station_id: resolved.id,
+                    reference_inheritance: { method: resolved.method, decided_at: nowIso() }
+                  },
+                  station
+                );
+              }
+            }
+          }
           if (hasDuplicateStation(rows, station)) {
             return res.status(409).json({ error: 'duplicate_station_name_coordinates' });
           }
