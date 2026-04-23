@@ -4525,14 +4525,19 @@
     var dur = dto && dto.dur ? dto.dur : {};
     var ref = dur.reference || {};
     var phase = dur.active_phase_reference || {};
-    var expectedTraits = uniqueNonEmptyValues([]
-      .concat(ref.general_traits || [])
-      .concat(ref.weather_traits || [])
-      .concat(ref.marine_traits || [])
-      .concat(phase.general_traits || [])
-      .concat(phase.weather_traits || [])
-      .concat(phase.marine_traits || [])
-      .concat(phase.fish_traits || []));
+    var expectedTraits;
+    if (Array.isArray(dur.unified_expected_traits) && dur.unified_expected_traits.length) {
+      expectedTraits = uniqueNonEmptyValues(dur.unified_expected_traits);
+    } else {
+      expectedTraits = uniqueNonEmptyValues([]
+        .concat(ref.general_traits || [])
+        .concat(ref.weather_traits || [])
+        .concat(ref.marine_traits || [])
+        .concat(phase.general_traits || [])
+        .concat(phase.weather_traits || [])
+        .concat(phase.marine_traits || [])
+        .concat(phase.fish_traits || []));
+    }
     var observedTraits = uniqueNonEmptyValues(Array.isArray(observedTraitsOverride) ? observedTraitsOverride : deriveObservedTraitsFromAnalysis(dto));
     var matchedTraits = expectedTraits.filter(function (trait) { return observedTraits.indexOf(trait) >= 0; });
     var missingTraits = expectedTraits.filter(function (trait) { return observedTraits.indexOf(trait) < 0; });
@@ -5012,6 +5017,9 @@
     setTextIfEl('stWeatherWaveHeight', '');
     setTextIfEl('stWeatherSeaTemp', '');
     setTextIfEl('stWeatherLastUpdate', '');
+    setTextIfEl('stWeatherCurrentSpeed', '');
+    setTextIfEl('stAnalyticsTideState', '');
+    setTextIfEl('stAnalyticsFishRec', '');
   }
 
   function setTextIfEl(id, text) {
@@ -5073,10 +5081,12 @@
       });
     }
 
-    var expTraits = uniqueNonEmptyValues([]
-      .concat(d && d.reference && d.reference.general_traits || [])
-      .concat(d && d.reference && d.reference.weather_traits || [])
-      .concat(d && d.reference && d.reference.marine_traits || []));
+    var expTraits = Array.isArray(d && d.unified_expected_traits) && d.unified_expected_traits.length
+      ? uniqueNonEmptyValues(d.unified_expected_traits)
+      : uniqueNonEmptyValues([]
+        .concat(d && d.reference && d.reference.general_traits || [])
+        .concat(d && d.reference && d.reference.weather_traits || [])
+        .concat(d && d.reference && d.reference.marine_traits || []));
     var ex = getEl('stAnalyticsExpectedTraits');
     if (ex) {
       ex.innerHTML = expTraits.length
@@ -5090,6 +5100,14 @@
     setTextIfEl('stWeatherWindDir', dto.environment && dto.environment.wind_direction_deg != null ? dto.environment.wind_direction_deg + '°' : '');
     setTextIfEl('stWeatherWaveHeight', dto.environment && dto.environment.wave_height_m != null ? dto.environment.wave_height_m + ' m' : '');
     setTextIfEl('stWeatherSeaTemp', dto.environment && dto.environment.temp_c != null ? dto.environment.temp_c + ' °C' : '');
+    setTextIfEl('stWeatherCurrentSpeed', dto.tide && dto.tide.current_speed_ms != null ? String(dto.tide.current_speed_ms) + ' m/s' : '');
+    setTextIfEl('stAnalyticsTideState', mapDtoTideStateToArabic(dto.tide && dto.tide.state));
+    setTextIfEl(
+      'stAnalyticsFishRec',
+      dto.fishing
+        ? (dto.fishing.is_recommended ? 'موصى به — ثقة ' + String(dto.fishing.confidence_score != null ? dto.fishing.confidence_score : '') + '%' : 'بحذر — ثقة ' + String(dto.fishing.confidence_score != null ? dto.fishing.confidence_score : '') + '%')
+        : ''
+    );
     setTextIfEl('stWeatherLastUpdate', dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '');
 
     renderValidationExplanation(dto, observedTraits);
@@ -5267,11 +5285,7 @@
     try {
       var dto = await fetchSharedLiveAnalysisBundle(station, { datetime: analysisIso });
       if (requestToken !== currentAnalysisRequestToken) return;
-      if (durState) {
-        renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث التحليل', durState);
-      } else {
-        renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث التحليل', null);
-      }
+      renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث التحليل', null);
       if (['1m', '3m', '6m', '1y'].indexOf(period) >= 0) {
         try {
           var historyRecords = await getAnalyticsHistory(stationId, period);

@@ -260,6 +260,20 @@
     }) || null;
   }
 
+  /** Match durur_master row by Arabic/primary name (for true_final → master traits + phases). */
+  function findDururMasterByNameAr(referenceData, nameAr) {
+    var want = normalizeString(nameAr);
+    if (!want) return null;
+    var list = toArray(referenceData && referenceData.durur_reference);
+    for (var i = 0; i < list.length; i += 1) {
+      var d = list[i];
+      if (!d || d.is_active === false) continue;
+      var n = normalizeString(d.name_ar || d.name);
+      if (n === want) return d;
+    }
+    return null;
+  }
+
   function findStationProfile(referenceData, station, durRow) {
     var stationId = normalizeString(station && station.id);
     if (!stationId) return null;
@@ -835,7 +849,13 @@
       return failResponse(tf && !tf.ok ? { code: tf.code, message: tf.message, detail: tf } : { code: 'TRUE_FINAL_LOOKUP_FAILED', message: 'station not in true_final dataset or as_of outside window' });
     }
 
-    var tfDurRow = {
+    var dayIn = toNumber(tf.day_in_dur);
+    var curMaster = findDururMasterByNameAr(referenceData, tf.current_dur_name_ar);
+    var nextMaster = findDururMasterByNameAr(referenceData, tf.next_dur_name_ar);
+    var tfStart = tf._fishing_start;
+    var tfEnd = tf._fishing_end;
+
+    var tfDurRowFallback = {
       id: 'true_final:' + normalizeString(station.id),
       name_ar: tf.current_dur_name_ar,
       name: '',
@@ -845,7 +865,7 @@
       default_days_count: null,
       phases: []
     };
-    var tfNextRow = {
+    var tfNextRowFallback = {
       id: '',
       name_ar: tf.next_dur_name_ar,
       name: '',
@@ -855,19 +875,58 @@
       default_days_count: null,
       phases: []
     };
-    var tfStart = tf._fishing_start;
-    var tfEnd = tf._fishing_end;
-    var minTfCurrent = { durRow: tfDurRow, start: tfStart, end: tfEnd };
-    var minTfNext = { durRow: tfNextRow, start: null, end: null };
-    var tfRefOnly = buildDurReferenceMetadata(tfDurRow, minTfNext, []);
+
+    var mergedDurRow = curMaster ? normalizeDurRow(curMaster) : normalizeDurRow(tfDurRowFallback);
+    var nextRowForRef = nextMaster ? normalizeDurRow(nextMaster) : normalizeDurRow(tfNextRowFallback);
+
+    var seasonKey0 = getSeasonKeyFromDate(analysisDate);
+    var activePhase0 = resolveActiveDurPhase(mergedDurRow, dayIn);
+    var ob0 = resolveReferenceOverrideFields(referenceData, station, mergedDurRow, activePhase0, seasonKey0, false);
+    var op0 = resolveReferenceOverrideFields(referenceData, station, mergedDurRow, activePhase0, seasonKey0, true);
+    var mergedAfterOverrides = cloneDurRowWithOverrides(mergedDurRow, Object.assign({}, ob0, op0)) || mergedDurRow;
+    var activePhase = resolveActiveDurPhase(mergedAfterOverrides, dayIn);
+    var stationProfile = findStationProfile(referenceData, station, mergedAfterOverrides);
+    var seasonalEventsResolved = resolveSeasonalEvents(
+      referenceData,
+      mergedAfterOverrides,
+      analysisDate,
+      runtimeOverride,
+      activePhase
+    );
+    var traitBundle = collectReferenceTraits(
+      referenceData,
+      mergedAfterOverrides,
+      activePhase,
+      stationProfile,
+      seasonalEventsResolved,
+      runtimeOverride
+    );
+    var unifiedExpectedTraits = uniqueStrings(
+      (traitBundle.general_traits || [])
+        .concat(traitBundle.weather_traits || [])
+        .concat(traitBundle.marine_traits || [])
+        .concat(traitBundle.seasonal_traits || [])
+        .concat(traitBundle.fish_traits || [])
+    );
+
+    var minTfCurrent = { durRow: mergedAfterOverrides, start: tfStart, end: tfEnd };
+    var minTfNext = { durRow: nextRowForRef, start: null, end: null };
+    var tfRefOnly = buildDurReferenceMetadata(mergedAfterOverrides, minTfNext, seasonalEventsResolved);
+    if (tfRefOnly) {
+      tfRefOnly.general_traits = uniqueStrings(traitBundle.general_traits || []);
+      tfRefOnly.weather_traits = uniqueStrings(traitBundle.weather_traits || []);
+      tfRefOnly.marine_traits = uniqueStrings(traitBundle.marine_traits || []);
+      tfRefOnly.fish_traits = uniqueStrings(traitBundle.fish_traits || []);
+    }
+    var activePhaseRef = buildActivePhaseReferenceMetadata(activePhase, seasonalEventsResolved);
     var fishingTf = buildFishingDecision(
       referenceData,
       station,
       liveEnvironment,
       tideState,
       minTfCurrent,
-      {},
-      [],
+      traitBundle,
+      seasonalEventsResolved,
       runtimeOverride,
       options.field_validation || null
     );
@@ -878,13 +937,13 @@
       operational_workbook_inactive: true,
       legacy_suhail_engine_inactive: true,
       dur: {
-        period_id: normalizeString(tfDurRow.id),
-        period_number: null,
+        period_id: normalizeString(mergedAfterOverrides && mergedAfterOverrides.id),
+        period_number: toNumber(mergedAfterOverrides && mergedAfterOverrides.dur_number),
         period_name: normalizeString(tf.current_dur_name_ar),
         period_start: normalizeString(tf.period_start_mmdd),
         period_end: normalizeString(tf.period_end_mmdd),
         day_in_period: toNumber(tf.day_in_dur),
-        next_period_id: '',
+        next_period_id: normalizeString(nextRowForRef && nextRowForRef.id),
         next_period_name: normalizeString(tf.next_dur_name_ar),
         days_remaining: toNumber(tf.days_remaining_in_dur),
         timing_mode: 'month_day_only',
@@ -908,8 +967,9 @@
         calibration_selection_reason: 'true_final_seasonal_dataset_only',
         calibration_delta_days: 0,
         reference: tfRefOnly,
-        active_phase_id: '',
-        active_phase_reference: null,
+        active_phase_id: normalizeString(activePhase && activePhase.phase_id),
+        active_phase_reference: activePhaseRef,
+        unified_expected_traits: unifiedExpectedTraits,
         overrides_applied: false,
         true_final_station_workbook: 'navidur_true_final_station_reference',
         true_final_data_json: 'true_final_station_reference.json'
