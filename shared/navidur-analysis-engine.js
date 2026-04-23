@@ -109,6 +109,94 @@
     }) || null;
   }
 
+  function findStationByIdInList(stationsList, id) {
+    var want = normalizeString(id);
+    if (!want) return null;
+    var list = toArray(stationsList);
+    for (var i = 0; i < list.length; i += 1) {
+      if (normalizeString(list[i] && list[i].id) === want) {
+        return list[i];
+      }
+    }
+    return null;
+  }
+
+  function greatCircleDistanceKm(lat1, lon1, lat2, lon2) {
+    if (!Number.isFinite(lat1) || !Number.isFinite(lon1) || !Number.isFinite(lat2) || !Number.isFinite(lon2)) {
+      return Infinity;
+    }
+    var p = Math.PI / 180;
+    var a =
+      0.5 - Math.cos((lat2 - lat1) * p) / 2 +
+      Math.cos(lat1 * p) * Math.cos(lat2 * p) * (1 - Math.cos((lon2 - lon1) * p)) / 2;
+    return 12742 * Math.asin(Math.sqrt(Math.min(1, a)));
+  }
+
+  function pickClosestStationByGeo(anchor, candidates) {
+    if (!candidates || !candidates.length) return null;
+    var best = null;
+    var bestD = Infinity;
+    for (var i = 0; i < candidates.length; i += 1) {
+      var c = candidates[i];
+      if (!c) continue;
+      var d = greatCircleDistanceKm(anchor.lat, anchor.lon, c.lat, c.lon);
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  function findNearestReferenceStation(station, stationsList) {
+    var refs = toArray(stationsList).filter(function (s) {
+      return s && s.is_reference_station && Number.isFinite(s.lat) && Number.isFinite(s.lon);
+    });
+    if (!refs.length) return null;
+    if (station && Number.isFinite(station.lat) && Number.isFinite(station.lon)) {
+      return pickClosestStationByGeo(station, refs);
+    }
+    return refs[0] || null;
+  }
+
+  /**
+   * DUR source only: which reference station’s row in true_final_station_reference to use.
+   * Weather/traits for analysis still use the operational `station` (caller responsibility).
+   * @returns {{ source: object|null, method: string }}
+   */
+  function resolveReferenceStationForDurInheritance(station, stationsList) {
+    if (!station) {
+      return { source: null, method: 'none' };
+    }
+    if (station.is_reference_station) {
+      return { source: station, method: 'self' };
+    }
+    var list = toArray(stationsList);
+    if (station.reference_station_id) {
+      var linked = findStationByIdInList(list, station.reference_station_id);
+      if (linked) {
+        return { source: linked, method: 'explicit' };
+      }
+    }
+    var band = normalizeString(station.latitude_band_key);
+    if (band) {
+      var inBand = list.filter(function (s) {
+        return s && s.is_reference_station && normalizeString(s.latitude_band_key) === band;
+      });
+      if (inBand.length) {
+        if (Number.isFinite(station.lat) && Number.isFinite(station.lon)) {
+          return { source: pickClosestStationByGeo(station, inBand) || inBand[0], method: 'same_band' };
+        }
+        return { source: inBand[0], method: 'same_band' };
+      }
+    }
+    var near = findNearestReferenceStation(station, list);
+    if (near) {
+      return { source: near, method: 'nearest' };
+    }
+    return { source: null, method: 'unresolved' };
+  }
+
   function sortDurRows(rows) {
     return toArray(rows).slice().sort(function (a, b) {
       var aOrder = Number(a && (a.order_index != null ? a.order_index : a.dur_number) || 0);
@@ -835,13 +923,28 @@
     if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) {
       return failResponse({ code: 'INVALID_ANALYSIS_DATE', message: 'analysis date must be a valid calendar day' });
     }
-    if (!normalizeString(station.name)) {
-      return failResponse({ code: 'STATION_NAME_REQUIRED', message: 'station name (Arabic) required to match true_final_station_reference' });
+    var stationsForRef = toArray(referenceData.stations);
+    var durResolution = resolveReferenceStationForDurInheritance(station, stationsForRef);
+    var durSource = durResolution.source;
+    if (!station.is_reference_station && !durSource) {
+      return failResponse({
+        code: 'DUR_REFERENCE_UNRESOLVED',
+        message: 'no reference station found for DUR inheritance'
+      });
+    }
+    if (!durSource) {
+      return failResponse({ code: 'DUR_SOURCE_MISSING', message: 'internal: DUR source missing' });
+    }
+    if (!normalizeString(durSource.name)) {
+      return failResponse({
+        code: 'STATION_NAME_REQUIRED',
+        message: 'Arabic station name required on reference (or link) to match data/true_final_station_reference.json'
+      });
     }
 
     var tf;
     try {
-      tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: station.name, asOfIso: asOfIso });
+      tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: durSource.name, asOfIso: asOfIso });
     } catch (tfEx) {
       tf = { ok: false, code: 'EXCEPTION', message: String((tfEx && tfEx.message) || tfEx) };
     }
@@ -856,7 +959,7 @@
     var tfEnd = tf._fishing_end;
 
     var tfDurRowFallback = {
-      id: 'true_final:' + normalizeString(station.id),
+      id: 'true_final:' + normalizeString(durSource.id != null ? durSource.id : station.id),
       name_ar: tf.current_dur_name_ar,
       name: '',
       name_en: '',
@@ -961,10 +1064,18 @@
         cycle_start_date: '',
         timing_source: 'true_final_station_reference',
         timing_source_label_ar: 'محرك المواسم NAVIDUR — مرجع محطة واحد (يوم/شهر)',
-        calibration_reference_station_id: '',
-        calibration_reference_station_name: '',
+        reference_resolved_for_dur: {
+          resolution_method: durResolution.method,
+          source_station_id: normalizeString(durSource.id),
+          source_station_name: normalizeString(durSource.name),
+          operational_station_id: normalizeString(station.id)
+        },
+        calibration_reference_station_id: station.is_reference_station ? '' : normalizeString(durSource.id),
+        calibration_reference_station_name: station.is_reference_station ? '' : normalizeString(durSource.name),
         calibration_latitude_band_key: '',
-        calibration_selection_reason: 'true_final_seasonal_dataset_only',
+        calibration_selection_reason: station.is_reference_station
+          ? 'true_final_self_reference_station'
+          : 'dur_inherited_from_' + durResolution.method,
         calibration_delta_days: 0,
         reference: tfRefOnly,
         active_phase_id: normalizeString(activePhase && activePhase.phase_id),
