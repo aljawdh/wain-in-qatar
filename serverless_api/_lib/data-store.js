@@ -34,7 +34,8 @@ const FILES = {
   dur_sequence_map: 'dur_sequence_map.json',
   star_events: 'star_events.json',
   dur_generation_audit: 'dur_generation_audit.json',
-  true_final_station_reference: 'true_final_station_reference.json'
+  true_final_station_reference: 'true_final_station_reference.json',
+  live_weather_cache: 'live_weather_cache.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

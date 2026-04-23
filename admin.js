@@ -5017,6 +5017,7 @@
     setTextIfEl('stWeatherWaveHeight', '');
     setTextIfEl('stWeatherSeaTemp', '');
     setTextIfEl('stWeatherLastUpdate', '');
+    setTextIfEl('stWeatherStatusNote', '');
     setTextIfEl('stWeatherCurrentSpeed', '');
     setTextIfEl('stAnalyticsTideState', '');
     setTextIfEl('stAnalyticsFishRec', '');
@@ -5109,6 +5110,10 @@
         : ''
     );
     setTextIfEl('stWeatherLastUpdate', dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '');
+    setTextIfEl(
+      'stWeatherStatusNote',
+      dto.environment && dto.environment.weather_status_ar ? String(dto.environment.weather_status_ar) : ''
+    );
 
     renderValidationExplanation(dto, observedTraits);
     updateAnalyticsDurReferenceDisplay(d, [], [], [], [], []);

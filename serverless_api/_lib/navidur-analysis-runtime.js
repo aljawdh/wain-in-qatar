@@ -1,7 +1,19 @@
 'use strict';
 
-const { readJsonFile } = require('./data-store');
+const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
+
+var WEATHER_FALLBACK_AR = 'تعذر تحميل الحالة الجوية — يتم استخدام آخر قراءة';
+
+/** Mild defaults (non-null) when both API and cache miss — analysis still runs. */
+var DEFAULT_LIVE = {
+  temp_c: 28,
+  wind_speed_kmh: 12,
+  wind_direction_deg: 200,
+  wave_height_m: 0.6,
+  current_speed_ms: 0.5,
+  tide: { current: 0.12, previous: 0.1, next: 0.14 }
+};
 
 function pickStationFromReference(stations, stationId) {
   var id = cleanString(stationId, 80);
@@ -69,11 +81,155 @@ function deriveWaterTraits(environment) {
   return observed;
 }
 
+function weatherCacheKey(station) {
+  var id = cleanString(station && station.id, 80);
+  if (id) return 'id:' + id;
+  var la = toNumber(station && station.lat);
+  var lo = toNumber(station && station.lon);
+  if (la == null || lo == null) return 'll:unknown';
+  return 'll:' + la.toFixed(4) + ',' + lo.toFixed(4);
+}
+
+async function readWeatherCacheStore() {
+  return readJsonFile('live_weather_cache', { version: 1, entries: {} });
+}
+
+async function saveWeatherCacheEntry(key, liveInputs) {
+  var doc = await readWeatherCacheStore();
+  doc.entries = doc.entries || {};
+  doc.entries[key] = {
+    live_inputs: liveInputs,
+    saved_at: new Date().toISOString()
+  };
+  try {
+    await writeJsonFile('live_weather_cache', doc);
+  } catch (_e) {
+    /* read-only or disabled store */
+  }
+}
+
+/**
+ * Fetches live forecast/marine (Open-Meteo) for the station. Never throws.
+ * On API failure: uses file-backed last reading, then mild non-null defaults.
+ * DUR is untouched — caller only uses this for live_inputs / environment.
+ * @param {object} station — must include lat, lon
+ * @param {string} [asOfDate] — YYYY-MM-DD (optional; current forecast used for today)
+ */
+async function getWeatherData(station, asOfDate) {
+  var out = {
+    ok: false,
+    from_cache: false,
+    from_defaults: false,
+    live_inputs: null,
+    weather_status_ar: ''
+  };
+  var la = toNumber(station && station.lat);
+  var lo = toNumber(station && station.lon);
+  if (la == null || lo == null) {
+    out.ok = true;
+    out.from_defaults = true;
+    out.live_inputs = Object.assign({}, DEFAULT_LIVE);
+    out.weather_status_ar = WEATHER_FALLBACK_AR;
+    return out;
+  }
+
+  try {
+    var weatherUrl = new URL('https://api.open-meteo.com/v1/forecast');
+    weatherUrl.searchParams.set('latitude', String(la));
+    weatherUrl.searchParams.set('longitude', String(lo));
+    weatherUrl.searchParams.set('current', 'wind_speed_10m,wind_direction_10m');
+    weatherUrl.searchParams.set('wind_speed_unit', 'kmh');
+    weatherUrl.searchParams.set('timezone', 'GMT');
+    if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
+      weatherUrl.searchParams.set('start_date', String(asOfDate));
+      weatherUrl.searchParams.set('end_date', String(asOfDate));
+    }
+
+    var marineUrl = new URL('https://marine-api.open-meteo.com/v1/marine');
+    marineUrl.searchParams.set('latitude', String(la));
+    marineUrl.searchParams.set('longitude', String(lo));
+    marineUrl.searchParams.set('current', 'sea_surface_temperature,ocean_current_velocity,wave_height');
+    marineUrl.searchParams.set('hourly', 'sea_level_height_msl');
+    marineUrl.searchParams.set('timezone', 'GMT');
+    if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
+      marineUrl.searchParams.set('start_date', String(asOfDate));
+      marineUrl.searchParams.set('end_date', String(asOfDate));
+    }
+
+    var responses = await Promise.all([
+      fetch(weatherUrl.toString(), { method: 'GET' }),
+      fetch(marineUrl.toString(), { method: 'GET' })
+    ]);
+    if (!responses[0].ok || !responses[1].ok) {
+      throw new Error('open_meteo_http');
+    }
+    var weatherPayload = await responses[0].json();
+    var marinePayload = await responses[1].json();
+    var weatherCurrent = weatherPayload && weatherPayload.current ? weatherPayload.current : {};
+    var marineCurrent = marinePayload && marinePayload.current ? marinePayload.current : {};
+    var hourly = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
+    var tideArray = Array.isArray(hourly.sea_level_height_msl) ? hourly.sea_level_height_msl : [];
+
+    var tideIndex = Math.max(0, tideArray.length - 1);
+    var currentTide = toNumber(tideArray[tideIndex]);
+    var prevTide = toNumber(tideArray[Math.max(0, tideIndex - 1)]);
+    var nextTide = toNumber(tideArray[Math.min(tideArray.length - 1, tideIndex + 1)]);
+
+    var li = {
+      temp_c: toNumber(marineCurrent.sea_surface_temperature),
+      wind_speed_kmh: toNumber(weatherCurrent.wind_speed_10m),
+      wind_direction_deg: toNumber(weatherCurrent.wind_direction_10m),
+      wave_height_m: toNumber(marineCurrent.wave_height),
+      current_speed_ms: toNumber(marineCurrent.ocean_current_velocity),
+      tide: {
+        current: currentTide,
+        previous: prevTide != null ? prevTide : currentTide,
+        next: nextTide != null ? nextTide : currentTide
+      }
+    };
+    if (
+      li.wind_speed_kmh == null &&
+      li.temp_c == null &&
+      li.wave_height_m == null &&
+      li.current_speed_ms == null
+    ) {
+      throw new Error('empty_weather_marine');
+    }
+    out.ok = true;
+    out.live_inputs = li;
+    return out;
+  } catch (_e) {
+    var key = weatherCacheKey(station);
+    var doc;
+    try {
+      doc = await readWeatherCacheStore();
+    } catch (_r) {
+      doc = { entries: {} };
+    }
+    var ent = doc.entries && doc.entries[key];
+    if (ent && ent.live_inputs) {
+      out.ok = true;
+      out.from_cache = true;
+      out.live_inputs = ent.live_inputs;
+      out.weather_status_ar = WEATHER_FALLBACK_AR;
+      return out;
+    }
+    out.ok = true;
+    out.from_defaults = true;
+    out.live_inputs = Object.assign({}, DEFAULT_LIVE);
+    out.weather_status_ar = WEATHER_FALLBACK_AR;
+    return out;
+  }
+}
+
+/**
+ * Merges explicit body live_inputs, or fetches live Open-Meteo. Never throws.
+ * @returns {{ live_inputs: object, weather_meta: object }}
+ */
 async function fetchWeatherAndMarineInputs(station, body) {
   var liveInputs = body && body.live_inputs && typeof body.live_inputs === 'object'
     ? Object.assign({}, body.live_inputs)
     : {};
-
   var hasExplicitValues =
     liveInputs.temp_c != null ||
     liveInputs.wind_speed_kmh != null ||
@@ -82,50 +238,37 @@ async function fetchWeatherAndMarineInputs(station, body) {
     (liveInputs.wind && (liveInputs.wind.speed_kmh != null || liveInputs.wind.direction_deg != null)) ||
     (liveInputs.marine && (liveInputs.marine.wave_height_m != null || liveInputs.marine.current_speed_ms != null)) ||
     (liveInputs.tide && (liveInputs.tide.current != null || liveInputs.tide.previous != null || liveInputs.tide.next != null));
-
-  if (hasExplicitValues) return liveInputs;
-  if (station.lat == null || station.lon == null) throw new Error('station_coordinates_required');
-
-  var weatherUrl = new URL('https://api.open-meteo.com/v1/forecast');
-  weatherUrl.searchParams.set('latitude', String(station.lat));
-  weatherUrl.searchParams.set('longitude', String(station.lon));
-  weatherUrl.searchParams.set('current', 'wind_speed_10m,wind_direction_10m');
-  weatherUrl.searchParams.set('timezone', 'GMT');
-
-  var marineUrl = new URL('https://marine-api.open-meteo.com/v1/marine');
-  marineUrl.searchParams.set('latitude', String(station.lat));
-  marineUrl.searchParams.set('longitude', String(station.lon));
-  marineUrl.searchParams.set('current', 'sea_surface_temperature,ocean_current_velocity,wave_height');
-  marineUrl.searchParams.set('hourly', 'sea_level_height_msl');
-  marineUrl.searchParams.set('timezone', 'GMT');
-
-  var responses = await Promise.all([
-    fetch(weatherUrl.toString(), { method: 'GET' }),
-    fetch(marineUrl.toString(), { method: 'GET' })
-  ]);
-
-  var weatherPayload = responses[0].ok ? await responses[0].json() : {};
-  var marinePayload = responses[1].ok ? await responses[1].json() : {};
-  var weatherCurrent = weatherPayload && weatherPayload.current ? weatherPayload.current : {};
-  var marineCurrent = marinePayload && marinePayload.current ? marinePayload.current : {};
-  var hourly = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
-  var tideArray = Array.isArray(hourly.sea_level_height_msl) ? hourly.sea_level_height_msl : [];
-
-  var tideIndex = Math.max(0, tideArray.length - 1);
-  var currentTide = toNumber(tideArray[tideIndex]);
-  var prevTide = toNumber(tideArray[Math.max(0, tideIndex - 1)]);
-  var nextTide = toNumber(tideArray[Math.min(tideArray.length - 1, tideIndex + 1)]);
-
+  if (hasExplicitValues) {
+    return {
+      live_inputs: liveInputs,
+      weather_meta: { from_request_body: true, weather_status_ar: '' }
+    };
+  }
+  if (station.lat == null || station.lon == null) {
+    return {
+      live_inputs: Object.assign({}, DEFAULT_LIVE),
+      weather_meta: { from_defaults: true, weather_status_ar: WEATHER_FALLBACK_AR }
+    };
+  }
+  var asOf = '';
+  if (body && body.datetime) {
+    var ds = String(body.datetime);
+    if (ds.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(ds)) {
+      asOf = ds.slice(0, 10);
+    }
+  }
+  var pack = await getWeatherData(station, asOf);
+  var li = pack.live_inputs || Object.assign({}, DEFAULT_LIVE);
+  if (pack.ok && !pack.from_cache && !pack.from_defaults) {
+    await saveWeatherCacheEntry(weatherCacheKey(station), li);
+  }
   return {
-    temp_c: toNumber(marineCurrent.sea_surface_temperature),
-    wind_speed_kmh: toNumber(weatherCurrent.wind_speed_10m),
-    wind_direction_deg: toNumber(weatherCurrent.wind_direction_10m),
-    wave_height_m: toNumber(marineCurrent.wave_height),
-    current_speed_ms: toNumber(marineCurrent.ocean_current_velocity),
-    tide: {
-      current: currentTide,
-      previous: prevTide != null ? prevTide : currentTide,
-      next: nextTide != null ? nextTide : currentTide
+    live_inputs: li,
+    weather_meta: {
+      from_cache: !!pack.from_cache,
+      from_defaults: !!pack.from_defaults,
+      weather_status_ar: cleanString(pack.weather_status_ar, 200) || '',
+      as_of: asOf || null
     }
   };
 }
@@ -161,6 +304,7 @@ async function loadReferenceData() {
 module.exports = {
   normalizeRequestedStation: normalizeRequestedStation,
   deriveWaterTraits: deriveWaterTraits,
+  getWeatherData: getWeatherData,
   fetchWeatherAndMarineInputs: fetchWeatherAndMarineInputs,
   loadReferenceData: loadReferenceData
 };

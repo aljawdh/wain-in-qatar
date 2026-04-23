@@ -27,7 +27,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'station_coordinates_required' });
     }
 
-    var liveInputs = await fetchWeatherAndMarineInputs(station, body);
+    var weatherPack = await fetchWeatherAndMarineInputs(station, body);
+    var liveInputs = weatherPack.live_inputs;
+    var weatherMeta = weatherPack.weather_meta || {};
     var fieldValidation = body && body.field_validation && typeof body.field_validation === 'object'
       ? Object.assign({}, body.field_validation)
       : null;
@@ -47,6 +49,8 @@ module.exports = async function handler(req, res) {
       reference_data: referenceData,
       overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
       live_inputs: liveInputs,
+      weather_meta: weatherMeta,
+      debug_log: !!(body && (body.debug_log === true || body.debug === true || body.debug_analysis === true)),
       field_validation: fieldValidation
     });
 

@@ -40,17 +40,78 @@
     return fetchHotspotByCoords(lat, lon);
   }
 
+  function buildLiveInputsFromLastDto(dto) {
+    if (!dto) return null;
+    var e = dto.environment || {};
+    var t = dto.tide || {};
+    if (
+      e.temp_c == null &&
+      e.wind_speed_kmh == null &&
+      e.wave_height_m == null &&
+      t.current_speed_ms == null
+    ) {
+      return null;
+    }
+    return {
+      temp_c: e.temp_c,
+      wind_speed_kmh: e.wind_speed_kmh,
+      wind_direction_deg: e.wind_direction_deg,
+      wave_height_m: e.wave_height_m,
+      current_speed_ms: t.current_speed_ms
+    };
+  }
+
+  function liveCacheKeyForStation(station) {
+    var sid = station && station.id != null && String(station.id).trim() !== '' ? String(station.id).trim() : null;
+    return sid ? 'navidur_last_live_inputs:' + sid : null;
+  }
+
   async function getStationAnalysis(station, options) {
     if (!station || typeof station !== 'object') throw new Error('station_required');
     var opts = options || {};
-    return fetchSharedAnalysis({
+    var cacheKey = !opts.live_inputs ? liveCacheKeyForStation(station) : null;
+    var body = {
       station: station,
       station_id: station.id || null,
       datetime: opts.datetime || new Date().toISOString(),
       overrides: opts.overrides || null,
       live_inputs: opts.live_inputs || null,
       field_validation: opts.field_validation || null
-    });
+    };
+    var attemptFetch = function (b) {
+      return fetchSharedAnalysis(b);
+    };
+    try {
+      var dto = await attemptFetch(body);
+      if (cacheKey && typeof localStorage !== 'undefined') {
+        var li = buildLiveInputsFromLastDto(dto);
+        if (li) {
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(li));
+          } catch (_se) { /* quota / private mode */ }
+        }
+      }
+      return dto;
+    } catch (err) {
+      if (!cacheKey || typeof localStorage === 'undefined') throw err;
+      var raw;
+      try {
+        raw = localStorage.getItem(cacheKey);
+      } catch (_ge) {
+        throw err;
+      }
+      if (!raw) throw err;
+      var stored;
+      try {
+        stored = JSON.parse(raw);
+      } catch (_pe) {
+        throw err;
+      }
+      if (!stored || typeof stored !== 'object') throw err;
+      return await attemptFetch(
+        Object.assign({}, body, { live_inputs: Object.assign({}, stored, body.live_inputs || {}) })
+      );
+    }
   }
 
   async function getPreviewAnalysis(point, options) {

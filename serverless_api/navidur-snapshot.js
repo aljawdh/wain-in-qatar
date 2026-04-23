@@ -28,7 +28,9 @@ async function captureSnapshotInternal(body, options) {
     throw new Error('station_coordinates_required');
   }
 
-  var liveInputs = await fetchWeatherAndMarineInputs(station, body);
+  var weatherPack = await fetchWeatherAndMarineInputs(station, body);
+  var liveInputs = weatherPack.live_inputs;
+  var weatherMeta = weatherPack.weather_meta || {};
   var fieldValidation = body && body.field_validation && typeof body.field_validation === 'object'
     ? Object.assign({}, body.field_validation)
     : null;
@@ -48,6 +50,7 @@ async function captureSnapshotInternal(body, options) {
     reference_data: referenceData,
     overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
     live_inputs: liveInputs,
+    weather_meta: weatherMeta,
     field_validation: fieldValidation
   });
 

@@ -858,8 +858,20 @@
     var analysisDateTime = parseAnalysisDateTime(options.datetime);
     var analysisDate = startOfUtcDay(analysisDateTime);
     var runtimeOverride = normalizeRuntimeOverride(options.overrides);
+    var weatherMeta = options.weather_meta && typeof options.weather_meta === 'object' ? options.weather_meta : {};
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
+    function buildEnvironmentOut() {
+      return {
+        temp_c: liveEnvironment.temp_c,
+        wind_speed_kmh: liveEnvironment.wind_speed_kmh,
+        wind_direction_deg: liveEnvironment.wind_direction_deg,
+        wave_height_m: liveEnvironment.wave_height_m,
+        live_weather_from_cache: !!weatherMeta.from_cache,
+        from_weather_defaults: !!weatherMeta.from_defaults,
+        weather_status_ar: normalizeString(weatherMeta.weather_status_ar) || ''
+      };
+    }
     var asOfIso = analysisDate && analysisDate.toISOString ? analysisDate.toISOString().slice(0, 10) : '';
     var trueFinalDoc = referenceData.true_final_station_reference;
     var stationsArr = trueFinalDoc && Array.isArray(trueFinalDoc.stations) ? trueFinalDoc.stations : [];
@@ -903,12 +915,7 @@
           active_phase_reference: { events: [] },
           overrides_applied: false
         },
-        environment: {
-          temp_c: liveEnvironment.temp_c,
-          wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-          wind_direction_deg: liveEnvironment.wind_direction_deg,
-          wave_height_m: liveEnvironment.wave_height_m
-        },
+        environment: buildEnvironmentOut(),
         tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
         fishing: { is_recommended: false, species_activity: [], confidence_score: 0, advice_text: '' }
       };
@@ -1033,6 +1040,23 @@
       runtimeOverride,
       options.field_validation || null
     );
+    if (options.debug_log) {
+      try {
+        if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+          console.log({
+            station: station,
+            dur: {
+              period_name: normalizeString(tf.current_dur_name_ar),
+              day_in_period: toNumber(tf.day_in_dur),
+              timing_as_of: asOfIso
+            },
+            weather: liveEnvironment,
+            traitBundle: traitBundle,
+            decision: fishingTf
+          });
+        }
+      } catch (_logErr) { /* ignore */ }
+    }
     return {
       station_id: station.id || null,
       analysis_timestamp: analysisDateTime.toISOString(),
@@ -1085,12 +1109,7 @@
         true_final_station_workbook: 'navidur_true_final_station_reference',
         true_final_data_json: 'true_final_station_reference.json'
       },
-      environment: {
-        temp_c: liveEnvironment.temp_c,
-        wind_speed_kmh: liveEnvironment.wind_speed_kmh,
-        wind_direction_deg: liveEnvironment.wind_direction_deg,
-        wave_height_m: liveEnvironment.wave_height_m
-      },
+      environment: buildEnvironmentOut(),
       tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
       fishing: {
         is_recommended: fishingTf.is_recommended,
