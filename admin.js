@@ -45,6 +45,9 @@
   var currentTransientPreviewPoint = null;
   var currentAnalysisRequestToken = 0;
   var currentStationId = null;
+  var stationValidationCache = {};
+  /** @type {'now_auto'|'now'|'custom'|'1m'|'3m'|'6m'|'1y'} */
+  var currentAnalyticsPeriod = 'now_auto';
 
   var stationsAdminMap = null;
   var stationsAdminMapState = null;
@@ -68,6 +71,7 @@
   var DUR_FILE_NO_STATION_DATA_MSG = 'لا توجد بيانات لهذه المحطة';
   var DUR_FILE_STATUS_FROM_REF_MSG = 'مُستمد من المرجع: data/true_final_station_reference.json';
   var STATION_ANALYTICS_NO_DATA_MSG = 'لا توجد بيانات تحليل لهذه المحطة';
+  var STATION_SEASONAL_REF_MSG = 'لا يوجد مرجع موسمي لهذه المحطة';
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -1070,6 +1074,21 @@
       else traits.push('اعتدال الجو');
     }
     return mergeUniqueArrays(traits);
+  }
+
+  function getAnalyticsHistory(stationId, period) {
+    var monthsBack;
+    if (period === '1m') monthsBack = 1;
+    else if (period === '3m') monthsBack = 3;
+    else if (period === '6m') monthsBack = 6;
+    else if (period === '1y') monthsBack = 12;
+    else return Promise.reject(new Error('Invalid period'));
+    var now = new Date();
+    var startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    var query = 'station_id=' + encodeURIComponent(stationId) + '&start_date=' + encodeURIComponent(startDate.toISOString().split('T')[0]);
+    return apiFetch('/api?route=admin&path=analytics-history&' + query, { method: 'GET' })
+      .then(function (res) { return res.json(); })
+      .then(function (data) { return Array.isArray(data.items) ? data.items : []; });
   }
 
   function getSeasonEventsForDur(dur) {
@@ -3722,9 +3741,20 @@
     getEl('stLat').addEventListener('input', function () { syncStationMapFromInputs(false); });
     getEl('stLon').addEventListener('input', function () { syncStationMapFromInputs(false); });
 
-    // ── Analytics Panel (true-final seasonal) ─────────────────────────────
+    // ── Analytics panel (true-final dur + live analysis) ──────────────────
     var refreshBtn = getEl('stAnalyticsRefreshBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', onAnalyticsRefresh);
+    var periodSel = getEl('stAnalyticsPeriod');
+    if (periodSel) periodSel.addEventListener('change', onAnalyticsPeriodChange);
+    var asOfInp = getEl('stAnalyticsAsOfDate');
+    if (asOfInp) {
+      asOfInp.addEventListener('change', function () {
+        if (currentAnalyticsPeriod === 'custom') {
+          void renderStationAnalytics();
+        }
+      });
+    }
+    updateStAnalyticsAsOfRowVisibility();
 
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
@@ -4096,6 +4126,14 @@
     getEl('stNotes').value = st.notes || '';
     getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
     void refreshTrueFinalReferencePanel(st);
+    var pAn = getEl('stAnalyticsPeriod');
+    if (pAn) {
+      pAn.value = 'now_auto';
+      currentAnalyticsPeriod = 'now_auto';
+    }
+    var dAn = getEl('stAnalyticsAsOfDate');
+    if (dAn) dAn.value = getCanonicalNavidurAsOfIso();
+    updateStAnalyticsAsOfRowVisibility();
     var hintEl = getEl('stNameAutoHint');
     if (hintEl) hintEl.textContent = '';
     var wrapEl = getEl('newRegionWrap');
@@ -4499,11 +4537,25 @@
     var matchedTraits = expectedTraits.filter(function (trait) { return observedTraits.indexOf(trait) >= 0; });
     var missingTraits = expectedTraits.filter(function (trait) { return observedTraits.indexOf(trait) < 0; });
     var extraTraits = observedTraits.filter(function (trait) { return expectedTraits.indexOf(trait) < 0; });
-    renderTraitList('stAnalyticsExpectedTraitList', expectedTraits, 'rgba(92,225,255,.16)', 'rgba(92,225,255,.28)', '#dff8ff', '-- لا توجد سمات متوقعة --');
-    renderTraitList('stAnalyticsObservedTraitList', observedTraits, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea', '-- لا توجد سمات مرصودة --');
-    renderTraitList('stAnalyticsMatchedTraitList', matchedTraits, 'rgba(110,231,183,.18)', 'rgba(110,231,183,.28)', '#dfffea', '-- لا توجد سمات متطابقة --');
-    renderTraitList('stAnalyticsMissingTraitList', missingTraits, 'rgba(255,120,120,.12)', 'rgba(255,120,120,.22)', '#ffd8d8', '-- لا توجد سمات مفقودة --');
-    renderTraitList('stAnalyticsExtraTraitList', extraTraits, 'rgba(255,185,0,.12)', 'rgba(255,185,0,.22)', '#ffe7aa', '-- لا توجد سمات زائدة --');
+    renderTraitList('stAnalyticsExpectedTraitList', expectedTraits, 'rgba(92,225,255,.16)', 'rgba(92,225,255,.28)', '#dff8ff', 'لا توجد سمات متوقعة');
+    renderTraitList('stAnalyticsObservedTraitList', observedTraits, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea', 'لا توجد سمات مرصودة');
+    renderTraitList('stAnalyticsMatchedTraitList', matchedTraits, 'rgba(110,231,183,.18)', 'rgba(110,231,183,.28)', '#dfffea', 'لا توجد سمات متطابقة');
+    renderTraitList('stAnalyticsMissingTraitList', missingTraits, 'rgba(255,120,120,.12)', 'rgba(255,120,120,.22)', '#ffd8d8', 'لا توجد سمات مفقودة');
+    renderTraitList('stAnalyticsExtraTraitList', extraTraits, 'rgba(255,185,0,.12)', 'rgba(255,185,0,.22)', '#ffe7aa', 'لا توجد سمات زائدة');
+    var expCountEl = getEl('stAnalyticsExpectedCount');
+    var obsCountEl = getEl('stAnalyticsObservedCount');
+    if (expCountEl) expCountEl.textContent = String(expectedTraits.length) + ' سمة';
+    if (obsCountEl) obsCountEl.textContent = String(observedTraits.length) + ' سمة';
+    var sc = getEl('stAnalyticsScore');
+    var st = getEl('stAnalyticsStatus');
+    if (expectedTraits.length && observedTraits.length) {
+      var pct = Math.round((matchedTraits.length / expectedTraits.length) * 1000) / 10;
+      if (sc) sc.textContent = String(pct) + '%';
+      if (st) st.textContent = pct >= 70 ? 'متطابق' : pct >= 40 ? 'متوسط' : 'ضعيف';
+    } else {
+      if (sc) sc.textContent = '—';
+      if (st) st.textContent = 'بانتظار البيانات';
+    }
   }
 
   // ── Durur Profile Functions ───────────────────────────────────────────────
@@ -4938,20 +4990,8 @@
     }
   }
 
-  function applyTrueFinalToStationAnalyticsPanel(row) {
-    setAnalyticsSpanText('stAnalyticsDurName', row.current_dur_name_ar);
-    setAnalyticsSpanText('stAnalyticsDurDay', row.current_dur_day_sheet);
-    setAnalyticsSpanText('stAnalyticsElapsedDays', row.elapsed_days_sheet);
-    setAnalyticsSpanText('stAnalyticsDaysRemaining', row.remaining_days_sheet);
-    setAnalyticsSpanText('stAnalyticsNextDur', row.next_dur_name_ar);
-    setAnalyticsSpanText('stAnalyticsDurStart', row.current_dur_start_md);
-    setAnalyticsSpanText('stAnalyticsDurEnd', row.current_dur_end_md);
-    var m = getEl('stAnalyticsMsg');
-    if (m) m.textContent = 'تحليل موسمي من المرجع النهائي';
-  }
-
   function applyStationAnalyticsNoData(optionalStatusMsg) {
-    ['stAnalyticsDurName', 'stAnalyticsDurDay', 'stAnalyticsElapsedDays', 'stAnalyticsDaysRemaining', 'stAnalyticsNextDur', 'stAnalyticsDurStart', 'stAnalyticsDurEnd'].forEach(function (id) {
+    ['stAnalyticsDurName', 'stAnalyticsDurDay', 'stAnalyticsDurEntryDate', 'stAnalyticsElapsedDays', 'stAnalyticsDaysRemaining', 'stAnalyticsNextDur', 'stAnalyticsDurStart', 'stAnalyticsDurEnd'].forEach(function (id) {
       setAnalyticsSpanText(id, '');
     });
     var m = getEl('stAnalyticsMsg');
@@ -4959,6 +4999,179 @@
       m.textContent =
         optionalStatusMsg != null && String(optionalStatusMsg) !== '' ? String(optionalStatusMsg) : STATION_ANALYTICS_NO_DATA_MSG;
     }
+  }
+
+  function clearAnalyticsWeatherAndTraits() {
+    var ex = getEl('stAnalyticsExpectedTraits');
+    if (ex) ex.innerHTML = '';
+    var n = getEl('stAnalyticsExpertNotes');
+    if (n) n.textContent = '';
+    setTextIfEl('stWeatherTemp', '');
+    setTextIfEl('stWeatherWindSpeed', '');
+    setTextIfEl('stWeatherWindDir', '');
+    setTextIfEl('stWeatherWaveHeight', '');
+    setTextIfEl('stWeatherSeaTemp', '');
+    setTextIfEl('stWeatherLastUpdate', '');
+  }
+
+  function setTextIfEl(id, text) {
+    var el = getEl(id);
+    if (el) el.textContent = text == null ? '' : String(text);
+  }
+
+  async function fetchSharedLiveAnalysisBundle(station, opts) {
+    opts = opts || {};
+    if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationAnalysis !== 'function') {
+      throw new Error('shared_live_engine_unavailable');
+    }
+    var nowIso = opts.datetime || new Date().toISOString();
+    return window.NavidurLiveAnalysis.getStationAnalysis(station, { datetime: nowIso });
+  }
+
+  function renderAdminAnalysisDto(dto, stationId, expertNotes, modeLabel, durStateOpt) {
+    if (!dto) return;
+    currentStationAnalysisDto = dto;
+    var observedTraits = deriveObservedTraitsFromAnalysis(dto);
+    var d = dto.dur || {};
+    var hasSeasonal = !!(
+      durStateOpt ||
+      (!dto.true_final_lookup_failed && String(d.timing_resolution || '') !== 'true_final_error' && String(d.period_name || '').trim() !== '')
+    );
+
+    currentWeatherState = {
+      station_id: stationId || null,
+      temperature_2m: dto.environment && dto.environment.temp_c,
+      wind_speed_10m: dto.environment && dto.environment.wind_speed_kmh,
+      wind_direction_10m: dto.environment && dto.environment.wind_direction_deg,
+      wave_height: dto.environment && dto.environment.wave_height_m,
+      current_speed_ms: dto.tide && dto.tide.current_speed_ms,
+      checked_at: dto.analysis_timestamp,
+      source: 'shared_navidur_engine'
+    };
+
+    if (durStateOpt) {
+      setTextIfEl('stAnalyticsDurName', durStateOpt.current_dur);
+      setTextIfEl('stAnalyticsDurDay', durStateOpt.dur_day != null ? String(durStateOpt.dur_day) : '');
+      setTextIfEl('stAnalyticsElapsedDays', durStateOpt.elapsed != null ? String(durStateOpt.elapsed) : '');
+      setTextIfEl('stAnalyticsDaysRemaining', durStateOpt.remaining != null ? String(durStateOpt.remaining) : '');
+      setTextIfEl('stAnalyticsNextDur', durStateOpt.next_dur);
+      setTextIfEl('stAnalyticsDurStart', durStateOpt.start);
+      setTextIfEl('stAnalyticsDurEnd', durStateOpt.end);
+      setTextIfEl('stAnalyticsDurEntryDate', durStateOpt.as_of_iso || '');
+    } else if (hasSeasonal) {
+      setTextIfEl('stAnalyticsDurName', d.period_name || '');
+      setTextIfEl('stAnalyticsDurDay', d.day_in_period != null ? String(d.day_in_period) : '');
+      setTextIfEl('stAnalyticsElapsedDays', d.day_in_period != null ? String(Math.max(0, Number(d.day_in_period) - 1)) : '');
+      setTextIfEl('stAnalyticsDaysRemaining', d.days_remaining != null ? String(d.days_remaining) : '');
+      setTextIfEl('stAnalyticsNextDur', d.next_period_name || '');
+      setTextIfEl('stAnalyticsDurStart', formatAnalyticsMmddToDdmm(d.period_start) || '');
+      setTextIfEl('stAnalyticsDurEnd', formatAnalyticsMmddToDdmm(d.period_end) || '');
+      setTextIfEl('stAnalyticsDurEntryDate', d.timing_as_of || (dto.analysis_timestamp ? dto.analysis_timestamp.slice(0, 10) : ''));
+    } else {
+      ['stAnalyticsDurName', 'stAnalyticsDurDay', 'stAnalyticsElapsedDays', 'stAnalyticsDaysRemaining', 'stAnalyticsNextDur', 'stAnalyticsDurStart', 'stAnalyticsDurEnd', 'stAnalyticsDurEntryDate'].forEach(function (id) {
+        setAnalyticsSpanText(id, '');
+      });
+    }
+
+    var expTraits = uniqueNonEmptyValues([]
+      .concat(d && d.reference && d.reference.general_traits || [])
+      .concat(d && d.reference && d.reference.weather_traits || [])
+      .concat(d && d.reference && d.reference.marine_traits || []));
+    var ex = getEl('stAnalyticsExpectedTraits');
+    if (ex) {
+      ex.innerHTML = expTraits.length
+        ? buildTraitChipHtml(expTraits, 'rgba(92,225,255,.2)', 'rgba(92,225,255,.3)', '#5ce1ff')
+        : '<span style="color:#9fc1d7">لا توجد سمات مرجعية في هذه القراءة</span>';
+    }
+    setTextIfEl('stAnalyticsExpertNotes', expertNotes != null && String(expertNotes) !== '' ? String(expertNotes) : (dto.fishing && dto.fishing.advice_text) || '');
+
+    setTextIfEl('stWeatherTemp', dto.environment && dto.environment.temp_c != null ? dto.environment.temp_c + ' °C' : '');
+    setTextIfEl('stWeatherWindSpeed', dto.environment && dto.environment.wind_speed_kmh != null ? dto.environment.wind_speed_kmh + ' km/h' : '');
+    setTextIfEl('stWeatherWindDir', dto.environment && dto.environment.wind_direction_deg != null ? dto.environment.wind_direction_deg + '°' : '');
+    setTextIfEl('stWeatherWaveHeight', dto.environment && dto.environment.wave_height_m != null ? dto.environment.wave_height_m + ' m' : '');
+    setTextIfEl('stWeatherSeaTemp', dto.environment && dto.environment.temp_c != null ? dto.environment.temp_c + ' °C' : '');
+    setTextIfEl('stWeatherLastUpdate', dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '');
+
+    renderValidationExplanation(dto, observedTraits);
+    updateAnalyticsDurReferenceDisplay(d, [], [], [], [], []);
+
+    var editedSid = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
+    var analysisStationId = dto.station_id ? String(dto.station_id).trim() : '';
+    if (editedSid && analysisStationId === editedSid) {
+      var stSynced = stationsCache.find(function (s) {
+        return s && String(s.id) === editedSid;
+      });
+      if (stSynced) {
+        void refreshStationLocalDurReadout(
+          stSynced,
+          d.timing_as_of && String(d.timing_as_of) ? d.timing_as_of : (durStateOpt && durStateOpt.as_of_iso) ? durStateOpt.as_of_iso : getCanonicalNavidurAsOfIso()
+        );
+      }
+    }
+    var msgEl = getEl('stAnalyticsMsg');
+    if (msgEl) {
+      if (!hasSeasonal) {
+        msgEl.textContent = STATION_SEASONAL_REF_MSG;
+      } else {
+        var tideL = mapDtoTideStateToArabic(dto.tide && dto.tide.state);
+        var rec = dto.fishing && dto.fishing.is_recommended;
+        msgEl.textContent = modeLabel + ' · ' + tideL + ' · ' + (rec ? 'موصى به' : 'بحذر');
+      }
+    }
+    refreshAllStationMarkers();
+    renderDururStationPreview();
+  }
+
+  function buildValidationObject(stationId, dururProfile) {
+    if (!stationValidationCache[stationId]) {
+      stationValidationCache[stationId] = [];
+    }
+    var period = currentAnalyticsPeriod || 'now_auto';
+    var existingVal = stationValidationCache[stationId].find(function (v) {
+      return v.period === period && v.current_dur_id === dururProfile.current_dur_id;
+    });
+    var expectedTraits = []
+      .concat(dururProfile.weather_traits || [])
+      .concat(dururProfile.marine_traits || [])
+      .concat(dururProfile.seasonal_traits || [])
+      .concat(dururProfile.fish_activity_traits || []);
+    expectedTraits = Array.from(new Set(expectedTraits.filter(Boolean)));
+    var useCurrentWeather = currentWeatherState && currentAnalyzedStationId === stationId;
+    var observedTraits = useCurrentWeather ? getObservedTraitsFromWeather(currentWeatherState) : [];
+    var matchingTraits = useCurrentWeather ? observedTraits.filter(function (t) { return expectedTraits.indexOf(t) >= 0; }) : [];
+    var percentage = null;
+    var status = 'بانتظار الرصد';
+    if (useCurrentWeather) {
+      if (expectedTraits.length === 0) {
+        status = 'لا سمات متوقعة';
+      } else {
+        percentage = (matchingTraits.length / expectedTraits.length) * 100;
+        if (percentage >= 70) status = 'متطابق';
+        else if (percentage >= 40) status = 'متوسط';
+        else status = 'ضعيف';
+      }
+    }
+    if (existingVal) {
+      existingVal.expected_traits = expectedTraits;
+      existingVal.observed_traits = observedTraits;
+      existingVal.matching_traits = matchingTraits;
+      existingVal.validation_score = percentage;
+      existingVal.validation_status = status;
+      existingVal.last_checked_at = useCurrentWeather ? currentWeatherState.checked_at : existingVal.last_checked_at;
+    } else {
+      stationValidationCache[stationId].push({
+        station_id: stationId,
+        period: period,
+        current_dur_id: dururProfile.current_dur_id,
+        expected_traits: expectedTraits,
+        observed_traits: observedTraits,
+        matching_traits: matchingTraits,
+        validation_score: percentage,
+        validation_status: status,
+        last_checked_at: useCurrentWeather ? currentWeatherState.checked_at : new Date().toISOString()
+      });
+    }
+    return existingVal;
   }
 
   function showDururAnalytics() {
@@ -4981,7 +5194,10 @@
     } else {
       applyStationAnalyticsNoData(message != null && String(message) !== '' ? String(message) : null);
     }
+    clearAnalyticsWeatherAndTraits();
     renderValidationExplanation(null, []);
+    setTextIfEl('stAnalyticsScore', '');
+    setTextIfEl('stAnalyticsStatus', '');
     void clearReadOnlyDurProfile();
     refreshAllStationMarkers();
     renderDururStationPreview();
@@ -4995,6 +5211,14 @@
       getEl('stAnalyticsMsg').textContent = 'معاينة إحداثيات — بلا بيانات مرجعية حتى تُحفظ محطة';
     }
     applyStationAnalyticsNoData();
+    clearAnalyticsWeatherAndTraits();
+  }
+
+  function onAnalyticsPeriodChange() {
+    var sel = getEl('stAnalyticsPeriod');
+    currentAnalyticsPeriod = sel && sel.value ? String(sel.value) : 'now_auto';
+    updateStAnalyticsAsOfRowVisibility();
+    void renderStationAnalytics();
   }
 
   async function renderStationAnalytics() {
@@ -5008,42 +5232,89 @@
       '';
     currentStationId = stationId;
     currentAnalyzedStationId = stationId;
+    var period = currentAnalyticsPeriod || 'now_auto';
 
     if (!stationId) {
-      applyStationAnalyticsNoData();
+      clearAdminAnalysisDisplay('لا توجد محطة محددة');
       return;
     }
-
     var station = stationsCache.find(function (s) {
       return s && s.id === stationId;
     });
     if (!station) {
-      applyStationAnalyticsNoData();
+      clearAdminAnalysisDisplay('لا توجد بيانات المحطة');
       return;
     }
+
     if (getEl('stAnalyticsMsg')) {
       getEl('stAnalyticsMsg').textContent = 'جاري التحميل...';
     }
     var st = getStationForLocalDurReadout(station);
+    var profile = getResolvedDururProfileForStation(station);
+    station.durur_profile = profile;
+    var asOfDate = resolveAnalyticsAsOfDate();
+    var analysisIso = asOfDate.toISOString();
+
+    var durState = null;
+    try {
+      durState = await getDurState(station, asOfDate);
+    } catch (_e) {
+      durState = null;
+    }
+    if (requestToken !== currentAnalysisRequestToken) return;
+
     currentStationAnalysisDto = null;
     try {
-      var doc = await loadTrueFinalStationReferenceDoc();
+      var dto = await fetchSharedLiveAnalysisBundle(station, { datetime: analysisIso });
       if (requestToken !== currentAnalysisRequestToken) return;
-      var row = findTrueFinalRowForStation(doc, st);
-      if (!row) {
-        applyStationAnalyticsNoData();
-        return;
+      if (durState) {
+        renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث التحليل', durState);
+      } else {
+        renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', 'تم تحديث التحليل', null);
       }
-      applyTrueFinalToStationAnalyticsPanel(row);
-      renderValidationExplanation(null, []);
+      if (['1m', '3m', '6m', '1y'].indexOf(period) >= 0) {
+        try {
+          var historyRecords = await getAnalyticsHistory(stationId, period);
+          var historyCount = Array.isArray(historyRecords) ? historyRecords.length : 0;
+          var hm = getEl('stAnalyticsMsg');
+          if (hm) hm.textContent = (hm.textContent || '') + ' | سجل ' + period + ': ' + historyCount + ' قراءة';
+        } catch (_h) { /* keep main msg */ }
+      }
       void refreshDururFilePanelFromTrueFinal(st);
-      void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
-    } catch (_e) {
+      buildValidationObject(stationId, profile);
+    } catch (_liveErr) {
       if (requestToken !== currentAnalysisRequestToken) return;
-      applyStationAnalyticsNoData();
+      if (durState) {
+        var partial = {
+          station_id: stationId,
+          analysis_timestamp: analysisIso,
+          true_final_reference_active: true,
+          true_final_lookup_failed: false,
+          dur: {
+            period_name: durState.current_dur,
+            day_in_period: durState.dur_day,
+            days_remaining: durState.remaining,
+            next_period_name: durState.next_dur,
+            period_start: '',
+            period_end: '',
+            timing_as_of: durState.as_of_iso,
+            timing_resolution: 'true_final_station_reference',
+            reference: { general_traits: [], weather_traits: [], marine_traits: [] }
+          },
+          environment: { temp_c: null, wind_speed_kmh: null, wind_direction_deg: null, wave_height_m: null },
+          tide: { state: 'UNKNOWN', current_speed_ms: null },
+          fishing: { is_recommended: false, advice_text: '', species_activity: [], confidence_score: 0 }
+        };
+        renderAdminAnalysisDto(partial, stationId, profile.expert_notes || '', 'تعذر الطقس الحي — عرض الموسم فقط', durState);
+        if (getEl('stAnalyticsMsg')) {
+          getEl('stAnalyticsMsg').textContent = 'تعذر طلب التحليل المباشر — عُرض الموسم من المرجع فقط';
+        }
+      } else {
+        clearAdminAnalysisDisplay(STATION_SEASONAL_REF_MSG);
+      }
+      void refreshDururFilePanelFromTrueFinal(st);
     }
     refreshAllStationMarkers();
-    renderDururStationPreview();
   }
 
   function onAnalyticsRefresh() {
@@ -5056,6 +5327,12 @@
     }
     currentAnalyzedStationId = sid;
     currentStationId = sid;
+    currentAnalyticsPeriod = 'now_auto';
+    var pSel = getEl('stAnalyticsPeriod');
+    if (pSel) pSel.value = 'now_auto';
+    var dInp = getEl('stAnalyticsAsOfDate');
+    if (dInp) dInp.value = getCanonicalNavidurAsOfIso();
+    updateStAnalyticsAsOfRowVisibility();
     clearTrueFinalReferenceCache();
     void renderStationAnalytics();
   }
@@ -5539,6 +5816,150 @@
     } catch (_e) {
       return raw;
     }
+  }
+
+  /** True-final seasonal day math (data/true_final_station_reference.json) — same rules as server lookup. */
+  function tfrParseDayMonthDdMm(s) {
+    var t = String(s == null ? '' : s).trim();
+    var m = t.match(/^(\d{1,2})-(\d{1,2})$/);
+    if (!m) return null;
+    var day = Number(m[1]);
+    var mo = Number(m[2]);
+    if (!day || !mo || mo > 12 || day > 31) return null;
+    return { d: day, m: mo };
+  }
+
+  function tfrIsAsOfInWindowKeys(sKey, eKey, aKey) {
+    if (sKey == null || eKey == null || aKey == null) return false;
+    if (sKey <= eKey) {
+      return aKey >= sKey && aKey <= eKey;
+    }
+    return aKey >= sKey || aKey <= eKey;
+  }
+
+  function tfrSyntheticTimelineMs(pStart, pEnd, asM, asD) {
+    if (!pStart || !pEnd) return null;
+    var sKey = pStart.m * 100 + pStart.d;
+    var eKey = pEnd.m * 100 + pEnd.d;
+    var aKey = asM * 100 + asD;
+    var Y0 = 2000;
+    var Y1 = 2001;
+    var startMs = Date.UTC(Y0, pStart.m - 1, pStart.d, 0, 0, 0, 0);
+    var wrap = sKey > eKey;
+    if (!wrap) {
+      var endMs = Date.UTC(Y0, pEnd.m - 1, pEnd.d, 0, 0, 0, 0);
+      var asMs0 = Date.UTC(Y0, asM - 1, asD, 0, 0, 0, 0);
+      if (aKey < sKey || aKey > eKey) return null;
+      return { startMs: startMs, endMs: endMs, asMs: asMs0 };
+    }
+    var endMsW = Date.UTC(Y1, pEnd.m - 1, pEnd.d, 0, 0, 0, 0);
+    if (!tfrIsAsOfInWindowKeys(sKey, eKey, aKey)) return null;
+    var asMsW;
+    if (aKey >= sKey) {
+      asMsW = Date.UTC(Y0, asM - 1, asD, 0, 0, 0, 0);
+    } else {
+      asMsW = Date.UTC(Y1, asM - 1, asD, 0, 0, 0, 0);
+    }
+    return { startMs: startMs, endMs: endMsW, asMs: asMsW };
+  }
+
+  function trueFinalSeasonalSnapshotFromRow(row, asOfIso) {
+    if (!row || !asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(String(asOfIso).trim())) {
+      return { ok: false };
+    }
+    var pStart = tfrParseDayMonthDdMm(row.current_dur_start_md);
+    var pEnd = tfrParseDayMonthDdMm(row.current_dur_end_md);
+    if (!pStart || !pEnd) {
+      return { ok: false };
+    }
+    var asDate = new Date(String(asOfIso).trim() + 'T12:00:00.000Z');
+    if (Number.isNaN(asDate.getTime())) {
+      return { ok: false };
+    }
+    var asM = asDate.getUTCMonth() + 1;
+    var asD = asDate.getUTCDate();
+    var aKey = asM * 100 + asD;
+    var sKey = pStart.m * 100 + pStart.d;
+    var eKey = pEnd.m * 100 + pEnd.d;
+    if (!tfrIsAsOfInWindowKeys(sKey, eKey, aKey)) {
+      return { ok: false, code: 'AS_OF_OUTSIDE_SHEET_WINDOW' };
+    }
+    var tl = tfrSyntheticTimelineMs(pStart, pEnd, asM, asD);
+    if (!tl) {
+      return { ok: false };
+    }
+    var totalDaysInclusive = Math.floor((tl.endMs - tl.startMs) / 86400000) + 1;
+    var dayInDur = Math.floor((tl.asMs - tl.startMs) / 86400000) + 1;
+    var daysRem = totalDaysInclusive - dayInDur;
+    if (dayInDur < 1) {
+      return { ok: false };
+    }
+    if (daysRem < 0) daysRem = 0;
+    return {
+      ok: true,
+      current_dur_name_ar: row.current_dur_name_ar,
+      next_dur_name_ar: String(row.next_dur_name_ar != null ? row.next_dur_name_ar : '').trim(),
+      day_in_dur: dayInDur,
+      days_remaining_in_dur: daysRem
+    };
+  }
+
+  function formatAnalyticsMmddToDdmm(mmdd) {
+    var t = String(mmdd == null ? '' : mmdd).trim();
+    var m = t.match(/^(\d{2})-(\d{2})$/);
+    if (!m) return t || '';
+    return m[2] + '-' + m[1];
+  }
+
+  function resolveAnalyticsAsOfDate() {
+    var p = currentAnalyticsPeriod || 'now_auto';
+    if (p === 'custom') {
+      var inp = getEl('stAnalyticsAsOfDate');
+      var v = inp && inp.value ? String(inp.value).trim() : '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        return new Date(v + 'T12:00:00.000Z');
+      }
+    }
+    var iso = getCanonicalNavidurAsOfIso();
+    return new Date(iso + 'T12:00:00.000Z');
+  }
+
+  function updateStAnalyticsAsOfRowVisibility() {
+    var p = currentAnalyticsPeriod || 'now_auto';
+    var row = getEl('stAnalyticsAsOfRow');
+    if (row) row.style.display = p === 'custom' ? 'inline-flex' : 'none';
+  }
+
+  /**
+   * Dur adapter: true-final JSON only (month-day), matched by station id or Arabic name.
+   * @param {object} station
+   * @param {Date|number|string} asOfDate
+   */
+  async function getDurState(station, asOfDate) {
+    if (!station) return null;
+    var d = asOfDate instanceof Date ? asOfDate : new Date(asOfDate);
+    if (Number.isNaN(d.getTime())) d = new Date();
+    var y = d.getUTCFullYear();
+    var mo = d.getUTCMonth() + 1;
+    var day = d.getUTCDate();
+    var asOfIso = y + '-' + String(mo).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    var doc = await loadTrueFinalStationReferenceDoc();
+    if (!doc) return null;
+    var st = getStationForLocalDurReadout(station);
+    var row = findTrueFinalRowForStation(doc, st);
+    if (!row) return null;
+    var tf = trueFinalSeasonalSnapshotFromRow(row, asOfIso);
+    if (!tf || !tf.ok) return null;
+    return {
+      current_dur: String(tf.current_dur_name_ar != null ? tf.current_dur_name_ar : '').trim(),
+      dur_day: tf.day_in_dur,
+      elapsed: Math.max(0, (Number(tf.day_in_dur) || 1) - 1),
+      remaining: tf.days_remaining_in_dur,
+      next_dur: String(tf.next_dur_name_ar != null ? tf.next_dur_name_ar : '').trim(),
+      start: String(row.current_dur_start_md != null ? row.current_dur_start_md : '').trim(),
+      end: String(row.current_dur_end_md != null ? row.current_dur_end_md : '').trim(),
+      as_of_iso: asOfIso
+    };
   }
 
   function loadTrueFinalStationReferenceDoc() {
