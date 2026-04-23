@@ -22,6 +22,26 @@ async function writeAudit(action, actor, details) {
   await writeJsonFile('audit', audit);
 }
 
+function nfcStringAr(value) {
+  if (value == null) return '';
+  const t = String(value).trim();
+  try {
+    return t.normalize('NFC');
+  } catch (_e) {
+    return t;
+  }
+}
+
+function isValidDdMmTrueFinal(s) {
+  const m = String(s || '')
+    .trim()
+    .match(/^(\d{1,2})-(\d{1,2})$/);
+  if (!m) return false;
+  const d = Number(m[1]);
+  const mo = Number(m[2]);
+  return d >= 1 && d <= 31 && mo >= 1 && mo <= 12;
+}
+
 function safeUser(user) {
   return {
     id: user.id,
@@ -577,6 +597,69 @@ module.exports = async function handler(req, res) {
     }
 
     res.setHeader('Allow', 'GET, PATCH');
+    return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  if (root === 'true-final-reference') {
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const defaultDoc = { version: 0, reference_mode: '', stations: [] };
+    if (req.method === 'GET') {
+      const doc = await readJsonFile('true_final_station_reference', defaultDoc);
+      return res.status(200).json({ ok: true, document: doc });
+    }
+    if (req.method === 'PUT') {
+      const body = parseBody(req);
+      const stationId = cleanString(body.station_id, 80);
+      const stationNameAr = cleanString(body.station_name_ar, 200);
+      if (!stationId && !stationNameAr) {
+        return res.status(400).json({ error: 'station_id_or_name_required' });
+      }
+      const doc = await readJsonFile('true_final_station_reference', defaultDoc);
+      const list = Array.isArray(doc.stations) ? doc.stations : [];
+      let idx = -1;
+      if (stationId) {
+        idx = list.findIndex((r) => r && String(r.station_id || '') === String(stationId));
+      }
+      if (idx < 0 && stationNameAr) {
+        const w = nfcStringAr(stationNameAr);
+        idx = list.findIndex((r) => r && nfcStringAr(r.station_name_ar) === w);
+      }
+      if (idx < 0) {
+        return res.status(404).json({ error: 'true_final_station_not_found' });
+      }
+      const patch = body.patch && typeof body.patch === 'object' ? body.patch : {};
+      const currentDur = cleanString(patch.current_dur_name_ar, 120);
+      const nextDur = cleanString(patch.next_dur_name_ar, 120);
+      const startMd = cleanString(patch.current_dur_start_md, 20);
+      const endMd = cleanString(patch.current_dur_end_md, 20);
+      const dayN = Number(patch.current_dur_day_sheet);
+      if (!currentDur) return res.status(400).json({ error: 'current_dur_name_ar_required' });
+      if (!nextDur) return res.status(400).json({ error: 'next_dur_name_ar_required' });
+      if (!isValidDdMmTrueFinal(startMd)) return res.status(400).json({ error: 'invalid_current_dur_start_md' });
+      if (!isValidDdMmTrueFinal(endMd)) return res.status(400).json({ error: 'invalid_current_dur_end_md' });
+      if (!Number.isFinite(dayN) || dayN < 1) return res.status(400).json({ error: 'invalid_current_dur_day_sheet' });
+      const next = { ...list[idx] };
+      next.current_dur_name_ar = currentDur;
+      next.next_dur_name_ar = nextDur;
+      next.current_dur_start_md = startMd;
+      next.current_dur_end_md = endMd;
+      next.current_dur_day_sheet = Math.round(dayN);
+      if (stationId) {
+        next.station_id = stationId;
+      }
+      next._manual_edited_at = nowIso();
+      list[idx] = next;
+      doc.stations = list;
+      await writeJsonFile('true_final_station_reference', doc);
+      await writeAudit('true_final_reference_station_patched', actor, {
+        station_id: stationId || null,
+        station_name_ar: next.station_name_ar || null
+      });
+      return res.status(200).json({ ok: true, row: list[idx], document: doc });
+    }
+    res.setHeader('Allow', 'GET, PUT');
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 

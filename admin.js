@@ -23,7 +23,6 @@
   }
   var stationsCache = [];
   /** @type {null | { workbook_city_key: string, workbook_city_name: string, lat: number|null, lon: number|null }[]} */
-  var workbookCitiesCache = null;
   var usersCache = [];
   var latestSummaryCache = null;
   var latestFeedbackCache = [];
@@ -67,6 +66,7 @@
   var _pendingSuhailAnchorResolution = null;
   var _trueFinalRefDocCache = null;
   var _trueFinalRefLoadPromise = null;
+  var LEGACY_SYSTEM_CANCELLED_MSG = 'تم إلغاء النظام القديم — الرجاء استخدام المرجع الجديد';
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -3793,41 +3793,57 @@
     };
 
     var wbSel = getEl('stWorkbookCitySelect');
-    var wbConfirmed = getEl('stWorkbookMappingConfirmed');
-    var skEl = getEl('stWorkbookSuggestKey');
-    var smEl = getEl('stWorkbookSuggestMode');
-    var ssEl = getEl('stWorkbookSuggestStatus');
-    var wbKey = wbSel && wbSel.value ? String(wbSel.value).trim() : '';
-    var wbOpt =
-      wbSel && wbSel.selectedOptions && wbSel.selectedOptions.length
-        ? wbSel.selectedOptions[0]
-        : null;
-    var wbDisp = wbOpt
-      ? wbOpt.getAttribute('data-city-name') || wbOpt.textContent || ''
-      : '';
-    wbDisp = wbDisp.trim();
-    var sugKey = skEl && skEl.value ? String(skEl.value).trim() : '';
-    var sugMode = smEl && smEl.value ? String(smEl.value).trim() : '';
-    var sugStat = ssEl && ssEl.value ? String(ssEl.value).trim() : '';
-    var confirmed = !!(wbConfirmed && wbConfirmed.checked);
+    if (wbSel) {
+      var wbConfirmed = getEl('stWorkbookMappingConfirmed');
+      var skEl = getEl('stWorkbookSuggestKey');
+      var smEl = getEl('stWorkbookSuggestMode');
+      var ssEl = getEl('stWorkbookSuggestStatus');
+      var wbKey = wbSel && wbSel.value ? String(wbSel.value).trim() : '';
+      var wbOpt =
+        wbSel && wbSel.selectedOptions && wbSel.selectedOptions.length
+          ? wbSel.selectedOptions[0]
+          : null;
+      var wbDisp = wbOpt
+        ? wbOpt.getAttribute('data-city-name') || wbOpt.textContent || ''
+        : '';
+      wbDisp = wbDisp.trim();
+      var sugKey = skEl && skEl.value ? String(skEl.value).trim() : '';
+      var sugMode = smEl && smEl.value ? String(smEl.value).trim() : '';
+      var sugStat = ssEl && ssEl.value ? String(ssEl.value).trim() : '';
+      var confirmed = !!(wbConfirmed && wbConfirmed.checked);
 
-    if (!wbKey) {
-      payload.workbook_city_key = null;
-      payload.workbook_city_name = null;
-      payload.workbook_match_mode = null;
-      payload.workbook_assignment_status = null;
-    } else {
-      payload.workbook_city_key = wbKey;
-      payload.workbook_city_name = wbDisp || wbKey;
-      if (confirmed) {
-        payload.workbook_match_mode = 'manual';
-        payload.workbook_assignment_status = 'manual_confirmed';
-      } else if (sugKey === wbKey && sugMode && sugStat) {
-        payload.workbook_match_mode = sugMode;
-        payload.workbook_assignment_status = sugStat;
+      if (!wbKey) {
+        payload.workbook_city_key = null;
+        payload.workbook_city_name = null;
+        payload.workbook_match_mode = null;
+        payload.workbook_assignment_status = null;
       } else {
-        payload.workbook_match_mode = 'manual';
-        payload.workbook_assignment_status = 'needs_review';
+        payload.workbook_city_key = wbKey;
+        payload.workbook_city_name = wbDisp || wbKey;
+        if (confirmed) {
+          payload.workbook_match_mode = 'manual';
+          payload.workbook_assignment_status = 'manual_confirmed';
+        } else if (sugKey === wbKey && sugMode && sugStat) {
+          payload.workbook_match_mode = sugMode;
+          payload.workbook_assignment_status = sugStat;
+        } else {
+          payload.workbook_match_mode = 'manual';
+          payload.workbook_assignment_status = 'needs_review';
+        }
+      }
+    } else if (prev) {
+      var pk = prev.workbook_city_key != null ? String(prev.workbook_city_key).trim() : '';
+      if (!pk) {
+        payload.workbook_city_key = null;
+        payload.workbook_city_name = null;
+        payload.workbook_match_mode = null;
+        payload.workbook_assignment_status = null;
+      } else {
+        payload.workbook_city_key = pk;
+        payload.workbook_city_name = prev.workbook_city_name != null && String(prev.workbook_city_name).trim() !== '' ? String(prev.workbook_city_name).trim() : pk;
+        payload.workbook_match_mode = prev.workbook_match_mode != null ? prev.workbook_match_mode : 'manual';
+        payload.workbook_assignment_status =
+          prev.workbook_assignment_status != null ? prev.workbook_assignment_status : 'needs_review';
       }
     }
     payload.suhail_anchor_resolution =
@@ -3875,149 +3891,204 @@
     renderStationAnalytics();
   }
 
-  function ensureWorkbookCityCatalogLoaded() {
-    if (workbookCitiesCache) return Promise.resolve(workbookCitiesCache);
-    return apiFetch(ASTRO_DUR_ENDPOINT + '&path=workbook-cities')
-      .then(function (res) {
-        return res.ok ? res.json() : Promise.reject(new Error('workbook_cities_' + res.status));
-      })
-      .then(function (j) {
-        workbookCitiesCache = Array.isArray(j.cities) ? j.cities.slice() : [];
-        return workbookCitiesCache;
-      })
-      .catch(function () {
-        workbookCitiesCache = [];
-        return workbookCitiesCache;
-      });
+  function clearTrueFinalReferenceCache() {
+    _trueFinalRefDocCache = null;
+    _trueFinalRefLoadPromise = null;
   }
 
-  function populateWorkbookCitySelect(sel, cities, selectedKey) {
-    if (!sel) return;
-    var keep = selectedKey ? String(selectedKey).trim() : '';
-    sel.innerHTML = '';
-    var opt0 = document.createElement('option');
-    opt0.value = '';
-    opt0.textContent = '— غير مربوط —';
-    sel.appendChild(opt0);
-    cities.forEach(function (c) {
-      if (!c || !c.workbook_city_key) return;
-      var op = document.createElement('option');
-      op.value = c.workbook_city_key;
-      op.textContent = c.workbook_city_name || c.workbook_city_key;
-      op.setAttribute('data-city-name', c.workbook_city_name || c.workbook_city_key);
-      sel.appendChild(op);
-    });
-    if (keep && Array.from(sel.options).some(function (o) { return o.value === keep; })) {
-      sel.value = keep;
+  function isValidDdMmField(s) {
+    var m = String(s || '')
+      .trim()
+      .match(/^(\d{1,2})-(\d{1,2})$/);
+    if (!m) return false;
+    var d = Number(m[1]);
+    var mo = Number(m[2]);
+    return d >= 1 && d <= 31 && mo >= 1 && mo <= 12;
+  }
+
+  function clientErrorForHttp(err) {
+    var m = err && err.message ? String(err.message) : '';
+    if (m === 'http_410' || m.indexOf('http_410') >= 0 || m.indexOf('_410') >= 0) {
+      return LEGACY_SYSTEM_CANCELLED_MSG;
     }
+    return m || 'خطأ غير معروف';
   }
 
-  function setWorkbookSuggestHiddenFields(suggestion) {
-    var skEl = getEl('stWorkbookSuggestKey');
-    var smEl = getEl('stWorkbookSuggestMode');
-    var ssEl = getEl('stWorkbookSuggestStatus');
-    var su = suggestion || {};
-    if (skEl) skEl.value = su.workbook_city_key || '';
-    if (smEl) smEl.value = su.workbook_match_mode || '';
-    if (ssEl) ssEl.value = su.workbook_assignment_status || '';
+  function setTrueFinalFormFieldsFromRow(row) {
+    var d = row || {};
+    var set = function (id, v) {
+      var el = getEl(id);
+      if (el) el.value = v != null && v !== '' ? String(v) : '';
+    };
+    set('tfCurrentDur', d.current_dur_name_ar);
+    set('tfCurrentDurDay', d.current_dur_day_sheet != null ? d.current_dur_day_sheet : '');
+    set('tfCurrentDurStart', d.current_dur_start_md);
+    set('tfCurrentDurEnd', d.current_dur_end_md);
+    set('tfNextDur', d.next_dur_name_ar);
   }
 
-  function refreshWorkbookDurPreviewPre() {
-    var pre = getEl('stWorkbookDurPreviewPre');
-    var idEl = getEl('stId');
-    if (!pre || !idEl) return;
-    var sid = idEl.value.trim();
-    if (!sid) {
-      pre.textContent = '—';
-      return;
+  function clearTrueFinalFormFields() {
+    setTrueFinalFormFieldsFromRow(null);
+  }
+
+  function findTrueFinalRowForStation(doc, st) {
+    if (!doc || !st) return null;
+    var list = Array.isArray(doc.stations) ? doc.stations : [];
+    var sid = st.id != null ? String(st.id).trim() : '';
+    if (sid) {
+      for (var i = 0; i < list.length; i += 1) {
+        var r = list[i];
+        if (r && String(r.station_id || '').trim() === sid) {
+          return r;
+        }
+      }
     }
-    var dEl = getEl('stWorkbookPreviewDate');
-    var iso = dEl && dEl.value ? String(dEl.value).trim() : '';
-    var q = 'path=workbook-preview&station_id=' + encodeURIComponent(sid);
-    if (iso) q += '&date=' + encodeURIComponent(iso);
-    pre.textContent = '...';
-    apiFetch(ASTRO_DUR_ENDPOINT + '&' + q)
-      .then(function (res) {
-        return res.ok ? res.json() : Promise.reject(new Error('http_' + res.status));
-      })
-      .then(function (j) {
-        var tag = '[معلومات اختيارية من دليل المدن — ليست مصدر التوقيت التشغيلي ولا المحرك الحالي]';
-        pre.textContent = tag + '\n\n' + JSON.stringify(j, null, 2);
-      })
-      .catch(function (e) {
-        pre.textContent = 'Error: ' + (e && e.message ? e.message : e);
-      });
+    return findTrueFinalRowByStationNameAr(doc, st.name);
   }
 
   /**
    * @param {object} st — station row from cache
    */
-  function refreshWorkbookMappingUi(st) {
-    var sel = getEl('stWorkbookCitySelect');
-    var hint = getEl('stWorkbookSuggestHint');
-    var modeLab = getEl('stWorkbookModeLabel');
-    var statLab = getEl('stWorkbookStatusLabel');
-    var conf = getEl('stWorkbookMappingConfirmed');
-    if (!sel || !st) return;
-
-    ensureWorkbookCityCatalogLoaded().then(function (cities) {
-      populateWorkbookCitySelect(sel, cities, st.workbook_city_key || '');
-      var yPrev = getEl('stWorkbookPreviewYear');
-      var dPrev = getEl('stWorkbookPreviewDate');
-      if (conf) conf.checked = String(st.workbook_assignment_status || '').toLowerCase() === 'manual_confirmed';
-      if (modeLab) modeLab.value = st.workbook_match_mode || '';
-      if (statLab) statLab.value = st.workbook_assignment_status || '';
-      var pd = getEl('stWorkbookPreviewDate');
-      if (pd && !pd.value) {
-        var u = new Date();
-        pd.value =
-          u.getUTCFullYear() +
-          '-' +
-          String(u.getUTCMonth() + 1).padStart(2, '0') +
-          '-' +
-          String(u.getUTCDate()).padStart(2, '0');
-      }
-
-      if (!getEl('stId') || !getEl('stId').value.trim()) {
-        if (hint) hint.textContent = 'اختر محطة أو احفظ المعرف أولاً.';
-        setWorkbookSuggestHiddenFields(null);
-        var pre = getEl('stWorkbookDurPreviewPre');
-        if (pre) pre.textContent = '—';
-        return;
-      }
-
-      return apiFetch(ASTRO_DUR_ENDPOINT + '&path=workbook-suggest&station_id=' + encodeURIComponent(String(st.id)))
-        .then(function (res) {
-          return res.ok ? res.json() : Promise.reject(new Error('workbook_suggest_' + res.status));
-        })
-        .then(function (j) {
-          var sug = j && j.suggestion ? j.suggestion : {};
-          setWorkbookSuggestHiddenFields(sug);
-          if (!st.workbook_city_key) {
-            populateWorkbookCitySelect(sel, cities, sug.workbook_city_key || '');
+  function refreshTrueFinalReferencePanel(st) {
+    var statusEl = getEl('stTrueFinalRefStatus');
+    if (getEl('tfCurrentDur') == null) return;
+    if (!st || !String(st.id || '').trim()) {
+      clearTrueFinalFormFields();
+      if (statusEl) statusEl.textContent = 'اختر محطة من الجدول.';
+      if (statusEl) statusEl.style.color = '#9ad9ff';
+      return;
+    }
+    if (statusEl) {
+      statusEl.textContent = 'جاري التحميل...';
+      statusEl.style.color = '#9ad9ff';
+    }
+    loadTrueFinalStationReferenceDoc()
+      .then(function (doc) {
+        var row = findTrueFinalRowForStation(doc, st);
+        if (!row) {
+          clearTrueFinalFormFields();
+          if (statusEl) {
+            statusEl.textContent = 'لا صف في المرجع يطابق هذه المحطة (المعرف أو الاسم العربي).';
+            statusEl.style.color = '#ff9b9b';
           }
-          if (hint) {
-            if (sug.preserved) {
-              hint.textContent = 'محفوظ: تعيين يدوي معتمد — لا يُستبدل آلياً.';
-            } else if (sug.workbook_city_name) {
-              hint.textContent =
-                'اقتراح: ' + sug.workbook_city_name +
-                ' · ' + (sug.workbook_match_mode || '') +
-                ' · ~' + (sug.distance_km != null ? sug.distance_km + ' km' : '—') +
-                ' · (' + (sug.rationale || '') + ')';
-            } else {
-              hint.textContent = 'لا يوجد اقتراح واضح — اختر المدينة يدوياً.';
-            }
-          }
-          if (modeLab) modeLab.value = st.workbook_match_mode || sug.workbook_match_mode || '';
-          if (statLab) statLab.value = st.workbook_assignment_status || sug.workbook_assignment_status || '';
-          refreshWorkbookDurPreviewPre();
-        })
-        .catch(function () {
-          if (hint) hint.textContent = 'تعذّر تحميل الاقتراح.';
-          refreshWorkbookDurPreviewPre();
-        });
+          return;
+        }
+        setTrueFinalFormFieldsFromRow(row);
+        if (statusEl) {
+          statusEl.textContent = '';
+          statusEl.style.color = '#9ad9ff';
+        }
+      })
+      .catch(function (e) {
+        clearTrueFinalFormFields();
+        if (statusEl) {
+          statusEl.textContent = clientErrorForHttp(e);
+          statusEl.style.color = '#ff9b9b';
+        }
+      });
+  }
+
+  function saveTrueFinalReferenceEdits() {
+    if (!isAdminMode()) return;
+    var stId = getEl('stId') && getEl('stId').value.trim();
+    var nameAr = getEl('stName') && getEl('stName').value.trim();
+    var statusEl = getEl('stTrueFinalRefStatus');
+    if (!stId) {
+      if (statusEl) {
+        statusEl.textContent = 'احفظ معرّف المحطة أولاً.';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    if (!nameAr) {
+      if (statusEl) {
+        statusEl.textContent = 'أدخل اسماً عربيّاً يطابق عمود «اسم المحطة» في المرجع.';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    var cur = getEl('tfCurrentDur') ? getEl('tfCurrentDur').value.trim() : '';
+    var next = getEl('tfNextDur') ? getEl('tfNextDur').value.trim() : '';
+    var dayStr = getEl('tfCurrentDurDay') ? getEl('tfCurrentDurDay').value : '';
+    var startMd = getEl('tfCurrentDurStart') ? getEl('tfCurrentDurStart').value.trim() : '';
+    var endMd = getEl('tfCurrentDurEnd') ? getEl('tfCurrentDurEnd').value.trim() : '';
+    if (!cur || !next) {
+      if (statusEl) {
+        statusEl.textContent = 'أدخل الدر الحالي والدر التالي.';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    if (!isValidDdMmField(startMd) || !isValidDdMmField(endMd)) {
+      if (statusEl) {
+        statusEl.textContent = 'تنسيق بداية/نهاية الدر: يوم-شهر (مثال 16-04).';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    var dayN = Number(dayStr);
+    if (!Number.isFinite(dayN) || dayN < 1) {
+      if (statusEl) {
+        statusEl.textContent = 'أدخل رقماً صحيحاً ليوم الدر (≥ 1).';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.textContent = 'جاري الحفظ...';
+      statusEl.style.color = '#9ad9ff';
+    }
+    var body = JSON.stringify({
+      station_id: stId,
+      station_name_ar: nameAr,
+      patch: {
+        current_dur_name_ar: cur,
+        current_dur_day_sheet: dayN,
+        current_dur_start_md: startMd,
+        current_dur_end_md: endMd,
+        next_dur_name_ar: next
+      }
     });
+    apiFetch('/api?route=admin&path=true-final-reference', {
+      method: 'PUT',
+      body: body,
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(function (res) {
+        if (res.status === 410) {
+          return Promise.reject(new Error('http_410'));
+        }
+        return res.json().then(function (j) {
+          if (!res.ok) {
+            return Promise.reject(new Error((j && j.error) || 'http_' + res.status));
+          }
+          return j;
+        });
+      })
+      .then(function () {
+        clearTrueFinalReferenceCache();
+        if (statusEl) {
+          statusEl.textContent = 'تم حفظ التعديل في المرجع المحلي';
+          statusEl.style.color = '#9ad9ff';
+        }
+        var st = stationsCache.find(function (s) {
+          return s && String(s.id) === String(stId);
+        });
+        if (st) {
+          void refreshTrueFinalReferencePanel(st);
+        }
+        window.setTimeout(function () {
+          if (statusEl && statusEl.textContent === 'تم حفظ التعديل في المرجع المحلي') {
+            statusEl.textContent = '';
+          }
+        }, 4500);
+      })
+      .catch(function (e) {
+        if (statusEl) {
+          statusEl.textContent = clientErrorForHttp(e);
+          statusEl.style.color = '#ff9b9b';
+        }
+      });
   }
 
   function fillStationForm(st, editMode) {
@@ -4054,7 +4125,7 @@
     getEl('stReferenceStation').value = st.reference_station_id || '';
     getEl('stNotes').value = st.notes || '';
     getEl('stMembers').value = Array.isArray(st.assigned_members) ? st.assigned_members.join(',') : '';
-    void refreshWorkbookMappingUi(st);
+    void refreshTrueFinalReferencePanel(st);
     var hintEl = getEl('stNameAutoHint');
     if (hintEl) hintEl.textContent = '';
     var wrapEl = getEl('newRegionWrap');
@@ -4095,7 +4166,7 @@
     btn.setAttribute('title', defTitle);
     loadTrueFinalStationReferenceDoc()
       .then(function (doc) {
-        var row = findTrueFinalRowByStationNameAr(doc, st.name);
+        var row = findTrueFinalRowForStation(doc, st);
         if (!row) return;
         var m = row.astronomical_suhail_entry_md != null ? String(row.astronomical_suhail_entry_md).trim() : '';
         if (!m) {
@@ -5504,9 +5575,10 @@
       root.innerHTML = renderAstroMonitoringCards(j);
       if (raw) raw.textContent = JSON.stringify(j, null, 2);
     } catch (e) {
+      var astroErr0 = clientErrorForHttp(e);
       root.innerHTML =
         '<div class="astro-card"><p style="margin:0;color:#ffb3b3">خطأ: ' +
-        escapeHtml(e && e.message ? e.message : String(e)) +
+        escapeHtml(astroErr0) +
         '</p></div>';
       if (raw) raw.textContent = '';
     }
@@ -5560,9 +5632,10 @@
       root.innerHTML = renderBandPreviewCards(j);
       if (raw) raw.textContent = JSON.stringify(j, null, 2);
     } catch (e) {
+      var astroErr1 = clientErrorForHttp(e);
       root.innerHTML =
         '<div class="astro-card"><p style="margin:0;color:#ffb3b3">خطأ: ' +
-        escapeHtml(e && e.message ? e.message : String(e)) +
+        escapeHtml(astroErr1) +
         '</p></div>';
       if (raw) raw.textContent = '';
     }
@@ -5580,12 +5653,17 @@
   function loadTrueFinalStationReferenceDoc() {
     if (_trueFinalRefDocCache) return Promise.resolve(_trueFinalRefDocCache);
     if (_trueFinalRefLoadPromise) return _trueFinalRefLoadPromise;
-    _trueFinalRefLoadPromise = apiFetch('/data/true_final_station_reference.json', { method: 'GET' })
+    var url =
+      adminAuthenticated && authToken
+        ? '/api?route=admin&path=true-final-reference'
+        : '/data/true_final_station_reference.json';
+    _trueFinalRefLoadPromise = apiFetch(url, { method: 'GET' })
       .then(function (res) {
         if (!res.ok) throw new Error('http_' + res.status);
         return res.json();
       })
-      .then(function (doc) {
+      .then(function (j) {
+        var doc = j && j.document && typeof j.document === 'object' ? j.document : j;
         _trueFinalRefDocCache = doc && typeof doc === 'object' ? doc : null;
         return _trueFinalRefDocCache;
       })
@@ -6011,6 +6089,7 @@
       setAdminDataFilter('all');
       loadSettingsIntoAdmin();
       clearStationForm();
+      clearTrueFinalReferenceCache();
     } catch (_err) {
       errEl.style.display = 'block';
       getEl('adminPass').value = '';
@@ -6028,6 +6107,7 @@
     adminAuthenticated = false;
     getEl('adminContent').classList.remove('active');
     getEl('adminLoginForm').style.display = 'block';
+    clearTrueFinalReferenceCache();
   }
 
   function bindSettingsActions() {
@@ -6192,48 +6272,10 @@
       });
     }
 
-    var applySug = getEl('stWorkbookApplySuggestBtn');
-    if (applySug) {
-      applySug.addEventListener('click', function () {
-        var id = getEl('stId') && getEl('stId').value.trim();
-        if (!id) return;
-        apiFetch(ASTRO_DUR_ENDPOINT + '&path=workbook-suggest&station_id=' + encodeURIComponent(id))
-          .then(function (res) { return res.ok ? res.json() : Promise.reject(new Error('sug_' + res.status)); })
-          .then(function (j) {
-            var sug = j && j.suggestion ? j.suggestion : {};
-            if (!sug.workbook_city_key) return;
-            setWorkbookSuggestHiddenFields(sug);
-            return ensureWorkbookCityCatalogLoaded().then(function (cities) {
-              var sel = getEl('stWorkbookCitySelect');
-              if (sel) {
-                populateWorkbookCitySelect(sel, cities, sug.workbook_city_key);
-              }
-              var ml = getEl('stWorkbookModeLabel');
-              var sl = getEl('stWorkbookStatusLabel');
-              if (ml) ml.value = sug.workbook_match_mode || '';
-              if (sl) sl.value = sug.workbook_assignment_status || '';
-              refreshWorkbookDurPreviewPre();
-            });
-          })
-          .catch(function () {});
-      });
-    }
-
-    var pvBtn = getEl('stWorkbookPreviewRefreshBtn');
-    if (pvBtn) pvBtn.addEventListener('click', function () { refreshWorkbookDurPreviewPre(); });
-
-    ['stWorkbookPreviewYear', 'stWorkbookPreviewDate'].forEach(function (id) {
-      var el = getEl(id);
-      if (el) el.addEventListener('change', function () { refreshWorkbookDurPreviewPre(); });
-    });
-
-    var wbSelChange = getEl('stWorkbookCitySelect');
-    if (wbSelChange) {
-      wbSelChange.addEventListener('change', function () {
-        var ml = getEl('stWorkbookModeLabel');
-        var sl = getEl('stWorkbookStatusLabel');
-        if (ml) ml.value = 'manual';
-        if (sl) sl.value = 'needs_review';
+    var saveTrueFinalBtn = getEl('stTrueFinalSaveBtn');
+    if (saveTrueFinalBtn) {
+      saveTrueFinalBtn.addEventListener('click', function () {
+        saveTrueFinalReferenceEdits();
       });
     }
 
@@ -6394,6 +6436,7 @@
       getEl('adminLoginForm').style.display = 'none';
       getEl('adminContent').classList.add('active');
       adminAuthenticated = true;
+      clearTrueFinalReferenceCache();
       setAdminDataFilter('all');
       renderAdminDashboard().then(function () {
         if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
