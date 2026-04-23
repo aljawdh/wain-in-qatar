@@ -37,11 +37,9 @@
   var stationProfilesCache = [];
   var stationOverridesCache = [];
   var annualComparisonsCache = [];
-  var stationValidationCache = {}; // per-station validation records: { station_id: [{period, expected_traits, observed_traits, score, status}] }
   var _loadedDururProfileSnapshot = null;
   var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
-  var currentAnalyticsPeriod = 'now'; // default period
   var currentWeatherState = null;
   var currentStationAnalysisDto = null;
   var currentTransientPreviewPoint = null;
@@ -69,6 +67,7 @@
   var LEGACY_SYSTEM_CANCELLED_MSG = 'تم إلغاء النظام القديم — الرجاء استخدام المرجع الجديد';
   var DUR_FILE_NO_STATION_DATA_MSG = 'لا توجد بيانات لهذه المحطة';
   var DUR_FILE_STATUS_FROM_REF_MSG = 'مُستمد من المرجع: data/true_final_station_reference.json';
+  var STATION_ANALYTICS_NO_DATA_MSG = 'لا توجد بيانات تحليل لهذه المحطة';
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -1162,22 +1161,6 @@
            arraysEqual(a.fish_activity_traits, b.fish_activity_traits);
   }
 
-  function getAnalyticsHistory(stationId, period) {
-    // period: '1m', '3m', '6m', '1y'
-    var monthsBack;
-    if (period === '1m') monthsBack = 1;
-    else if (period === '3m') monthsBack = 3;
-    else if (period === '6m') monthsBack = 6;
-    else if (period === '1y') monthsBack = 12;
-    else return Promise.reject(new Error('Invalid period'));
-    var now = new Date();
-    var startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
-    var query = 'station_id=' + encodeURIComponent(stationId) + '&start_date=' + encodeURIComponent(startDate.toISOString().split('T')[0]);
-    return apiFetch('/api?route=admin&path=analytics-history&' + query, { method: 'GET' })
-      .then(function (res) { return res.json(); })
-      .then(function (data) { return Array.isArray(data.items) ? data.items : []; });
-  }
-
   async function loadDururData() {
     try {
       var res = await apiFetch('/api?route=admin&path=durur', { method: 'GET' });
@@ -1829,9 +1812,8 @@
     html += '</div>';
     if (target) target.innerHTML = html;
     if (options.triggerAnalysis !== false) {
-      currentAnalyticsPeriod = 'now';
       currentAnalyzedStationId = stationId;
-      renderStationAnalytics();
+      void renderStationAnalytics();
     }
   }
 
@@ -3034,7 +3016,7 @@
     }
     status.textContent = selectedDururStationId;
     if (!currentStationAnalysisDto || !currentStationAnalysisDto.dur) {
-      body.innerHTML = 'المحطة محددة، لكن لا توجد قراءة تحليلية حالية بعد.';
+      body.innerHTML = 'يُستند التحليل إلى المرجع النهائي في «تحليل المحطة» (data/true_final_station_reference.json) — بلا خدمة تحليل مباشر.';
       return;
     }
     var dto = currentStationAnalysisDto;
@@ -3740,16 +3722,7 @@
     getEl('stLat').addEventListener('input', function () { syncStationMapFromInputs(false); });
     getEl('stLon').addEventListener('input', function () { syncStationMapFromInputs(false); });
 
-    // ── Analytics Panel Event Listeners ──────────────────────────────────────
-    var periodSel = getEl('stAnalyticsPeriod');
-    if (periodSel && !periodSel.querySelector('option[value="now"]')) {
-      var nowOpt = document.createElement('option');
-      nowOpt.value = 'now';
-      nowOpt.textContent = 'الآن';
-      periodSel.insertBefore(nowOpt, periodSel.firstChild || null);
-    }
-    if (periodSel) periodSel.addEventListener('change', onAnalyticsPeriodChange);
-
+    // ── Analytics Panel (true-final seasonal) ─────────────────────────────
     var refreshBtn = getEl('stAnalyticsRefreshBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', onAnalyticsRefresh);
 
@@ -3877,20 +3850,12 @@
     if (!station || !station.id) return;
 
     currentTransientPreviewPoint = null;
-    clearAdminAnalysisDisplay('جاري تحميل تحليل المحطة...');
     currentStationId = station.id;
     currentAnalyzedStationId = station.id;
-    currentAnalyticsPeriod = 'now';
 
     if (getEl('stId')) {
       getEl('stId').value = station.id;
     }
-
-    if (getEl('stAnalyticsPeriod')) {
-      getEl('stAnalyticsPeriod').value = 'now';
-    }
-
-    renderStationAnalytics();
   }
 
   function clearTrueFinalReferenceCache() {
@@ -4156,6 +4121,11 @@
     _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
     void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
     void updateTrueFinalSuhailButtonAvailability(st);
+    if (st && st.id) {
+      currentStationId = st.id;
+      currentAnalyzedStationId = st.id;
+    }
+    void renderStationAnalytics();
   }
 
   function updateTrueFinalSuhailButtonAvailability(st) {
@@ -4958,6 +4928,39 @@
     return nextStart;
   }
 
+  function setAnalyticsSpanText(id, value) {
+    var el = getEl(id);
+    if (!el) return;
+    if (value == null || value === '' || value === '--') {
+      el.textContent = '';
+    } else {
+      el.textContent = String(value);
+    }
+  }
+
+  function applyTrueFinalToStationAnalyticsPanel(row) {
+    setAnalyticsSpanText('stAnalyticsDurName', row.current_dur_name_ar);
+    setAnalyticsSpanText('stAnalyticsDurDay', row.current_dur_day_sheet);
+    setAnalyticsSpanText('stAnalyticsElapsedDays', row.elapsed_days_sheet);
+    setAnalyticsSpanText('stAnalyticsDaysRemaining', row.remaining_days_sheet);
+    setAnalyticsSpanText('stAnalyticsNextDur', row.next_dur_name_ar);
+    setAnalyticsSpanText('stAnalyticsDurStart', row.current_dur_start_md);
+    setAnalyticsSpanText('stAnalyticsDurEnd', row.current_dur_end_md);
+    var m = getEl('stAnalyticsMsg');
+    if (m) m.textContent = 'تحليل موسمي من المرجع النهائي';
+  }
+
+  function applyStationAnalyticsNoData(optionalStatusMsg) {
+    ['stAnalyticsDurName', 'stAnalyticsDurDay', 'stAnalyticsElapsedDays', 'stAnalyticsDaysRemaining', 'stAnalyticsNextDur', 'stAnalyticsDurStart', 'stAnalyticsDurEnd'].forEach(function (id) {
+      setAnalyticsSpanText(id, '');
+    });
+    var m = getEl('stAnalyticsMsg');
+    if (m) {
+      m.textContent =
+        optionalStatusMsg != null && String(optionalStatusMsg) !== '' ? String(optionalStatusMsg) : STATION_ANALYTICS_NO_DATA_MSG;
+    }
+  }
+
   function showDururAnalytics() {
     var stationId = getEl('stId').value.trim();
     if (!stationId) {
@@ -4965,118 +4968,33 @@
       return;
     }
     currentAnalyzedStationId = stationId;
-    renderStationAnalytics();
-  }
-
-  async function fetchSharedLiveAnalysisBundle(station, opts) {
-    opts = opts || {};
-    if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationAnalysis !== 'function') {
-      throw new Error('shared_live_engine_unavailable');
-    }
-    var nowIso = opts.datetime || new Date().toISOString();
-    return window.NavidurLiveAnalysis.getStationAnalysis(station, {
-      datetime: nowIso
-    });
+    void renderStationAnalytics();
   }
 
   function clearAdminAnalysisDisplay(message) {
     currentStationAnalysisDto = null;
-    getEl('stAnalyticsDurName').textContent = '--';
-    getEl('stAnalyticsDurEntryDate').textContent = '--';
-    getEl('stAnalyticsDaysRemaining').textContent = '--';
-    getEl('stAnalyticsNextDur').textContent = '--';
-    getEl('stAnalyticsExpectedTraits').innerHTML = '<span style="color:#9fc1d7">--</span>';
-    getEl('stAnalyticsExpertNotes').textContent = '-- لا توجد ملاحظات --';
-    renderValidationExplanation(null, []);
-    clearReadOnlyDurProfile(message || 'يتم التحديث تلقائياً من محرك التحليل');
-    getEl('stWeatherTemp').textContent = '-- °C';
-    getEl('stWeatherWindSpeed').textContent = '-- km/h';
-    getEl('stWeatherWindDir').textContent = '--°';
-    getEl('stWeatherWaveHeight').textContent = '-- m';
-    getEl('stWeatherSeaTemp').textContent = '-- °C';
-    getEl('stWeatherLastUpdate').textContent = '--';
-    getEl('stAnalyticsMsg').textContent = message || 'جاهز';
-    refreshAllStationMarkers();
-    renderDururStationPreview();
-  }
-
-  function renderAdminAnalysisDto(dto, stationId, expertNotes, modeLabel) {
-    currentStationAnalysisDto = dto;
-    var observedTraits = deriveObservedTraitsFromAnalysis(dto);
-
-    currentWeatherState = {
-      station_id: stationId || null,
-      temperature_2m: dto.environment.temp_c,
-      wind_speed_10m: dto.environment.wind_speed_kmh,
-      wind_direction_10m: dto.environment.wind_direction_deg,
-      wave_height: dto.environment.wave_height_m,
-      current_speed_ms: dto.tide.current_speed_ms,
-      checked_at: dto.analysis_timestamp,
-      source: 'shared_navidur_engine'
-    };
-
-    getEl('stAnalyticsDurName').textContent = dto.dur.period_name || '--';
-    getEl('stAnalyticsDurEntryDate').textContent = (dto.dur && dto.dur.timing_as_of)
-      ? dto.dur.timing_as_of
-      : (dto.analysis_timestamp ? dto.analysis_timestamp.slice(0, 10) : '--');
-    getEl('stAnalyticsDaysRemaining').textContent = dto.dur.days_remaining != null ? String(dto.dur.days_remaining) : '--';
-    getEl('stAnalyticsNextDur').textContent = dto.dur.next_period_name || '--';
-    var expectedPreviewTraits = uniqueNonEmptyValues([]
-      .concat(dto && dto.dur && dto.dur.reference && dto.dur.reference.general_traits || [])
-      .concat(dto && dto.dur && dto.dur.reference && dto.dur.reference.weather_traits || [])
-      .concat(dto && dto.dur && dto.dur.reference && dto.dur.reference.marine_traits || []));
-    getEl('stAnalyticsExpectedTraits').innerHTML = expectedPreviewTraits.length
-      ? buildTraitChipHtml(expectedPreviewTraits, 'rgba(92,225,255,.2)', 'rgba(92,225,255,.3)', '#5ce1ff')
-      : '<span style="color:#9fc1d7">-- لا توجد سمات مرجعية --</span>';
-    getEl('stAnalyticsExpertNotes').textContent = expertNotes || dto.fishing.advice_text || '-- لا توجد ملاحظات --';
-
-    getEl('stWeatherTemp').textContent = (dto.environment.temp_c != null ? dto.environment.temp_c : '--') + ' °C';
-    getEl('stWeatherWindSpeed').textContent = (dto.environment.wind_speed_kmh != null ? dto.environment.wind_speed_kmh : '--') + ' km/h';
-    getEl('stWeatherWindDir').textContent = (dto.environment.wind_direction_deg != null ? dto.environment.wind_direction_deg : '--') + '°';
-    getEl('stWeatherWaveHeight').textContent = (dto.environment.wave_height_m != null ? dto.environment.wave_height_m : '--') + ' m';
-    getEl('stWeatherSeaTemp').textContent = (dto.environment.temp_c != null ? dto.environment.temp_c : '--') + ' °C';
-    getEl('stWeatherLastUpdate').textContent = dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '--';
-    renderValidationExplanation(dto, observedTraits);
-    var editedSid = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
-    var analysisStationId = dto.station_id ? String(dto.station_id).trim() : '';
-    if (editedSid && analysisStationId === editedSid) {
-      var stSynced = stationsCache.find(function (s) {
-        return s && String(s.id) === editedSid;
-      });
-      if (stSynced) {
-        void refreshDururFilePanelFromTrueFinal(stSynced);
-        void refreshStationLocalDurReadout(
-          stSynced,
-          (dto.dur && dto.dur.timing_as_of) ? dto.dur.timing_as_of : getCanonicalNavidurAsOfIso()
-        );
+    if (String(message) === 'جاهز') {
+      applyStationAnalyticsNoData();
+      if (getEl('stAnalyticsMsg')) {
+        getEl('stAnalyticsMsg').textContent = 'جاهز';
       }
+    } else {
+      applyStationAnalyticsNoData(message != null && String(message) !== '' ? String(message) : null);
     }
-    getEl('stAnalyticsMsg').textContent = modeLabel + ' • ' + mapDtoTideStateToArabic(dto.tide.state) + ' • ' + (dto.fishing.is_recommended ? 'موصى به' : 'بحذر');
+    renderValidationExplanation(null, []);
+    void clearReadOnlyDurProfile();
     refreshAllStationMarkers();
     renderDururStationPreview();
   }
 
-  async function renderTransientStationPreview(lat, lon) {
-    if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getPreviewAnalysis !== 'function') return;
+  function renderTransientStationPreview(lat, lon) {
     currentTransientPreviewPoint = { lat: lat, lon: lon };
     currentAnalysisRequestToken += 1;
-    var requestToken = currentAnalysisRequestToken;
-    clearAdminAnalysisDisplay('جاري تحديث المعاينة المؤقتة...');
-    try {
-      var dto = await window.NavidurLiveAnalysis.getPreviewAnalysis({
-        lat: lat,
-        lon: lon,
-        country: getEl('stCountry') ? getEl('stCountry').value : '',
-        region: getEl('stRegion') ? getEl('stRegion').value : ''
-      }, {
-        datetime: new Date().toISOString()
-      });
-      if (requestToken !== currentAnalysisRequestToken) return;
-      renderAdminAnalysisDto(dto, null, dto.fishing.advice_text, 'معاينة مؤقتة');
-    } catch (_previewErr) {
-      if (requestToken !== currentAnalysisRequestToken) return;
-      clearAdminAnalysisDisplay('تعذرت معاينة النقطة المؤقتة.');
+    currentStationAnalysisDto = null;
+    if (getEl('stAnalyticsMsg')) {
+      getEl('stAnalyticsMsg').textContent = 'معاينة إحداثيات — بلا بيانات مرجعية حتى تُحفظ محطة';
     }
+    applyStationAnalyticsNoData();
   }
 
   async function renderStationAnalytics() {
@@ -5084,136 +5002,62 @@
     currentAnalysisRequestToken += 1;
     var requestToken = currentAnalysisRequestToken;
     var stationId =
-  currentAnalyzedStationId ||
-  (getEl('stId') ? getEl('stId').value : '') ||
-  currentStationId ||
-  '';
-  currentStationId = stationId;
-  currentAnalyzedStationId = stationId;
+      currentAnalyzedStationId ||
+      (getEl('stId') ? getEl('stId').value : '') ||
+      currentStationId ||
+      '';
+    currentStationId = stationId;
+    currentAnalyzedStationId = stationId;
 
-  if (!stationId) {
-      clearAdminAnalysisDisplay('لا توجد قراءة حالية جاهزة لهذه المحطة');
+    if (!stationId) {
+      applyStationAnalyticsNoData();
       return;
     }
 
-    var station = stationsCache.find(function (s) { return s.id === stationId; });
-    if (!station) {
-      clearAdminAnalysisDisplay(currentAnalyticsPeriod === 'now' ? 'لا توجد قراءة حالية جاهزة لهذه المحطة' : 'لا توجد بيانات المحطة');
-      return;
-    }
-    if (currentAnalyticsPeriod === 'now') {
-      clearAdminAnalysisDisplay('جاري التحميل...');
-    }
-
-    var profile = getResolvedDururProfileForStation(station);
-    station.durur_profile = profile;
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var currentDur = getCurrentDurForStation(station) || getCurrentDurForDate(today);
-    var staticDur = currentDur && currentDur.id ? getDururById(currentDur.id) : null;
-    var analysisNowIso = new Date().toISOString();
-    try {
-      var dto = await fetchSharedLiveAnalysisBundle(station, { datetime: analysisNowIso });
-      if (requestToken !== currentAnalysisRequestToken) return;
-      staticDur = dto && dto.dur ? dto.dur : staticDur;
-      renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', currentAnalyticsPeriod === 'now' ? 'تم تحديث القراءة الحية' : 'تم تحديث القراءة الحالية');
-    } catch (_liveErr) {
-      if (requestToken !== currentAnalysisRequestToken) return;
-      clearAdminAnalysisDisplay('تعذّر تحميل بيانات التحليل المباشر.');
-      return;
-    }
-    updateAnalyticsDurReferenceDisplay(staticDur, [], [], [], [], []);
-
-    // Keep a single admin-facing analytics display path (official cards/blocks only).
-    if (currentAnalyticsPeriod !== 'now') {
-      var historyCount = 0;
-      try {
-        var historyRecords = await getAnalyticsHistory(stationId, currentAnalyticsPeriod);
-        historyCount = Array.isArray(historyRecords) ? historyRecords.length : 0;
-      } catch (_historyErr) {
-        historyCount = 0;
-      }
-      getEl('stAnalyticsMsg').textContent = 'تم تحميل السجل التاريخي (' + currentAnalyticsPeriod + ') بعدد ' + historyCount + ' قراءة.';
-    }
-
-    buildValidationObject(stationId, profile);
-  }
-
-  function buildValidationObject(stationId, dururProfile) {
-    // Initialize validation cache for station if not exists
-    if (!stationValidationCache[stationId]) {
-      stationValidationCache[stationId] = [];
-    }
-
-    var period = currentAnalyticsPeriod || '1y';
-    var existingVal = stationValidationCache[stationId].find(function (v) {
-      return v.period === period && v.current_dur_id === dururProfile.current_dur_id;
+    var station = stationsCache.find(function (s) {
+      return s && s.id === stationId;
     });
-
-    var expectedTraits = [];
-    expectedTraits = expectedTraits.concat(dururProfile.weather_traits || []);
-    expectedTraits = expectedTraits.concat(dururProfile.marine_traits || []);
-    expectedTraits = expectedTraits.concat(dururProfile.seasonal_traits || []);
-    expectedTraits = expectedTraits.concat(dururProfile.fish_activity_traits || []);
-    expectedTraits = Array.from(new Set(expectedTraits));
-
-    var useCurrentWeather = currentWeatherState && currentAnalyzedStationId === stationId;
-    var observedTraits = useCurrentWeather ? getObservedTraitsFromWeather(currentWeatherState) : [];
-    var matchingTraits = useCurrentWeather ? observedTraits.filter(function (t) { return expectedTraits.includes(t); }) : [];
-    var percentage = null;
-    var status = 'بانتظار الرصد';
-    if (useCurrentWeather) {
-      if (expectedTraits.length === 0) {
-        status = 'no_expected_traits';
-      } else {
-        percentage = (matchingTraits.length / expectedTraits.length) * 100;
-        if (percentage >= 70) status = 'متطابق';
-        else if (percentage >= 40) status = 'متوسط';
-        else status = 'ضعيف';
+    if (!station) {
+      applyStationAnalyticsNoData();
+      return;
+    }
+    if (getEl('stAnalyticsMsg')) {
+      getEl('stAnalyticsMsg').textContent = 'جاري التحميل...';
+    }
+    var st = getStationForLocalDurReadout(station);
+    currentStationAnalysisDto = null;
+    try {
+      var doc = await loadTrueFinalStationReferenceDoc();
+      if (requestToken !== currentAnalysisRequestToken) return;
+      var row = findTrueFinalRowForStation(doc, st);
+      if (!row) {
+        applyStationAnalyticsNoData();
+        return;
       }
+      applyTrueFinalToStationAnalyticsPanel(row);
+      renderValidationExplanation(null, []);
+      void refreshDururFilePanelFromTrueFinal(st);
+      void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
+    } catch (_e) {
+      if (requestToken !== currentAnalysisRequestToken) return;
+      applyStationAnalyticsNoData();
     }
-
-    if (existingVal) {
-      existingVal.expected_traits = expectedTraits;
-      existingVal.observed_traits = observedTraits;
-      existingVal.matching_traits = matchingTraits;
-      existingVal.validation_score = percentage;
-      existingVal.validation_status = status;
-      existingVal.last_checked_at = useCurrentWeather ? currentWeatherState.checked_at : existingVal.last_checked_at;
-      return existingVal;
-    }
-
-    var validation = {
-      station_id: stationId,
-      period: period,
-      current_dur_id: dururProfile.current_dur_id,
-      expected_traits: expectedTraits,
-      observed_traits: observedTraits,
-      matching_traits: matchingTraits,
-      validation_score: percentage,
-      validation_status: status,
-      last_checked_at: useCurrentWeather ? currentWeatherState.checked_at : new Date().toISOString()
-    };
-
-    stationValidationCache[stationId].push(validation);
-    return validation;
-  }
-
-  function onAnalyticsPeriodChange() {
-    currentAnalyticsPeriod = getEl('stAnalyticsPeriod').value || '1y';
-    renderStationAnalytics();
+    refreshAllStationMarkers();
+    renderDururStationPreview();
   }
 
   function onAnalyticsRefresh() {
-    if (!currentAnalyzedStationId) {
-      getEl('stAnalyticsMsg').textContent = 'لا توجد محطة محددة';
+    var sid = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
+    if (!sid) {
+      if (getEl('stAnalyticsMsg')) {
+        getEl('stAnalyticsMsg').textContent = 'لا توجد محطة محددة';
+      }
       return;
     }
-    currentAnalyticsPeriod = 'now';
-    var periodSel = getEl('stAnalyticsPeriod');
-    if (periodSel) periodSel.value = 'now';
-    getEl('stAnalyticsMsg').textContent = 'جاري تحديث القراءة الحية...';
-    renderStationAnalytics();
+    currentAnalyzedStationId = sid;
+    currentStationId = sid;
+    clearTrueFinalReferenceCache();
+    void renderStationAnalytics();
   }
 
   // ── Region helpers ────────────────────────────────────────────────────────
