@@ -67,6 +67,8 @@
   var _trueFinalRefDocCache = null;
   var _trueFinalRefLoadPromise = null;
   var LEGACY_SYSTEM_CANCELLED_MSG = 'تم إلغاء النظام القديم — الرجاء استخدام المرجع الجديد';
+  var DUR_FILE_NO_STATION_DATA_MSG = 'لا توجد بيانات لهذه المحطة';
+  var DUR_FILE_STATUS_FROM_REF_MSG = 'مُستمد من المرجع: data/true_final_station_reference.json';
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -4076,6 +4078,7 @@
         });
         if (st) {
           void refreshTrueFinalReferencePanel(st);
+          void refreshDururFilePanelFromTrueFinal(st);
           void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
         }
         window.setTimeout(function () {
@@ -4097,6 +4100,7 @@
     _stationNameUserEdited = false;
     if (String(_lastStationFormId || '') !== String((st && st.id) || '')) {
       _pendingSuhailAnchorResolution = null;
+      clearTrueFinalReferenceCache();
     }
     _lastStationFormId = (st && st.id) || '';
     getEl('stId').value = st.id || '';
@@ -4185,29 +4189,71 @@
   }
 
   function fillDururProfile(station, opts) {
-    opts = opts || {};
-    var dto = currentStationAnalysisDto;
-    var manualAnchor = !!(station && station.manual_suhail_anchor_date && station.id);
-    if (dto && station && station.id && dto.station_id === station.id && dto.dur && dto.dur.timing_from_resolved_local) {
-      renderReadOnlyDurProfile(dto);
-      if (manualAnchor) {
-        void refreshStationLocalDurReadout(
-          station,
-          (dto.dur && dto.dur.timing_as_of) ? dto.dur.timing_as_of : getCanonicalNavidurAsOfIso()
-        );
-      }
+    void opts;
+    if (!station || !station.id) {
+      clearDururFilePanelNotFound();
       return;
     }
-    if (manualAnchor && !opts.forceEngine) {
-      clearReadOnlyDurProfile('جاري تحميل الدر (المحرك / التحليل)...');
-      void refreshStationLocalDurReadout(station, opts.as_of_iso || getCanonicalNavidurAsOfIso());
+    void refreshDururFilePanelFromTrueFinal(station);
+  }
+
+  function setDurFilePanelValue(id, value) {
+    var el = getEl(id);
+    if (!el) return;
+    if (value == null || value === '' || value === '--') {
+      el.value = '';
+    } else {
+      el.value = String(value);
+    }
+  }
+
+  function clearDururFilePanelNotFound() {
+    setDurFilePanelValue('stDururCurrentName', '');
+    setDurFilePanelValue('stDururDayInPeriod', '');
+    setDurFilePanelValue('stDururActivePhase', '');
+    setDurFilePanelValue('stDururStartDate', '');
+    setDurFilePanelValue('stDururEndDate', '');
+    setDurFilePanelValue('stDururNextName', '');
+    setDurFilePanelValue('stDururDaysRemaining', '');
+    var statusEl = getEl('stDururStatus');
+    if (statusEl) {
+      statusEl.textContent = DUR_FILE_NO_STATION_DATA_MSG;
+    }
+  }
+
+  function applyTrueFinalRowToDurFilePanel(row) {
+    setDurFilePanelValue('stDururCurrentName', row.current_dur_name_ar);
+    setDurFilePanelValue('stDururDayInPeriod', row.current_dur_day_sheet != null ? String(row.current_dur_day_sheet) : '');
+    setDurFilePanelValue('stDururActivePhase', row.seasonal_model != null ? String(row.seasonal_model) : '');
+    setDurFilePanelValue('stDururStartDate', row.current_dur_start_md);
+    setDurFilePanelValue('stDururEndDate', row.current_dur_end_md);
+    setDurFilePanelValue('stDururNextName', row.next_dur_name_ar);
+    var rem = row.remaining_days_sheet != null ? row.remaining_days_sheet : row.remaining_days;
+    setDurFilePanelValue('stDururDaysRemaining', rem != null ? String(rem) : '');
+    var statusEl = getEl('stDururStatus');
+    if (statusEl) {
+      statusEl.textContent = DUR_FILE_STATUS_FROM_REF_MSG;
+    }
+  }
+
+  function refreshDururFilePanelFromTrueFinal(st) {
+    st = getStationForLocalDurReadout(st);
+    if (!st || !st.id) {
+      clearDururFilePanelNotFound();
       return;
     }
-    if (dto && station && station.id && dto.station_id === station.id) {
-      renderReadOnlyDurProfile(dto);
-      return;
-    }
-    clearReadOnlyDurProfile(station && station.id ? 'جاري تحميل قراءة المحرك...' : '--');
+    return loadTrueFinalStationReferenceDoc()
+      .then(function (doc) {
+        var row = findTrueFinalRowForStation(doc, st);
+        if (!row) {
+          clearDururFilePanelNotFound();
+          return;
+        }
+        applyTrueFinalRowToDurFilePanel(row);
+      })
+      .catch(function () {
+        clearDururFilePanelNotFound();
+      });
   }
 
   function populateTraitCheckboxes(containerId, selectedIds) {
@@ -4320,6 +4366,7 @@
       return s && String(s.id) === stId;
     });
     if (!st) return;
+    void refreshDururFilePanelFromTrueFinal(st);
     void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
   }
 
@@ -4330,8 +4377,10 @@
       return s && String(s.id) === stId;
     });
     if (st) {
+      void refreshDururFilePanelFromTrueFinal(st);
       void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
     } else {
+      void refreshDururFilePanelFromTrueFinal({ id: stId, name: (getEl('stName') && getEl('stName').value.trim()) || '' });
       void refreshStationLocalDurReadout(
         { id: stId, name: (getEl('stName') && getEl('stName').value.trim()) || '' },
         getCanonicalNavidurAsOfIso()
@@ -4441,45 +4490,18 @@
   }
 
   function clearReadOnlyDurProfile(statusText) {
-    setReadOnlyFieldValue('stDururCurrentName', '--');
-    setReadOnlyFieldValue('stDururDayInPeriod', '--');
-    setReadOnlyFieldValue('stDururActivePhase', '--');
-    setReadOnlyFieldValue('stDururStartDate', '--');
-    setReadOnlyFieldValue('stDururEndDate', '--');
-    setReadOnlyFieldValue('stDururNextName', '--');
-    setReadOnlyFieldValue('stDururDaysRemaining', '--');
-    var statusEl = getEl('stDururStatus');
-    if (statusEl) statusEl.textContent = statusText || 'يتم التحديث تلقائياً من محرك التحليل';
-  }
-
-  function renderReadOnlyDurProfile(dto) {
-    var dur = dto && dto.dur ? dto.dur : {};
-    var phase = dur.active_phase_reference || {};
-    var analysisDate = dto && dto.analysis_timestamp ? new Date(dto.analysis_timestamp) : null;
-    var startDate = null;
-    var endDate = null;
-    if (dur.timing_from_resolved_local && dur.period_start_date && dur.period_end_date) {
-      startDate = dur.period_start_date;
-      endDate = dur.period_end_date;
-    } else if (analysisDate && dur.day_in_period != null) {
-      var sd = new Date(analysisDate.getTime());
-      sd.setUTCDate(sd.getUTCDate() - Math.max(0, Number(dur.day_in_period || 1) - 1));
-      startDate = sd.toISOString().slice(0, 10);
+    void statusText;
+    var stId = getEl('stId') && getEl('stId').value.trim();
+    var st = stId
+      ? stationsCache.find(function (s) {
+          return s && String(s.id) === stId;
+        })
+      : null;
+    if (st) {
+      void refreshDururFilePanelFromTrueFinal(st);
+    } else {
+      clearDururFilePanelNotFound();
     }
-    if (!endDate && analysisDate && dur.days_remaining != null) {
-      var ed = new Date(analysisDate.getTime());
-      ed.setUTCDate(ed.getUTCDate() + Math.max(0, Number(dur.days_remaining || 0)));
-      endDate = ed.toISOString().slice(0, 10);
-    }
-    setReadOnlyFieldValue('stDururCurrentName', dur.period_name || '--');
-    setReadOnlyFieldValue('stDururDayInPeriod', dur.day_in_period != null ? dur.day_in_period : '--');
-    setReadOnlyFieldValue('stDururActivePhase', phase.title_ar || phase.phase_id || dur.active_phase_id || '--');
-    setReadOnlyFieldValue('stDururStartDate', startDate || '--');
-    setReadOnlyFieldValue('stDururEndDate', endDate || '--');
-    setReadOnlyFieldValue('stDururNextName', dur.next_period_name || '--');
-    setReadOnlyFieldValue('stDururDaysRemaining', dur.days_remaining != null ? dur.days_remaining : '--');
-    var statusEl = getEl('stDururStatus');
-    if (statusEl) statusEl.textContent = buildTimingStatusText(dur);
   }
 
   function renderTraitList(containerId, values, bgColor, borderColor, textColor, emptyText) {
@@ -5015,7 +5037,6 @@
     getEl('stWeatherSeaTemp').textContent = (dto.environment.temp_c != null ? dto.environment.temp_c : '--') + ' °C';
     getEl('stWeatherLastUpdate').textContent = dto.analysis_timestamp ? new Date(dto.analysis_timestamp).toLocaleString() : '--';
     renderValidationExplanation(dto, observedTraits);
-    renderReadOnlyDurProfile(dto);
     var editedSid = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
     var analysisStationId = dto.station_id ? String(dto.station_id).trim() : '';
     if (editedSid && analysisStationId === editedSid) {
@@ -5023,6 +5044,7 @@
         return s && String(s.id) === editedSid;
       });
       if (stSynced) {
+        void refreshDururFilePanelFromTrueFinal(stSynced);
         void refreshStationLocalDurReadout(
           stSynced,
           (dto.dur && dto.dur.timing_as_of) ? dto.dur.timing_as_of : getCanonicalNavidurAsOfIso()
@@ -5080,7 +5102,7 @@
       return;
     }
     if (currentAnalyticsPeriod === 'now') {
-      clearAdminAnalysisDisplay('جاري تحميل القراءة الحية...');
+      clearAdminAnalysisDisplay('جاري التحميل...');
     }
 
     var profile = getResolvedDururProfileForStation(station);
@@ -5097,7 +5119,7 @@
       renderAdminAnalysisDto(dto, stationId, profile.expert_notes || profile.expert_summary || '', currentAnalyticsPeriod === 'now' ? 'تم تحديث القراءة الحية' : 'تم تحديث القراءة الحالية');
     } catch (_liveErr) {
       if (requestToken !== currentAnalysisRequestToken) return;
-      clearAdminAnalysisDisplay('تعذر تحميل القراءة الحية حالياً.');
+      clearAdminAnalysisDisplay('تعذّر تحميل بيانات التحليل المباشر.');
       return;
     }
     updateAnalyticsDurReferenceDisplay(staticDur, [], [], [], [], []);
@@ -5835,10 +5857,12 @@
       return s && String(s.id) === sid;
     });
     if (stRef) {
-      void refreshStationLocalDurReadout(
-        Object.assign({}, stRef, { manual_suhail_anchor_date: ds, suhail_anchor_resolution: _pendingSuhailAnchorResolution }),
-        getCanonicalNavidurAsOfIso()
-      );
+      var stMerged = Object.assign({}, stRef, {
+        manual_suhail_anchor_date: ds,
+        suhail_anchor_resolution: _pendingSuhailAnchorResolution
+      });
+      void refreshDururFilePanelFromTrueFinal(stMerged);
+      void refreshStationLocalDurReadout(stMerged, getCanonicalNavidurAsOfIso());
     }
   }
 
