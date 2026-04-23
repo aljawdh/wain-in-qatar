@@ -1,6 +1,7 @@
 /**
- * One-way import: data/navidur_true_final_station_reference.xlsx → data/true_final_station_reference.json
- * Local / validation only — not loaded by production runtime.
+ * Legacy: one-way xlsx copy without recomputing astronomy or the dur frame.
+ * Authoritative build: `npm run build:true-final` → scripts/build-navidur-seasonal-reference.js
+ * Do not use this for production dataset refresh.
  */
 'use strict';
 

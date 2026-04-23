@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:navidur": "node run.js",
-    "build:true-final": "node scripts/build-true-final-station-reference-json.js"
+    "build:true-final": "node scripts/build-navidur-seasonal-reference.js",
+    "build:true-final-legacy-xlsx": "node scripts/build-true-final-station-reference-json.js"
   },
   "repository": {
     "type": "git",
@@ -23,6 +24,7 @@
   "dependencies": {
     "@upstash/redis": "^1.37.0",
     "@vercel/analytics": "^2.0.1",
+    "astronomy-engine": "^2.1.19",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

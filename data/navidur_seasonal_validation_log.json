@@ -1,0 +1,49 @@
+{
+  "reference_date": "23-04",
+  "at_23_04": {
+    "أبوظبي": {
+      "astronomical_suhail_entry": "26-08",
+      "heritage_suhail_entry": "13-08",
+      "current_dur": "المؤخر",
+      "current_dur_day": 8,
+      "elapsed_days": 8,
+      "remaining_days": 5,
+      "next_dur": "الرشاء",
+      "current_dur_start": "16-04",
+      "current_dur_end": "28-04"
+    },
+    "دبي": {
+      "astronomical_suhail_entry": "28-08",
+      "heritage_suhail_entry": "15-08",
+      "current_dur": "المؤخر",
+      "current_dur_day": 10,
+      "elapsed_days": 10,
+      "remaining_days": 3,
+      "next_dur": "الرشاء",
+      "current_dur_start": "14-04",
+      "current_dur_end": "26-04"
+    },
+    "جدة": {
+      "astronomical_suhail_entry": "20-08",
+      "heritage_suhail_entry": "07-08",
+      "current_dur": "المؤخر",
+      "current_dur_day": 2,
+      "elapsed_days": 2,
+      "remaining_days": 11,
+      "next_dur": "الرشاء",
+      "current_dur_start": "22-04",
+      "current_dur_end": "04-05"
+    },
+    "الدقم": {
+      "astronomical_suhail_entry": "15-08",
+      "heritage_suhail_entry": "02-08",
+      "current_dur": "المقدم",
+      "current_dur_day": 10,
+      "elapsed_days": 10,
+      "remaining_days": 3,
+      "next_dur": "المؤخر",
+      "current_dur_start": "14-04",
+      "current_dur_end": "26-04"
+    }
+  }
+}

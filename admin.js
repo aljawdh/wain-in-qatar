@@ -65,6 +65,8 @@
   var _stationNameUserEdited = false;
   var _lastStationFormId = null;
   var _pendingSuhailAnchorResolution = null;
+  var _trueFinalRefDocCache = null;
+  var _trueFinalRefLoadPromise = null;
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -4077,7 +4079,37 @@
     fillDururProfile(st);
     _loadedDururProfileSnapshot = snapshotDururProfile(dururProfile);
     void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
+    void updateTrueFinalSuhailButtonAvailability(st);
+  }
 
+  function updateTrueFinalSuhailButtonAvailability(st) {
+    var btn = getEl('stFetchWorkbookSuhailBtn');
+    if (!btn) return;
+    var defTitle = 'من الملف: data/true_final_station_reference.json';
+    if (!st || !String(st.name || '').trim()) {
+      btn.disabled = false;
+      btn.setAttribute('title', defTitle);
+      return;
+    }
+    btn.disabled = false;
+    btn.setAttribute('title', defTitle);
+    loadTrueFinalStationReferenceDoc()
+      .then(function (doc) {
+        var row = findTrueFinalRowByStationNameAr(doc, st.name);
+        if (!row) return;
+        var m = row.astronomical_suhail_entry_md != null ? String(row.astronomical_suhail_entry_md).trim() : '';
+        if (!m) {
+          btn.disabled = true;
+          btn.setAttribute('title', 'مرساة سهيل غير متاحة في المرجع الجديد');
+        } else {
+          btn.disabled = false;
+          btn.setAttribute('title', defTitle);
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.setAttribute('title', defTitle);
+      });
   }
 
   function fillDururProfile(station, opts) {
@@ -5536,6 +5568,56 @@
     }
   }
 
+  function nfcStringAdmin(value) {
+    var raw = String(value == null ? '' : value).trim();
+    try {
+      return raw.normalize ? raw.normalize('NFC') : raw;
+    } catch (_e) {
+      return raw;
+    }
+  }
+
+  function loadTrueFinalStationReferenceDoc() {
+    if (_trueFinalRefDocCache) return Promise.resolve(_trueFinalRefDocCache);
+    if (_trueFinalRefLoadPromise) return _trueFinalRefLoadPromise;
+    _trueFinalRefLoadPromise = apiFetch('/data/true_final_station_reference.json', { method: 'GET' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('http_' + res.status);
+        return res.json();
+      })
+      .then(function (doc) {
+        _trueFinalRefDocCache = doc && typeof doc === 'object' ? doc : null;
+        return _trueFinalRefDocCache;
+      })
+      .finally(function () {
+        _trueFinalRefLoadPromise = null;
+      });
+    return _trueFinalRefLoadPromise;
+  }
+
+  function findTrueFinalRowByStationNameAr(doc, stationNameAr) {
+    var want = nfcStringAdmin(stationNameAr);
+    var list = doc && Array.isArray(doc.stations) ? doc.stations : [];
+    for (var i = 0; i < list.length; i += 1) {
+      if (nfcStringAdmin(list[i].station_name_ar) === want) return list[i];
+    }
+    return null;
+  }
+
+  function ddMmToIsoDateWithYear(ddmm, year) {
+    var m = String(ddmm || '').match(/^(\d{1,2})-(\d{1,2})$/);
+    if (!m) return '';
+    var day = Number(m[1]);
+    var month = Number(m[2]);
+    if (!day || !month || month > 12 || day > 31) return '';
+    if (!Number.isFinite(year) || year < 1600 || year > 2500) return '';
+    var iso = year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    var t = new Date(iso + 'T12:00:00.000Z');
+    if (Number.isNaN(t.getTime())) return '';
+    if (t.getUTCFullYear() !== year || t.getUTCMonth() + 1 !== month || t.getUTCDate() !== day) return '';
+    return iso;
+  }
+
   async function fetchWorkbookSuhailAnchorIntoForm() {
     if (!isAdminMode()) return;
     var sid = getEl('stId') && getEl('stId').value.trim();
@@ -5543,79 +5625,108 @@
       alert('اختر محطة ذات معرف أو افتح محطة محفوظة.');
       return;
     }
+    var nameAr = (getEl('stName') && getEl('stName').value.trim()) || '';
+    if (!nameAr) {
+      var st = stationsCache.find(function (s) { return s && s.id === sid; });
+      if (st && st.name) nameAr = String(st.name).trim();
+    }
+    if (!nameAr) {
+      alert('عيّن اسماً عربيّاً للمحطة (كما في المرجع) أو افتح محطة من الجدول.');
+      return;
+    }
     var yEl = getEl('stSuhailAnchorYearInput');
     var y =
       yEl && yEl.value !== '' && yEl.value != null ? Number(yEl.value) : new Date().getUTCFullYear();
     if (!Number.isFinite(y)) {
-      alert('أدخل سنة صالحة لمرساة سهيل.');
+      alert('أدخل سنة صالحة لربط دخول سهيل الفلكي (عام مرجعي).');
       return;
     }
     var status = getEl('stationsStatus');
+    var doc;
     try {
-      var res = await apiFetch(
-        ASTRO_DUR_ENDPOINT +
-          '&path=workbook-suhail-anchor&station_id=' +
-          encodeURIComponent(sid) +
-          '&year=' +
-          encodeURIComponent(y),
-        { method: 'GET' }
-      );
-      var j = await res.json().catch(function () {
-        return {};
-      });
-      if (!res.ok) {
-        alert('طلب غير ناجح: ' + (j.error || String(res.status)));
-        return;
-      }
-      if (j.state === 'unmapped') {
-        alert('عيّن مفتاح مدينة في الدليل أولاً لهذه المحطة.');
-        return;
-      }
-      if (j.state === 'operational_workbook_error') {
-        alert(j.message_ar || 'تعذّر قراءة بيانات الدليل لمرساة سهيل.');
-        return;
-      }
-      if (j.state && j.state !== 'ok') {
-        alert(j.message_ar || 'تعذّر إكمال الاستدعاء من بيانات الدليل لمرساة سهيل.');
-        return;
-      }
-      if (!j.found) {
-        alert(j.message_ar || 'لم يتم العثور على مرساة سهيل في بيانات الدليل المرتبط.');
-        return;
-      }
-      var d = j.event_date;
-      if (!d) {
-        alert('لا يوجد تاريخ في السجل.');
-        return;
-      }
-      var ds = String(d).slice(0, 10);
-      var durN = j.dur_name_ar != null ? String(j.dur_name_ar) : '—';
-      var dayIn = j.day_in_dur != null ? String(j.day_in_dur) : '—';
-      var rem = j.days_remaining_in_dur != null ? String(j.days_remaining_in_dur) : '—';
-      var nextN = j.next_dur_name_ar != null ? String(j.next_dur_name_ar) : '—';
-      var summary =
-        'تاريخ سهيل الفلكي: ' +
-        ds +
-        '\nالدر (من بيانات الدليل): ' +
-        durN +
-        '\nاليوم داخل الدر: ' +
-        dayIn +
-        '\nالمتبقي في الدر: ' +
-        rem +
-        ' يومًا' +
-        '\nالدر التالي: ' +
-        nextN +
-        '\n\nاعتماد المراساة وحفظ حالة الدور المحلولة مع المحطة؟';
-      if (!window.confirm(summary)) return;
-      _pendingSuhailAnchorResolution = j.suhail_anchor_resolution ? Object.assign({}, j.suhail_anchor_resolution) : null;
-      var suhailEl = getEl('stManualSuhailAnchorDate');
-      if (suhailEl) suhailEl.value = ds;
-      if (status) {
-        status.textContent =
-          'تم تعبئة المراساة وحالة الدر حسب ارتباط المدينة في الدليل — اضغط «حفظ محطة» لتثبيت البيانات.';
-      }
+      doc = await loadTrueFinalStationReferenceDoc();
     } catch (e) {
-      alert('خطأ: ' + (e && e.message ? e.message : e));
+      alert('تعذّر تحميل المرجع النهائي. تحقق من الاتصال ومن توفر الملف data/true_final_station_reference.json');
+      return;
+    }
+    if (!doc || !Array.isArray(doc.stations) || !doc.stations.length) {
+      alert('المرجع النهائي غير مكتمل. أنشئ الملف data/true_final_station_reference.json من الجدول المرجعي.');
+      return;
+    }
+    var row = findTrueFinalRowByStationNameAr(doc, nameAr);
+    if (!row) {
+      alert('لا تطابق لاسم المحطة في المرجع النهائي. راجع التطابق مع عمود «اسم المحطة» (العربي) في الجدول.');
+      return;
+    }
+    var suhailMd = row.astronomical_suhail_entry_md != null ? String(row.astronomical_suhail_entry_md).trim() : '';
+    if (!suhailMd) {
+      alert('مرساة سهيل غير متاحة في المرجع الجديد');
+      return;
+    }
+    var ds = ddMmToIsoDateWithYear(suhailMd, y);
+    if (!ds) {
+      alert('قيمة دخول سهيل الفلكي (يوم-شهر) في المرجع غير صالحة.');
+      return;
+    }
+    var durN = row.dur_at_astronomical_entry != null ? String(row.dur_at_astronomical_entry) : '—';
+    var dayIn = row.dur_day_at_astronomical_entry != null ? String(row.dur_day_at_astronomical_entry) : '—';
+    var sWin = row.dur_start_at_astronomical_entry_md != null ? String(row.dur_start_at_astronomical_entry_md) : '—';
+    var eWin = row.dur_end_at_astronomical_entry_md != null ? String(row.dur_end_at_astronomical_entry_md) : '—';
+    var summary =
+      'تأكيد: تعبئة مرساة سهيل من المرجع النهائي\n' +
+      '— تاريخ دخول سهيل (فلكي) للسنة ' +
+      y +
+      ': ' +
+      ds +
+      '\n' +
+      '— الدر عند الدخول: ' +
+      durN +
+      '\n' +
+      '— اليوم داخل الدر: ' +
+      dayIn +
+      '\n' +
+      '— نافذة الدر (يوم/شهر في المرجع): ' +
+      sWin +
+      ' → ' +
+      eWin +
+      '\n\nاعتماد التاريخ اليدوي في الحقل وربطه بالمحطة عند الحفظ؟';
+    if (!window.confirm(summary)) return;
+    var sIso = row.dur_start_at_astronomical_entry_md
+      ? ddMmToIsoDateWithYear(row.dur_start_at_astronomical_entry_md, y)
+      : null;
+    var eIso = row.dur_end_at_astronomical_entry_md
+      ? ddMmToIsoDateWithYear(row.dur_end_at_astronomical_entry_md, y)
+      : null;
+    if (sIso && eIso) {
+      var tS = new Date(sIso + 'T12:00:00.000Z');
+      var tE = new Date(eIso + 'T12:00:00.000Z');
+      if (tE < tS) eIso = ddMmToIsoDateWithYear(row.dur_end_at_astronomical_entry_md, y + 1);
+    }
+    _pendingSuhailAnchorResolution = {
+      engine_version: 'true_final_station_reference_v1',
+      resolved_at: new Date().toISOString().slice(0, 10),
+      astronomical_event_date: ds,
+      operational_workbook_file: null,
+      operational_cycle_label: null,
+      dur_name_ar: row.dur_at_astronomical_entry
+        ? String(row.dur_at_astronomical_entry).trim()
+        : null,
+      day_in_dur: Number.isFinite(Number(row.dur_day_at_astronomical_entry))
+        ? Number(row.dur_day_at_astronomical_entry)
+        : null,
+      days_remaining_in_dur: null,
+      next_dur_name_ar: null,
+      current_dur_start_iso: sIso,
+      current_dur_end_iso: eIso,
+      next_dur_start_iso: null,
+      star_events_year: y,
+      workbook_city_name_used: null
+    };
+    var suhailEl = getEl('stManualSuhailAnchorDate');
+    if (suhailEl) suhailEl.value = ds;
+    if (status) {
+      status.textContent =
+        'تمت تعبئة مرساة سهيل من المرجع النهائي (data/true_final_station_reference.json) — اضغط «حفظ محطة» للتثبيت.';
     }
   }
 
