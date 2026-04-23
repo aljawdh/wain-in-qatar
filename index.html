@@ -942,6 +942,7 @@
     <div class="cards">
       <div class="card"><div class="label">الحرارة</div><div class="value" id="tempVal">🌡️ ---</div></div>
       <div class="card"><div class="label">الريح</div><div class="value" id="windVal">💨 ---</div></div>
+      <div class="card"><div class="label">الحالة الجوية</div><div class="value" id="skyConditionVal">الحالة الجوية غير متاحة حالياً</div></div>
       <div class="card"><div class="label">ارتفاع الماء</div><div class="value" id="tideHeightVal">🌊 ---</div></div>
       <div class="card"><div class="label">حالة القمر</div><div class="moon-icon" id="moonIcon">🌕</div><div class="value" id="moonVal">---</div></div>
     </div>
@@ -2909,6 +2910,16 @@
       return null;
     }
 
+    function getSharedSkyStatusArabic() {
+      if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.environment) {
+        return 'الحالة الجوية غير متاحة حالياً';
+      }
+      const w = String(currentSharedAnalysisDto.environment.weather_status_ar != null
+        ? currentSharedAnalysisDto.environment.weather_status_ar
+        : '').trim();
+      return w || 'الحالة الجوية غير متاحة حالياً';
+    }
+
     function getSharedFishingMode() {
       const waterState = getSharedWaterStateArabic();
       if (waterState === 'حمل') return 'deep';
@@ -3553,6 +3564,13 @@
         document.getElementById('moonVal').textContent = tideLabel;
         document.getElementById('tempVal').textContent = env.temp_c != null ? ('🌡️ ' + env.temp_c.toFixed(1) + '°') : '🌡️ ---';
         document.getElementById('windVal').textContent = env.wind_speed_kmh != null ? ('💨 ' + env.wind_speed_kmh + ' كم/س') : '💨 ---';
+        (function setSky() {
+          const raw = env.weather_status_ar != null ? String(env.weather_status_ar).trim() : '';
+          const skyEl = document.getElementById('skyConditionVal');
+          if (skyEl) {
+            skyEl.textContent = raw || 'الحالة الجوية غير متاحة حالياً';
+          }
+        }());
         document.getElementById('tideHeightVal').textContent = currentSharedAnalysisDto.tide.current_speed_ms != null ? ('🌊 ' + currentSharedAnalysisDto.tide.current_speed_ms + ' م/ث') : '🌊 ---';
         document.getElementById('currentWaterHeight').innerHTML = '≈ الحالة الحالية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span> • الثقة: ' + (currentSharedAnalysisDto.fishing.confidence_score != null ? currentSharedAnalysisDto.fishing.confidence_score + '%' : '---');
         document.getElementById('dorahName').textContent = 'الدر الحالي: ' + (currentSharedAnalysisDto.dur.period_name || '---');
@@ -3597,6 +3615,12 @@
       document.getElementById('moonVal').textContent = moon.label;
       document.getElementById('tempVal').textContent = wt != null ? ('🌡️ ' + wt.toFixed(1) + '°') : '🌡️ ---';
       document.getElementById('windVal').textContent = hasLiveWind && ws != null ? ('💨 ' + ws + ' كم/س' + (activeWind ? ' • رياح نشطة' : '')) : '💨 جاري جلب بيانات الرادار البحري...';
+      (function setSkyOffline() {
+        const skyEl = document.getElementById('skyConditionVal');
+        if (skyEl) {
+          skyEl.textContent = 'الحالة الجوية غير متاحة حالياً';
+        }
+      }());
       document.getElementById('tideHeightVal').textContent = sea != null ? ('🌊 ' + sea.toFixed(2) + ' م') : '🌊 ---';
       const fdi = computeFDI(date);
       const _fdiLabel = fdi >= 70 ? 'نشاط عالٍ' : fdi >= 45 ? 'نشاط متوسط' : 'نشاط منخفض';
@@ -3674,7 +3698,7 @@
         if (sourceEl) sourceEl.textContent = 'NAVIDUR المشترك';
         adviceEl.className = getSharedWaterStateArabic() === 'حمل' ? 'nawkhada-advice-hamal' : 'nawkhada-advice-fasad';
         adviceEl.innerHTML =
-          '📍 <strong>ملخص الحالة:</strong> ' + (getSharedWaterStateArabic() || 'غير معروف') + ' في ' + (currentSharedAnalysisDto.dur.period_name || '---') + '.<br>' +
+          '📍 <strong>ملخص الحالة:</strong> ' + getSharedSkyStatusArabic() + ' • ' + (getSharedWaterStateArabic() || 'غير معروف') + ' في ' + (currentSharedAnalysisDto.dur.period_name || '---') + '.<br>' +
           '🌊 <strong>الحالة البحرية:</strong> تيار ' + (currentSharedAnalysisDto.tide.current_speed_ms != null ? currentSharedAnalysisDto.tide.current_speed_ms + ' م/ث' : '---') + ' • موج ' + (currentSharedAnalysisDto.environment.wave_height_m != null ? currentSharedAnalysisDto.environment.wave_height_m + ' م' : '---') + '.<br>' +
           '🎣 <strong>التوصية الفنية:</strong> ' + (currentSharedAnalysisDto.fishing.advice_text || '---') + '<br>' +
           '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف المتوقعة:</strong> ' + (fishTargets.length ? fishTargets.join('، ') : '---') + '</span>';

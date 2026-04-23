@@ -869,7 +869,8 @@
         wave_height_m: liveEnvironment.wave_height_m,
         live_weather_from_cache: !!weatherMeta.from_cache,
         from_weather_defaults: !!weatherMeta.from_defaults,
-        weather_status_ar: normalizeString(weatherMeta.weather_status_ar) || ''
+        weather_status_ar: normalizeString(weatherMeta.weather_status_ar) || '',
+        humidity_pct: weatherMeta.humidity_pct == null ? null : toNumber(weatherMeta.humidity_pct)
       };
     }
     var asOfIso = analysisDate && analysisDate.toISOString ? analysisDate.toISOString().slice(0, 10) : '';

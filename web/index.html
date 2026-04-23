@@ -942,6 +942,7 @@
     <div class="cards">
       <div class="card"><div class="label">الحرارة</div><div class="value" id="tempVal">🌡️ ---</div></div>
       <div class="card"><div class="label">الريح</div><div class="value" id="windVal">💨 ---</div></div>
+      <div class="card"><div class="label">الحالة الجوية</div><div class="value" id="skyConditionVal">الحالة الجوية غير متاحة حالياً</div></div>
       <div class="card"><div class="label">ارتفاع الماء</div><div class="value" id="tideHeightVal">🌊 ---</div></div>
       <div class="card"><div class="label">حالة القمر</div><div class="moon-icon" id="moonIcon">🌕</div><div class="value" id="moonVal">---</div></div>
     </div>
@@ -3213,6 +3214,12 @@
       document.getElementById('moonVal').textContent = moon.label;
       document.getElementById('tempVal').textContent = wt != null ? ('🌡️ ' + wt.toFixed(1) + '°') : '🌡️ ---';
       document.getElementById('windVal').textContent = hasLiveWind && ws != null ? ('💨 ' + ws + ' كم/س' + (activeWind ? ' • رياح نشطة' : '')) : '💨 جاري جلب بيانات الرادار البحري...';
+      (function setSkyOfflineWeb() {
+        const skyEl = document.getElementById('skyConditionVal');
+        if (skyEl) {
+          skyEl.textContent = 'الحالة الجوية غير متاحة حالياً';
+        }
+      }());
       document.getElementById('tideHeightVal').textContent = sea != null ? ('🌊 ' + sea.toFixed(2) + ' م') : '🌊 ---';
       const fdi = computeFDI(date);
       document.getElementById('currentWaterHeight').innerHTML = '≈ اتجاه الماء الحالي: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> • الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : '---') + ' • FDI: ' + fdi + '/100';

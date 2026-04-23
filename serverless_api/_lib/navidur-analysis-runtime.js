@@ -3,7 +3,8 @@
 const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
 
-var WEATHER_FALLBACK_AR = 'تعذر تحميل الحالة الجوية — يتم استخدام آخر قراءة';
+/** Shown when sky/condition cannot be derived (UI only; analysis still uses numeric fallbacks). */
+var WEATHER_UNAVAILABLE_AR = 'الحالة الجوية غير متاحة حالياً';
 
 /** Mild defaults (non-null) when both API and cache miss — analysis still runs. */
 var DEFAULT_LIVE = {
@@ -56,6 +57,88 @@ function normalizeRequestedStation(body, stations) {
   };
 }
 
+/**
+ * Maps Open-Meteo `current` fields (WMO weather_code + helpers) to allowed Arabic labels only.
+ * @param {object} cur — `current` object from forecast API
+ * @returns {string}
+ */
+function mapOpenMeteoCurrentToArabicSky(cur) {
+  var c = cur && typeof cur === 'object' ? cur : {};
+  var code = toNumber(c.weather_code);
+  var isDay = c.is_day === 1 || c.is_day === true;
+  var cloud = toNumber(c.cloud_cover);
+  var precip = toNumber(c.precipitation);
+  var rain = toNumber(c.rain);
+  var vis = toNumber(c.visibility);
+  var rh = toNumber(c.relative_humidity_2m);
+
+  var totalRain = rain != null ? rain : precip;
+
+  if (code == null || !Number.isFinite(code)) {
+    if (totalRain != null && totalRain >= 0.3) {
+      if (totalRain < 2) return 'أمطار خفيفة';
+      if (totalRain < 8) return 'أمطار';
+      return 'أمطار غزيرة';
+    }
+    if (cloud != null) {
+      if (cloud >= 85) return 'غائم';
+      if (cloud >= 40) return 'غائم جزئياً';
+      return isDay ? 'مشمس' : 'صافي';
+    }
+    return WEATHER_UNAVAILABLE_AR;
+  }
+
+  if (code === 95 || code === 96 || code === 99) return 'عواصف رعدية';
+  if (code === 97 || code === 98) return 'عواصف رعدية';
+
+  if (code === 45 || code === 48) return 'ضباب';
+
+  if (code === 51 || code === 53 || code === 55 || code === 56 || code === 57) return 'رذاذ';
+
+  if (code === 61) return 'أمطار خفيفة';
+  if (code === 63 || code === 66 || code === 67) return 'أمطار';
+  if (code === 65) return 'أمطار غزيرة';
+
+  if (code === 80) return 'أمطار خفيفة';
+  if (code === 81) return 'أمطار';
+  if (code === 82) return 'أمطار غزيرة';
+
+  if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return 'غائم';
+
+  if (code === 3) return 'غائم';
+  if (code === 2) return 'غائم جزئياً';
+  if (code === 1) return 'غائم جزئياً';
+
+  if (code === 0) {
+    if (
+      vis != null &&
+      vis < 2000 &&
+      (totalRain == null || totalRain < 0.05) &&
+      (rh == null || rh < 75)
+    ) {
+      return 'مغبر';
+    }
+    return isDay ? 'مشمس' : 'صافي';
+  }
+
+  if (vis != null && vis < 800 && (code === 0 || code === 1 || code === 2)) {
+    return 'ضباب';
+  }
+  if (
+    vis != null &&
+    vis < 3000 &&
+    vis >= 800 &&
+    (totalRain == null || totalRain < 0.05) &&
+    (code === 0 || code === 1 || code === 2) &&
+    rh != null &&
+    rh < 70
+  ) {
+    return 'مغبر';
+  }
+
+  return WEATHER_UNAVAILABLE_AR;
+}
+
 function deriveWaterTraits(environment) {
   var observed = [];
   if (environment.wind_speed_kmh != null) {
@@ -94,11 +177,12 @@ async function readWeatherCacheStore() {
   return readJsonFile('live_weather_cache', { version: 1, entries: {} });
 }
 
-async function saveWeatherCacheEntry(key, liveInputs) {
+async function saveWeatherCacheEntry(key, liveInputs, weatherStatusAr) {
   var doc = await readWeatherCacheStore();
   doc.entries = doc.entries || {};
   doc.entries[key] = {
     live_inputs: liveInputs,
+    weather_status_ar: cleanString(weatherStatusAr, 200) || '',
     saved_at: new Date().toISOString()
   };
   try {
@@ -129,7 +213,7 @@ async function getWeatherData(station, asOfDate) {
     out.ok = true;
     out.from_defaults = true;
     out.live_inputs = Object.assign({}, DEFAULT_LIVE);
-    out.weather_status_ar = WEATHER_FALLBACK_AR;
+    out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
     return out;
   }
 
@@ -137,7 +221,10 @@ async function getWeatherData(station, asOfDate) {
     var weatherUrl = new URL('https://api.open-meteo.com/v1/forecast');
     weatherUrl.searchParams.set('latitude', String(la));
     weatherUrl.searchParams.set('longitude', String(lo));
-    weatherUrl.searchParams.set('current', 'wind_speed_10m,wind_direction_10m');
+    weatherUrl.searchParams.set(
+      'current',
+      'wind_speed_10m,wind_direction_10m,relative_humidity_2m,is_day,weather_code,cloud_cover,precipitation,rain,visibility'
+    );
     weatherUrl.searchParams.set('wind_speed_unit', 'kmh');
     weatherUrl.searchParams.set('timezone', 'GMT');
     if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
@@ -181,6 +268,8 @@ async function getWeatherData(station, asOfDate) {
       wind_direction_deg: toNumber(weatherCurrent.wind_direction_10m),
       wave_height_m: toNumber(marineCurrent.wave_height),
       current_speed_ms: toNumber(marineCurrent.ocean_current_velocity),
+      relative_humidity_2m: toNumber(weatherCurrent.relative_humidity_2m),
+      weather_code: toNumber(weatherCurrent.weather_code),
       tide: {
         current: currentTide,
         previous: prevTide != null ? prevTide : currentTide,
@@ -197,6 +286,10 @@ async function getWeatherData(station, asOfDate) {
     }
     out.ok = true;
     out.live_inputs = li;
+    out.weather_status_ar = mapOpenMeteoCurrentToArabicSky(weatherCurrent);
+    if (out.weather_status_ar === WEATHER_UNAVAILABLE_AR && toNumber(weatherCurrent.weather_code) != null) {
+      out.weather_status_ar = mapOpenMeteoCurrentToArabicSky({ weather_code: toNumber(weatherCurrent.weather_code) });
+    }
     return out;
   } catch (_e) {
     var key = weatherCacheKey(station);
@@ -211,13 +304,24 @@ async function getWeatherData(station, asOfDate) {
       out.ok = true;
       out.from_cache = true;
       out.live_inputs = ent.live_inputs;
-      out.weather_status_ar = WEATHER_FALLBACK_AR;
+      var cachedAr = cleanString(ent.weather_status_ar, 200);
+      if (cachedAr) {
+        out.weather_status_ar = cachedAr;
+      } else {
+        out.weather_status_ar = mapOpenMeteoCurrentToArabicSky({
+          weather_code: ent.live_inputs && ent.live_inputs.weather_code,
+          is_day: 1
+        });
+        if (out.weather_status_ar === WEATHER_UNAVAILABLE_AR) {
+          out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
+        }
+      }
       return out;
     }
     out.ok = true;
     out.from_defaults = true;
     out.live_inputs = Object.assign({}, DEFAULT_LIVE);
-    out.weather_status_ar = WEATHER_FALLBACK_AR;
+    out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
     return out;
   }
 }
@@ -241,13 +345,13 @@ async function fetchWeatherAndMarineInputs(station, body) {
   if (hasExplicitValues) {
     return {
       live_inputs: liveInputs,
-      weather_meta: { from_request_body: true, weather_status_ar: '' }
+      weather_meta: { from_request_body: true, weather_status_ar: '', humidity_pct: null }
     };
   }
   if (station.lat == null || station.lon == null) {
     return {
       live_inputs: Object.assign({}, DEFAULT_LIVE),
-      weather_meta: { from_defaults: true, weather_status_ar: WEATHER_FALLBACK_AR }
+      weather_meta: { from_defaults: true, weather_status_ar: WEATHER_UNAVAILABLE_AR, humidity_pct: null }
     };
   }
   var asOf = '';
@@ -260,15 +364,17 @@ async function fetchWeatherAndMarineInputs(station, body) {
   var pack = await getWeatherData(station, asOf);
   var li = pack.live_inputs || Object.assign({}, DEFAULT_LIVE);
   if (pack.ok && !pack.from_cache && !pack.from_defaults) {
-    await saveWeatherCacheEntry(weatherCacheKey(station), li);
+    await saveWeatherCacheEntry(weatherCacheKey(station), li, pack.weather_status_ar);
   }
+  var hum = toNumber(li.relative_humidity_2m);
   return {
     live_inputs: li,
     weather_meta: {
       from_cache: !!pack.from_cache,
       from_defaults: !!pack.from_defaults,
       weather_status_ar: cleanString(pack.weather_status_ar, 200) || '',
-      as_of: asOf || null
+      as_of: asOf || null,
+      humidity_pct: hum != null ? hum : null
     }
   };
 }
