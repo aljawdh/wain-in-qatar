@@ -844,7 +844,14 @@
         currentDur: currentDur,
         activePhase: activePhase,
         analysisDateTime: analysisDateTime,
-        options: { minScore: 45, maxItems: 8 }
+        options: {
+          minScore: 45,
+          maxItems: 8,
+          learning: {
+            settings: referenceData.learning_settings,
+            document: referenceData.learning_adjustments
+          }
+        }
       });
       fishRecommendations = toArray(rec.items);
       speciesActivity = toArray(rec.species_activity);
@@ -900,6 +907,12 @@
       gulf_fish_database: source.gulf_fish_database && typeof source.gulf_fish_database === 'object'
         ? source.gulf_fish_database
         : { version: 0, species: [] },
+      learning_settings: source.learning_settings && typeof source.learning_settings === 'object'
+        ? source.learning_settings
+        : { version: 1, learning_layer_enabled: false },
+      learning_adjustments: source.learning_adjustments && typeof source.learning_adjustments === 'object'
+        ? source.learning_adjustments
+        : { version: 1, adjustments: [] },
       advice_templates: toArray(source.advice_templates || source.advice_basis_tags),
       station_profiles: toArray(source.station_profiles || source.station_dur_profiles),
       overrides: toArray(source.overrides || source.station_dur_overrides),

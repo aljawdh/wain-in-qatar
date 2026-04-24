@@ -69,6 +69,8 @@ async function handleLogCatch(req, res) {
     const waterObservation = isFieldApp ? (cleanString(body.water_observation || '', 30) || null) : null;
     const userNote         = isFieldApp ? (cleanString(body.user_note || '', 140) || null) : null;
     const syncedAt         = isFieldApp ? (cleanString(body.synced_at || '', 60) || null) : null;
+    const durNameField     = isFieldApp ? (cleanString(body.dur_name || '', 120) || null) : null;
+    const tideStateLabel   = isFieldApp ? (cleanString(body.tide_state || '', 20) || null) : null;
 
     // ── Deduplication fingerprint (Task 6) ─────────────────────────────────
     // For field_app: include trip_id + session_id so field records can't falsely
@@ -123,7 +125,9 @@ async function handleLogCatch(req, res) {
       water_observation: waterObservation,
       user_note: userNote,
       recorded_at_local: recordedAtLocalRaw,
-      synced_at: syncedAt
+      synced_at: syncedAt,
+      dur_name: durNameField,
+      tide_state: tideStateLabel
     };
 
     // ── Append-safe write (Task 1) ─────────────────────────────────────────

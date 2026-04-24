@@ -39,6 +39,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="feedback"]{border-right:4px solid rgba(255,214,127,.6)}
 .admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
 .admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
+.admin-section[data-section="field-review"]{border-right:4px solid rgba(180,255,200,.55)}
 .astro-monitoring-root,.astro-preview-root{font-size:.82rem;line-height:1.45}
 .astro-card{background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 14px;margin-bottom:10px}
 .astro-card-title{margin:0 0 10px;font-size:.9rem;color:#cfeaff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -203,6 +204,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <button class="admin-nav" data-filter="feedback">التقييمات</button>
           <button class="admin-nav" data-filter="analytics">التحليلات</button>
           <button class="admin-nav" data-filter="astro-dur">الدر الفلكي</button>
+          <button class="admin-nav" data-filter="field-review">تحليل الميدان</button>
           <button class="admin-nav" data-filter="settings">الإعدادات</button>
         </aside>
 
@@ -865,6 +867,89 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <summary>عرض البيانات الخام للتشخيص</summary>
               <pre id="astroDurPreviewRaw" class="astro-raw-pre">—</pre>
             </details>
+          </div>
+
+          <div class="admin-section admin-block" data-section="field-review" id="fieldReviewSection">
+            <h4><i class="fa-solid fa-person-hiking"></i> تحليل جلسات الميدان</h4>
+            <div class="section-subtitle">مراجعة سجلات FIELD مقارنة بالتوقعات — التعلم يدوي فقط بعد اعتماد الإدارة.</div>
+            <div class="admin-switch" style="margin-bottom:14px">
+              <input type="checkbox" id="learningLayerToggle">
+              <label for="learningLayerToggle">تفعيل طبقة التعلم المساعدة على التوصيات (لا تغيّر قواعد الدر/المد/الأساس)</label>
+            </div>
+            <div class="settings-actions" style="margin-bottom:12px">
+              <button type="button" class="settings-btn" id="fieldReviewRefreshBtn">تحديث البيانات</button>
+            </div>
+            <h5 style="margin:0 0 8px;font-size:.9rem">تصفية الجلسات</h5>
+            <div class="field-review-filters" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px 12px;margin-bottom:14px;align-items:end">
+              <div class="admin-field"><label for="fieldReviewFilterStation">محطة</label><select id="fieldReviewFilterStation"><option value="">— الكل —</option></select></div>
+              <div class="admin-field"><label for="fieldReviewDateFrom">من تاريخ</label><input type="date" id="fieldReviewDateFrom"></div>
+              <div class="admin-field"><label for="fieldReviewDateTo">إلى تاريخ</label><input type="date" id="fieldReviewDateTo"></div>
+              <div class="admin-field"><label for="fieldReviewFilterDur">الدر (نص)</label><input type="text" id="fieldReviewFilterDur" placeholder="مثال: المؤخر"></div>
+              <div class="admin-field"><label for="fieldReviewFilterWater">حالة الماء</label>
+                <select id="fieldReviewFilterWater"><option value="">—</option><option value="حمل">حمل</option><option value="فساد">فساد</option></select></div>
+              <div class="admin-field"><label for="fieldReviewFilterTide">المد</label>
+                <select id="fieldReviewFilterTide"><option value="">—</option><option value="سقي">سقي</option><option value="ثبر">ثبر</option><option value="ثابت">ثابت</option></select></div>
+              <div class="admin-field"><label for="fieldReviewFilterFish">سمكة</label><input type="text" id="fieldReviewFilterFish" placeholder="جزء من الاسم"></div>
+              <div class="admin-field"><label for="fieldReviewFilterSuccess">نجاح الجلسة</label>
+                <select id="fieldReviewFilterSuccess"><option value="">—</option><option value="ok">ناجح</option><option value="fail">غير ناجح</option></select></div>
+              <div class="admin-field"><label for="fieldReviewFilterReview">حالة المراجعة</label>
+                <select id="fieldReviewFilterReview"><option value="">—</option><option value="pending">معلّق</option><option value="approved">معتمد</option><option value="rejected">مرفوض</option></select></div>
+              <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="fieldReviewApplyFiltersBtn">تطبيق التصفية</button></div>
+            </div>
+            <div class="admin-stat" id="fieldReviewSummaryRow" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px"></div>
+            <h5 style="margin:10px 0 6px;font-size:.9rem">دقة المطابقة</h5>
+            <div id="fieldReviewAccuracy" class="section-subtitle" style="margin-bottom:12px"></div>
+            <h5 style="margin:10px 0 6px;font-size:.9rem">جلسات الميدان</h5>
+            <div class="table-wrap" style="max-height:360px;margin-bottom:16px">
+              <table class="admin-table" id="fieldReviewSessionsTable">
+                <thead><tr><th>المحطة</th><th>الوقت</th><th>الدر</th><th>الماء/المد</th><th>موصى بها / فعلي</th><th>المراجعة</th><th>تفاصيل</th></tr></thead>
+                <tbody id="fieldReviewSessionsBody"></tbody>
+              </table>
+            </div>
+            <h5 style="margin:10px 0 6px;font-size:.9rem">أنماط مقترحة (قوة القرار)</h5>
+            <div class="table-wrap" style="max-height:320px">
+              <table class="admin-table" id="fieldReviewPatternsTable">
+                <thead><tr><th>النمط</th><th>أدلة</th><th>نجاح %</th><th>الدرجة/المستوى</th><th>سبب القوة</th><th>تعديل مقترح</th><th>اعتماد</th></tr></thead>
+                <tbody id="fieldReviewPatternsBody"></tbody>
+              </table>
+            </div>
+            <h5 style="margin:14px 0 6px;font-size:.9rem">التعديلات المعتمدة</h5>
+            <div class="table-wrap" style="max-height:220px">
+              <table class="admin-table">
+                <thead><tr><th>سمكة</th><th>شروط</th><th>Δ</th><th>قوة القرار</th><th>المصدر / الاعتماد / التاريخ</th><th>حالة / حذف</th></tr></thead>
+                <tbody id="fieldReviewAdjBody"></tbody>
+              </table>
+            </div>
+            <p id="fieldReviewStatus" class="section-subtitle" style="margin-top:10px"></p>
+            <dialog id="fieldSessionDetailModal" style="border:none;border-radius:14px;padding:0;max-width:520px;max-height:90vh;overflow:auto;background:var(--bg2);color:var(--txt)">
+              <div style="padding:20px">
+                <h5 style="margin:0 0 10px">تفاصيل الجلسة</h5>
+                <div id="fieldSessionDetailContent" class="section-subtitle" style="line-height:1.65;font-size:.88rem"></div>
+                <div style="margin-top:12px" id="fieldSessionReviewRow">
+                  <label style="display:block;margin-bottom:6px">حالة مراجعة الإدارة</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+                    <select id="fieldSessionReviewStatus">
+                      <option value="pending">معلّق</option>
+                      <option value="approved">معتمد</option>
+                      <option value="rejected">مرفوض</option>
+                    </select>
+                    <button type="button" class="settings-btn" id="fieldSessionReviewSaveBtn">حفظ المراجعة</button>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:16px">
+                  <button type="button" class="settings-btn secondary" id="fieldSessionDetailClose">إغلاق</button>
+                </div>
+              </div>
+            </dialog>
+            <dialog id="learningConfirmModal" style="border:none;border-radius:14px;padding:0;max-width:420px;background:var(--bg2);color:var(--txt)">
+              <div style="padding:20px">
+                <p style="line-height:1.6;font-size:.92rem">سيتم اعتماد هذا التعديل كعامل مساعد فقط، ولن يغيّر القواعد الأساسية للنظام.</p>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+                  <button type="button" class="settings-btn secondary" id="learningModalCancel">إلغاء</button>
+                  <button type="button" class="settings-btn" id="learningModalOk">تأكيد</button>
+                </div>
+              </div>
+            </dialog>
           </div>
 
           <div class="admin-section admin-block" data-section="settings">

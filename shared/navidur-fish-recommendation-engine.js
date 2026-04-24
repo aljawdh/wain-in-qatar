@@ -15,6 +15,12 @@
 'use strict';
 
 var fishDb = require('./navidur-fish-database');
+var getLearningScoreDelta;
+try {
+  getLearningScoreDelta = require('./navidur-learning-apply-engine').getLearningScoreDelta;
+} catch (_e) {
+  getLearningScoreDelta = null;
+}
 
 var W_DUR = 25;
 var W_WATER = 20;
@@ -373,6 +379,7 @@ function getGulfFishRecommendations(ctx) {
   var opt = (ctx && ctx.options) || {};
   var minScore = opt.minScore != null ? opt.minScore : 45;
   var maxItems = opt.maxItems != null ? opt.maxItems : 8;
+  var learnPack = opt.learning;
 
   var list = toArray(ctx && ctx.species);
   var station = ctx.station || {};
@@ -441,7 +448,21 @@ function getGulfFishRecommendations(ctx) {
     var behaviorPts = b01 * W_BEHAVIOR_CAP;
     var tidePts = computeTidePhasePoints(fish, tidePhaseAr);
     var dynBonus = computeDynamicMicroBonus(fish, tideState, tod);
-    var total = baseScaled + behaviorPts + tidePts + dynBonus;
+    var learnDelta = 0;
+    if (getLearningScoreDelta && learnPack && learnPack.settings && learnPack.document) {
+      try {
+        learnDelta = getLearningScoreDelta(
+          fish.fish_name_ar,
+          station,
+          tideState,
+          env,
+          currentDur,
+          learnPack.settings,
+          learnPack.document
+        );
+      } catch (_le) { /* ignore */ }
+    }
+    var total = baseScaled + behaviorPts + tidePts + dynBonus + learnDelta;
     var score = Math.round(clamp(total, 0, 100));
 
     var hits = [];

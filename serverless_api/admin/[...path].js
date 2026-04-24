@@ -2,7 +2,8 @@
 
 const path = require('path');
 const fs = require('fs/promises');
-const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv, kvStoreKey } = require('../_lib/data-store');
+const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv, kvStoreKey, getCatchLogs } = require('../_lib/data-store');
+const fieldInsight = require('../../shared/navidur-learning-insight-engine.js');
 const { resolveAutoReferenceInheritance } = require('../_lib/reference-station-inheritance');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
@@ -1111,6 +1112,197 @@ module.exports = async function handler(req, res) {
       items: Array.isArray(result.items) ? result.items : [],
       grouped: Array.isArray(result.grouped) ? result.grouped : []
     });
+  }
+
+  /** FIELD review + learning (admin-only; catch logs from KV only) */
+  if (root === 'field-review-summary') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const logs = await getCatchLogs(null, 5000);
+      const fieldLogs = (Array.isArray(logs) ? logs : []).filter(function (l) { return l && l.source === 'field_app'; });
+      const stations = await readJsonFile('stations', []);
+      const reviews = await readJsonFile('field_session_reviews', { version: 1, reviews: [] });
+      const built = fieldInsight.buildSummaryFromData(fieldLogs, stations, reviews);
+      return res.status(200).json({ ok: true, summary: built.summary, session_count: built.sessions.length });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: 'field_review_summary_failed', detail: String(err.message || err) });
+    }
+  }
+
+  if (root === 'field-review-sessions') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const logs = await getCatchLogs(null, 5000);
+      const fieldLogs = (Array.isArray(logs) ? logs : []).filter(function (l) { return l && l.source === 'field_app'; });
+      const stations = await readJsonFile('stations', []);
+      const reviews = await readJsonFile('field_session_reviews', { version: 1, reviews: [] });
+      const built = fieldInsight.buildSummaryFromData(fieldLogs, stations, reviews);
+      const q = req.query || {};
+      const filter = {
+        station_id: cleanString(q.station_id, 80) || null,
+        fish: cleanString(q.fish, 80) || null,
+        water_state: cleanString(q.water_state, 20) || null,
+        tide_state: cleanString(q.tide_state, 20) || null,
+        dur: cleanString(q.dur, 80) || null,
+        review_status: cleanString(q.review_status, 20) || null,
+        date_from: cleanString(q.date_from, 30) || null,
+        date_to: cleanString(q.date_to, 30) || null,
+        success: cleanString(q.success, 10) || null
+      };
+      const sessions = built.sessions.filter(function (s) { return fieldInsight.sessionMatchesFilter(s, filter); });
+      return res.status(200).json({ ok: true, total: sessions.length, sessions: sessions });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: 'field_review_sessions_failed', detail: String(err.message || err) });
+    }
+  }
+
+  if (root === 'field-review-patterns') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const logs = await getCatchLogs(null, 5000);
+      const fieldLogs = (Array.isArray(logs) ? logs : []).filter(function (l) { return l && l.source === 'field_app'; });
+      const stations = await readJsonFile('stations', []);
+      const reviews = await readJsonFile('field_session_reviews', { version: 1, reviews: [] });
+      const built = fieldInsight.buildSummaryFromData(fieldLogs, stations, reviews);
+      const patterns = fieldInsight.buildPatternsFromSessions(built.sessions);
+      return res.status(200).json({ ok: true, patterns: patterns });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: 'field_review_patterns_failed', detail: String(err.message || err) });
+    }
+  }
+
+  if (root === 'field-review-learning-settings') {
+    if (req.method === 'GET') {
+      const s = await readJsonFile('navidur_learning_settings', { version: 1, learning_layer_enabled: false });
+      return res.status(200).json({ ok: true, settings: s });
+    }
+    if (req.method === 'POST' || req.method === 'PUT') {
+      const body = parseBody(req);
+      const next = Object.assign({}, await readJsonFile('navidur_learning_settings', { version: 1, learning_layer_enabled: false }), {
+        learning_layer_enabled: !!body.learning_layer_enabled,
+        updated_at: nowIso()
+      });
+      await writeJsonFile('navidur_learning_settings', next);
+      await writeAudit('learning_settings_update', actor, { enabled: next.learning_layer_enabled });
+      return res.status(200).json({ ok: true, settings: next });
+    }
+    res.setHeader('Allow', 'GET, POST, PUT');
+    return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  if (root === 'apply-learning-adjustment') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const body = parseBody(req);
+    const strength = Number(body.decision_strength);
+    if (!Number.isFinite(strength) || strength < 55) {
+      return res.status(400).json({ ok: false, error: 'insufficient_decision_strength' });
+    }
+    const doc = await readJsonFile('navidur_learning_adjustments', { version: 1, adjustments: [] });
+    const adj = {
+      id: cleanString(body.id, 80) || createId('adj'),
+      fish: cleanString(body.fish, 120),
+      conditions: body.conditions && typeof body.conditions === 'object' ? body.conditions : {},
+      score_adjustment: Math.max(-15, Math.min(15, Number(body.score_adjustment) || 0)),
+      decision_strength: strength,
+      decision_strength_label: cleanString(body.decision_strength_label, 40) || '',
+      source: cleanString(body.source, 20) || 'FIELD',
+      approved_by: cleanString(body.approved_by || actor.username, 80) || 'admin',
+      created_at: nowIso(),
+      active: body.active !== false,
+      pattern_id: cleanString(body.pattern_id, 80) || null
+    };
+    if (!adj.fish) return res.status(400).json({ error: 'fish_required' });
+    doc.adjustments = Array.isArray(doc.adjustments) ? doc.adjustments : [];
+    doc.adjustments.push(adj);
+    await writeJsonFile('navidur_learning_adjustments', doc);
+    await writeAudit('learning_adjustment_applied', actor, { adjustment_id: adj.id, fish: adj.fish });
+    return res.status(200).json({ ok: true, adjustment: adj });
+  }
+
+  if (root === 'toggle-learning-adjustment') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const body = parseBody(req);
+    const aid = cleanString(body.id, 80);
+    if (!aid) return res.status(400).json({ error: 'id_required' });
+    const doc = await readJsonFile('navidur_learning_adjustments', { version: 1, adjustments: [] });
+    const list = Array.isArray(doc.adjustments) ? doc.adjustments : [];
+    const idx = list.findIndex(function (a) { return a && String(a.id) === aid; });
+    if (idx < 0) return res.status(404).json({ error: 'adjustment_not_found' });
+    list[idx].active = body.active === true;
+    list[idx].updated_at = nowIso();
+    doc.adjustments = list;
+    await writeJsonFile('navidur_learning_adjustments', doc);
+    await writeAudit('learning_adjustment_toggle', actor, { adjustment_id: aid, active: list[idx].active });
+    return res.status(200).json({ ok: true, adjustment: list[idx] });
+  }
+
+  if (root === 'field-session-review') {
+    if (req.method !== 'POST' && req.method !== 'PUT') {
+      res.setHeader('Allow', 'POST, PUT');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const body = parseBody(req);
+    const catchId = cleanString(body.catch_id, 80);
+    if (!catchId) return res.status(400).json({ error: 'catch_id_required' });
+    const doc = await readJsonFile('field_session_reviews', { version: 1, reviews: [] });
+    const reviews = Array.isArray(doc.reviews) ? doc.reviews : [];
+    const status = cleanString(body.review_status, 20) || 'pending';
+    const entry = {
+      catch_id: catchId,
+      review_status: ['pending', 'approved', 'rejected'].indexOf(status) >= 0 ? status : 'pending',
+      notes: cleanString(body.notes, 2000) || null,
+      photo_url: cleanString(body.photo_url, 500) || null,
+      updated_at: nowIso(),
+      reviewer: cleanString(actor.username, 80) || 'admin'
+    };
+    const ix = reviews.findIndex(function (r) { return r && r.catch_id === catchId; });
+    if (ix >= 0) reviews[ix] = Object.assign({}, reviews[ix], entry);
+    else reviews.push(entry);
+    doc.reviews = reviews;
+    await writeJsonFile('field_session_reviews', doc);
+    await writeAudit('field_session_review', actor, { catch_id: catchId, review_status: entry.review_status });
+    return res.status(200).json({ ok: true, review: entry });
+  }
+
+  if (root === 'delete-learning-adjustment') {
+    if (req.method !== 'POST' && req.method !== 'DELETE') {
+      res.setHeader('Allow', 'POST, DELETE');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const body = parseBody(req);
+    const aid = cleanString(body.id, 80);
+    if (!aid) return res.status(400).json({ error: 'id_required' });
+    const doc = await readJsonFile('navidur_learning_adjustments', { version: 1, adjustments: [] });
+    const before = Array.isArray(doc.adjustments) ? doc.adjustments.length : 0;
+    doc.adjustments = (Array.isArray(doc.adjustments) ? doc.adjustments : []).filter(function (a) { return a && String(a.id) !== aid; });
+    if (doc.adjustments.length === before) return res.status(404).json({ error: 'adjustment_not_found' });
+    await writeJsonFile('navidur_learning_adjustments', doc);
+    await writeAudit('learning_adjustment_delete', actor, { adjustment_id: aid });
+    return res.status(200).json({ ok: true, deleted: aid });
+  }
+
+  if (root === 'list-learning-adjustments') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const doc = await readJsonFile('navidur_learning_adjustments', { version: 1, adjustments: [] });
+    return res.status(200).json({ ok: true, adjustments: Array.isArray(doc.adjustments) ? doc.adjustments : [] });
   }
 
   return res.status(404).json({ error: 'admin_route_not_found' });

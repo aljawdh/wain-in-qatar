@@ -36,7 +36,10 @@ const FILES = {
   dur_generation_audit: 'dur_generation_audit.json',
   true_final_station_reference: 'true_final_station_reference.json',
   gulf_fish_database: 'gulf_fish_database.json',
-  live_weather_cache: 'live_weather_cache.json'
+  live_weather_cache: 'live_weather_cache.json',
+  navidur_learning_adjustments: 'navidur_learning_adjustments.json',
+  navidur_learning_settings: 'navidur_learning_settings.json',
+  field_session_reviews: 'field_session_reviews.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

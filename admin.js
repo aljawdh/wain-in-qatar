@@ -37,6 +37,9 @@
   var stationProfilesCache = [];
   var stationOverridesCache = [];
   var annualComparisonsCache = [];
+  var fieldReviewPatternsById = {};
+  var fieldReviewPendingPattern = null;
+  var fieldReviewSelectedSession = null;
   var _loadedDururProfileSnapshot = null;
   var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
@@ -279,6 +282,11 @@
           stationsAdminMap.invalidateSize();
         }
       }, 120);
+    }
+    if (adminDataFilter === 'field-review' && adminAuthenticated && (!me || me.role === 'admin' || me.role === 'super_admin')) {
+      window.setTimeout(function () {
+        void refreshFieldReview();
+      }, 0);
     }
   }
 
@@ -6184,6 +6192,389 @@
     }
   }
 
+  function fieldReviewStationNameById(sid) {
+    if (!sid) return '—';
+    var s = stationsCache.find(function (x) {
+      return x && String(x.id) === String(sid);
+    });
+    return s ? (s.name || s.id || '—') : String(sid);
+  }
+
+  function buildFieldReviewSessionsUrl() {
+    var params = new URLSearchParams();
+    var station = getEl('fieldReviewFilterStation');
+    if (station && station.value) params.set('station_id', station.value);
+    var fish = getEl('fieldReviewFilterFish');
+    if (fish && fish.value.trim()) params.set('fish', fish.value.trim());
+    var water = getEl('fieldReviewFilterWater');
+    if (water && water.value) params.set('water_state', water.value);
+    var tide = getEl('fieldReviewFilterTide');
+    if (tide && tide.value) params.set('tide_state', tide.value);
+    var dur = getEl('fieldReviewFilterDur');
+    if (dur && dur.value.trim()) params.set('dur', dur.value.trim());
+    var review = getEl('fieldReviewFilterReview');
+    if (review && review.value) params.set('review_status', review.value);
+    var succ = getEl('fieldReviewFilterSuccess');
+    if (succ && succ.value) params.set('success', succ.value);
+    var df = getEl('fieldReviewDateFrom');
+    if (df && df.value) params.set('date_from', df.value + 'T00:00:00.000Z');
+    var dt = getEl('fieldReviewDateTo');
+    if (dt && dt.value) params.set('date_to', dt.value + 'T23:59:59.999Z');
+    var q = params.toString();
+    return '/api?route=admin&path=field-review-sessions' + (q ? '&' + q : '');
+  }
+
+  function populateFieldReviewStationSelect() {
+    var sel = getEl('fieldReviewFilterStation');
+    if (!sel) return;
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">— الكل —</option>' +
+      stationsCache.map(function (s) {
+        return '<option value="' + String(s.id || '').replace(/"/g, '&quot;') + '">' + (s.name || s.id || '--') + '</option>';
+      }).join('');
+    if (cur) sel.value = cur;
+  }
+
+  function fieldReviewStatusLabel(st) {
+    if (st === 'approved') return 'معتمد';
+    if (st === 'rejected') return 'مرفوض';
+    return 'معلّق';
+  }
+
+  async function refreshFieldReview() {
+    if (!adminAuthenticated) return;
+    var statusEl = getEl('fieldReviewStatus');
+    if (statusEl) statusEl.textContent = 'جاري تحميل تحليل الميدان...';
+    try {
+      populateFieldReviewStationSelect();
+      var sumRes = await apiFetch('/api?route=admin&path=field-review-summary', { method: 'GET' });
+      var sumData = await sumRes.json();
+      if (!sumData || !sumData.ok) throw new Error((sumData && sumData.error) || 'summary_failed');
+
+      var sessRes = await apiFetch(buildFieldReviewSessionsUrl(), { method: 'GET' });
+      var sessData = await sessRes.json();
+      if (!sessData || !sessData.ok) throw new Error((sessData && sessData.error) || 'sessions_failed');
+
+      var patRes = await apiFetch('/api?route=admin&path=field-review-patterns', { method: 'GET' });
+      var patData = await patRes.json();
+      if (!patData || !patData.ok) throw new Error((patData && patData.error) || 'patterns_failed');
+
+      var setRes = await apiFetch('/api?route=admin&path=field-review-learning-settings', { method: 'GET' });
+      var setData = await setRes.json();
+      var learnOn = !!(setData && setData.ok && setData.settings && setData.settings.learning_layer_enabled);
+      var toggle = getEl('learningLayerToggle');
+      if (toggle) toggle.checked = learnOn;
+
+      var adjRes = await apiFetch('/api?route=admin&path=list-learning-adjustments', { method: 'GET' });
+      var adjData = await adjRes.json();
+      var adjustments = (adjData && adjData.ok && Array.isArray(adjData.adjustments)) ? adjData.adjustments : [];
+
+      var sum = sumData.summary || {};
+      var row = getEl('fieldReviewSummaryRow');
+      if (row) {
+        var topFish = (sum.top_caught_fish && sum.top_caught_fish[0]) ? (sum.top_caught_fish[0].key + ' (' + sum.top_caught_fish[0].count + ')') : '—';
+        var topSt = (sum.most_active_stations && sum.most_active_stations[0])
+          ? (fieldReviewStationNameById(sum.most_active_stations[0].key) + ' (' + sum.most_active_stations[0].count + ')')
+          : '—';
+        var topDur = (sum.most_validated_dur && sum.most_validated_dur[0]) ? (sum.most_validated_dur[0].key + ' (' + sum.most_validated_dur[0].count + ')') : '—';
+        var topW = (sum.most_validated_water && sum.most_validated_water[0]) ? (sum.most_validated_water[0].key + ' (' + sum.most_validated_water[0].count + ')') : '—';
+        row.innerHTML =
+          '<div class="as-card"><div class="as-val">' + (sum.total_sessions != null ? sum.total_sessions : '0') + '</div><div class="as-lbl">إجمالي الجلسات</div></div>' +
+          '<div class="as-card"><div class="as-val">' + (sum.success_rate != null ? sum.success_rate + '%' : '—') + '</div><div class="as-lbl">معدل النجاح</div></div>' +
+          '<div class="as-card"><div class="as-val">' + (sum.failed_sessions != null ? sum.failed_sessions : '0') + '</div><div class="as-lbl">جلسات فاشلة</div></div>' +
+          '<div class="as-card"><div class="as-val" style="font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topFish) + '">' + escapeHtml(topFish) + '</div><div class="as-lbl">أشهر سمكة</div></div>' +
+          '<div class="as-card"><div class="as-val" style="font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topSt) + '">' + escapeHtml(topSt) + '</div><div class="as-lbl">أنشط محطة</div></div>' +
+          '<div class="as-card"><div class="as-val" style="font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topDur) + '">' + escapeHtml(topDur) + '</div><div class="as-lbl">أكثر در تحققاً</div></div>' +
+          '<div class="as-card"><div class="as-val" style="font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topW) + '">' + escapeHtml(topW) + '</div><div class="as-lbl">حالة ماء (تحقق)</div></div>' +
+          '<div class="as-card"><div class="as-val">' + String((sessData.total != null ? sessData.total : (sessData.sessions || []).length)) + '</div><div class="as-lbl">بعد التصفية</div></div>';
+        row.style.gridTemplateColumns = 'repeat(4, minmax(0,1fr))';
+      }
+
+      var accEl = getEl('fieldReviewAccuracy');
+      if (accEl) {
+        var a = sum.accuracy || {};
+        accEl.innerHTML = 'مُوصى به وتم صيده: <strong>' + (a.recommended_and_caught != null ? a.recommended_and_caught : 0) + '</strong> — ' +
+          'مُوصى به ولم يُصطد: <strong>' + (a.recommended_not_caught != null ? a.recommended_not_caught : 0) + '</strong> — ' +
+          'غير مُوصى به وتم صيده: <strong>' + (a.not_recommended_but_caught != null ? a.not_recommended_but_caught : 0) + '</strong>';
+      }
+
+      var sessions = Array.isArray(sessData.sessions) ? sessData.sessions : [];
+      var sessBody = getEl('fieldReviewSessionsBody');
+      if (sessBody) {
+        sessBody.innerHTML = '';
+        if (!sessions.length) {
+          sessBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا جلسات مطابقة للتصفية</td></tr>';
+        } else {
+          sessions.forEach(function (s) {
+            var tr = document.createElement('tr');
+            var t = s.analysis_timestamp || s.created_at || '—';
+            var pred = (s.species_predicted || []).join('، ') || '—';
+            var act = (s.actual_species || []).join('، ') || '—';
+            tr.innerHTML = '<td>' + escapeHtml(s.station_name || '—') + '</td>' +
+              '<td style="font-size:.78rem">' + escapeHtml(String(t)) + '</td>' +
+              '<td style="font-size:.8rem">' + escapeHtml(s.dur_name || '—') + '</td>' +
+              '<td style="font-size:.78rem">' + escapeHtml((s.water_state || '—') + ' / ' + (s.tide_state || '—')) + '</td>' +
+              '<td style="font-size:.72rem;max-width:200px;word-break:break-word">موصى: ' + escapeHtml(pred) + '<br>فعلي: ' + escapeHtml(act) + '</td>' +
+              '<td style="font-size:.78rem">' + escapeHtml(fieldReviewStatusLabel(s.review_status)) + '</td>' +
+              '<td><button type="button" class="small-btn" data-field-detail="' + escapeHtml(s.catch_id || '') + '">تفاصيل</button></td>';
+            sessBody.appendChild(tr);
+          });
+          sessBody.querySelectorAll('button[data-field-detail]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var id = btn.getAttribute('data-field-detail');
+              var s = sessions.find(function (x) { return x && x.catch_id === id; });
+              if (s) openFieldSessionDetail(s);
+            });
+          });
+        }
+      }
+
+      var patterns = Array.isArray(patData.patterns) ? patData.patterns : [];
+      fieldReviewPatternsById = {};
+      patterns.forEach(function (p) {
+        if (p && p.pattern_id) fieldReviewPatternsById[p.pattern_id] = p;
+      });
+      var patBody = getEl('fieldReviewPatternsBody');
+      if (patBody) {
+        patBody.innerHTML = '';
+        if (!patterns.length) {
+          patBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا أنماط بعد</td></tr>';
+        } else {
+          patterns.forEach(function (p) {
+            var tr = document.createElement('tr');
+            var st = p.decision_strength != null ? p.decision_strength : 0;
+            var label = p.decision_strength_label || p.confidence || '—';
+            var canApprove = st >= 55;
+            var summaryLine = escapeHtml(p.fish || '—') + ' @ ' + escapeHtml(p.station || '—') + ' — در: ' + escapeHtml(p.dur || '—') + ' — ' + escapeHtml(p.waterState || '—') + ' / ' + escapeHtml(p.tideState || '—');
+            var btnHtml = canApprove
+              ? '<button type="button" class="settings-btn field-review-apply-btn" data-pattern-id="' + escapeHtml(p.pattern_id || '') + '">اعتماد التعديلات</button>'
+              : '<button type="button" class="settings-btn" disabled>اعتماد التعديلات</button><div class="section-subtitle" style="font-size:.68rem;margin-top:4px;color:#f0a8a8">لا توجد أدلة كافية لاعتماد هذا التعديل</div>';
+            tr.innerHTML = '<td style="font-size:.78rem;max-width:180px;word-break:break-word">' + summaryLine + '</td>' +
+              '<td>' + (p.evidence_count != null ? p.evidence_count : '0') + '</td>' +
+              '<td>' + (p.success_rate != null ? p.success_rate + '%' : '—') + '</td>' +
+              '<td><strong>' + st + '</strong> — ' + escapeHtml(label) + '</td>' +
+              '<td style="font-size:.72rem;max-width:200px;word-break:break-word">' + escapeHtml(p.strength_reason || '—') + '</td>' +
+              '<td>' + (p.suggested_adjustment != null ? String(p.suggested_adjustment) : '0') + '</td>' +
+              '<td style="min-width:120px;vertical-align:top">' + btnHtml + '</td>';
+            patBody.appendChild(tr);
+          });
+          patBody.querySelectorAll('button.field-review-apply-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var pid = btn.getAttribute('data-pattern-id');
+              var p = fieldReviewPatternsById[pid];
+              if (p) beginApproveLearningPattern(p);
+            });
+          });
+        }
+      }
+
+      var adjBody = getEl('fieldReviewAdjBody');
+      if (adjBody) {
+        adjBody.innerHTML = '';
+        if (!adjustments.length) {
+          adjBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا تعديلات معتمدة بعد</td></tr>';
+        } else {
+          adjustments.forEach(function (a) {
+            var tr = document.createElement('tr');
+            var cond = a.conditions || {};
+            var condStr = [cond.station, cond.dur, cond.waterState, cond.tideState].filter(Boolean).join(' — ') || '—';
+            var active = a.active !== false;
+            var audit = 'المصدر: ' + (a.source || '—') + ' | اعتماد: ' + (a.approved_by || '—') + ' | ' + (a.created_at || '—') + ' | قوة: ' + (a.decision_strength != null ? a.decision_strength : '—');
+            var toggleBtn = active
+              ? '<button type="button" class="small-btn" data-adj-toggle="' + escapeHtml(a.id || '') + '" data-adj-want="0">إيقاف</button>'
+              : '<button type="button" class="small-btn" data-adj-toggle="' + escapeHtml(a.id || '') + '" data-adj-want="1">تفعيل</button>';
+            tr.innerHTML = '<td>' + escapeHtml(a.fish || '—') + '</td>' +
+              '<td style="font-size:.72rem;max-width:200px;word-break:break-word">' + escapeHtml(condStr) + '</td>' +
+              '<td>' + (a.score_adjustment != null ? String(a.score_adjustment) : '0') + '</td>' +
+              '<td>' + (a.decision_strength != null ? a.decision_strength : '—') + ' / ' + escapeHtml(a.decision_strength_label || '') + '</td>' +
+              '<td style="font-size:.68rem">' + escapeHtml(audit) + '</td>' +
+              '<td>' + toggleBtn + ' <button type="button" class="small-btn danger" data-adj-del="' + escapeHtml(a.id || '') + '">حذف</button></td>';
+            adjBody.appendChild(tr);
+          });
+          adjBody.querySelectorAll('button[data-adj-toggle]').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+              var id = btn.getAttribute('data-adj-toggle');
+              var want = btn.getAttribute('data-adj-want') === '1';
+              if (!id) return;
+              var res = await apiFetch('/api?route=admin&path=toggle-learning-adjustment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id, active: want })
+              });
+              var j = await res.json();
+              if (j && j.ok) void refreshFieldReview();
+              else if (statusEl) statusEl.textContent = 'تعذّر تغيير حالة التعديل.';
+            });
+          });
+          adjBody.querySelectorAll('button[data-adj-del]').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+              var id = btn.getAttribute('data-adj-del');
+              if (!id) return;
+              if (!window.confirm('حذف هذا التعديل نهائياً من طبقة التعلم؟')) return;
+              var res = await apiFetch('/api?route=admin&path=delete-learning-adjustment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+              });
+              var j = await res.json();
+              if (j && j.ok) void refreshFieldReview();
+            });
+          });
+        }
+      }
+
+      if (statusEl) statusEl.textContent = 'تم التحديث — ' + new Date().toLocaleString('ar-QA', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      console.error(e);
+      if (statusEl) statusEl.textContent = 'تعذّر التحميل: ' + (e && e.message ? e.message : String(e));
+    }
+  }
+
+  function openFieldSessionDetail(s) {
+    fieldReviewSelectedSession = s;
+    var d = getEl('fieldSessionDetailContent');
+    var m = getEl('fieldSessionDetailModal');
+    if (!d || !m) return;
+    var snap = 'حرارة: ' + (s.temperature != null ? s.temperature : '—') + ' | ريح: ' + (s.wind_speed != null ? s.wind_speed : '—') + ' | اتجاه: ' + (s.wind_direction != null ? s.wind_direction : '—');
+    var photo = s.photo_url
+      ? ('<div style="margin-top:8px"><img src="' + escapeHtml(s.photo_url) + '" alt="" style="max-width:100%;max-height:200px;border-radius:8px"></div>')
+      : '<div style="color:#8ea4ba;font-size:.8rem">لا صورة</div>';
+    d.innerHTML =
+      '<div><strong>المحطة:</strong> ' + escapeHtml(s.station_name || '—') + '</div>' +
+      '<div><strong>الوقت / التحليل:</strong> ' + escapeHtml(String(s.analysis_timestamp || s.created_at || '—')) + '</div>' +
+      '<div><strong>الدر:</strong> ' + escapeHtml(s.dur_name || '—') + '</div>' +
+      '<div><strong>حالة الماء:</strong> ' + escapeHtml(s.water_state || '—') + '</div>' +
+      '<div><strong>حالة المد:</strong> ' + escapeHtml(s.tide_state || '—') + '</div>' +
+      '<div><strong>لقطة طقس (من السجل):</strong> ' + escapeHtml(snap) + '</div>' +
+      '<div style="margin-top:8px"><strong>الموصى بها:</strong> ' + escapeHtml((s.species_predicted || []).join('، ') || '—') + '</div>' +
+      '<div><strong>الصاد فعلياً:</strong> ' + escapeHtml((s.actual_species || []).join('، ') || '—') + '</div>' +
+      '<div><strong>نجاح:</strong> ' + (s.catch_success ? 'نعم' : 'لا') + '</div>' +
+      '<div style="margin-top:8px"><strong>ملاحظات المشغل:</strong> ' + escapeHtml(s.user_note || s.water_observation || '—') + '</div>' +
+      (s.review_notes ? ('<div><strong>ملاحظات مراجعة:</strong> ' + escapeHtml(s.review_notes) + '</div>') : '') +
+      photo;
+    var rs = getEl('fieldSessionReviewStatus');
+    if (rs) rs.value = s.review_status && ['pending', 'approved', 'rejected'].indexOf(s.review_status) >= 0 ? s.review_status : 'pending';
+    m.showModal();
+  }
+
+  function beginApproveLearningPattern(p) {
+    if (!p || p.decision_strength == null || p.decision_strength < 55) return;
+    fieldReviewPendingPattern = p;
+    var modal = getEl('learningConfirmModal');
+    if (modal) modal.showModal();
+  }
+
+  function closeLearningModal() {
+    var modal = getEl('learningConfirmModal');
+    if (modal) modal.close();
+    fieldReviewPendingPattern = null;
+  }
+
+  async function confirmApplyLearningFromModal() {
+    var p = fieldReviewPendingPattern;
+    fieldReviewPendingPattern = null;
+    var lmodal = getEl('learningConfirmModal');
+    if (lmodal) lmodal.close();
+    if (!p) return;
+    var st = p.decision_strength != null ? p.decision_strength : 0;
+    if (st < 55) return;
+    var payload = {
+      decision_strength: st,
+      decision_strength_label: p.decision_strength_label || p.confidence || '',
+      fish: p.fish,
+      score_adjustment: p.suggested_adjustment != null ? p.suggested_adjustment : 0,
+      source: 'FIELD',
+      pattern_id: p.pattern_id,
+      conditions: {
+        station: p.station,
+        station_id: p.station_id,
+        dur: p.dur && p.dur !== '—' ? p.dur : '',
+        waterState: p.waterState,
+        tideState: p.tideState
+      },
+      approved_by: (me && me.username) ? me.username : 'admin',
+      active: true
+    };
+    var res = await apiFetch('/api?route=admin&path=apply-learning-adjustment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    var j = await res.json();
+    var statusEl = getEl('fieldReviewStatus');
+    if (j && j.ok) {
+      if (statusEl) statusEl.textContent = 'تم اعتماد التعديل (طبقة مساعدة).';
+      void refreshFieldReview();
+    } else {
+      if (statusEl) statusEl.textContent = 'فشل الاعتماد: ' + ((j && j.error) || res.status);
+    }
+  }
+
+  function initFieldReviewPanel() {
+    var refresh = getEl('fieldReviewRefreshBtn');
+    if (refresh) {
+      refresh.addEventListener('click', function () {
+        void refreshFieldReview();
+      });
+    }
+    var applyF = getEl('fieldReviewApplyFiltersBtn');
+    if (applyF) {
+      applyF.addEventListener('click', function () {
+        void refreshFieldReview();
+      });
+    }
+    var learnToggle = getEl('learningLayerToggle');
+    if (learnToggle) {
+      learnToggle.addEventListener('change', async function () {
+        var on = learnToggle.checked;
+        var res = await apiFetch('/api?route=admin&path=field-review-learning-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ learning_layer_enabled: on })
+        });
+        var j = await res.json();
+        if (!j || !j.ok) learnToggle.checked = !on;
+      });
+    }
+    var mc = getEl('learningModalCancel');
+    if (mc) mc.addEventListener('click', function () { closeLearningModal(); });
+    var mOk = getEl('learningModalOk');
+    if (mOk) mOk.addEventListener('click', function () { void confirmApplyLearningFromModal(); });
+    var fdClose = getEl('fieldSessionDetailClose');
+    if (fdClose) {
+      fdClose.addEventListener('click', function () {
+        var m = getEl('fieldSessionDetailModal');
+        if (m) m.close();
+      });
+    }
+    var saveRev = getEl('fieldSessionReviewSaveBtn');
+    if (saveRev) {
+      saveRev.addEventListener('click', async function () {
+        var s = fieldReviewSelectedSession;
+        if (!s || !s.catch_id) return;
+        var stSel = getEl('fieldSessionReviewStatus');
+        var status = stSel ? stSel.value : 'pending';
+        var res = await apiFetch('/api?route=admin&path=field-session-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            catch_id: s.catch_id,
+            review_status: status,
+            notes: s.review_notes || null,
+            photo_url: s.photo_url || null
+          })
+        });
+        var j = await res.json();
+        if (j && j.ok) {
+          s.review_status = status;
+          void refreshFieldReview();
+          var m = getEl('fieldSessionDetailModal');
+          if (m) m.close();
+        }
+      });
+    }
+  }
+
   function initAstroDurPanel() {
     var r = getEl('astroDurRefreshBtn');
     if (r) {
@@ -6814,6 +7205,7 @@
 
     bindSettingsActions();
     initAstroDurPanel();
+    initFieldReviewPanel();
 
     if (authToken) {
       getEl('adminLoginForm').style.display = 'none';
