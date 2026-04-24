@@ -1,0 +1,377 @@
+/**
+ * NAVIDUR Gulf fish recommendation engine (score 0–100).
+ *
+ * Weight model (when sea temperature is available):
+ *   - Current DUR / season alignment: max 25
+ *   - Tide water state حمل/فساد vs fish preference: max 20
+ *   - Sea surface temperature in comfort band: max 20
+ *   - Station depth vs species depth range: max 15
+ *   - Station zone type vs species habitat / eco zone: max 10
+ *   - Time of day (فجر/نهار/عصر/ليل): max 5
+ *   - Species listed for this country: max 5
+ *
+ * If sea surface temperature is missing, the temperature term is omitted and the
+ * remaining partial score (max 80) is scaled linearly to 0–100 so the total still
+ * represents a full 100-point scale.
+ *
+ * New stations: recommendations are driven only by station fields (country, depth or
+ * zoneType for depth estimate, zoneType or depth-inferred zone) plus live environment
+ * and DUR — no per-station fish lists in the database.
+ */
+'use strict';
+
+var fishDb = require('./navidur-fish-database');
+
+var W_DUR = 25;
+var W_WATER = 20;
+var W_TEMP = 20;
+var W_DEPTH = 15;
+var W_ZONE = 10;
+var W_TIME = 5;
+var W_COUNTRY = 5;
+var W_SUM_WITH_TEMP = W_DUR + W_WATER + W_TEMP + W_DEPTH + W_ZONE + W_TIME + W_COUNTRY;
+var W_SUM_NO_TEMP = W_SUM_WITH_TEMP - W_TEMP;
+
+function toArray(x) {
+  return Array.isArray(x) ? x : [];
+}
+
+function normalizeString(v) {
+  return String(v == null ? '' : v).trim();
+}
+
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n));
+}
+
+/**
+ * @param {Date} d
+ * @returns {'فجر'|'نهار'|'عصر'|'ليل'}
+ */
+function getTimeOfDayAr(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+  // Approximate local Gulf (UTC+3) from instant for bucket labels
+  var utc = d.getUTCHours() * 60 + d.getUTCMinutes();
+  var gulf = (utc + 3 * 60) % (24 * 60);
+  var h = gulf / 60;
+  if (h >= 4 && h < 7) return 'فجر';
+  if (h >= 7 && h < 15) return 'نهار';
+  if (h >= 15 && h < 18) return 'عصر';
+  return 'ليل';
+}
+
+/**
+ * @param {string} zoneType
+ * @returns {{ min: number, max: number, mid: number }}
+ */
+function depthRangeFromZoneType(zoneType) {
+  var z = normalizeString(zoneType);
+  if (z === 'ساحلي') return { min: 1, max: 15, mid: 8 };
+  if (z === 'شعاب') return { min: 5, max: 40, mid: 22 };
+  if (z === 'غزير') return { min: 40, max: 120, mid: 55 };
+  if (z === 'رملي') return { min: 3, max: 25, mid: 14 };
+  if (z === 'طيني') return { min: 0, max: 12, mid: 6 };
+  if (z === 'مياه مفتوحة') return { min: 20, max: 200, mid: 60 };
+  return { min: null, max: null, mid: null };
+}
+
+/**
+ * @param {number} depthM
+ * @returns {string}
+ */
+function inferZoneTypeFromDepth(depthM) {
+  if (depthM == null || !isFinite(depthM)) return '';
+  if (depthM < 5) return 'ساحلي';
+  if (depthM <= 25) return 'رملي';
+  if (depthM <= 40) return 'شعاب';
+  return 'غزير';
+}
+
+/**
+ * @param {object} station
+ * @returns {{ depthM: number|null, zoneType: string, zoneInferred: boolean, depthInferred: boolean }}
+ */
+function resolveStationDepthAndZone(station) {
+  var s = station || {};
+  var z = normalizeString(s.zoneType || s.zone);
+  var d = s.depth != null ? Number(s.depth) : null;
+  var depthInferred = false;
+  if (!isFinite(d)) {
+    var rng = z ? depthRangeFromZoneType(z) : { mid: null };
+    if (rng && rng.mid != null) {
+      d = rng.mid;
+      depthInferred = true;
+    } else {
+      d = null;
+    }
+  }
+  if (!z && d != null && isFinite(d)) {
+    z = inferZoneTypeFromDepth(d);
+    depthInferred = false;
+  }
+  return { depthM: d, zoneType: z, depthInferred: depthInferred, zoneInferred: !normalizeString(s.zoneType || s.zone) && !!z };
+}
+
+function parseMethodsMethods(raw) {
+  var t = normalizeString(raw);
+  if (!t) return [];
+  return t.split(/[،,]/).map(function (x) {
+    return normalizeString(x);
+  }).filter(Boolean);
+}
+
+function bestTimesForFish(fish) {
+  var s = normalizeString(fish.classification_ar) + ' ' + normalizeString(fish.seasonality_ar);
+  var out = [];
+  if (/سطحي|مهاجر|تون|لخم|إسقم/i.test(s)) out = ['فجر', 'ليل', 'عصر'];
+  else if (/قاع|شعاب|هامور|صخر/i.test(s)) out = ['ليل', 'فجر', 'نهار'];
+  else out = ['فجر', 'ليل', 'نهار'];
+  return out;
+}
+
+function isPelagicish(fish) {
+  return /سطحي|مهاجر|إسقم|تون|لخم|open|تونة/i.test(normalizeString(fish.classification_ar));
+}
+
+/**
+ * @param {number|null} t
+ * @param {object} fish
+ * @returns {number} 0..1
+ */
+function tempComfortRatio(t, fish) {
+  if (t == null || !isFinite(t)) return 0;
+  var lo = isPelagicish(fish) ? 24 : 20;
+  var hi = isPelagicish(fish) ? 32 : 33;
+  if (t >= lo && t <= hi) return 1;
+  var margin = 4;
+  if (t < lo) return clamp(1 - (lo - t) / margin, 0, 1);
+  return clamp(1 - (t - hi) / margin, 0, 1);
+}
+
+/**
+ * @param {number|null} d — station depth (m)
+ * @param {object} fish
+ * @returns {number} 0..1
+ */
+function depthFitRatio(d, fish) {
+  var dm = fish.depth_m || {};
+  var mn = dm.min;
+  var mx = dm.max;
+  if (d == null || !isFinite(d)) {
+    if (mn == null && mx == null) return 0.5;
+    return 0.45;
+  }
+  if (mn == null && mx == null) return 0.6;
+  if (d >= mn && d <= mx) return 1;
+  var err = d < mn ? mn - d : d - mx;
+  var width = Math.max(5, (mx - mn) || 10);
+  return clamp(1 - err / (width * 0.5), 0, 1);
+}
+
+function matchFishToTraits(fish, traitBundle, currentDur, activePhase) {
+  var n = normalizeString(fish.fish_name_ar);
+  if (!n) return false;
+  var pool = toArray(traitBundle && traitBundle.fish_traits)
+    .concat(toArray(currentDur && currentDur.durRow && currentDur.durRow.fish_traits))
+    .concat(toArray(activePhase && activePhase.fish_traits));
+  for (var i = 0; i < pool.length; i += 1) {
+    var t = normalizeString(pool[i]);
+    if (!t) continue;
+    var tl = t.toLowerCase();
+    var nl = n.toLowerCase();
+    if (t === n || tl === nl) return true;
+    if (n.indexOf(t) >= 0 || t.indexOf(n) >= 0) return true;
+  }
+  return false;
+}
+
+function waterPrefMatches(tideState, fish) {
+  var p = normalizeString(fish.water_state_pref);
+  if (p === 'LOAD' && tideState === 'LOAD') return 1;
+  if (p === 'FASAD' && tideState === 'FASAD') return 1;
+  if (!p) return 0.55;
+  if (tideState === 'UNKNOWN') return 0.45;
+  return 0.25;
+}
+
+/**
+ * @param {string} stationZ
+ * @param {object} fish
+ * @returns {number} 0..1
+ */
+function zoneTypeFit(stationZ, fish) {
+  if (!stationZ) return 0.55;
+  var ez = normalizeString(fish.eco_zone);
+  var tags = toArray(fish.habitat_tags);
+  if (stationZ === ez) return 1;
+  if (tags.indexOf(stationZ) >= 0) return 1;
+  var rel = {
+    'ساحلي': { ساحلي: 1, رملي: 0.7, شعاب: 0.5, طيني: 0.75, 'مياه مفتوحة': 0.3, غزير: 0.2 },
+    'رملي': { رملي: 1, ساحلي: 0.75, شعاب: 0.65, 'مياه مفتوحة': 0.4, طيني: 0.5, غزير: 0.3 },
+    'شعاب': { شعاب: 1, رملي: 0.65, ساحلي: 0.45, غزير: 0.55, 'مياه مفتوحة': 0.35, طيني: 0.4 },
+    'غزير': { غزير: 1, 'مياه مفتوحة': 0.85, شعاب: 0.5, ساحلي: 0.2, رملي: 0.25, طيني: 0.2 },
+    'طيني': { طيني: 1, ساحلي: 0.8, رملي: 0.6, شعاب: 0.4, 'مياه مفتوحة': 0.3, غزير: 0.15 },
+    'مياه مفتوحة': { 'مياه مفتوحة': 1, غزير: 0.75, شعاب: 0.4, ساحلي: 0.3, رملي: 0.35, طيني: 0.2 }
+  };
+  var row = rel[stationZ];
+  if (!row) return 0.45;
+  var best = 0;
+  if (ez && row[ez] != null) best = row[ez];
+  for (var i = 0; i < tags.length; i += 1) {
+    if (row[tags[i]] != null) best = Math.max(best, row[tags[i]]);
+  }
+  return best;
+}
+
+/**
+ * @param {string} tod
+ * @param {object} fish
+ * @returns {number} 0..1
+ */
+function timeOfDayFit(tod, fish) {
+  var bt = bestTimesForFish(fish);
+  if (bt.indexOf(tod) >= 0) return 1;
+  if (tod === 'نهار' && (bt.indexOf('عصر') >= 0 || bt.indexOf('ليل') >= 0)) return 0.35;
+  return 0.2;
+}
+
+function countryFit(stationCountry, fish) {
+  var c = normalizeString(stationCountry);
+  var list = toArray(fish.countries);
+  if (!c) {
+    if (!list.length) return 1;
+    return 0.8;
+  }
+  if (list.indexOf(c) >= 0) return 1;
+  return 0;
+}
+
+function buildReasonAr(hits) {
+  var parts = toArray(hits);
+  if (!parts.length) return 'تقييم مبدئي حسب الظروف العامة.';
+  return 'مناسب لأن ' + parts.join('، ') + '.';
+}
+
+function mapConfidence(score) {
+  if (score >= 80) return 'مرتفع';
+  if (score >= 60) return 'متوسط';
+  return 'محدود';
+}
+
+/**
+ * @param {object} ctx
+ * @param {object[]} ctx.species — unified species rows
+ * @param {object} ctx.station
+ * @param {object} ctx.liveEnvironment — already resolved (temp_c = sea surface from marine API when present)
+ * @param {string} ctx.tideState — 'LOAD'|'FASAD'|'UNKNOWN'
+ * @param {object} ctx.traitBundle
+ * @param {object} ctx.currentDur
+ * @param {object|null} ctx.activePhase
+ * @param {Date} [ctx.analysisDateTime]
+ * @param {object} [ctx.options] — { minScore: 45, maxItems: 8 }
+ * @returns {{ items: object[], species_activity: string[] }}
+ */
+function getGulfFishRecommendations(ctx) {
+  var opt = (ctx && ctx.options) || {};
+  var minScore = opt.minScore != null ? opt.minScore : 45;
+  var maxItems = opt.maxItems != null ? opt.maxItems : 8;
+
+  var list = toArray(ctx && ctx.species);
+  var station = ctx.station || {};
+  var env = ctx.liveEnvironment || {};
+  var tideState = ctx.tideState;
+  var traitBundle = ctx.traitBundle || {};
+  var currentDur = ctx.currentDur || {};
+  var activePhase = ctx.activePhase;
+  var analysisDate = ctx.analysisDateTime instanceof Date ? ctx.analysisDateTime : new Date();
+  if (ctx.analysisDateTime && !(ctx.analysisDateTime instanceof Date)) {
+    var tmp = new Date(ctx.analysisDateTime);
+    if (!isNaN(tmp.getTime())) analysisDate = tmp;
+  }
+
+  var tod = getTimeOfDayAr(analysisDate);
+  var res = resolveStationDepthAndZone(station);
+  var stationDepth = res.depthM;
+  var stationZone = res.zoneType;
+  var sst = env.temp_c != null ? Number(env.temp_c) : null;
+  if (!isFinite(sst)) sst = null;
+
+  var country = normalizeString(station.country);
+  var speciesPool = toArray(list);
+  if (!speciesPool.length) {
+    try {
+      speciesPool = fishDb.getUnifiedSpeciesList(fishDb.loadGulfFishDatabaseFromDisk());
+    } catch (_e) {
+      speciesPool = [];
+    }
+  }
+  speciesPool = country ? fishDb.filterByCountry(speciesPool, country) : speciesPool.slice();
+
+  if (!speciesPool.length) {
+    return { items: [], species_activity: [] };
+  }
+
+  var scored = speciesPool.map(function (fish) {
+    var rDur = matchFishToTraits(fish, traitBundle, currentDur, activePhase) ? 1
+      : (normalizeString(fish.seasonality_ar).indexOf('طوال') >= 0 || normalizeString(fish.seasonality_ar).indexOf('عام') >= 0 ? 0.55 : 0.35);
+    var durPts = rDur * W_DUR;
+    var waterPts = waterPrefMatches(tideState, fish) * W_WATER;
+    var tempPts = sst != null ? tempComfortRatio(sst, fish) * W_TEMP : 0;
+    var depthPts = depthFitRatio(stationDepth, fish) * W_DEPTH;
+    var zonePts = zoneTypeFit(stationZone, fish) * W_ZONE;
+    var timePts = timeOfDayFit(tod, fish) * W_TIME;
+    var countryPts = countryFit(country, fish) * W_COUNTRY;
+
+    var sum = durPts + waterPts + tempPts + depthPts + zonePts + timePts + countryPts;
+    if (sst == null) {
+      var sumNoT = durPts + waterPts + depthPts + zonePts + timePts + countryPts;
+      sum = (sumNoT / W_SUM_NO_TEMP) * 100;
+    }
+    var score = Math.round(clamp(sum, 0, 100));
+
+    var hits = [];
+    if (rDur >= 0.8) hits.push('الدر الحالي يدعم نشاط هذا النوع');
+    else if (rDur >= 0.4) hits.push('الموسم العام يسمح بهذا النوع');
+    if (tideState === 'LOAD' && fish.water_state_pref === 'LOAD') hits.push('حالة الماء «حمل» تتماشى مع تفضيله');
+    if (tideState === 'FASAD' && fish.water_state_pref === 'FASAD') hits.push('حالة الماء «فساد» تتماشى مع تفضيله');
+    if (sst != null && tempComfortRatio(sst, fish) >= 0.85) hits.push('حرارة السطح في نطاق مريح');
+    if (depthFitRatio(stationDepth, fish) >= 0.9) hits.push('العمق يناسب نطاق تواجده');
+    if (zoneTypeFit(stationZone, fish) >= 0.9) hits.push('نوع المنطقة ' + (stationZone || 'المحلية') + ' ينسجم مع موطنه');
+    if (country && fish.countries.indexOf(country) >= 0) hits.push('مُسجّل ضمن أسماء شائعة في ' + country);
+
+    var reason_ar = buildReasonAr(hits);
+    var methods = parseMethodsMethods(fish.methods_raw);
+    if (!methods.length) methods = ['تروق محلية', 'قصبة'];
+
+    return {
+      fish_name_ar: fish.fish_name_ar,
+      fish_name_en: fish.fish_name_en,
+      score: score,
+      confidence: mapConfidence(score),
+      reason_ar: reason_ar,
+      recommended_methods: methods,
+      habitat: fish.habitat || (fish.habitat_tags && fish.habitat_tags[0]) || '—',
+      feeding: fish.feeding || '—',
+      zone: fish.eco_zone || (fish.habitat_tags && fish.habitat_tags[0]) || '—',
+      best_time: bestTimesForFish(fish)
+    };
+  });
+
+  scored.sort(function (a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.fish_name_ar.localeCompare(b.fish_name_ar, 'ar');
+  });
+
+  var qualified = scored.filter(function (r) { return r.score >= minScore; });
+  var picked = qualified.slice(0, maxItems);
+
+  var speciesNames = picked.map(function (p) { return p.fish_name_ar; }).filter(Boolean);
+
+  return { items: picked, species_activity: speciesNames };
+}
+
+module.exports = {
+  getGulfFishRecommendations: getGulfFishRecommendations,
+  getTimeOfDayAr: getTimeOfDayAr,
+  resolveStationDepthAndZone: resolveStationDepthAndZone
+};

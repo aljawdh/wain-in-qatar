@@ -15,22 +15,6 @@
   } catch (_tfErr) {
     getTrueFinalDurState = null;
   }
-  var getGulfFishRecommendations;
-  try {
-    if (typeof require === 'function') {
-      getGulfFishRecommendations = require('./navidur-fish-recommendation-engine').getGulfFishRecommendations;
-    }
-  } catch (_gulfErr) {
-    getGulfFishRecommendations = null;
-  }
-  var gulfDbGetUnified;
-  try {
-    if (typeof require === 'function') {
-      gulfDbGetUnified = require('./navidur-fish-database').getUnifiedSpeciesList;
-    }
-  } catch (_gdbErr) {
-    gulfDbGetUnified = null;
-  }
 
   function toNumber(value) {
     var n = Number(value);
@@ -91,11 +75,8 @@
     return {
       id: normalizeString(item.id) || null,
       name: normalizeString(item.name),
-      name_ar: normalizeString(item.name_ar != null ? item.name_ar : item.name),
       lat: toNumber(item.lat),
       lon: toNumber(item.lon != null ? item.lon : item.lng),
-      depth: toNumber(item.depth),
-      zoneType: normalizeString(item.zoneType != null ? item.zoneType : item.zone),
       country: normalizeString(item.country),
       region: normalizeString(item.region),
       station_role_type: normalizeString(item.station_role_type),
@@ -808,50 +789,8 @@
     return uniqueStrings(parts).join(' ');
   }
 
-  function buildFishingDecision(
-    referenceData,
-    station,
-    environment,
-    tideState,
-    currentDur,
-    traitBundle,
-    seasonalEvents,
-    runtimeOverride,
-    fieldValidation,
-    fishContext
-  ) {
-    var fc = fishContext && typeof fishContext === 'object' ? fishContext : {};
-    var analysisDateTime = parseAnalysisDateTime(fc.analysisDateTime);
-    var activePhase = fc.activePhase;
-    var gulfDoc = referenceData && referenceData.gulf_fish_database;
-    var gulfSpecies = [];
-    if (gulfDoc && toArray(gulfDoc.species).length && gulfDbGetUnified) {
-      try {
-        gulfSpecies = gulfDbGetUnified(gulfDoc);
-      } catch (_e) {
-        gulfSpecies = [];
-      }
-    }
-    var speciesActivity = [];
-    var fishRecommendations = [];
-    if (gulfSpecies.length && getGulfFishRecommendations) {
-      var rec = getGulfFishRecommendations({
-        species: gulfSpecies,
-        station: station,
-        liveEnvironment: environment,
-        tideState: tideState,
-        traitBundle: traitBundle,
-        currentDur: currentDur,
-        activePhase: activePhase,
-        analysisDateTime: analysisDateTime,
-        options: { minScore: 45, maxItems: 8 }
-      });
-      fishRecommendations = toArray(rec.items);
-      speciesActivity = toArray(rec.species_activity);
-    }
-    if (!speciesActivity.length) {
-      speciesActivity = pickSpeciesActivity(referenceData, station, traitBundle, tideState, environment, currentDur, seasonalEvents);
-    }
+  function buildFishingDecision(referenceData, station, environment, tideState, currentDur, traitBundle, seasonalEvents, runtimeOverride, fieldValidation) {
+    var speciesActivity = pickSpeciesActivity(referenceData, station, traitBundle, tideState, environment, currentDur, seasonalEvents);
     var score = 30;
 
     if (currentDur && currentDur.durRow) score += 18;
@@ -878,7 +817,6 @@
     return {
       is_recommended: isRecommended,
       species_activity: speciesActivity,
-      fish_recommendations: fishRecommendations,
       confidence_score: confidenceScore,
       advice_text: buildAdviceText(referenceData, station, tideState, environment, currentDur, speciesActivity, confidenceScore, runtimeOverride)
     };
@@ -897,9 +835,6 @@
       traits_reference: toArray(source.traits_reference || source.trait_dictionaries),
       seasonal_events: toArray(source.seasonal_events || source.season_events),
       fish_reference: toArray(source.fish_reference || source.fish_species),
-      gulf_fish_database: source.gulf_fish_database && typeof source.gulf_fish_database === 'object'
-        ? source.gulf_fish_database
-        : { version: 0, species: [] },
       advice_templates: toArray(source.advice_templates || source.advice_basis_tags),
       station_profiles: toArray(source.station_profiles || source.station_dur_profiles),
       overrides: toArray(source.overrides || source.station_dur_overrides),
@@ -983,7 +918,7 @@
         },
         environment: buildEnvironmentOut(),
         tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
-        fishing: { is_recommended: false, species_activity: [], fish_recommendations: [], confidence_score: 0, advice_text: '' }
+        fishing: { is_recommended: false, species_activity: [], confidence_score: 0, advice_text: '' }
       };
     }
 
@@ -1104,8 +1039,7 @@
       traitBundle,
       seasonalEventsResolved,
       runtimeOverride,
-      options.field_validation || null,
-      { analysisDateTime: analysisDateTime, activePhase: activePhase }
+      options.field_validation || null
     );
     if (options.debug_log) {
       try {
@@ -1181,7 +1115,6 @@
       fishing: {
         is_recommended: fishingTf.is_recommended,
         species_activity: fishingTf.species_activity,
-        fish_recommendations: toArray(fishingTf.fish_recommendations),
         confidence_score: fishingTf.confidence_score,
         advice_text: fishingTf.advice_text
       }

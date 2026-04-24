@@ -39,11 +39,8 @@ function normalizeRequestedStation(body, stations) {
   return {
     id: storedStation ? storedStation.id : (cleanString(raw.id, 80) || null),
     name: cleanString(raw.name, 120),
-    name_ar: cleanString(raw.name_ar != null ? raw.name_ar : raw.name, 200),
     lat: lat,
     lon: lon,
-    depth: toNumber(raw.depth),
-    zoneType: cleanString(raw.zoneType != null ? raw.zoneType : raw.zone, 40),
     country: cleanString(raw.country, 80),
     region: cleanString(raw.region, 80),
     station_role_type: cleanString(raw.station_role_type, 40),
@@ -393,8 +390,7 @@ async function loadReferenceData() {
     readJsonFile('station_dur_profiles', []),
     readJsonFile('station_dur_overrides', []),
     readJsonFile('durur_overrides', []),
-    readJsonFile('true_final_station_reference', { version: 0, stations: [] }),
-    readJsonFile('gulf_fish_database', { version: 0, species: [] })
+    readJsonFile('true_final_station_reference', { version: 0, stations: [] })
   ]);
 
   return {
@@ -407,8 +403,7 @@ async function loadReferenceData() {
     station_profiles: Array.isArray(rows[6]) ? rows[6] : [],
     overrides: Array.isArray(rows[7]) ? rows[7] : [],
     durur_overrides: Array.isArray(rows[8]) ? rows[8] : [],
-    true_final_station_reference: rows[9] && typeof rows[9] === 'object' ? rows[9] : { version: 0, stations: [] },
-    gulf_fish_database: rows[10] && typeof rows[10] === 'object' ? rows[10] : { version: 0, species: [] }
+    true_final_station_reference: rows[9] && typeof rows[9] === 'object' ? rows[9] : { version: 0, stations: [] }
   };
 }
 

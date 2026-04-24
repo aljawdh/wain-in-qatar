@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:navidur": "node run.js",
     "build:true-final": "node scripts/build-navidur-seasonal-reference.js",
-    "build:true-final-legacy-xlsx": "node scripts/build-true-final-station-reference-json.js"
+    "build:true-final-legacy-xlsx": "node scripts/build-true-final-station-reference-json.js",
+    "build:fish-db": "node scripts/build-gulf-fish-database-json.js"
   },
   "repository": {
     "type": "git",

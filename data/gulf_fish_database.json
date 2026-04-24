@@ -1,0 +1,1998 @@
+{
+  "version": 1,
+  "generated_at": "2026-04-24T12:42:19.229Z",
+  "source_path": "data/gulf_fish_database.xlsx",
+  "species": [
+    {
+      "id": "F001",
+      "fish_name_ar": "هامور",
+      "fish_name_en": "Orange-spotted grouper",
+      "scientific_name": "Epinephelus coioides",
+      "family": "هاموريات",
+      "classification_ar": "سمك قاعي",
+      "habitat": "شعاب وصخور ومناطق مصبات",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "قيمة سوقية عالية؛ حساس للصيد الجائر؛ ينمو ببطء",
+      "methods_raw": "قراقير، حداق، خيط",
+      "depth_m": {
+        "min": 5,
+        "max": 80,
+        "label": "5-80م"
+      },
+      "spread": "الخليج العربي وخليج عُمان",
+      "seasonality_ar": "طوال العام مع ذروات محلية",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-FAO;SRC-UAE-FAO;SRC-BHR-FAO"
+    },
+    {
+      "id": "F002",
+      "fish_name_ar": "شعري",
+      "fish_name_en": "Spangled emperor",
+      "scientific_name": "Lethrinus nebulosus",
+      "family": "شعريات/إمبراطور",
+      "classification_ar": "سمك قاعي",
+      "habitat": "شعاب، رمال قرب الشعاب، حشائش بحرية",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "رخويات، قشريات، ديدان بحرية",
+      "notes": "من أشهر أسماك الخليج؛ مناسب للقراقير والحداق",
+      "methods_raw": "قراقير، حداق، شباك خيشومية",
+      "depth_m": {
+        "min": 2,
+        "max": 75,
+        "label": "2-75م"
+      },
+      "spread": "واسع الانتشار خليجيًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-FAO;SRC-UAE-FAO"
+    },
+    {
+      "id": "F003",
+      "fish_name_ar": "كنعد",
+      "fish_name_en": "Narrow-barred Spanish mackerel / Kingfish",
+      "scientific_name": "Scomberomorus commerson",
+      "family": "إسقمريات",
+      "classification_ar": "سطحي مهاجر",
+      "habitat": "مياه مفتوحة وسواحل خارجية",
+      "habitat_tags": [
+        "مياه مفتوحة"
+      ],
+      "feeding": "أسماك صغيرة مثل السردين والعومة",
+      "notes": "سريع ومهاجر؛ من أهم الأسماك التجارية الإقليمية",
+      "methods_raw": "شباك خيشومية، لفاح/تجرير، خيط، سنار",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-60م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "موسمي بحسب الهجرة وحرارة الماء",
+      "commercial": "عالية",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-EAD-KING;SRC-OMN-FAO-KING;SRC-REG-RECOFI"
+    },
+    {
+      "id": "F004",
+      "fish_name_ar": "صافي عربي",
+      "fish_name_en": "White-spotted rabbitfish",
+      "scientific_name": "Siganus canaliculatus",
+      "family": "صوافي",
+      "classification_ar": "عاشب ساحلي",
+      "habitat": "حشائش بحرية، قيعان رملية، مناطق ضحلة",
+      "habitat_tags": [
+        "رملي",
+        "ساحلي"
+      ],
+      "feeding": "طحالب وأعشاب بحرية",
+      "notes": "سمك شعبي في الخليج؛ يتجمع في أسراب ساحلية",
+      "methods_raw": "حداق، شباك، حظور/مصائد ساحلية",
+      "depth_m": {
+        "min": 1,
+        "max": 30,
+        "label": "1-30م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "ربيع/صيف حسب المنطقة",
+      "commercial": "عالية",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-BHR-FAO;SRC-QAT-QU"
+    },
+    {
+      "id": "F005",
+      "fish_name_ar": "سبيطي",
+      "fish_name_en": "Yellowfin seabream",
+      "scientific_name": "Acanthopagrus latus",
+      "family": "دنيسيات/سباريد",
+      "classification_ar": "قاعي ساحلي",
+      "habitat": "خور، مصبات، قيعان رملية وطينية",
+      "habitat_tags": [
+        "رملي",
+        "طيني"
+      ],
+      "feeding": "رخويات، ديدان، قشريات",
+      "notes": "قوي في الصيد؛ يتحمل الملوحة المتغيرة",
+      "methods_raw": "حداق، شباك، حظور",
+      "depth_m": {
+        "min": 1,
+        "max": 50,
+        "label": "1-50م"
+      },
+      "spread": "الخليج العربي وخليج عُمان",
+      "seasonality_ar": "خريف/شتاء غالبًا",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-KWT-REV;SRC-BHR-FAO"
+    },
+    {
+      "id": "F006",
+      "fish_name_ar": "زبيدي",
+      "fish_name_en": "Silver pomfret",
+      "scientific_name": "Pampus argenteus",
+      "family": "زبيديات",
+      "classification_ar": "قاعي/سطحي ضحل",
+      "habitat": "قيعان طينية ورملية، مياه ساحلية عكرة",
+      "habitat_tags": [
+        "رملي",
+        "طيني",
+        "ساحلي"
+      ],
+      "feeding": "عوالق وقشريات صغيرة",
+      "notes": "مرتفع القيمة خصوصًا في الكويت؛ لحم أبيض ناعم",
+      "methods_raw": "شباك خيشومية، شباك ساحلية",
+      "depth_m": {
+        "min": 5,
+        "max": 60,
+        "label": "5-60م"
+      },
+      "spread": "شمال الخليج أكثر شهرة",
+      "seasonality_ar": "موسمي",
+      "commercial": "عالية",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "الكويت"
+      ],
+      "source_refs": "SRC-KWT-EPA;SRC-KWT-REV"
+    },
+    {
+      "id": "F007",
+      "fish_name_ar": "نويبي",
+      "fish_name_en": "Silver croaker",
+      "scientific_name": "Otolithes ruber",
+      "family": "نواعيب/كروكر",
+      "classification_ar": "قاعي ساحلي",
+      "habitat": "قيعان رملية وطينية",
+      "habitat_tags": [
+        "رملي",
+        "طيني"
+      ],
+      "feeding": "قشريات وأسماك صغيرة",
+      "notes": "يصنع أصواتًا عبر المثانة الهوائية؛ تجاري في الكويت والخليج",
+      "methods_raw": "شباك، حداق",
+      "depth_m": {
+        "min": 5,
+        "max": 80,
+        "label": "5-80م"
+      },
+      "spread": "الخليج العربي وخليج عُمان",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-KWT-REV;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F008",
+      "fish_name_ar": "نقرور",
+      "fish_name_en": "Snapper",
+      "scientific_name": "Lutjanus spp.",
+      "family": "نهاشات",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "شعاب وصخور وحواف مرجانية",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "مفترس شعابي؛ الاسم المحلي يختلف بين الأسواق",
+      "methods_raw": "حداق، قراقير",
+      "depth_m": {
+        "min": 5,
+        "max": 100,
+        "label": "5-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F009",
+      "fish_name_ar": "حمرا",
+      "fish_name_en": "Red snapper / Crimson snapper",
+      "scientific_name": "Lutjanus malabaricus / Lutjanus spp.",
+      "family": "نهاشات",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "شعاب ومناطق صخرية عميقة نسبيًا",
+      "habitat_tags": [
+        "شعاب",
+        "غزير"
+      ],
+      "feeding": "أسماك، قشريات",
+      "notes": "لحم مرغوب؛ أكثر حضورًا في عمان والإمارات والأسواق الخليجية",
+      "methods_raw": "حداق، قراقير، خيط عميق",
+      "depth_m": {
+        "min": 10,
+        "max": 150,
+        "label": "10-150م"
+      },
+      "spread": "خليج عُمان وبحر العرب والخليج",
+      "seasonality_ar": "طوال العام",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-FAO;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F010",
+      "fish_name_ar": "عندق / كوفر",
+      "fish_name_en": "Orange-spotted trevally / Jacks",
+      "scientific_name": "Carangoides bajad / Carangidae",
+      "family": "جيشيات/ربابيب",
+      "classification_ar": "سطحي-قاعي حول الشعاب",
+      "habitat": "شعاب، حواف صخرية، مياه مفتوحة قريبة",
+      "habitat_tags": [
+        "شعاب",
+        "مياه مفتوحة"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "قوي وسريع؛ صيد رياضي وتجاري",
+      "methods_raw": "لفاح، حداق، شباك",
+      "depth_m": {
+        "min": 5,
+        "max": 100,
+        "label": "5-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-FAO;SRC-QAT-FAO"
+    },
+    {
+      "id": "F011",
+      "fish_name_ar": "جش",
+      "fish_name_en": "Croaker / Grunt group",
+      "scientific_name": "Haemulidae / Sciaenidae spp.",
+      "family": "نخارير/كروكر",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وطين قرب الساحل",
+      "habitat_tags": [
+        "رملي",
+        "طيني",
+        "ساحلي"
+      ],
+      "feeding": "قشريات وديدان وأسماك صغيرة",
+      "notes": "اسم سوقي يختلف؛ يدخل ضمن grunts/croakers",
+      "methods_raw": "شباك، حداق",
+      "depth_m": {
+        "min": 3,
+        "max": 80,
+        "label": "3-80م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-BHR-FAO;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F012",
+      "fish_name_ar": "فسكر / قرقفان",
+      "fish_name_en": "Grunts / Sweetlips",
+      "scientific_name": "Plectorhinchus spp.",
+      "family": "نخارير",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "شعاب وصخور ورمال قرب الشعاب",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "رخويات وقشريات",
+      "notes": "ألوان واضحة؛ شائع في القراقير",
+      "methods_raw": "قراقير، حداق",
+      "depth_m": {
+        "min": 5,
+        "max": 80,
+        "label": "5-80م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-FAO;SRC-UAE-FAO"
+    },
+    {
+      "id": "F013",
+      "fish_name_ar": "بدح",
+      "fish_name_en": "Mullet",
+      "scientific_name": "Mugilidae spp.",
+      "family": "بوريّات",
+      "classification_ar": "ساحلي/مصبات",
+      "habitat": "خور، سبخات، مصبات، مياه ضحلة",
+      "habitat_tags": [
+        "ساحلي"
+      ],
+      "feeding": "طحالب ومواد عضوية دقيقة",
+      "notes": "يتحمل تغير الملوحة؛ مهم ساحليًا",
+      "methods_raw": "شباك، حظور، مصائد ساحلية",
+      "depth_m": {
+        "min": 0,
+        "max": 20,
+        "label": "0-20م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-QU;SRC-KWT-EPA"
+    },
+    {
+      "id": "F014",
+      "fish_name_ar": "عومة",
+      "fish_name_en": "Sardine / Anchovy group",
+      "scientific_name": "Sardinella spp. / Engraulidae",
+      "family": "سردينيات",
+      "classification_ar": "سطحي صغير",
+      "habitat": "مياه مفتوحة ساحلية",
+      "habitat_tags": [
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "عوالق نباتية وحيوانية",
+      "notes": "أساس غذائي للمفترسات؛ يستخدم كطعم",
+      "methods_raw": "شباك دائرية، شباك سطحية",
+      "depth_m": {
+        "min": 0,
+        "max": 40,
+        "label": "سطحي"
+      },
+      "spread": "الخليج وبحر العرب",
+      "seasonality_ar": "موسمي بأسراب",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO;SRC-KSA-GASTAT"
+    },
+    {
+      "id": "F015",
+      "fish_name_ar": "ميد",
+      "fish_name_en": "Mojarra / Ponyfish group",
+      "scientific_name": "Gerres spp. / Leiognathidae spp.",
+      "family": "أسماك صغيرة ساحلية",
+      "classification_ar": "ساحلي ضحل",
+      "habitat": "رمال وطين ومناطق مد وجزر",
+      "habitat_tags": [
+        "طيني"
+      ],
+      "feeding": "كائنات قاعية دقيقة وطحالب",
+      "notes": "شائع في الخلجان والمياه الضحلة",
+      "methods_raw": "شباك صغيرة، حظور",
+      "depth_m": {
+        "min": 0,
+        "max": 15,
+        "label": "0-15م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة-متوسطة",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-QU;SRC-KWT-EPA"
+    },
+    {
+      "id": "F016",
+      "fish_name_ar": "قبقب أزرق",
+      "fish_name_en": "Blue swimming crab",
+      "scientific_name": "Portunus pelagicus",
+      "family": "قشريات",
+      "classification_ar": "قاعي ساحلي",
+      "habitat": "قيعان رملية وطينية ومناطق حشائش",
+      "habitat_tags": [
+        "رملي",
+        "طيني"
+      ],
+      "feeding": "رخويات وبقايا عضوية وكائنات قاعية",
+      "notes": "مهم تجاريًا في الخليج؛ يزداد في مناطق الضحلة",
+      "methods_raw": "مصائد قبقب، شباك، صيد يدوي",
+      "depth_m": {
+        "min": 0,
+        "max": 50,
+        "label": "0-50م"
+      },
+      "spread": "الخليج العربي وخليج عُمان",
+      "seasonality_ar": "طوال العام مع مواسم محلية",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-BHR-FAO"
+    },
+    {
+      "id": "F017",
+      "fish_name_ar": "ربيان نعيمي/أخضر",
+      "fish_name_en": "Green tiger prawn",
+      "scientific_name": "Penaeus semisulcatus",
+      "family": "قشريات",
+      "classification_ar": "قاعي طيني",
+      "habitat": "قيعان طينية ومناطق حضانة ساحلية",
+      "habitat_tags": [
+        "رملي",
+        "طيني",
+        "ساحلي"
+      ],
+      "feeding": "عوالق وكائنات قاعية صغيرة",
+      "notes": "من أهم الثروات التجارية؛ يخضع لمواسم منع/فتح",
+      "methods_raw": "جر روبيان منظم، شباك",
+      "depth_m": {
+        "min": 5,
+        "max": 60,
+        "label": "5-60م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "موسمي ومنظم",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-BHR-FAO;SRC-KWT-REV"
+    },
+    {
+      "id": "F018",
+      "fish_name_ar": "ربيان هندي أبيض",
+      "fish_name_en": "Indian white shrimp",
+      "scientific_name": "Fenneropenaeus indicus",
+      "family": "قشريات",
+      "classification_ar": "قاعي ساحلي",
+      "habitat": "قيعان طينية ورملية ومصبات",
+      "habitat_tags": [
+        "رملي",
+        "طيني"
+      ],
+      "feeding": "عوالق وكائنات قاعية",
+      "notes": "مهم للاستزراع والصيد في المنطقة",
+      "methods_raw": "جر منظم، استزراع",
+      "depth_m": {
+        "min": 5,
+        "max": 60,
+        "label": "5-60م"
+      },
+      "spread": "الخليج وبحر العرب",
+      "seasonality_ar": "موسمي",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-KSA-FAO"
+    },
+    {
+      "id": "F019",
+      "fish_name_ar": "حبار",
+      "fish_name_en": "Cuttlefish",
+      "scientific_name": "Sepia pharaonis / Sepia spp.",
+      "family": "رأسيات الأرجل",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وحشائش وقرب الشعاب",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "يستخدم التمويه؛ مهم في عمان والخليج",
+      "methods_raw": "مصائد، شباك، حداق متخصص",
+      "depth_m": {
+        "min": 5,
+        "max": 100,
+        "label": "5-100م"
+      },
+      "spread": "خليج عُمان وبحر العرب والخليج",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F020",
+      "fish_name_ar": "سبيط / كاليماري",
+      "fish_name_en": "Squid",
+      "scientific_name": "Loligo spp. / Uroteuthis spp.",
+      "family": "رأسيات الأرجل",
+      "classification_ar": "سطحي-قاعي",
+      "habitat": "مياه ساحلية ومفتوحة",
+      "habitat_tags": [
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "نشط ليلًا؛ يجذب بالضوء والطعم",
+      "methods_raw": "سنار حبار، شباك",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F021",
+      "fish_name_ar": "باراكودا",
+      "fish_name_en": "Barracuda",
+      "scientific_name": "Sphyraena spp.",
+      "family": "باراكودا",
+      "classification_ar": "سطحي مفترس",
+      "habitat": "حواف شعاب ومياه مفتوحة ساحلية",
+      "habitat_tags": [
+        "شعاب",
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "أسماك صغيرة",
+      "notes": "مفترس سريع؛ أسنان حادة؛ صيد رياضي",
+      "methods_raw": "لفاح، تجرير، خيط",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F022",
+      "fish_name_ar": "تونة صفراء الزعنفة",
+      "fish_name_en": "Yellowfin tuna",
+      "scientific_name": "Thunnus albacares",
+      "family": "تونة",
+      "classification_ar": "سطحي محيطي",
+      "habitat": "بحر العرب وخليج عُمان والمياه العميقة",
+      "habitat_tags": [
+        "غزير"
+      ],
+      "feeding": "أسماك سطحية وحبار",
+      "notes": "سريعة ومحيطية؛ أهم في عُمان",
+      "methods_raw": "خيط طويل، شباك، تجرير",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-250م"
+      },
+      "spread": "عُمان/بحر العرب أساسًا",
+      "seasonality_ar": "موسمي بحسب الهجرة",
+      "commercial": "عالية",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F023",
+      "fish_name_ar": "تونة طويلة الذيل",
+      "fish_name_en": "Longtail tuna",
+      "scientific_name": "Thunnus tonggol",
+      "family": "تونة",
+      "classification_ar": "سطحي ساحلي",
+      "habitat": "مياه ساحلية مفتوحة",
+      "habitat_tags": [
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "أسماك صغيرة وقشريات عائمة",
+      "notes": "أكثر ساحلية من أنواع التونة الكبيرة",
+      "methods_raw": "شباك خيشومية، تجرير",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-80م"
+      },
+      "spread": "الخليج وخليج عُمان",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F024",
+      "fish_name_ar": "قباب / تونة صغيرة",
+      "fish_name_en": "Kawakawa / Little tuna",
+      "scientific_name": "Euthynnus affinis",
+      "family": "تونة",
+      "classification_ar": "سطحي",
+      "habitat": "مياه ساحلية ومفتوحة",
+      "habitat_tags": [
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "سردين وعومة وأسماك صغيرة",
+      "notes": "سريع ويظهر بأسراب؛ شائع في عمان والإمارات",
+      "methods_raw": "تجرير، لفاح، شباك",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F025",
+      "fish_name_ar": "سردين عماني",
+      "fish_name_en": "Indian oil sardine",
+      "scientific_name": "Sardinella longiceps",
+      "family": "سردينيات",
+      "classification_ar": "سطحي صغير",
+      "habitat": "بحر العرب وخليج عُمان",
+      "habitat_tags": [
+        "عام"
+      ],
+      "feeding": "عوالق",
+      "notes": "مورد ضخم في عمان؛ غذاء رئيسي للمفترسات",
+      "methods_raw": "شباك دائرية، شباك ساحلية",
+      "depth_m": {
+        "min": 0,
+        "max": 40,
+        "label": "سطحي"
+      },
+      "spread": "عُمان أساسًا",
+      "seasonality_ar": "موسمي بأسراب",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F026",
+      "fish_name_ar": "ماكريل عماني/ياباني",
+      "fish_name_en": "Chub mackerel",
+      "scientific_name": "Scomber japonicus",
+      "family": "إسقمريات",
+      "classification_ar": "سطحي",
+      "habitat": "الجرف القاري وبحر العرب",
+      "habitat_tags": [
+        "غزير"
+      ],
+      "feeding": "عوالق وأسماك صغيرة",
+      "notes": "يستهدف تجاريًا في القطاع السطحي العُماني",
+      "methods_raw": "شباك، تجرير",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-200م"
+      },
+      "spread": "عُمان",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F027",
+      "fish_name_ar": "حصان البحر العربي/خرخور",
+      "fish_name_en": "Arabian horse mackerel",
+      "scientific_name": "Trachurus indicus",
+      "family": "جيشيات صغيرة",
+      "classification_ar": "سطحي",
+      "habitat": "الجرف القاري في بحر العرب",
+      "habitat_tags": [
+        "غزير"
+      ],
+      "feeding": "عوالق وأسماك صغيرة",
+      "notes": "مهم للمصائد السطحية العُمانية",
+      "methods_raw": "شباك سطحية",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-200م"
+      },
+      "spread": "عُمان",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F028",
+      "fish_name_ar": "حريد",
+      "fish_name_en": "Parrotfish",
+      "scientific_name": "Scarus spp.",
+      "family": "حريدات",
+      "classification_ar": "شعابي عاشب",
+      "habitat": "شعاب مرجانية وصخرية",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "طحالب على الصخور والشعاب",
+      "notes": "يرعى الطحالب؛ مهم بيئيًا في الشعاب",
+      "methods_raw": "شباك، حداق محدود",
+      "depth_m": {
+        "min": 1,
+        "max": 50,
+        "label": "1-50م"
+      },
+      "spread": "خليج عُمان والبحر الأحمر والخليج",
+      "seasonality_ar": "موسمي محليًا",
+      "commercial": "متوسطة",
+      "eco_zone": "شعاب",
+      "water_state_pref": "FASAD",
+      "countries": [],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F029",
+      "fish_name_ar": "فرش",
+      "fish_name_en": "Painted sweetlips / Seabream group",
+      "scientific_name": "Diagramma pictum / Sparidae spp.",
+      "family": "نخارير/دنيسيات",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "شعاب وصخور ورمال قريبة",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "رخويات وقشريات",
+      "notes": "اسم سوقي خليجي؛ من الأنواع الشعبية في الإمارات",
+      "methods_raw": "قراقير، حداق",
+      "depth_m": {
+        "min": 5,
+        "max": 80,
+        "label": "5-80م"
+      },
+      "spread": "الإمارات والخليج",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "الإمارات"
+      ],
+      "source_refs": "SRC-UAE-FAO"
+    },
+    {
+      "id": "F030",
+      "fish_name_ar": "شعم",
+      "fish_name_en": "Black seabream / Porgy",
+      "scientific_name": "Acanthopagrus bifasciatus / Sparidae",
+      "family": "دنيسيات",
+      "classification_ar": "ساحلي قاعي",
+      "habitat": "خور ومناطق صخرية ورملية",
+      "habitat_tags": [
+        "شعاب",
+        "رملي"
+      ],
+      "feeding": "رخويات وقشريات وديدان",
+      "notes": "قوي ومحبوب محليًا؛ قد يختلط اسمه مع السبيطي حسب السوق",
+      "methods_raw": "حداق، شباك",
+      "depth_m": {
+        "min": 2,
+        "max": 50,
+        "label": "2-50م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "خريف/شتاء غالبًا",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-BHR-FAO;SRC-KWT-REV"
+    },
+    {
+      "id": "F031",
+      "fish_name_ar": "ينم / بياض",
+      "fish_name_en": "Threadfin bream",
+      "scientific_name": "Nemipterus spp.",
+      "family": "بياضيات",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وطين على الجرف",
+      "habitat_tags": [
+        "طيني",
+        "غزير"
+      ],
+      "feeding": "قشريات وديدان وأسماك صغيرة",
+      "notes": "من عائلات عمان التجارية؛ لونه وردي مميز",
+      "methods_raw": "شباك، خيط قاعي",
+      "depth_m": {
+        "min": 20,
+        "max": 150,
+        "label": "20-150م"
+      },
+      "spread": "عُمان وخليج عُمان والخليج",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F032",
+      "fish_name_ar": "سيف / سمك شريطي",
+      "fish_name_en": "Ribbonfish",
+      "scientific_name": "Trichiurus lepturus",
+      "family": "سيفيات",
+      "classification_ar": "قاعي/سطحي ليلي",
+      "habitat": "مياه ساحلية وجرف قاري",
+      "habitat_tags": [
+        "رملي",
+        "ساحلي",
+        "غزير"
+      ],
+      "feeding": "أسماك صغيرة وحبار",
+      "notes": "جسم طويل فضي؛ يكثر في بعض المصائد العمانية",
+      "methods_raw": "شباك، خيط",
+      "depth_m": {
+        "min": 10,
+        "max": 200,
+        "label": "10-200م"
+      },
+      "spread": "عُمان وخليج عُمان",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F033",
+      "fish_name_ar": "شعور/إمبراطور صغير",
+      "fish_name_en": "Small emperors",
+      "scientific_name": "Lethrinus spp.",
+      "family": "شعريات",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وشعاب ومروج بحرية",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "رخويات وقشريات",
+      "notes": "مجموعة واسعة من الشعريات الصغيرة",
+      "methods_raw": "قراقير، حداق",
+      "depth_m": {
+        "min": 2,
+        "max": 80,
+        "label": "2-80م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-FAO;SRC-QAT-FAO"
+    },
+    {
+      "id": "F034",
+      "fish_name_ar": "خباط صغير",
+      "fish_name_en": "Juvenile kingfish / Spanish mackerel juveniles",
+      "scientific_name": "Scomberomorus commerson juveniles",
+      "family": "إسقمريات",
+      "classification_ar": "سطحي",
+      "habitat": "سواحل ومياه مفتوحة قريبة",
+      "habitat_tags": [
+        "مياه مفتوحة"
+      ],
+      "feeding": "أسماك صغيرة",
+      "notes": "تسمية عمرية/سوقية للكنعد الصغير في بعض المناطق",
+      "methods_raw": "شباك، لفاح خفيف",
+      "depth_m": {
+        "min": 0,
+        "max": 40,
+        "label": "سطحي"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-REG-RECOFI"
+    },
+    {
+      "id": "F035",
+      "fish_name_ar": "سكل / جرجور صغير",
+      "fish_name_en": "Scads",
+      "scientific_name": "Decapterus spp.",
+      "family": "جيشيات صغيرة",
+      "classification_ar": "سطحي",
+      "habitat": "مياه مفتوحة قريبة من الساحل",
+      "habitat_tags": [
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "عوالق وأسماك صغيرة",
+      "notes": "أسراب سريعة؛ طعم ومصدر غذائي للمفترسات",
+      "methods_raw": "شباك، لفاح",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "موسمي",
+      "commercial": "منخفضة-متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-FAO;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F036",
+      "fish_name_ar": "جواف / خرمان",
+      "fish_name_en": "Needlefish",
+      "scientific_name": "Tylosurus spp.",
+      "family": "إبرية",
+      "classification_ar": "سطحي",
+      "habitat": "مياه ساحلية ضحلة ومفتوحة",
+      "habitat_tags": [
+        "رملي",
+        "مياه مفتوحة",
+        "ساحلي"
+      ],
+      "feeding": "أسماك صغيرة",
+      "notes": "جسم طويل ومنقار؛ يظهر قرب السطح",
+      "methods_raw": "تجرير خفيف، شباك",
+      "depth_m": {
+        "min": 0,
+        "max": 40,
+        "label": "سطحي"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة-متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F037",
+      "fish_name_ar": "مهر / سلور بحري",
+      "fish_name_en": "Sea catfish",
+      "scientific_name": "Arius spp.",
+      "family": "سلور بحري",
+      "classification_ar": "قاعي",
+      "habitat": "قيعان طينية ومصبات",
+      "habitat_tags": [
+        "طيني"
+      ],
+      "feeding": "قشريات وأسماك صغيرة وبقايا عضوية",
+      "notes": "يتحمل العكارة؛ شوك الزعانف مؤذٍ",
+      "methods_raw": "شباك، حداق",
+      "depth_m": {
+        "min": 1,
+        "max": 50,
+        "label": "1-50م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة-متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-KWT-EPA"
+    },
+    {
+      "id": "F038",
+      "fish_name_ar": "لخمة",
+      "fish_name_en": "Rays",
+      "scientific_name": "Dasyatidae spp.",
+      "family": "غضروفية",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وطين ومروج بحرية",
+      "habitat_tags": [
+        "طيني"
+      ],
+      "feeding": "رخويات وقشريات وأسماك صغيرة",
+      "notes": "ليست هدفًا رئيسيًا دائمًا؛ تظهر كصيد جانبي",
+      "methods_raw": "شباك، خيط قاعي",
+      "depth_m": {
+        "min": 1,
+        "max": 100,
+        "label": "1-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F039",
+      "fish_name_ar": "قرش صغير تجاري",
+      "fish_name_en": "Small coastal sharks",
+      "scientific_name": "Carcharhinus spp. / Sphyrna spp.",
+      "family": "غضروفية",
+      "classification_ar": "سطحي-قاعي",
+      "habitat": "سواحل ومياه مفتوحة",
+      "habitat_tags": [
+        "مياه مفتوحة"
+      ],
+      "feeding": "أسماك وحبار وقشريات",
+      "notes": "يتطلب إدارة وحذر؛ كثير منه صيد جانبي",
+      "methods_raw": "خيط طويل، شباك",
+      "depth_m": {
+        "min": 5,
+        "max": 200,
+        "label": "5-200م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-SAUDIPEDIA"
+    },
+    {
+      "id": "F040",
+      "fish_name_ar": "روبيان صغير/جمبري خليجي",
+      "fish_name_en": "Metapenaeus shrimps",
+      "scientific_name": "Metapenaeus spp.",
+      "family": "قشريات",
+      "classification_ar": "قاعي",
+      "habitat": "قيعان طينية ضحلة",
+      "habitat_tags": [
+        "طيني",
+        "ساحلي"
+      ],
+      "feeding": "عوالق وكائنات قاعية",
+      "notes": "يدخل ضمن مصائد الروبيان الخليجية",
+      "methods_raw": "جر منظم، شباك",
+      "depth_m": {
+        "min": 5,
+        "max": 50,
+        "label": "5-50م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "موسمي ومنظم",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-KWT-REV"
+    },
+    {
+      "id": "F041",
+      "fish_name_ar": "محار اللؤلؤ",
+      "fish_name_en": "Pearl oyster",
+      "scientific_name": "Pinctada radiata",
+      "family": "رخويات",
+      "classification_ar": "قاعي ثابت",
+      "habitat": "قيعان صلبة وشعاب ضحلة",
+      "habitat_tags": [
+        "شعاب",
+        "ساحلي"
+      ],
+      "feeding": "ترشيح عوالق",
+      "notes": "تراثيًا مرتبط بالغوص؛ ليس سمكًا لكن ثروة بحرية خليجية",
+      "methods_raw": "جمع/غوص تقليدي، استزراع",
+      "depth_m": {
+        "min": 1,
+        "max": 30,
+        "label": "1-30م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "موسمي تاريخيًا",
+      "commercial": "تراثية/متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-QU"
+    },
+    {
+      "id": "F042",
+      "fish_name_ar": "أم الربيان / لوبستر شوكي",
+      "fish_name_en": "Spiny lobster",
+      "scientific_name": "Panulirus spp.",
+      "family": "قشريات",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "صخور وشعاب وشقوق",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "رخويات وقشريات وبقايا عضوية",
+      "notes": "أعلى حضورًا في عمان وبحر العرب",
+      "methods_raw": "مصائد، غوص منظم",
+      "depth_m": {
+        "min": 5,
+        "max": 100,
+        "label": "5-100م"
+      },
+      "spread": "عُمان وخليج عُمان",
+      "seasonality_ar": "موسمي ومنظم",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F043",
+      "fish_name_ar": "قين / شعاعيات صغيرة",
+      "fish_name_en": "Guitarfish",
+      "scientific_name": "Rhinobatos spp.",
+      "family": "غضروفية",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وطين ساحلي",
+      "habitat_tags": [
+        "رملي",
+        "طيني",
+        "ساحلي"
+      ],
+      "feeding": "قشريات ورخويات وأسماك صغيرة",
+      "notes": "شكل بين القرش واللخمة؛ يتأثر بالصيد القاعي",
+      "methods_raw": "شباك، صيد جانبي",
+      "depth_m": {
+        "min": 1,
+        "max": 80,
+        "label": "1-80م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F044",
+      "fish_name_ar": "سلطان إبراهيم",
+      "fish_name_en": "Goatfish",
+      "scientific_name": "Parupeneus spp.",
+      "family": "سلطان إبراهيم",
+      "classification_ar": "قاعي",
+      "habitat": "رمال وشعاب ضحلة",
+      "habitat_tags": [
+        "شعاب",
+        "ساحلي"
+      ],
+      "feeding": "ديدان وقشريات صغيرة",
+      "notes": "يمتلك شوارب حسية للبحث في الرمل",
+      "methods_raw": "حداق، شباك",
+      "depth_m": {
+        "min": 2,
+        "max": 80,
+        "label": "2-80م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F045",
+      "fish_name_ar": "مرجان / سنابر صغير",
+      "fish_name_en": "Small snappers",
+      "scientific_name": "Lutjanus fulviflamma / Lutjanus spp.",
+      "family": "نهاشات",
+      "classification_ar": "شعابي ساحلي",
+      "habitat": "شعاب ومناطق منغروف وحشائش",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك وقشريات",
+      "notes": "أسماك شعابية صغيرة ملونة؛ متكررة في قوائم قطر",
+      "methods_raw": "حداق، قراقير",
+      "depth_m": {
+        "min": 2,
+        "max": 60,
+        "label": "2-60م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F046",
+      "fish_name_ar": "باغة / مكرونة",
+      "fish_name_en": "Indian mackerel",
+      "scientific_name": "Rastrelliger kanagurta",
+      "family": "إسقمريات",
+      "classification_ar": "سطحي",
+      "habitat": "سواحل ومياه مفتوحة دافئة",
+      "habitat_tags": [
+        "مياه مفتوحة"
+      ],
+      "feeding": "عوالق وأسماك صغيرة",
+      "notes": "يظهر بأسراب؛ مهم غذائيًا وطعمًا",
+      "methods_raw": "شباك سطحية، تجرير",
+      "depth_m": {
+        "min": 0,
+        "max": 60,
+        "label": "سطحي-60م"
+      },
+      "spread": "خليج عُمان وبحر العرب والخليج",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-FAO"
+    },
+    {
+      "id": "F047",
+      "fish_name_ar": "صافي صنيفي",
+      "fish_name_en": "Dusky spinefoot / Rabbitfish Mediterranean-related group",
+      "scientific_name": "Siganus luridus / Siganus spp.",
+      "family": "صوافي",
+      "classification_ar": "عاشب ساحلي",
+      "habitat": "شعاب صخرية وحشائش",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "طحالب",
+      "notes": "يُذكر للتمييز؛ ليس هو الصافي العربي الشائع خليجيًا كمركز رئيسي",
+      "methods_raw": "شباك، حداق",
+      "depth_m": {
+        "min": 1,
+        "max": 40,
+        "label": "1-40م"
+      },
+      "spread": "ليس أصل الخليج العربي كمركز رئيسي",
+      "seasonality_ar": "حسب المنطقة",
+      "commercial": "منخفضة",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [],
+      "source_refs": "SRC-QAT-QU"
+    },
+    {
+      "id": "F048",
+      "fish_name_ar": "موزة / أسماك المانغروف",
+      "fish_name_en": "Mangrove snapper group",
+      "scientific_name": "Lutjanus argentimaculatus / Lutjanus spp.",
+      "family": "نهاشات",
+      "classification_ar": "ساحلي/منغروف",
+      "habitat": "منغروف وخيران ومصبات",
+      "habitat_tags": [
+        "عام"
+      ],
+      "feeding": "أسماك وقشريات",
+      "notes": "يرتبط بالمنغروف في صغاره؛ مفترس قوي",
+      "methods_raw": "حداق، شباك",
+      "depth_m": {
+        "min": 1,
+        "max": 80,
+        "label": "1-80م"
+      },
+      "spread": "الإمارات، قطر، عُمان، السعودية الساحلية",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "قطر"
+      ],
+      "source_refs": "SRC-QAT-ENATURE;SRC-UAE-FAO"
+    },
+    {
+      "id": "F049",
+      "fish_name_ar": "خثاق",
+      "fish_name_en": "Octopus",
+      "scientific_name": "Octopus spp.",
+      "family": "رأسيات الأرجل",
+      "classification_ar": "قاعي",
+      "habitat": "صخور وشعاب وشقوق",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "قشريات ورخويات وأسماك صغيرة",
+      "notes": "ذكي ومموه؛ يظهر في المصائد الجانبية",
+      "methods_raw": "مصائد، غوص، شباك",
+      "depth_m": {
+        "min": 1,
+        "max": 100,
+        "label": "1-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F050",
+      "fish_name_ar": "غضبان / سمكة لبروس",
+      "fish_name_en": "Wrasses",
+      "scientific_name": "Labridae spp.",
+      "family": "لبروس/غضبان",
+      "classification_ar": "شعابي",
+      "habitat": "شعاب وصخور ومروج بحرية",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "قشريات صغيرة ورخويات",
+      "notes": "ألوان زاهية؛ غالبًا صيد جانبي أو محلي",
+      "methods_raw": "حداق خفيف، قراقير",
+      "depth_m": {
+        "min": 1,
+        "max": 60,
+        "label": "1-60م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة-متوسطة",
+      "eco_zone": "شعاب",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F051",
+      "fish_name_ar": "فرس البحر",
+      "fish_name_en": "Seahorse",
+      "scientific_name": "Hippocampus spp.",
+      "family": "أسماك صغيرة محمية غالبًا",
+      "classification_ar": "حشائش بحرية ومنغروف",
+      "habitat": "حشائش بحرية ومناطق هادئة",
+      "habitat_tags": [
+        "عام"
+      ],
+      "feeding": "قشريات دقيقة",
+      "notes": "مؤشر بيئي؛ لا يُعامل كهدف صيد تجاري",
+      "methods_raw": "ليس هدف صيد",
+      "depth_m": {
+        "min": 0,
+        "max": 20,
+        "label": "0-20م"
+      },
+      "spread": "مشترك إقليميًا محليًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "بيئية",
+      "eco_zone": "شعاب",
+      "water_state_pref": "FASAD",
+      "countries": [],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F052",
+      "fish_name_ar": "سمك الحجر",
+      "fish_name_en": "Stonefish",
+      "scientific_name": "Synanceia spp.",
+      "family": "عقربيات",
+      "classification_ar": "قاعي خطِر",
+      "habitat": "صخور وشعاب ضحلة",
+      "habitat_tags": [
+        "شعاب",
+        "ساحلي"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "سام وخطير؛ مهم توعويًا وليس تجاريًا",
+      "methods_raw": "صيد جانبي فقط",
+      "depth_m": {
+        "min": 0,
+        "max": 40,
+        "label": "0-40م"
+      },
+      "spread": "خليج عُمان والخليج",
+      "seasonality_ar": "طوال العام",
+      "commercial": "توعوية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F053",
+      "fish_name_ar": "دجاج البحر / أسد البحر",
+      "fish_name_en": "Lionfish",
+      "scientific_name": "Pterois miles",
+      "family": "عقربيات",
+      "classification_ar": "شعابي",
+      "habitat": "شعاب وصخور",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "أشواك سامة؛ مفترس شعابي",
+      "methods_raw": "صيد جانبي/حداق حذر",
+      "depth_m": {
+        "min": 1,
+        "max": 50,
+        "label": "1-50م"
+      },
+      "spread": "خليج عُمان والخليج",
+      "seasonality_ar": "طوال العام",
+      "commercial": "توعوية",
+      "eco_zone": "شعاب",
+      "water_state_pref": "FASAD",
+      "countries": [],
+      "source_refs": "SRC-QAT-ENATURE"
+    },
+    {
+      "id": "F054",
+      "fish_name_ar": "بربور / تريفالي كبير",
+      "fish_name_en": "Giant trevally",
+      "scientific_name": "Caranx ignobilis",
+      "family": "جيشيات",
+      "classification_ar": "مفترس سطحي/شعابي",
+      "habitat": "حواف شعاب ومياه مفتوحة",
+      "habitat_tags": [
+        "شعاب",
+        "مياه مفتوحة"
+      ],
+      "feeding": "أسماك وحبار",
+      "notes": "قوي جدًا في الصيد الرياضي",
+      "methods_raw": "لفاح، تجرير، خيط قوي",
+      "depth_m": {
+        "min": 5,
+        "max": 100,
+        "label": "5-100م"
+      },
+      "spread": "خليج عُمان وبحر العرب والخليج",
+      "seasonality_ar": "موسمي",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "مياه مفتوحة",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-FAO;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F055",
+      "fish_name_ar": "درّد / سمك أرنب منقط",
+      "fish_name_en": "Rabbitfish group",
+      "scientific_name": "Siganus spp.",
+      "family": "صوافي",
+      "classification_ar": "عاشب ساحلي",
+      "habitat": "حشائش بحرية وشعاب ضحلة",
+      "habitat_tags": [
+        "شعاب",
+        "ساحلي"
+      ],
+      "feeding": "طحالب وأعشاب",
+      "notes": "مجموعة الصوافي؛ بعضها يختلط سوقيًا",
+      "methods_raw": "حداق، شباك",
+      "depth_m": {
+        "min": 1,
+        "max": 40,
+        "label": "1-40م"
+      },
+      "spread": "الخليج العربي",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-BHR-FAO;SRC-QAT-QU"
+    },
+    {
+      "id": "F056",
+      "fish_name_ar": "غُراب / كشر قاعي",
+      "fish_name_en": "Groupers other spp.",
+      "scientific_name": "Epinephelus spp.",
+      "family": "هاموريات",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "شعاب وصخور وقيعان مختلطة",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك وقشريات",
+      "notes": "مجموعة هاموريات متعددة؛ تختلف أحجامها وقيمتها",
+      "methods_raw": "قراقير، حداق",
+      "depth_m": {
+        "min": 5,
+        "max": 150,
+        "label": "5-150م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-UAE-FAO;SRC-OMN-REVIEW"
+    },
+    {
+      "id": "F057",
+      "fish_name_ar": "شاخورة / بوري كبير",
+      "fish_name_en": "Large mullet",
+      "scientific_name": "Mugil cephalus",
+      "family": "بوريّات",
+      "classification_ar": "ساحلي/مصبات",
+      "habitat": "خور، مصبات، موانئ، سبخات",
+      "habitat_tags": [
+        "عام"
+      ],
+      "feeding": "طحالب ومواد عضوية",
+      "notes": "قادر على العيش في مياه قليلة الملوحة",
+      "methods_raw": "شباك، حظور",
+      "depth_m": {
+        "min": 0,
+        "max": 20,
+        "label": "0-20م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة",
+      "eco_zone": "ساحلي",
+      "water_state_pref": "LOAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-QU"
+    },
+    {
+      "id": "F058",
+      "fish_name_ar": "موسى / سمك مفلطح",
+      "fish_name_en": "Flatfish / Sole",
+      "scientific_name": "Soleidae / Cynoglossidae spp.",
+      "family": "أسماك مفلطحة",
+      "classification_ar": "قاعي رملي",
+      "habitat": "قيعان رملية وطينية",
+      "habitat_tags": [
+        "رملي",
+        "طيني"
+      ],
+      "feeding": "ديدان وقشريات صغيرة",
+      "notes": "يتخفى في الرمل؛ يظهر مع الصيد القاعي",
+      "methods_raw": "شباك قاعية، صيد جانبي",
+      "depth_m": {
+        "min": 5,
+        "max": 100,
+        "label": "5-100م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "منخفضة-متوسطة",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-KWT-EPA"
+    },
+    {
+      "id": "F059",
+      "fish_name_ar": "دنيس بحري / فرشيات",
+      "fish_name_en": "Seabreams",
+      "scientific_name": "Sparidae spp.",
+      "family": "دنيسيات",
+      "classification_ar": "قاعي ساحلي",
+      "habitat": "خور ورمال وصخور",
+      "habitat_tags": [
+        "عام"
+      ],
+      "feeding": "رخويات وقشريات",
+      "notes": "عائلة تجارية مهمة خليجيًا وعُمانيًا",
+      "methods_raw": "حداق، شباك",
+      "depth_m": {
+        "min": 1,
+        "max": 80,
+        "label": "1-80م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "متوسطة-عالية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-OMN-REVIEW;SRC-KWT-REV"
+    },
+    {
+      "id": "F060",
+      "fish_name_ar": "عقرب البحر",
+      "fish_name_en": "Scorpionfish",
+      "scientific_name": "Scorpaenidae spp.",
+      "family": "عقربيات",
+      "classification_ar": "شعابي قاعي",
+      "habitat": "صخور وشعاب",
+      "habitat_tags": [
+        "شعاب"
+      ],
+      "feeding": "أسماك صغيرة وقشريات",
+      "notes": "أشواك مؤلمة/سامة؛ غالبًا صيد جانبي",
+      "methods_raw": "حداق حذر، صيد جانبي",
+      "depth_m": {
+        "min": 1,
+        "max": 80,
+        "label": "1-80م"
+      },
+      "spread": "مشترك إقليميًا",
+      "seasonality_ar": "طوال العام",
+      "commercial": "توعوية",
+      "eco_zone": "غزير",
+      "water_state_pref": "FASAD",
+      "countries": [
+        "السعودية",
+        "الكويت",
+        "البحرين",
+        "قطر",
+        "الإمارات",
+        "عُمان"
+      ],
+      "source_refs": "SRC-QAT-ENATURE"
+    }
+  ]
+}

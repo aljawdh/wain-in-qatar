@@ -1,0 +1,140 @@
+/**
+ * Gulf fish reference (from data/gulf_fish_database.json).
+ * - Fish are NOT tied to a fixed station: matching uses country, habitat, depth, and eco-zone.
+ * - New stations work automatically if they provide country, depth or zoneType, lat/lon (see analysis engine).
+ */
+'use strict';
+
+var path = require('path');
+var fs = require('fs');
+
+var enrichFishBehavior = null;
+try {
+  enrichFishBehavior = require('./navidur-fish-behavior-defaults').enrichFishBehavior;
+} catch (_e) {
+  enrichFishBehavior = null;
+}
+
+var GULF_GENERIC_LABEL = 'عام-خليجي';
+
+function toArray(x) {
+  return Array.isArray(x) ? x : [];
+}
+
+function normalizeString(v) {
+  return String(v == null ? '' : v).trim();
+}
+
+/** Ecological / bathymetry tags (Arabic) used for filtering. */
+var ECO_TAGS = ['ساحلي', 'غزير', 'شعاب', 'رملي', 'طيني', 'مياه مفتوحة'];
+
+/**
+ * @param {object} row — raw JSON species row
+ * @returns {object} unified fields for the recommendation engine
+ */
+function unifySpeciesRow(row) {
+  var h = toArray(row.habitat_tags);
+  var tags = h.map(normalizeString).filter(Boolean);
+  var base = {
+    id: normalizeString(row.id),
+    fish_name_ar: normalizeString(row.fish_name_ar),
+    fish_name_en: normalizeString(row.fish_name_en),
+    scientific_name: normalizeString(row.scientific_name),
+    family: normalizeString(row.family),
+    classification_ar: normalizeString(row.classification_ar),
+    habitat: normalizeString(row.habitat),
+    feeding: normalizeString(row.feeding),
+    methods_raw: normalizeString(row.methods_raw),
+    depth_m: row.depth_m && typeof row.depth_m === 'object' ? {
+      min: row.depth_m.min,
+      max: row.depth_m.max,
+      label: normalizeString(row.depth_m.label)
+    } : { min: null, max: null, label: '' },
+    seasonality_ar: normalizeString(row.seasonality_ar),
+    eco_zone: normalizeString(row.eco_zone),
+    water_state_pref: normalizeString(row.water_state_pref),
+    habitat_tags: tags,
+    countries: toArray(row.countries).map(normalizeString).filter(Boolean)
+  };
+  if (enrichFishBehavior) {
+    var eb = enrichFishBehavior(row);
+    base.behavior = eb.behavior;
+    base.preferred_tide_phase = toArray(eb.preferred_tide_phase);
+  } else {
+    base.behavior = { activity: ['نهاري', 'ليلي'], aggression: 'متوسط', movement: 'متحرك', feeding_type: 'مختلط' };
+    base.preferred_tide_phase = ['سقي', 'ثبر'];
+  }
+  return base;
+}
+
+var _cached = null;
+var _cachedPath = null;
+
+/**
+ * Load JSON from disk (Node). Cached per path for repeated analyses.
+ * @param {string} [jsonPath] — default: ../data/gulf_fish_database.json from this file
+ * @returns {{ version: number, species: object[] }}
+ */
+function loadGulfFishDatabaseFromDisk(jsonPath) {
+  var p = jsonPath || path.join(__dirname, '..', 'data', 'gulf_fish_database.json');
+  if (_cached && _cachedPath === p) return _cached;
+  var raw = fs.readFileSync(p, 'utf8');
+  _cached = JSON.parse(raw);
+  _cachedPath = p;
+  return _cached;
+}
+
+/**
+ * @param {object} doc — full JSON document
+ * @returns {object[]}
+ */
+function getUnifiedSpeciesList(doc) {
+  var d = doc || {};
+  return toArray(d.species).map(unifySpeciesRow).filter(function (r) {
+    return r.fish_name_ar;
+  });
+}
+
+/**
+ * @param {string} country
+ * @param {object[]} list — unified list
+ * @returns {object[]}
+ */
+function filterByCountry(list, country) {
+  var c = normalizeString(country);
+  if (!c) {
+    return list.slice();
+  }
+  var out = list.filter(function (f) {
+    if (!f.countries.length) return true;
+    return f.countries.indexOf(c) >= 0;
+  });
+  if (out.length) return out;
+  return list.filter(function (f) {
+    return !f.countries.length;
+  });
+}
+
+/**
+ * @param {string} tag — one of ECO_TAGS
+ * @param {object[]} list
+ */
+function filterByEcologicalTag(list, tag) {
+  var t = normalizeString(tag);
+  if (!t) return list.slice();
+  return list.filter(function (f) {
+    if (f.habitat_tags.indexOf(t) >= 0) return true;
+    if (f.eco_zone && normalizeString(f.eco_zone) === t) return true;
+    return false;
+  });
+}
+
+module.exports = {
+  ECO_TAGS: ECO_TAGS,
+  GULF_GENERIC_LABEL: GULF_GENERIC_LABEL,
+  unifySpeciesRow: unifySpeciesRow,
+  loadGulfFishDatabaseFromDisk: loadGulfFishDatabaseFromDisk,
+  getUnifiedSpeciesList: getUnifiedSpeciesList,
+  filterByCountry: filterByCountry,
+  filterByEcologicalTag: filterByEcologicalTag
+};
