@@ -40,6 +40,68 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
 .admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
 .admin-section[data-section="field-review"]{border-right:4px solid rgba(180,255,200,.55)}
+.admin-section[data-section="home"]{border-right:4px solid rgba(120,200,255,.45);background:linear-gradient(165deg,rgba(12,40,68,.5),rgba(8,24,40,.25))!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.admin-home-wrap{padding-bottom:6px}
+.ecc-home-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+.ecc-mode-toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.8rem;color:var(--txt2);user-select:none}
+.ecc-mode-toggle input{accent-color:var(--accent);width:16px;height:16px}
+.ecc-mode-advanced .ecc-adv-only{display:block!important}
+.ecc-adv-only{display:none!important}
+.ecc-zone{margin-bottom:18px}
+.ecc-zone-label{font-size:.68rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);margin:0 0 10px;padding-right:2px;opacity:.9}
+.ecc-hero-row,.ecc-ops-row{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:640px){.ecc-hero-row,.ecc-ops-row{grid-template-columns:repeat(3,1fr)}}
+.ecc-glass-card{
+  position:relative;border-radius:16px;padding:14px 16px;min-height:0;display:flex;flex-direction:column;gap:6px;
+  background:linear-gradient(145deg,rgba(20,55,88,.45),rgba(8,22,36,.5));
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 8px 28px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.06);
+  cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s;
+  animation:eccFadeIn .5s ease backwards;
+}
+.ecc-glass-card:hover{transform:scale(1.02);box-shadow:0 12px 36px rgba(0,0,0,.32),0 0 0 1px rgba(39,179,255,.2),inset 0 1px 0 rgba(255,255,255,.08)}
+.ecc-glass-card:focus-visible{outline:2px solid rgba(39,179,255,.55);outline-offset:2px}
+.ecc-glass-card .ecc-card-ttl{font-size:.7rem;color:var(--txt3);font-weight:800;letter-spacing:.05em;margin:0}
+.ecc-glass-card .ecc-card-main{font-size:1.12rem;font-weight:800;color:#f0f8ff;line-height:1.3;word-break:break-word}
+.ecc-glass-card .ecc-card-sub{font-size:.76rem;color:var(--txt2);line-height:1.45}
+.ecc-hero-row .ecc-glass-card:nth-child(1){animation-delay:.04s}
+.ecc-hero-row .ecc-glass-card:nth-child(2){animation-delay:.1s}
+.ecc-hero-row .ecc-glass-card:nth-child(3){animation-delay:.16s}
+.ecc-ops-row .ecc-glass-card:nth-child(1){animation-delay:.08s}
+.ecc-ops-row .ecc-glass-card:nth-child(2){animation-delay:.14s}
+.ecc-ops-row .ecc-glass-card:nth-child(3){animation-delay:.2s}
+@keyframes eccFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.ecc-st-green{border-color:rgba(38,194,129,.4)!important;box-shadow:0 8px 28px rgba(0,0,0,.25),0 0 24px -8px rgba(38,194,129,.25)}
+.ecc-st-yellow{border-color:rgba(255,200,80,.45)!important;box-shadow:0 8px 28px rgba(0,0,0,.25),0 0 24px -8px rgba(255,200,80,.2)}
+.ecc-st-red{border-color:rgba(255,100,100,.45)!important;box-shadow:0 8px 28px rgba(0,0,0,.25),0 0 24px -8px rgba(255,100,100,.2)}
+.ecc-pill{display:inline-block;font-size:.65rem;font-weight:900;padding:3px 8px;border-radius:999px;letter-spacing:.04em}
+.ecc-pill-ok{background:rgba(38,194,129,.2);color:#8bf2ca;border:1px solid rgba(38,194,129,.35)}
+.ecc-pill-warn{background:rgba(255,200,80,.15);color:#ffe7aa;border:1px solid rgba(255,200,80,.3)}
+.ecc-pill-bad{background:rgba(255,100,100,.16);color:#ffb3b3;border:1px solid rgba(255,100,100,.3)}
+.ecc-pill-down{background:rgba(120,120,120,.2);color:#c5d0dc;border:1px solid rgba(255,255,255,.12)}
+.ecc-field-smart{min-height:118px;grid-column:1/-1}
+@media(min-width:640px){.ecc-field-smart{grid-column:auto}}
+.ecc-field-lines{font-size:.78rem;color:var(--txt2);line-height:1.55;display:grid;gap:3px}
+.ecc-field-lines strong{color:#dff6ff;font-weight:700}
+.ecc-ref-badge{display:inline-block;margin-top:4px;font-size:.62rem;padding:2px 8px;border-radius:6px;background:rgba(147,200,255,.12);color:#9fd4ff;border:1px solid rgba(147,200,255,.25)}
+.ecc-action-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:520px){.ecc-action-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.ecc-action-grid{grid-template-columns:repeat(4,1fr)}}
+.ecc-ac-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:86px;
+  background:linear-gradient(160deg,rgba(14,40,64,.7),rgba(8,20,34,.85));
+  border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:12px 10px;cursor:pointer;font-family:inherit;
+  color:var(--txt2);font-size:.82rem;font-weight:700;text-align:center;transition:transform .2s,border-color .2s,box-shadow .2s;color:#cfe8f8
+}
+.ecc-ac-btn i{font-size:1.35rem;color:var(--accent);opacity:.95;transition:transform .2s}
+.ecc-ac-btn:hover{transform:scale(1.02);border-color:rgba(39,179,255,.4);box-shadow:0 0 28px -6px rgba(39,179,255,.35);color:#fff}
+.ecc-ac-btn:hover i{transform:scale(1.08)}
+.ecc-ac-btn span{line-height:1.35;max-width:100%}
+.ecc-alert-count{font-size:1.4rem;font-weight:900;letter-spacing:-.02em}
+@media(max-width:760px){
+  .ecc-glass-card{padding:12px 13px}
+  .ecc-glass-card .ecc-card-main{font-size:1rem}
+}
 .astro-monitoring-root,.astro-preview-root{font-size:.82rem;line-height:1.45}
 .astro-card{background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px 14px;margin-bottom:10px}
 .astro-card-title{margin:0 0 10px;font-size:.9rem;color:#cfeaff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -197,18 +259,89 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
       </div>
       <div class="admin-layout">
         <aside class="admin-sidebar">
-          <button class="admin-nav active" data-filter="all">الرئيسية</button>
-          <button class="admin-nav" data-filter="users">المستخدمين</button>
-          <button class="admin-nav" data-filter="stations">المحطات</button>
-          <button class="admin-nav" data-filter="durur" disabled style="opacity:0.5; cursor:not-allowed;" title="واجهة الدرور القديمة معطلة. استخدم NAVIDUROR">إدارة الدرور مغلق (NAVIDUROR)</button>
-          <button class="admin-nav" data-filter="feedback">التقييمات</button>
-          <button class="admin-nav" data-filter="analytics">التحليلات</button>
-          <button class="admin-nav" data-filter="astro-dur">الدر الفلكي</button>
-          <button class="admin-nav" data-filter="field-review">تحليل الميدان</button>
-          <button class="admin-nav" data-filter="settings">الإعدادات</button>
+          <button class="admin-nav active" data-filter="home" type="button">الرئيسية</button>
+          <button class="admin-nav" data-filter="stations" type="button">المحطات</button>
+          <button class="admin-nav" data-filter="users" type="button">المستخدمين</button>
+          <button class="admin-nav" data-filter="analytics" type="button">تحليل المحطة</button>
+          <button class="admin-nav" data-filter="astro-dur" type="button">ملف الدرة</button>
+          <button class="admin-nav" data-filter="field-review" type="button">تحليل الميدان</button>
+          <button class="admin-nav" data-filter="feedback" type="button">التقييمات</button>
+          <button class="admin-nav" data-filter="settings" type="button">الإعدادات</button>
+          <button class="admin-nav" data-filter="durur" disabled style="opacity:0.5;cursor:not-allowed;" type="button" title="واجهة الدرور القديمة معطلة. استخدم NAVIDUROR">إدارة الدرور (معطّل)</button>
         </aside>
 
         <div class="admin-main">
+          <div class="admin-section admin-block admin-home-wrap ecc-home-root" data-section="home" id="eccHomeRoot">
+            <div class="ecc-home-header">
+              <div>
+                <h4 class="admin-home-title" style="margin-bottom:2px"><i class="fa-solid fa-gauge-high"></i> مركز القيادة</h4>
+                <p class="section-subtitle" style="margin-bottom:0">قرارات سريعة — بدون فوضى.</p>
+              </div>
+              <label class="ecc-mode-toggle" title="عرض إحصائيات إضافية">
+                <input type="checkbox" id="eccAdminModeToggle" autocomplete="off">
+                <span>وضع المدير (متقدم)</span>
+              </label>
+            </div>
+
+            <div class="ecc-zone ecc-zone-hero" aria-label="الحالة">
+              <h5 class="ecc-zone-label">الحالة</h5>
+              <div class="ecc-hero-row">
+                <div class="ecc-glass-card ecc-st-green" id="eccCardSystem" tabindex="0" role="link" data-ecc-go="settings" data-ecc-kind="system">
+                  <div class="ecc-card-ttl">حالة النظام</div>
+                  <div class="ecc-card-main" id="eccSystemLine">—</div>
+                  <div class="ecc-card-sub" id="eccSystemSub">—</div>
+                </div>
+                <div class="ecc-glass-card ecc-st-green" id="eccCardApi" tabindex="0" role="link" data-ecc-go="settings" data-ecc-kind="api">
+                  <div class="ecc-card-ttl">الطقس وواجهات API</div>
+                  <p class="ecc-card-sub" id="eccApiStatusRow"><span class="ecc-pill ecc-pill-ok" id="eccApiPill">جاري</span> <span id="eccApiDetail">—</span></p>
+                  <div class="ecc-card-sub" id="eccApiMeta">—</div>
+                </div>
+                <div class="ecc-glass-card" id="eccCardAlerts" tabindex="0" role="link" data-ecc-go="feedback" data-ecc-kind="alerts">
+                  <div class="ecc-card-ttl">تنبيهات حرجة</div>
+                  <div class="ecc-card-main" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+                    <span class="ecc-alert-count" id="eccAlertCount">0</span>
+                    <span class="ecc-card-sub" style="margin:0" id="eccAlertLabel">تنبيه</span>
+                  </div>
+                  <div class="ecc-card-sub" id="eccAlertTop">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ecc-zone ecc-zone-ops" aria-label="العمليات">
+              <h5 class="ecc-zone-label">العمليات</h5>
+              <div class="ecc-ops-row">
+                <div class="ecc-glass-card" id="eccCardStations" tabindex="0" role="link" data-ecc-go="stations" data-ecc-kind="stations">
+                  <div class="ecc-card-ttl">المحطات</div>
+                  <div class="ecc-card-main"><span id="eccStationsVal">—</span></div>
+                  <div class="ecc-card-sub">نشطة الآن</div>
+                </div>
+                <div class="ecc-glass-card" id="eccCardRefs" tabindex="0" role="link" data-ecc-go="stations" data-ecc-kind="refs">
+                  <div class="ecc-card-ttl">المرجعيات</div>
+                  <div class="ecc-card-main"><span id="eccRefsVal">—</span></div>
+                  <span class="ecc-ref-badge">مرجعية</span>
+                </div>
+                <div class="ecc-glass-card ecc-field-smart" id="eccCardField" tabindex="0" role="link" data-ecc-go="field-review" data-ecc-kind="field">
+                  <div class="ecc-card-ttl">تحليل الميدان</div>
+                  <div class="ecc-field-lines" id="eccFieldLines">جاري التحميل…</div>
+                  <div class="ecc-card-sub ecc-adv-only" id="eccFieldAdv">—</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ecc-zone ecc-zone-action" aria-label="الاختصارات">
+              <h5 class="ecc-zone-label">مركز التحكم</h5>
+              <div class="ecc-action-grid" id="eccActionGrid">
+                <button type="button" class="ecc-ac-btn" data-go="stations"><i class="fa-solid fa-location-dot"></i><span>المحطات</span></button>
+                <button type="button" class="ecc-ac-btn" data-go="users"><i class="fa-solid fa-users"></i><span>المستخدمين</span></button>
+                <button type="button" class="ecc-ac-btn" data-go="analytics"><i class="fa-solid fa-magnifying-glass-chart"></i><span>تحليل المحطة</span></button>
+                <button type="button" class="ecc-ac-btn" data-go="astro-dur"><i class="fa-solid fa-satellite"></i><span>ملف الدرة</span></button>
+                <button type="button" class="ecc-ac-btn" data-go="field-review"><i class="fa-solid fa-person-hiking"></i><span>تحليل الميدان</span></button>
+                <button type="button" class="ecc-ac-btn" data-go="feedback"><i class="fa-solid fa-comments"></i><span>التقييمات</span></button>
+                <button type="button" class="ecc-ac-btn" data-go="settings"><i class="fa-solid fa-sliders"></i><span>الإعدادات</span></button>
+              </div>
+            </div>
+          </div>
+
           <div class="admin-section admin-block" data-section="analytics">
             <h4><i class="fa-solid fa-chart-line"></i> لوحة التحليلات التشغيلية</h4>
             <div class="section-subtitle">متابعة يومية للطلب على المحطات وسلوك المستخدمين.</div>
@@ -821,7 +954,22 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               </div>
             </div>
 
-          <div class="admin-section admin-block" data-section="feedback"></div>
+          <div class="admin-section admin-block" data-section="feedback">
+            <h4><i class="fa-solid fa-comments"></i> التقييمات</h4>
+            <div class="section-subtitle">ملاحظات YES/NO والتغذية الراجعة من المستخدمين.</div>
+            <div class="admin-form-grid" style="margin-bottom:10px">
+              <div class="admin-field"><label for="fbDateFilter">تاريخ</label><input type="date" id="fbDateFilter"></div>
+              <div class="admin-field"><label for="fbStationFilter">محطة</label><input type="text" id="fbStationFilter" placeholder="نص"></div>
+              <div class="admin-field"><label for="fbUserFilter">مستخدم</label><input type="text" id="fbUserFilter" placeholder="معرّف"></div>
+            </div>
+            <div class="settings-status" id="feedbackStatusAdmin">—</div>
+            <div class="table-wrap" style="max-height:420px">
+              <table class="admin-table">
+                <thead><tr><th>الوقت</th><th>المحطة</th><th>الإجابة</th><th>النتيجة</th><th>المستخدم</th><th></th></tr></thead>
+                <tbody id="feedbackBody"></tbody>
+              </table>
+            </div>
+          </div>
 
           <div class="admin-section admin-block" data-section="astro-dur" id="astroDurSection">
             <h4><i class="fa-solid fa-satellite"></i> مراقبة الدر الفلكي (طور 1)</h4>

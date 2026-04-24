@@ -10,7 +10,9 @@
   var LOGOUT_ENDPOINT = '/api?route=logout';
 
   var adminAuthenticated = false;
-  var adminDataFilter = 'all';
+  var adminDataFilter = 'home';
+  var homeDashboardTimer = null;
+  var ECC_ADV_STORAGE = 'navidur_ecc_advanced';
   var refreshInFlight = false;
   var settingsInFlight = false;
   var latestSettings = null;
@@ -263,25 +265,106 @@
     });
   }
 
+  function stopHomeDashboardAutoRefresh() {
+    if (homeDashboardTimer) {
+      clearInterval(homeDashboardTimer);
+      homeDashboardTimer = null;
+    }
+  }
+
+  function startHomeDashboardAutoRefresh() {
+    stopHomeDashboardAutoRefresh();
+    if (adminDataFilter !== 'home' || !adminAuthenticated) return;
+    homeDashboardTimer = setInterval(function () {
+      if (adminDataFilter === 'home' && adminAuthenticated && !refreshInFlight) {
+        void renderAdminHomeDashboard();
+      }
+    }, 26000);
+  }
+
+  function eccApplyStatusRing(el, tier) {
+    if (!el) return;
+    el.classList.remove('ecc-st-green', 'ecc-st-yellow', 'ecc-st-red');
+    if (tier === 'green') el.classList.add('ecc-st-green');
+    else if (tier === 'yellow') el.classList.add('ecc-st-yellow');
+    else if (tier === 'red') el.classList.add('ecc-st-red');
+  }
+
+  function eccSetApiPill(el, kind) {
+    if (!el) return;
+    el.className = 'ecc-pill ' + (kind === 'ok' ? 'ecc-pill-ok' : kind === 'warn' ? 'ecc-pill-warn' : kind === 'bad' ? 'ecc-pill-bad' : 'ecc-pill-down');
+    el.textContent = kind === 'ok' ? 'OK' : kind === 'warn' ? 'degraded' : kind === 'bad' ? 'down' : '—';
+  }
+
+  function buildEccAlerts() {
+    var mode = (latestSettings && latestSettings.site_mode) || 'live';
+    var list = [];
+    if (mode === 'maintenance') list.push({ sev: 3, text: 'وضع الصيانة — الوصول العام مغلق' });
+    else if (mode === 'private_beta') list.push({ sev: 2, text: 'وضع الاختبار — وصول محدود' });
+    var badRefs = getInvalidReferenceStations(stationsCache);
+    if (badRefs && badRefs.length) list.push({ sev: 3, text: 'مرجعيّة بلا إحداثيات صالحة: ' + badRefs.length });
+    list.sort(function (a, b) { return b.sev - a.sev; });
+    return list;
+  }
+
+  var eccHomeBound = false;
+  function initEccHomeUiOnce() {
+    if (eccHomeBound) return;
+    eccHomeBound = true;
+    var root = getEl('eccHomeRoot');
+    var tgl = getEl('eccAdminModeToggle');
+    if (tgl && root) {
+      tgl.checked = localStorage.getItem(ECC_ADV_STORAGE) === '1';
+      root.classList.toggle('ecc-mode-advanced', !!tgl.checked);
+      tgl.addEventListener('change', function () {
+        localStorage.setItem(ECC_ADV_STORAGE, tgl.checked ? '1' : '0');
+        root.classList.toggle('ecc-mode-advanced', !!tgl.checked);
+      });
+    }
+    document.querySelectorAll('[data-ecc-go]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var go = el.getAttribute('data-ecc-go');
+        if (go) setAdminDataFilter(go);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          el.click();
+        }
+      });
+    });
+  }
+
   function setAdminDataFilter(filter) {
     if (filter === 'durur') {
       console.warn('[admin] disabled durur section access attempt');
       return;
     }
-    adminDataFilter = filter || 'all';
+    var f = filter || 'home';
+    if (f === 'all') f = 'home';
+    adminDataFilter = f;
+    stopHomeDashboardAutoRefresh();
     document.querySelectorAll('.admin-block').forEach(function (block) {
       var section = block.getAttribute('data-section');
-      block.style.display = adminDataFilter === 'all' || adminDataFilter === section ? '' : 'none';
+      var show = (adminDataFilter === 'home' && section === 'home')
+        || (adminDataFilter !== 'home' && adminDataFilter === section);
+      block.style.display = show ? '' : 'none';
     });
     document.querySelectorAll('.admin-nav').forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-filter') === adminDataFilter);
     });
-    if (adminDataFilter === 'all' || adminDataFilter === 'stations') {
+    if (adminDataFilter === 'home' || adminDataFilter === 'stations') {
       window.setTimeout(function () {
         if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
           stationsAdminMap.invalidateSize();
         }
       }, 120);
+    }
+    if (adminDataFilter === 'home' && adminAuthenticated) {
+      window.setTimeout(function () {
+        void renderAdminHomeDashboard();
+        startHomeDashboardAutoRefresh();
+      }, 0);
     }
     if (adminDataFilter === 'field-review' && adminAuthenticated && (!me || me.role === 'admin' || me.role === 'super_admin')) {
       window.setTimeout(function () {
@@ -686,6 +769,7 @@
       latestSettings = await fetchSettings();
       renderSettingsToForm(latestSettings);
       showSettingsStatus('تم تحميل الإعدادات من الخادم.', false);
+      if (adminDataFilter === 'home') void renderAdminHomeDashboard();
     } catch (e) {
       showSettingsStatus('تعذر تحميل الإعدادات.', true);
     } finally {
@@ -701,6 +785,7 @@
       latestSettings = await saveSettings(payload);
       renderSettingsToForm(latestSettings);
       showSettingsStatus('تم حفظ الإعدادات بنجاح.', false);
+      if (adminDataFilter === 'home') void renderAdminHomeDashboard();
     } catch (e) {
       console.error('[admin] saveSettingsFromAdmin failed:', e && e.message ? e.message : e);
       showSettingsStatus('فشل حفظ الإعدادات.', true);
@@ -871,6 +956,143 @@
     }
   }
 
+  async function renderAdminHomeDashboard() {
+    if (!getEl('eccSystemLine')) return;
+    if (!latestSettings) {
+      try {
+        latestSettings = await fetchSettings();
+      } catch (_e) { /* keep null */ }
+    }
+    var mode = (latestSettings && latestSettings.site_mode) || 'live';
+    var sysLine = getEl('eccSystemLine');
+    var sysSub = getEl('eccSystemSub');
+    var cardSys = getEl('eccCardSystem');
+    if (mode === 'live') {
+      if (sysLine) sysLine.textContent = 'عام';
+      if (sysSub) sysSub.textContent = 'المنصة نشطة للعموم';
+      eccApplyStatusRing(cardSys, 'green');
+    } else if (mode === 'private_beta') {
+      if (sysLine) sysLine.textContent = 'اختبار';
+      if (sysSub) sysSub.textContent = 'وصول محدود — راجع الإعدادات';
+      eccApplyStatusRing(cardSys, 'yellow');
+    } else {
+      if (sysLine) sysLine.textContent = 'مغلق / صيانة';
+      if (sysSub) sysSub.textContent = 'الوصول العام محجوب';
+      eccApplyStatusRing(cardSys, 'red');
+    }
+
+    var elN = getEl('eccStationsVal');
+    if (elN) elN.textContent = String(stationsCache.length);
+    var elR = getEl('eccRefsVal');
+    if (elR) elR.textContent = String(getReferenceStationCount(stationsCache));
+
+    var tPanel = new Date();
+    var meta = getEl('eccApiMeta');
+    if (meta) {
+      try {
+        meta.textContent = 'آخر تحديث للوحة: ' + tPanel.toLocaleString('ar-QA', { dateStyle: 'short', timeStyle: 'short' });
+      } catch (_e) {
+        meta.textContent = '—';
+      }
+    }
+    var detail = getEl('eccApiDetail');
+    var pill = getEl('eccApiPill');
+    if (detail) detail.textContent = 'جاري قياس الاستجابة…';
+    if (pill) {
+      pill.className = 'ecc-pill ecc-pill-ok';
+      pill.textContent = '…';
+    }
+    var cardApi = getEl('eccCardApi');
+    var t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    apiFetch(SUMMARY_ENDPOINT + '?period=today', { method: 'GET' })
+      .then(function (r) {
+        var ms = Math.round((typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - t0);
+        var kind = 'ok';
+        if (!r || !r.ok) kind = 'bad';
+        else if (ms > 2000) kind = 'warn';
+        eccSetApiPill(pill, kind);
+        if (detail) {
+          if (!r || !r.ok) detail.textContent = r ? ('HTTP ' + r.status) : 'متوقف';
+          else if (ms > 2000) detail.textContent = 'مخفّض';
+          else detail.textContent = 'سليم';
+        }
+        if (meta) {
+          try {
+            meta.textContent = 'زمن الاستجابة: ' + ms + ' ms — نبض: ' + new Date().toLocaleTimeString('ar-QA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          } catch (_e2) { /* ignore */ }
+        }
+        if (cardApi) {
+          eccApplyStatusRing(cardApi, kind === 'ok' ? 'green' : kind === 'warn' ? 'yellow' : 'red');
+        }
+      })
+      .catch(function () {
+        eccSetApiPill(pill, 'bad');
+        if (detail) detail.textContent = 'متوقف';
+        if (meta) meta.textContent = 'تعذّر الاتصال بالخادم';
+        eccApplyStatusRing(cardApi, 'red');
+      });
+
+    var alerts = buildEccAlerts();
+    var cnt = getEl('eccAlertCount');
+    var albl = getEl('eccAlertLabel');
+    var atop = getEl('eccAlertTop');
+    var cardAl = getEl('eccCardAlerts');
+    if (cnt) cnt.textContent = String(alerts.length);
+    if (albl) albl.textContent = alerts.length === 1 ? 'تنبيه' : 'تنبيهات';
+    if (atop) {
+      if (!alerts.length) {
+        atop.textContent = 'لا توجد تنبيهات';
+        eccApplyStatusRing(cardAl, 'green');
+      } else {
+        atop.textContent = alerts[0].text;
+        var mx = alerts[0].sev;
+        eccApplyStatusRing(cardAl, mx >= 3 ? 'red' : mx >= 2 ? 'yellow' : 'green');
+      }
+    }
+
+    var lines = getEl('eccFieldLines');
+    var fAdv = getEl('eccFieldAdv');
+    if (lines) lines.textContent = 'جاري…';
+    if (fAdv) fAdv.textContent = '—';
+    Promise.all([
+      apiFetch('/api?route=admin&path=field-review-summary', { method: 'GET' }).then(function (r) { return r.json(); }),
+      apiFetch('/api?route=admin&path=field-review-patterns', { method: 'GET' }).then(function (r) { return r.json(); })
+    ]).then(function (pair) {
+      var jSum = pair[0];
+      var jPat = pair[1];
+      var s = (jSum && jSum.ok && jSum.summary) ? jSum.summary : null;
+      var patterns = (jPat && jPat.ok && Array.isArray(jPat.patterns)) ? jPat.patterns : [];
+      var topFish = (s && s.top_caught_fish && s.top_caught_fish[0]) ? String(s.top_caught_fish[0].key || '') : '';
+      var sess = s && s.total_sessions != null ? s.total_sessions : 0;
+      var rate = s && s.success_rate != null ? s.success_rate : '—';
+      var weakest = null;
+      patterns.forEach(function (p) {
+        if (!p) return;
+        if (!weakest) weakest = p;
+        else {
+          var wr = p.success_rate != null ? Number(p.success_rate) : 99;
+          var vr = weakest.success_rate != null ? Number(weakest.success_rate) : 99;
+          if (wr < vr) weakest = p;
+          else if (wr === vr && (p.decision_strength != null) && (weakest.decision_strength != null) && Number(p.decision_strength) < Number(weakest.decision_strength)) weakest = p;
+        }
+      });
+      var weakLine = '—';
+      if (weakest) {
+        weakLine = (weakest.fish || '؟') + ' · ' + (weakest.success_rate != null ? weakest.success_rate : '—') + '%';
+      }
+      if (lines) {
+        lines.innerHTML = '<div><strong>الجلسات</strong> — ' + escapeHtml(String(sess)) + ' · <strong>النجاح</strong> ' + escapeHtml(String(rate)) + (rate === '—' ? '' : '%') + '</div>' +
+          '<div>🔥 <strong>أشهر سمكة:</strong> ' + escapeHtml(topFish || '—') + '</div>' +
+          '<div>⚠ <strong>أضعف نمط:</strong> ' + escapeHtml(weakLine) + '</div>';
+      }
+      if (fAdv && s) {
+        fAdv.textContent = 'فاشلة: ' + (s.failed_sessions != null ? s.failed_sessions : '—') + (jSum && jSum.session_count != null ? ' — عيّنات: ' + jSum.session_count : '');
+      }
+    }).catch(function () {
+      if (lines) lines.textContent = 'تعذّر تحميل بيانات الميدان';
+    });
+  }
+
   async function renderAdminDashboard() {
     var data;
     setRefreshBusy(true);
@@ -898,6 +1120,7 @@
       loadAnnualComparisons()
     ]);
     await loadGlobalDururManagementData();
+    await renderAdminHomeDashboard();
   }
 
   function getDurDateLabel(dur) {
@@ -6749,10 +6972,11 @@
   }
 
   async function loadFeedback() {
+    if (!getEl('feedbackBody')) return;
     var params = new URLSearchParams();
-    var d = getEl('fbDateFilter').value;
-    var st = getEl('fbStationFilter').value.trim();
-    var u = getEl('fbUserFilter').value.trim();
+    var d = getEl('fbDateFilter') ? getEl('fbDateFilter').value : '';
+    var st = getEl('fbStationFilter') ? getEl('fbStationFilter').value.trim() : '';
+    var u = getEl('fbUserFilter') ? getEl('fbUserFilter').value.trim() : '';
     if (d) params.set('date', d);
     if (st) params.set('station', st);
     if (u) params.set('user_id', u);
@@ -6853,7 +7077,7 @@
       getEl('adminLoginForm').style.display = 'none';
       getEl('adminContent').classList.add('active');
       await renderAdminDashboard();
-      setAdminDataFilter('all');
+      setAdminDataFilter('home');
       loadSettingsIntoAdmin();
       clearStationForm();
       clearTrueFinalReferenceCache();
@@ -6872,6 +7096,7 @@
     authToken = '';
     me = null;
     adminAuthenticated = false;
+    stopHomeDashboardAutoRefresh();
     getEl('adminContent').classList.remove('active');
     getEl('adminLoginForm').style.display = 'block';
     clearTrueFinalReferenceCache();
@@ -7085,7 +7310,15 @@
 
     document.querySelectorAll('.admin-nav').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        setAdminDataFilter(btn.getAttribute('data-filter'));
+        if (btn.disabled) return;
+        var df = btn.getAttribute('data-filter');
+        if (df) setAdminDataFilter(df);
+      });
+    });
+    document.querySelectorAll('.ecc-ac-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var g = btn.getAttribute('data-go');
+        if (g) setAdminDataFilter(g);
       });
     });
 
@@ -7205,6 +7438,7 @@
 
     bindSettingsActions();
     initAstroDurPanel();
+    initEccHomeUiOnce();
     initFieldReviewPanel();
 
     if (authToken) {
@@ -7212,7 +7446,7 @@
       getEl('adminContent').classList.add('active');
       adminAuthenticated = true;
       clearTrueFinalReferenceCache();
-      setAdminDataFilter('all');
+      setAdminDataFilter('home');
       renderAdminDashboard().then(function () {
         if (stationsAdminMap && typeof stationsAdminMap.invalidateSize === 'function') {
           stationsAdminMap.invalidateSize();
