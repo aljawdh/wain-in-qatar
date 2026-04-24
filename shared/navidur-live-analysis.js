@@ -75,9 +75,11 @@
       station_id: station.id || null,
       datetime: opts.datetime || new Date().toISOString(),
       overrides: opts.overrides || null,
-      live_inputs: opts.live_inputs || null,
-      field_validation: opts.field_validation || null
+      live_inputs: opts.live_inputs || null
     };
+    if (opts.field_validation != null && typeof opts.field_validation === 'object') {
+      body.field_validation = opts.field_validation;
+    }
     var attemptFetch = function (b) {
       return fetchSharedAnalysis(b);
     };
@@ -120,7 +122,7 @@
     var lon = toNumber(point.lon != null ? point.lon : point.lng);
     if (lat == null || lon == null) throw new Error('station_coords_missing');
     var opts = options || {};
-    return fetchSharedAnalysis({
+    var previewBody = {
       station: {
         id: null,
         name: point.name || '',
@@ -131,9 +133,12 @@
       },
       datetime: opts.datetime || new Date().toISOString(),
       overrides: opts.overrides || null,
-      live_inputs: opts.live_inputs || null,
-      field_validation: opts.field_validation || null
-    });
+      live_inputs: opts.live_inputs || null
+    };
+    if (opts.field_validation != null && typeof opts.field_validation === 'object') {
+      previewBody.field_validation = opts.field_validation;
+    }
+    return fetchSharedAnalysis(previewBody);
   }
 
   async function getStationLiveSummary(station, options) {

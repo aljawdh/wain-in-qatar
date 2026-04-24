@@ -126,18 +126,6 @@
       min-height: 18px;
     }
     .member-auth-status.error { color: #ffb3b3; }
-    .field-test-member-banner {
-      display: none;
-      width: fit-content;
-      margin-top: 4px;
-      border-radius: 999px;
-      border: 1px solid rgba(111, 220, 255, 0.55);
-      background: rgba(111, 220, 255, 0.16);
-      color: #dff6ff;
-      font-size: 11px;
-      font-weight: 900;
-      padding: 4px 10px;
-    }
     .feedback-gate-note {
       font-size: 12px;
       color: #ffe7aa;
@@ -1173,43 +1161,6 @@
       <div class="fish-list" id="fishList"></div>
     </div>
 
-    <!-- TASK 3: catch logging block -->
-    <div class="card" id="catchLogBlock" style="display:none">
-      <div class="label" style="margin-bottom:12px;font-size:15px;font-weight:700">🎣 هل صاد معك؟</div>
-      <div id="catchLogPrompt" style="display:flex;gap:10px;justify-content:center">
-        <button id="catchLogYesBtn" onclick="onCatchLogYes()" style="flex:1;padding:10px;background:#0d3b52;border:1px solid #27beff;color:#e7f7ff;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700">نعم</button>
-        <button id="catchLogNoBtn" onclick="onCatchLogNo()" style="flex:1;padding:10px;background:#0d3b52;border:1px solid rgba(255,255,255,.2);color:#aac8d8;border-radius:10px;cursor:pointer;font-size:15px">لا</button>
-      </div>
-      <div id="catchLogForm" style="display:none;margin-top:14px">
-        <div style="margin-bottom:8px">
-          <label style="display:block;font-size:12px;color:#8db2c8;margin-bottom:4px">نوع السمك</label>
-          <select id="catchFishType" style="width:100%;padding:8px;background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;font-size:14px">
-            <option value="">اختر...</option>
-          </select>
-        </div>
-        <div style="margin-bottom:8px">
-          <label style="display:block;font-size:12px;color:#8db2c8;margin-bottom:4px">الكمية</label>
-          <input id="catchQuantity" type="number" min="0" max="999" placeholder="0" style="width:100%;box-sizing:border-box;padding:8px;background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;font-size:14px" />
-        </div>
-        <div style="margin-bottom:12px">
-          <label style="display:block;font-size:12px;color:#8db2c8;margin-bottom:4px">طريقة الصيد</label>
-          <select id="catchMethod" style="width:100%;padding:8px;background:#071722;border:1px solid rgba(255,255,255,.2);color:#e7f7ff;border-radius:8px;font-size:14px">
-            <option value="">اختر...</option>
-            <option value="حداق قاع">حداق قاع</option>
-            <option value="حداق ساحلي">حداق ساحلي</option>
-            <option value="تشخيط">تشخيط</option>
-            <option value="غزل">غزل</option>
-            <option value="طواري">طواري</option>
-            <option value="قرقور">قرقور</option>
-            <option value="أخرى">أخرى</option>
-          </select>
-        </div>
-        <button onclick="submitCatchLog()" style="width:100%;padding:10px;background:#27beff;border:none;color:#071722;border-radius:10px;cursor:pointer;font-size:15px;font-weight:800">إرسال السجل</button>
-      </div>
-      <div id="catchLogStatus" style="margin-top:10px;font-size:13px;text-align:center;min-height:20px"></div>
-    </div>
-    <!-- end catch logging block -->
-
     <div class="foot">
       <div class="foot-line1">© 2026 NAVIDUR. جميع الحقوق محفوظة.</div>
       <div class="foot-line2"><span class="foot-expert">تطوير وتصميم الخبير البحري:</span> <span class="foot-name">محمد الحضري</span></div>
@@ -1219,7 +1170,6 @@
         <span>📧 INFO@NAVIDUR.APP</span>
       </div>
       <div id="memberBetaBanner" class="beta-banner" style="display:none">Beta build • controlled testing only</div>
-      <div id="fieldTestMemberBanner" class="field-test-member-banner" style="display:none">Field Testing Mode</div>
     </div>
   </div>
 
@@ -1247,6 +1197,7 @@
     crossorigin=""
   ></script>
   <script src="/shared/station-map-ui.js"></script>
+  <script>window.IS_ADMIN = false;</script>
   <script src="/shared/navidur-live-analysis.js"></script>
   <script>
     const COUNTRY_TIMEZONES = {
@@ -1807,7 +1758,7 @@
     let currentSharedAnalysisDto = null;
     let currentSharedAnalysisRequest = 0;
     let serverComputeResult = null; // cached server-side tidal compute result (TASK 1 fallback layer)
-    let currentPredictionSnapshot = null; // frozen snapshot of analysis state — used for catch logging
+    let currentPredictionSnapshot = null; // frozen snapshot — server compute + UI consistency
     let allStationsExpanded = false;
     let selectionTracking = { country: '', region: '', station_id: '' };
     let runtimeUiSettings = {
@@ -1842,14 +1793,12 @@
       const yesBtn = document.getElementById('feedbackYes');
       const noBtn = document.getElementById('feedbackNo');
       const betaBanner = document.getElementById('memberBetaBanner');
-      const memberBanner = document.getElementById('fieldTestMemberBanner');
       const isMember = isLoggedInMember();
 
       if (gateNote) gateNote.style.display = isMember ? 'none' : 'inline';
       if (yesBtn) yesBtn.style.display = isMember ? 'inline-flex' : 'none';
       if (noBtn) noBtn.style.display = isMember ? 'inline-flex' : 'none';
       if (betaBanner) betaBanner.style.display = isMember ? 'inline-flex' : 'none';
-      if (memberBanner) memberBanner.style.display = isMember ? 'inline-flex' : 'none';
     }
 
     function getAdminBypassAllowed() {
@@ -4303,8 +4252,6 @@
       renderSeaStatusStrip();
       renderFish(date);
       freezePredictionSnapshot();  // Task 4: freeze AFTER rendering — snapshot = what user sees
-      // catch logging moved to /field — public page is read-only
-      // renderCatchLogBlock();     // disabled: use /field for data entry
     }
 
     async function onStationChange(idx, opts) {
@@ -4334,6 +4281,9 @@
             datetime: new Date().toISOString()
           });
           if (requestToken === currentSharedAnalysisRequest) {
+            if (dto && typeof dto === 'object') {
+              try { delete dto.field_validation; } catch (_e) { /* ignore */ }
+            }
             currentSharedAnalysisDto = dto;
           }
         }
@@ -4400,125 +4350,6 @@
       const idx = selectedStation && typeof selectedStation.index === 'number' ? selectedStation.index : 0;
       await onStationChange(idx);
     }
-
-    // ── TASK 3+4: catch logging — DISABLED on public page (moved to /field) ─
-    function renderCatchLogBlock() {
-      // Public page is READ-ONLY. Data entry is at /field.
-      const block = document.getElementById('catchLogBlock');
-      if (block) block.style.display = 'none';
-    }
-
-    // Build the payload entirely from the frozen snapshot.
-    // Returns null if snapshot is missing or invalid — caller must check.
-    function _buildCatchLogPayload(catchSuccess, actualSpecies, qty, method) {
-      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) return null;
-      const snap = currentPredictionSnapshot;
-      // Use server compute values if available (Task 7), else fall back to local
-      const waterStateFinal = snap.compute_source === 'server' && snap.server_water_state
-        ? snap.server_water_state : snap.water_state;
-      const tidalCoeffFinal = snap.compute_source === 'server' && snap.server_tidal_coefficient != null
-        ? snap.server_tidal_coefficient : snap.tidal_coefficient;
-      const activityScoreFinal = snap.compute_source === 'server' && snap.server_activity_score != null
-        ? snap.server_activity_score : snap.activity_score;
-      return {
-        // Identity
-        station_id: snap.station_id,
-        lat: snap.lat,
-        lng: snap.lng,
-        // Timestamps from snapshot — not from current time
-        analysis_timestamp: snap.analysis_timestamp,
-        prediction_snapshot_id: snap.snapshot_id,
-        source: 'public_ui',
-        // Environment frozen at analysis time
-        wind_speed: snap.wind_speed_kmh,
-        wind_direction: snap.wind_direction,
-        tide_current: snap.tide_current,
-        tide_previous: snap.tide_previous,
-        tide_next: snap.tide_next,
-        temperature: snap.temperature,
-        // Predictions from snapshot
-        water_state_predicted: waterStateFinal,
-        tidal_coefficient_predicted: tidalCoeffFinal,
-        activity_score_predicted: activityScoreFinal,
-        fishing_mode_predicted: snap.fishing_mode,
-        species_predicted: snap.species_predicted,
-        compute_source: snap.compute_source,
-        // Outcome (provided by user)
-        catch_success: catchSuccess,
-        actual_species: actualSpecies || [],
-        catch_quantity: qty != null ? qty : null,
-        fishing_method: method || null
-      };
-    }
-
-    function onCatchLogYes() {
-      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) {
-        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط. اختر محطة أولاً.';
-        return;
-      }
-      document.getElementById('catchLogPrompt').style.display = 'none';
-      document.getElementById('catchLogForm').style.display = 'block';
-      document.getElementById('catchLogStatus').textContent = '';
-    }
-
-    function onCatchLogNo() {
-      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) {
-        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط. اختر محطة أولاً.';
-        return;
-      }
-      const payload = _buildCatchLogPayload(false, [], null, null);
-      if (!payload) {
-        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط.';
-        return;
-      }
-      _sendCatchLog(payload);
-    }
-
-    function submitCatchLog() {
-      if (!currentPredictionSnapshot || !currentPredictionSnapshot.snapshot_id) {
-        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط. اختر محطة أولاً.';
-        return;
-      }
-      const fishType = document.getElementById('catchFishType').value.trim();
-      const qty = parseInt(document.getElementById('catchQuantity').value, 10);
-      const method = document.getElementById('catchMethod').value.trim();
-      const payload = _buildCatchLogPayload(
-        true,
-        fishType ? [fishType] : [],
-        Number.isFinite(qty) && qty >= 0 ? qty : null,
-        method || null
-      );
-      if (!payload) {
-        document.getElementById('catchLogStatus').textContent = 'لا يوجد تحليل نشط.';
-        return;
-      }
-      _sendCatchLog(payload);
-    }
-
-    function _sendCatchLog(payload) {
-      const statusEl = document.getElementById('catchLogStatus');
-      statusEl.textContent = 'جارٍ الإرسال...';
-      fetch('/api?route=log-catch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(function (resp) {
-          if (resp.ok) {
-            document.getElementById('catchLogPrompt').style.display = 'none';
-            document.getElementById('catchLogForm').style.display = 'none';
-            statusEl.textContent = '✅ تم تسجيل الصيد. شكراً!';
-          } else if (resp.status === 409) {
-            statusEl.textContent = '⚠️ تم تسجيل هذا الصيد مسبقاً.';
-          } else {
-            statusEl.textContent = '⚠️ تعذّر الإرسال. حاول مجدداً.';
-          }
-        })
-        .catch(function () {
-          statusEl.textContent = '⚠️ خطأ في الاتصال. حاول مجدداً.';
-        });
-    }
-    // ── end TASK 3+4 ────────────────────────────────────────────────────────
 
     async function refreshIfDayChanged(force) {
       const todayKey = getTodayKey();

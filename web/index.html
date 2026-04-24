@@ -126,18 +126,6 @@
       min-height: 18px;
     }
     .member-auth-status.error { color: #ffb3b3; }
-    .field-test-member-banner {
-      display: none;
-      width: fit-content;
-      margin-top: 4px;
-      border-radius: 999px;
-      border: 1px solid rgba(111, 220, 255, 0.55);
-      background: rgba(111, 220, 255, 0.16);
-      color: #dff6ff;
-      font-size: 11px;
-      font-weight: 900;
-      padding: 4px 10px;
-    }
     .feedback-gate-note {
       font-size: 12px;
       color: #ffe7aa;
@@ -993,7 +981,6 @@
         <span>📧 INFO@NAVIDUR.APP</span>
       </div>
       <div id="memberBetaBanner" class="beta-banner" style="display:none">Beta build • controlled testing only</div>
-      <div id="fieldTestMemberBanner" class="field-test-member-banner" style="display:none">Field Testing Mode</div>
     </div>
   </div>
 
@@ -1020,6 +1007,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <script>window.IS_ADMIN = false;</script>
   <script>
     const COUNTRY_TIMEZONES = {
       'قطر': 'Asia/Qatar',
@@ -1609,14 +1597,12 @@
       const yesBtn = document.getElementById('feedbackYes');
       const noBtn = document.getElementById('feedbackNo');
       const betaBanner = document.getElementById('memberBetaBanner');
-      const memberBanner = document.getElementById('fieldTestMemberBanner');
       const isMember = isLoggedInMember();
 
       if (gateNote) gateNote.style.display = isMember ? 'none' : 'inline';
       if (yesBtn) yesBtn.style.display = isMember ? 'inline-flex' : 'none';
       if (noBtn) noBtn.style.display = isMember ? 'inline-flex' : 'none';
       if (betaBanner) betaBanner.style.display = isMember ? 'inline-flex' : 'none';
-      if (memberBanner) memberBanner.style.display = isMember ? 'inline-flex' : 'none';
     }
 
     function getAdminBypassAllowed() {
