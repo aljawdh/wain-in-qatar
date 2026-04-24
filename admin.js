@@ -324,7 +324,8 @@
     document.querySelectorAll('[data-ecc-go]').forEach(function (el) {
       el.addEventListener('click', function () {
         var go = el.getAttribute('data-ecc-go');
-        if (go) setAdminDataFilter(go);
+        var focus = el.getAttribute('data-ecc-focus');
+        if (go) activateAdminSection(go, focus ? { focusCard: focus } : null);
       });
       el.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -335,14 +336,33 @@
     });
   }
 
-  function setAdminDataFilter(filter) {
-    if (filter === 'durur') {
+  function focusEccHomeCard(focusId) {
+    var map = { system: 'eccCardSystem', api: 'eccCardApi', alerts: 'eccCardAlerts' };
+    var elId = map[focusId];
+    if (!elId) return;
+    var el = getEl(elId);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('ecc-focus-flash');
+    window.setTimeout(function () {
+      el.classList.remove('ecc-focus-flash');
+    }, 1400);
+  }
+
+  /**
+   * Central section activation: updates visibility, nav, and runs the data loader for the target.
+   * @param {string} sectionName
+   * @param {null|{ focusCard?: 'system'|'api'|'alerts' }} [options] — used when opening home from dashboard cards
+   */
+  function activateAdminSection(sectionName, options) {
+    if (sectionName === 'durur') {
       console.warn('[admin] disabled durur section access attempt');
       return;
     }
-    var f = filter || 'home';
+    var f = sectionName || 'home';
     if (f === 'all') f = 'home';
     adminDataFilter = f;
+    options = options || {};
     stopHomeDashboardAutoRefresh();
     document.querySelectorAll('.admin-block').forEach(function (block) {
       var section = block.getAttribute('data-section');
@@ -360,17 +380,91 @@
         }
       }, 120);
     }
-    if (adminDataFilter === 'home' && adminAuthenticated) {
-      window.setTimeout(function () {
-        void renderAdminHomeDashboard();
-        startHomeDashboardAutoRefresh();
-      }, 0);
+    if (!adminAuthenticated) {
+      return;
     }
-    if (adminDataFilter === 'field-review' && adminAuthenticated && (!me || me.role === 'admin' || me.role === 'super_admin')) {
-      window.setTimeout(function () {
-        void refreshFieldReview();
-      }, 0);
-    }
+    window.setTimeout(function () {
+      var focusAfter = (options && options.focusCard) ? options.focusCard : null;
+      switch (adminDataFilter) {
+        case 'home':
+          void renderAdminHomeDashboard();
+          startHomeDashboardAutoRefresh();
+          if (focusAfter) {
+            window.setTimeout(function () {
+              focusEccHomeCard(focusAfter);
+            }, 220);
+          }
+          break;
+        case 'field-review':
+          if (!me || me.role === 'admin' || me.role === 'super_admin') {
+            void refreshFieldReview();
+          } else {
+            var frs = getEl('fieldReviewStatus');
+            if (frs) frs.textContent = 'تتطلب صلاحية إدارية لعرض تحليل الميدان.';
+            var frBody = getEl('fieldReviewSessionsBody');
+            if (frBody) {
+              frBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد بيانات حالياً</td></tr>';
+            }
+          }
+          break;
+        case 'settings':
+          void loadSettingsIntoAdmin();
+          break;
+        case 'feedback':
+          void loadFeedback().catch(function () {
+            var fs = getEl('feedbackStatusAdmin');
+            if (fs) fs.textContent = 'تعذر تحميل البيانات';
+            var body = getEl('feedbackBody');
+            if (body) body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">تعذر تحميل البيانات</td></tr>';
+          });
+          break;
+        case 'analytics':
+          void renderSummarySection();
+          break;
+        case 'stations':
+          void loadStations().then(function () {
+            var sid = (getEl('stId') && getEl('stId').value) ? String(getEl('stId').value).trim() : '';
+            if (sid) {
+              void renderStationAnalytics();
+            } else {
+              clearAdminAnalysisDisplay('اختر محطة لعرض التحليل');
+              var sm = getEl('stAnalyticsMsg');
+              if (sm) sm.textContent = 'اختر محطة لعرض التحليل';
+            }
+          }).catch(function () {
+            var ss = getEl('stationsStatus');
+            if (ss) ss.textContent = 'تعذر تحميل بيانات المحطات';
+          });
+          break;
+        case 'users':
+          void loadUsers().catch(function () {
+            var us = getEl('usersStatus');
+            if (us) us.textContent = 'تعذر تحميل البيانات';
+            var body = getEl('usersBody');
+            if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#8ea4ba">تعذر تحميل البيانات</td></tr>';
+          });
+          break;
+        case 'astro-dur':
+          void refreshAstroDurStatus();
+          var sid0 = (getEl('stId') && getEl('stId').value) ? String(getEl('stId').value).trim() : '';
+          if (sid0) {
+            var st0 = stationsCache.find(function (s) {
+              return s && String(s.id) === sid0;
+            });
+            if (st0) {
+              var stM = getStationForLocalDurReadout(st0);
+              void refreshStationLocalDurReadout(stM, getCanonicalNavidurAsOfIso());
+            }
+          }
+          break;
+        default:
+          break;
+      }
+    }, 0);
+  }
+
+  function setAdminDataFilter(filter) {
+    activateAdminSection(filter, null);
   }
 
   function renderTopTable(bodyId, items) {
@@ -7056,6 +7150,13 @@
 
     var body = getEl('feedbackBody');
     body.innerHTML = '';
+    if (!list.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا توجد بيانات حالياً</td></tr>';
+      var fs0 = getEl('feedbackStatusAdmin');
+      if (fs0) fs0.textContent = 'إجمالي النتائج: 0';
+      updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
+      return;
+    }
     list.forEach(function (f) {
       var tr = document.createElement('tr');
       tr.innerHTML = '<td>' + String(f.timestamp || '').replace('T', ' ').slice(0, 19) + '</td>' +

@@ -103,6 +103,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .ecc-ai-card{cursor:default;min-height:96px;animation:eccFadeIn .45s ease backwards}
 .ecc-ai-card .ecc-ai-body{font-size:.84rem;color:var(--txt2);line-height:1.55;margin-top:2px;word-break:break-word}
 .ecc-ai-card .ecc-card-ttl{color:#c5e5ff}
+.ecc-glass-card.ecc-focus-flash{outline:2px solid rgba(100,200,255,.9);box-shadow:0 0 0 3px rgba(100,200,255,.25);transition:box-shadow .2s ease,outline .2s ease}
 @media(max-width:760px){
   .ecc-glass-card{padding:12px 13px}
   .ecc-glass-card .ecc-card-main{font-size:1rem}
@@ -291,17 +292,17 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <div class="ecc-zone ecc-zone-hero" aria-label="الحالة">
               <h5 class="ecc-zone-label">الحالة</h5>
               <div class="ecc-hero-row">
-                <div class="ecc-glass-card ecc-st-green" id="eccCardSystem" tabindex="0" role="link" data-ecc-go="settings" data-ecc-kind="system">
+                <div class="ecc-glass-card ecc-st-green" id="eccCardSystem" tabindex="0" role="link" data-ecc-go="home" data-ecc-focus="system" data-ecc-kind="system">
                   <div class="ecc-card-ttl">حالة النظام</div>
                   <div class="ecc-card-main" id="eccSystemLine">—</div>
                   <div class="ecc-card-sub" id="eccSystemSub">—</div>
                 </div>
-                <div class="ecc-glass-card ecc-st-green" id="eccCardApi" tabindex="0" role="link" data-ecc-go="settings" data-ecc-kind="api">
+                <div class="ecc-glass-card ecc-st-green" id="eccCardApi" tabindex="0" role="link" data-ecc-go="home" data-ecc-focus="api" data-ecc-kind="api">
                   <div class="ecc-card-ttl">الطقس وواجهات API</div>
                   <p class="ecc-card-sub" id="eccApiStatusRow"><span class="ecc-pill ecc-pill-ok" id="eccApiPill">جاري</span> <span id="eccApiDetail">—</span></p>
                   <div class="ecc-card-sub" id="eccApiMeta">—</div>
                 </div>
-                <div class="ecc-glass-card" id="eccCardAlerts" tabindex="0" role="link" data-ecc-go="feedback" data-ecc-kind="alerts">
+                <div class="ecc-glass-card" id="eccCardAlerts" tabindex="0" role="link" data-ecc-go="home" data-ecc-focus="alerts" data-ecc-kind="alerts">
                   <div class="ecc-card-ttl">تنبيهات حرجة</div>
                   <div class="ecc-card-main" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
                     <span class="ecc-alert-count" id="eccAlertCount">0</span>
