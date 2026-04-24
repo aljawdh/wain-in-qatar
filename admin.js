@@ -956,6 +956,70 @@
     }
   }
 
+  async function renderAiInsightLayer() {
+    var row = getEl('eccAiRow');
+    var empty = getEl('eccAiEmpty');
+    var b = getEl('eccAiBodyBest');
+    var wk = getEl('eccAiBodyWeak');
+    var sm = getEl('eccAiBodySmart');
+    var tr = getEl('eccAiTrend');
+    if (!row || !b || !wk || !sm) return;
+    var gen = (typeof window !== 'undefined' && window.NavidurAiInsight && window.NavidurAiInsight.generateNavidurInsights);
+    if (!gen) {
+      if (tr) { tr.style.display = 'none'; tr.textContent = ''; }
+      if (empty) { empty.style.display = 'block'; empty.textContent = 'لا توجد بيانات كافية للتحليل'; }
+      row.style.display = 'none';
+      return;
+    }
+    try {
+      var res = await apiFetch('/api?route=admin&path=field-review-sessions', { method: 'GET' });
+      var j = await res.json();
+      var sessions = (j && j.ok && j.sessions) ? j.sessions : (Array.isArray(j && j.sessions) ? j.sessions : []);
+      if (sessions.length < 3) {
+        row.style.display = 'none';
+        if (tr) { tr.style.display = 'none'; tr.textContent = ''; }
+        if (empty) { empty.style.display = 'block'; empty.textContent = 'لا توجد بيانات كافية للتحليل'; }
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      row.style.display = 'grid';
+      var ins = gen({ fieldSessions: sessions, station: null, dateRange: null, now: Date.now() });
+      if (ins && ins.best_fish) {
+        var att = ins.best_fish.attempts != null ? ' · محاولات: ' + ins.best_fish.attempts : '';
+        b.innerHTML = '<strong>' + escapeHtml(String(ins.best_fish.fish)) + '</strong><br/>معدل النجاح: ' + escapeHtml(String(ins.best_fish.success_rate)) + '%' + att + ' · ثقة: ' + escapeHtml(String(ins.best_fish.confidence));
+      } else {
+        b.textContent = '—';
+      }
+      if (ins && ins.weakest_pattern) {
+        wk.innerHTML = '<strong>' + escapeHtml(String(ins.weakest_pattern.fish)) + '</strong><br/>' + escapeHtml(String(ins.weakest_pattern.issue));
+      } else {
+        wk.textContent = '—';
+      }
+      if (ins && ins.smart_recommendation) {
+        var srec = ins.smart_recommendation;
+        var t = srec.text || '—';
+        var bc = srec.based_on ? ' · ' + srec.based_on : '';
+        var sc = srec.confidence ? ' · موثوقية: ' + srec.confidence : '';
+        sm.textContent = t + bc + sc;
+      } else {
+        sm.textContent = '—';
+      }
+      if (tr) {
+        if (ins && ins.trend) {
+          tr.textContent = 'اتجاه أسبوعي (7 أيام / السابعة): ' + ins.trend;
+          tr.style.display = 'block';
+        } else {
+          tr.style.display = 'none';
+          tr.textContent = '';
+        }
+      }
+    } catch (_e) {
+      if (row) row.style.display = 'none';
+      if (tr) { tr.style.display = 'none'; tr.textContent = ''; }
+      if (empty) { empty.style.display = 'block'; empty.textContent = 'لا توجد بيانات كافية للتحليل'; }
+    }
+  }
+
   async function renderAdminHomeDashboard() {
     if (!getEl('eccSystemLine')) return;
     if (!latestSettings) {
@@ -1091,6 +1155,8 @@
     }).catch(function () {
       if (lines) lines.textContent = 'تعذّر تحميل بيانات الميدان';
     });
+
+    void renderAiInsightLayer();
   }
 
   async function renderAdminDashboard() {

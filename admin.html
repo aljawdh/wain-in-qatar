@@ -98,6 +98,11 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .ecc-ac-btn:hover i{transform:scale(1.08)}
 .ecc-ac-btn span{line-height:1.35;max-width:100%}
 .ecc-alert-count{font-size:1.4rem;font-weight:900;letter-spacing:-.02em}
+.ecc-zone-ai .ecc-ai-row{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:720px){.ecc-zone-ai .ecc-ai-row{grid-template-columns:repeat(3,1fr)}}
+.ecc-ai-card{cursor:default;min-height:96px;animation:eccFadeIn .45s ease backwards}
+.ecc-ai-card .ecc-ai-body{font-size:.84rem;color:var(--txt2);line-height:1.55;margin-top:2px;word-break:break-word}
+.ecc-ai-card .ecc-card-ttl{color:#c5e5ff}
 @media(max-width:760px){
   .ecc-glass-card{padding:12px 13px}
   .ecc-glass-card .ecc-card-main{font-size:1rem}
@@ -326,6 +331,27 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                   <div class="ecc-card-sub ecc-adv-only" id="eccFieldAdv">—</div>
                 </div>
               </div>
+            </div>
+
+            <div class="ecc-zone ecc-zone-ai" id="eccAiZone" aria-label="الذكاء التشغيلي">
+              <h5 class="ecc-zone-label">🧠 الذكاء التشغيلي</h5>
+              <p class="section-subtitle" style="margin-top:0;margin-bottom:8px">قراءة فقط — لا يعدّل التوصيات ولا يكتب بيانات.</p>
+              <p class="section-subtitle" id="eccAiEmpty" style="display:none;margin-bottom:0;color:var(--txt3)">لا توجد بيانات كافية للتحليل</p>
+              <div class="ecc-ai-row" id="eccAiRow" style="display:grid">
+                <div class="ecc-glass-card ecc-ai-card">
+                  <div class="ecc-card-ttl">🔥 أفضل سمكة</div>
+                  <div class="ecc-ai-body" id="eccAiBodyBest">—</div>
+                </div>
+                <div class="ecc-glass-card ecc-ai-card">
+                  <div class="ecc-card-ttl">⚠️ نمط ضعيف</div>
+                  <div class="ecc-ai-body" id="eccAiBodyWeak">—</div>
+                </div>
+                <div class="ecc-glass-card ecc-ai-card">
+                  <div class="ecc-card-ttl">💡 توصية ذكية</div>
+                  <div class="ecc-ai-body" id="eccAiBodySmart">—</div>
+                </div>
+              </div>
+              <p class="section-subtitle ecc-ai-trendline" id="eccAiTrend" style="display:none;margin-top:10px;margin-bottom:0;color:var(--txt2)"></p>
             </div>
 
             <div class="ecc-zone ecc-zone-action" aria-label="الاختصارات">
@@ -1177,6 +1203,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
   <script src="/shared/station-map-ui.js"></script>
   <script src="/shared/navidur-live-analysis.js"></script>
   <script>window.IS_ADMIN = true;</script>
+  <script src="/shared/navidur-ai-insight-engine.js"></script>
   <script src="/admin.js"></script>
 </body>
 </html>
