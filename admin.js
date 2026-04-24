@@ -380,12 +380,15 @@
         }
       }, 120);
     }
-    if (!adminAuthenticated) {
-      return;
-    }
-    window.setTimeout(function () {
+    Promise.resolve().then(function () {
+      var section = adminDataFilter;
+      console.log('Loading section:', section);
+      if (!adminAuthenticated) {
+        console.warn('[admin] skip section loaders: not authenticated');
+        return;
+      }
       var focusAfter = (options && options.focusCard) ? options.focusCard : null;
-      switch (adminDataFilter) {
+      switch (section) {
         case 'home':
           void renderAdminHomeDashboard();
           startHomeDashboardAutoRefresh();
@@ -460,7 +463,7 @@
         default:
           break;
       }
-    }, 0);
+    });
   }
 
   function setAdminDataFilter(filter) {
@@ -857,6 +860,7 @@
   }
 
   async function loadSettingsIntoAdmin() {
+    console.log('Loader executed:', 'loadSettingsIntoAdmin');
     try {
       setSettingsBusy(true);
       showSettingsStatus('جاري تحميل الإعدادات...', false);
@@ -1115,7 +1119,10 @@
   }
 
   async function renderAdminHomeDashboard() {
-    if (!getEl('eccSystemLine')) return;
+    if (!getEl('eccSystemLine')) {
+      console.warn('Missing element:', 'eccSystemLine');
+      return;
+    }
     if (!latestSettings) {
       try {
         latestSettings = await fetchSettings();
@@ -4887,7 +4894,11 @@
   }
 
   function refreshStationLocalDurReadout(st, asOfIso) {
-    if (!getEl('stStationLocalDurDetails')) return;
+    console.log('Loader executed:', 'refreshStationLocalDurReadout');
+    if (!getEl('stStationLocalDurDetails')) {
+      console.warn('Missing element:', 'stStationLocalDurDetails');
+      return;
+    }
     st = getStationForLocalDurReadout(st);
     if (!st || !st.id) {
       clearStationLocalDurPanel();
@@ -5670,6 +5681,7 @@
   }
 
   async function renderStationAnalytics() {
+    console.log('Loader executed:', 'renderStationAnalytics');
     currentTransientPreviewPoint = null;
     currentAnalysisRequestToken += 1;
     var requestToken = currentAnalysisRequestToken;
@@ -6172,9 +6184,13 @@
   }
 
   async function refreshAstroDurStatus() {
+    console.log('Loader executed:', 'refreshAstroDurStatus');
     var root = getEl('astroDurMonitoringRoot');
     var raw = getEl('astroDurStatusRaw');
-    if (!root) return;
+    if (!root) {
+      console.warn('Missing element:', 'astroDurMonitoringRoot');
+      return;
+    }
     if (!isAdminMode()) {
       root.innerHTML = '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تتطلب صلاحية إدارة.</p></div>';
       return;
@@ -6625,7 +6641,11 @@
   }
 
   async function refreshFieldReview() {
-    if (!adminAuthenticated) return;
+    console.log('Loader executed:', 'refreshFieldReview');
+    if (!adminAuthenticated) {
+      console.warn('[admin] refreshFieldReview skipped: not authenticated');
+      return;
+    }
     var statusEl = getEl('fieldReviewStatus');
     if (statusEl) statusEl.textContent = 'جاري تحميل تحليل الميدان...';
     try {
@@ -7132,7 +7152,11 @@
   }
 
   async function loadFeedback() {
-    if (!getEl('feedbackBody')) return;
+    if (!getEl('feedbackBody')) {
+      console.warn('Missing element:', 'feedbackBody');
+      return;
+    }
+    console.log('Loader executed:', 'loadFeedback');
     var params = new URLSearchParams();
     var d = getEl('fbDateFilter') ? getEl('fbDateFilter').value : '';
     var st = getEl('fbStationFilter') ? getEl('fbStationFilter').value.trim() : '';
@@ -7633,6 +7657,13 @@
     getEl('adminContent').classList.remove('active');
     getEl('adminUser').focus();
   };
+
+  window.refreshFieldReview = refreshFieldReview;
+  window.loadSettingsIntoAdmin = loadSettingsIntoAdmin;
+  window.loadFeedback = loadFeedback;
+  window.renderStationAnalytics = renderStationAnalytics;
+  window.refreshAstroDurStatus = refreshAstroDurStatus;
+  window.refreshStationLocalDurReadout = refreshStationLocalDurReadout;
 
   document.addEventListener('DOMContentLoaded', initAdminPage);
 })();
