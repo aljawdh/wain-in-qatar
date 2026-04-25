@@ -365,11 +365,19 @@
     options = options || {};
     stopHomeDashboardAutoRefresh();
     document.querySelectorAll('.admin-block').forEach(function (block) {
-      var section = block.getAttribute('data-section');
-      var show = (adminDataFilter === 'home' && section === 'home')
-        || (adminDataFilter !== 'home' && adminDataFilter === section);
-      block.style.display = show ? '' : 'none';
+      block.classList.remove('active');
     });
+    var escF = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') ? CSS.escape(f) : String(f).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    var target = document.querySelector('[data-section="' + escF + '"]');
+    console.log('Active section:', f);
+    console.log('Found element:', target);
+    if (target) {
+      target.classList.add('active');
+    } else {
+      console.error('Section not found:', f);
+      var homeSec = document.querySelector('[data-section="home"]');
+      if (homeSec) homeSec.classList.add('active');
+    }
     document.querySelectorAll('.admin-nav').forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-filter') === adminDataFilter);
     });
@@ -423,6 +431,11 @@
           break;
         case 'analytics':
           void renderSummarySection();
+          void loadStations().then(function () {
+            void renderStationAnalytics();
+          }).catch(function () {
+            void renderStationAnalytics();
+          });
           break;
         case 'stations':
           void loadStations().then(function () {
@@ -591,7 +604,7 @@
 
   async function fetchSummary() {
     var period = currentPeriod || 'all';
-    var res = await apiFetch(SUMMARY_ENDPOINT + '?period=' + encodeURIComponent(period), { method: 'GET' });
+    var res = await apiFetch(SUMMARY_ENDPOINT + '&period=' + encodeURIComponent(period), { method: 'GET' });
     if (!res.ok) throw new Error('summary fetch failed');
     return res.json();
   }
@@ -986,14 +999,39 @@
     }).join('');
   }
 
-  async function renderSummarySection() {
+  async function renderSummarySection(preloaded, options) {
+    options = options || {};
+    console.log('Current active section:', adminDataFilter);
     try {
-      var s = await fetchSummary();
+      var s = (preloaded != null && typeof preloaded === 'object')
+        ? preloaded
+        : await fetchSummary();
       latestSummaryCache = s;
-      getEl('sumYes').textContent = String(s.total_yes || 0);
-      getEl('sumNo').textContent = String(s.total_no || 0);
-      getEl('sumAcc').textContent = String(s.accuracy || 0) + '%';
-      getEl('sumScoreAcc').textContent = String(s.score_accuracy || 0) + '%';
+      console.log('renderSummarySection START', s);
+      if (!options.force && adminDataFilter !== 'analytics') {
+        updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
+        return;
+      }
+      var el = getEl('summaryTopStationsBody');
+      if (!el) {
+        console.error('Missing DOM element: summaryTopStationsBody');
+      }
+      var sumYes = getEl('sumYes');
+      var sumNo = getEl('sumNo');
+      var sumAcc = getEl('sumAcc');
+      var sumScoreAcc = getEl('sumScoreAcc');
+      if (!sumYes) { console.error('Missing DOM element: sumYes'); }
+      if (!sumNo) { console.error('Missing DOM element: sumNo'); }
+      if (!sumAcc) { console.error('Missing DOM element: sumAcc'); }
+      if (!sumScoreAcc) { console.error('Missing DOM element: sumScoreAcc'); }
+      if (!el || !sumYes || !sumNo || !sumAcc || !sumScoreAcc) {
+        updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
+        return;
+      }
+      sumYes.textContent = String(s.total_yes || 0);
+      sumNo.textContent = String(s.total_no || 0);
+      sumAcc.textContent = String(s.accuracy || 0) + '%';
+      sumScoreAcc.textContent = String(s.score_accuracy || 0) + '%';
       renderTopTable('summaryTopStationsBody', s.best_stations || []);
       renderOpsBlock(s);
       var stTotal = (s.station_selection_counts || []).reduce(function (acc, x) { return acc + Number(x.count || 0); }, 0);
@@ -1033,12 +1071,17 @@
         return '<td>' + (x.from || '--') + '</td><td>' + (x.to || '--') + '</td><td>' + Number(x.to_count || 0) + '/' + Number(x.from_count || 0) + '</td><td style="' + color + '"><strong>' + pct + '</strong></td>';
       }), 'لا توجد بيانات', 4);
       updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
-    } catch (_e) {
+    } catch (e) {
+      console.error('renderSummarySection FAILED:', e);
       latestSummaryCache = { total_yes: 0, total_no: 0 };
-      getEl('sumYes').textContent = '0';
-      getEl('sumNo').textContent = '0';
-      getEl('sumAcc').textContent = '0%';
-      getEl('sumScoreAcc').textContent = '0%';
+      var sy = getEl('sumYes');
+      var sn = getEl('sumNo');
+      var sa = getEl('sumAcc');
+      var ssa = getEl('sumScoreAcc');
+      if (sy) sy.textContent = '0';
+      if (sn) sn.textContent = '0';
+      if (sa) sa.textContent = '0%';
+      if (ssa) ssa.textContent = '0%';
       renderTopTable('summaryTopStationsBody', []);
       renderKeyValueRows('selectionStationsBody', [], 'لا توجد اختيارات مسجلة بعد', 5);
       renderKeyValueRows('selectionModeBody', [], 'لا توجد بيانات', 3);
@@ -1169,7 +1212,7 @@
     }
     var cardApi = getEl('eccCardApi');
     var t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    apiFetch(SUMMARY_ENDPOINT + '?period=today', { method: 'GET' })
+    apiFetch(SUMMARY_ENDPOINT + '&period=today', { method: 'GET' })
       .then(function (r) {
         var ms = Math.round((typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()) - t0);
         var kind = 'ok';
@@ -7649,6 +7692,8 @@
       return;
     }
 
+    activateAdminSection('home', null);
+
     if (userInput) userInput.focus();
   }
 
@@ -7664,6 +7709,12 @@
   window.renderStationAnalytics = renderStationAnalytics;
   window.refreshAstroDurStatus = refreshAstroDurStatus;
   window.refreshStationLocalDurReadout = refreshStationLocalDurReadout;
+
+  window.testRender = function () {
+    return fetch(SUMMARY_ENDPOINT)
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return renderSummarySection(d, { force: true }); });
+  };
 
   document.addEventListener('DOMContentLoaded', initAdminPage);
 })();

@@ -26,6 +26,8 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .al-err{display:none;color:var(--red);text-align:center;margin-top:8px;font-size:.9rem}
 .admin-content{display:none}
 .admin-content.active{display:block}
+.admin-block{display:none}
+.admin-block.active{display:block}
 .admin-layout{display:grid;grid-template-columns:200px 1fr;gap:12px}
 .admin-sidebar{background:rgba(16,44,69,.95);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:10px;display:grid;gap:8px;height:max-content;position:sticky;top:14px}
 .admin-nav{background:var(--bg3);color:#fff;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:right;font-family:inherit}
@@ -277,7 +279,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
         </aside>
 
         <div class="admin-main">
-          <div class="admin-section admin-block admin-home-wrap ecc-home-root" data-section="home" id="eccHomeRoot">
+          <div class="admin-section admin-block active admin-home-wrap ecc-home-root" data-section="home" id="eccHomeRoot">
             <div class="ecc-home-header">
               <div>
                 <h4 class="admin-home-title" style="margin-bottom:2px"><i class="fa-solid fa-gauge-high"></i> مركز القيادة</h4>
@@ -465,166 +467,11 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               </div>
               <div class="field-checklist-note" id="fieldChecklistStatus">Checklist ينتظر أول بيانات feedback...</div>
             </div>
-          </div>
 
-          <div class="admin-section admin-block" data-section="users">
-            <h4><i class="fa-solid fa-users"></i> إدارة المستخدمين</h4>
-            <div class="section-subtitle">إدارة الحسابات والصلاحيات بسرعة مع وضوح الحالة لكل مستخدم.</div>
-            <div class="admin-form-grid">
-              <div class="admin-field"><label>اسم المستخدم</label><input id="newUserName" type="text" placeholder="member_01"></div>
-              <div class="admin-field"><label>كلمة المرور</label><input id="newUserPass" type="password" placeholder="********"></div>
-              <div class="admin-field"><label>الدور</label><select id="newUserRole"><option value="member">member</option><option value="admin">admin</option><option value="super_admin">super_admin</option><option value="viewer">viewer</option></select></div>
-              <div class="admin-field"><label>المحطات المخصصة (CSV)</label><input id="newUserStations" type="text" placeholder="st_001,st_002"></div>
-            </div>
-            <div class="settings-actions">
-              <button class="settings-btn" id="createUserBtn">إنشاء مستخدم</button>
-            </div>
-            <div class="settings-status" id="usersStatus"></div>
             <hr class="sep">
-            <div class="table-wrap">
-              <table class="admin-table">
-                <thead><tr><th>المستخدم</th><th>الدور</th><th>الحالة</th><th>محطات</th><th>إجراءات</th></tr></thead>
-                <tbody id="usersBody"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="admin-section admin-block" data-section="stations">
-            <h4><i class="fa-solid fa-location-dot"></i> إدارة المحطات</h4>
-            <div id="gulfWarningBar" style="display:none;background:rgba(255,185,0,.12);border:1px solid rgba(255,185,0,.5);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.88rem;color:#ffe7aa;font-weight:500"></div>
-            <div class="section-subtitle">إضافة تلقائية: ضع النقطة على الخريطة ← تُكتشف الدولة والمنطقة تلقائياً ← الاسم يُملأ تلقائياً. القرار النهائي للصيد يُحدد من التحليل الحي فقط.</div>
-            <div class="admin-form-grid">
-              <div class="admin-field">
-                <label>الدولة</label>
-                <select id="stCountry">
-                  <option value="">-- اختر الدولة --</option>
-                  <option>قطر</option>
-                  <option>السعودية</option>
-                  <option>الكويت</option>
-                  <option>البحرين</option>
-                  <option value="الإمارات">الإمارات العربية المتحدة</option>
-                  <option>عمان</option>
-                  <option>إيران</option>
-                </select>
-              </div>
-              <div class="admin-field">
-                <label>المنطقة</label>
-                <div style="display:flex;gap:6px;align-items:stretch">
-                  <select id="stRegion" style="flex:1"><option value="">-- اختر المنطقة --</option></select>
-                  <button type="button" id="addRegionBtn" class="small-btn" style="white-space:nowrap;padding:6px 10px;border-radius:8px">+ منطقة</button>
-                </div>
-                <div id="newRegionWrap" style="display:none;margin-top:6px">
-                  <div style="display:flex;gap:6px">
-                    <input id="stRegionNew" type="text" placeholder="اسم المنطقة الجديدة" style="flex:1;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:.88rem;font-family:inherit">
-                    <button type="button" id="confirmRegionBtn" class="small-btn" style="padding:6px 10px">تأكيد</button>
-                  </div>
-                </div>
-              </div>
-              <div class="admin-field full">
-                <label>اسم المحطة <span id="stNameAutoHint" style="color:#ffe7aa;font-size:.75rem;margin-right:6px;font-weight:400"></span></label>
-                <input id="stName" type="text" placeholder="يُملأ تلقائياً عند اختيار المنطقة">
-              </div>
-            </div>
-            <details class="adv-options" style="margin:10px 0">
-              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-sliders" style="margin-left:6px"></i> خيارات متقدمة</summary>
-              <div class="admin-form-grid" style="margin-top:10px">
-                <div class="admin-field"><label>المعرف التقني (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
-                <div class="admin-field"><label>نوع المحطة</label><select id="stRoleType"><option value="primary_reference">رئيسية مرجعية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
-                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stPrimaryReference"><label for="stPrimaryReference">محطة رئيسية كبرى</label></div></div>
-                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stIsReferenceStation"><label for="stIsReferenceStation">محطة مرجعية</label></div></div>
-                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stIsVerified"><label for="stIsVerified">مرجع موثق</label></div></div>
-                <div class="admin-field"><label>محطة مرجعية مرتبطة</label><input id="stReferenceStation" type="text" placeholder="st_001"></div>
-                <div class="admin-field"><label>أولوية المرجع</label><input id="stReferencePriority" type="number" step="1" placeholder="1"></div>
-                <div class="admin-field"><label>مفتاح حزام العرض</label><input id="stLatitudeBandKey" type="text" placeholder="gulf_band_north"></div>
-                <div class="admin-field"><label>مرساة سهيل اليدوية</label><input id="stManualSuhailAnchorDate" type="date"></div>
-                <div class="admin-field"><label>بداية الدورة اليدوية</label><input id="stManualCycleStartDate" type="date"></div>
-                <div class="admin-field"><label>سنة مرساة سهيل (المصنف)</label><input id="stSuhailAnchorYearInput" type="number" min="2016" max="2055" placeholder="العام الحالي إن وُجد فارغاً"></div>
-                <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="stFetchWorkbookSuhailBtn" title="من الملف: data/true_final_station_reference.json">استدعاء مرساة سهيل من المرجع النهائي</button></div>
-                <div class="admin-field"><label>نطاق العرض</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
-                <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
-                <input type="hidden" id="stFishingMode" value="coastal">
-                <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
-                <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
-                <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
-                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stActive" checked><label for="stActive">Active</label></div></div>
-                <div class="admin-field full"><label>ملاحظات المعايرة</label><textarea id="stCalibrationNotes"></textarea></div>
-                <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
-              </div>
-            </details>
-            <details class="adv-options" style="margin:14px 0" id="workbookMappingDetails">
-              <summary style="cursor:pointer;font-size:.88rem;color:#c4e0ff;background:rgba(92,225,255,.08);border:1px solid rgba(92,225,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-book-atlas" style="margin-left:6px"></i> المرجع المحلي النهائي للدرور</summary>
-              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">المصدر الوحيد: <strong>data/true_final_station_reference.json</strong> (الخادم: KV عند التفعيل، وإلا الملف المحلي). يُطابَق الصف بمعرّف المحطة أو باسمها العربي كما في المرجع. التوقيت يعتمد <strong>اليوم والشهر</strong> فقط.</p>
-              <p id="stTrueFinalRefStatus" style="margin:6px 0 10px;font-size:.82rem;color:#9ad9ff;min-height:1.2em"></p>
-              <div class="admin-form-grid" style="margin-top:10px">
-                <div class="admin-field"><label>الدر الحالي</label><input id="tfCurrentDur" type="text" autocomplete="off" placeholder="—"></div>
-                <div class="admin-field"><label>اليوم داخل الدر</label><input id="tfCurrentDurDay" type="number" min="1" max="99" step="1" placeholder="—"></div>
-                <div class="admin-field"><label>بداية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurStart" type="text" inputmode="numeric" placeholder="DD-MM مثل 16-04"></div>
-                <div class="admin-field"><label>نهاية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurEnd" type="text" inputmode="numeric" placeholder="DD-MM"></div>
-                <div class="admin-field full"><label>الدر التالي</label><input id="tfNextDur" type="text" autocomplete="off" placeholder="—"></div>
-                <div class="admin-field full"><label>&nbsp;</label><button type="button" class="settings-btn" id="stTrueFinalSaveBtn">حفظ التعديل</button></div>
-              </div>
-            </details>
-            <details class="adv-options" style="margin:14px 0" id="stStationLocalDurDetails">
-              <summary style="cursor:pointer;font-size:.88rem;color:#c4e8ff;background:rgba(120,200,255,.08);border:1px solid rgba(120,200,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-anchor" style="margin-left:6px"></i> الدر المحلي (مرساة سهيل يدوية)</summary>
-              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">عرض القراءة من <strong>data/true_final_station_reference.json</strong> للمحطة المطابقة. حقل <strong>مرساة سهيل اليدوية</strong> و<strong>معنى المرساة</strong> أدناه يعكسان حقلي النموذج أعلاه عند إدخالهما (أو الاستدعاء من المرجع)، بلا الاعتماد على الأنظمة المزالة.</p>
-              <div class="admin-form-grid" style="margin-top:10px">
-                <div class="admin-field"><label>تاريخ المرساة اليدوية</label><input id="stStationLocalAnchorDateRo" type="text" readonly></div>
-                <div class="admin-field full"><label>معنى المرساة</label><input id="stStationLocalAnchorMeaningRo" type="text" readonly></div>
-                <div class="admin-field"><label>الدر الحالي (محلي)</label><input id="stStationLocalDurNameRo" type="text" readonly></div>
-                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stStationLocalDayInDurRo" type="text" readonly></div>
-                <div class="admin-field"><label>بداية الدر</label><input id="stStationLocalStartRo" type="text" readonly></div>
-                <div class="admin-field"><label>نهاية الدر</label><input id="stStationLocalEndRo" type="text" readonly></div>
-                <div class="admin-field"><label>الدر التالي</label><input id="stStationLocalNextRo" type="text" readonly></div>
-                <div class="admin-field full"><span id="stStationLocalDurMsg" style="font-size:.82rem;color:#b8d4e8;line-height:1.45"></span></div>
-              </div>
-            </details>
-            <div class="station-map-wrap">
-              <div class="station-map-head">
-                <strong>اختيار الموقع من الخريطة</strong>
-                <span class="station-map-hint">اضغط على الخريطة لإضافة/نقل النقطة. يمكنك سحب النقطة بعد وضعها.</span>
-              </div>
-              <div id="stationsAdminMap"></div>
-              <div class="station-map-meta">
-                <span id="stCoordPreview">الإحداثيات الحالية: -- , --</span>
-              </div>
-              <div id="stMarineTypeHint" style="font-size:.8rem;padding:3px 4px;display:none"></div>
-              <div id="stPlaceSuggestion" class="station-place-suggestion">الموقع المختار: --</div>
-              <div id="stWaterStatus" class="st-water-status" style="display:none"></div>
-            </div>
-            <div class="settings-actions">
-              <button class="settings-btn" id="saveStationBtn">حفظ محطة</button>
-              <button class="settings-btn secondary" id="clearStationBtn">تفريغ النموذج</button>
-            </div>
-            <div class="settings-status" id="stationsStatus"></div>
-            <hr class="sep">
-            <div style="display:flex;justify-content:flex-end;margin:0 0 10px">
-              <label style="display:inline-flex;align-items:center;gap:8px;font-size:.85rem;color:#ffd0d0;background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.22);border-radius:999px;padding:6px 12px;cursor:pointer">
-                <input id="stationsReferenceOnlyToggle" type="checkbox">
-                عرض المحطات المرجعية فقط
-              </label>
-            </div>
-
-            <!-- DURUR PROFILE SECTION -->
-            <details class="adv-options" style="margin:14px 0">
-              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-calendar-days" style="margin-left:6px"></i> ملف الدرة</summary>
-              <div class="admin-form-grid" style="margin-top:10px">
-                <div class="admin-field"><label>الدر الحالي</label><input id="stDururCurrentName" type="text" readonly></div>
-                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stDururDayInPeriod" type="text" readonly></div>
-                <div class="admin-field"><label>المرحلة الحالية</label><input id="stDururActivePhase" type="text" readonly></div>
-                <div class="admin-field"><label>تاريخ بداية الدر</label><input id="stDururStartDate" type="text" readonly></div>
-                <div class="admin-field"><label>تاريخ نهاية الدر</label><input id="stDururEndDate" type="text" readonly></div>
-                <div class="admin-field"><label>الدر التالي</label><input id="stDururNextName" type="text" readonly></div>
-                <div class="admin-field"><label>الأيام المتبقية</label><input id="stDururDaysRemaining" type="text" readonly></div>
-              </div>
-
-              <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:8px;justify-content:flex-start">
-                <span id="stDururStatus" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem"></span>
-              </div>
-            </details>
-            <!-- END DURUR PROFILE SECTION -->
-
-            <!-- STATION ANALYTICS SECTION -->
-            <details class="adv-options" style="margin:14px 0" id="stAnalyticsDetails">
+            <h4><i class="fa-solid fa-anchor"></i> تحليل المحطة (مستند إلى المحطة المختارة في «المحطات»)</h4>
+            <p class="section-subtitle" style="margin-top:0">يُستخدَم معرّف المحطة <code>stId</code> من نموذج إدارة المحطات. اختر محطة هناك ثم حدّث التحليل.</p>
+            <details class="adv-options" style="margin:14px 0" id="stAnalyticsDetails" open>
               <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-chart-line" style="margin-left:6px"></i> تحليل المحطة</summary>
               <p style="margin:10px 0 0;font-size:.8rem;color:#8fb0c4;line-height:1.5">توقيت الدر الموسمي من <strong>data/true_final_station_reference.json</strong> فقط؛ بقية التحليل (الطقس، المقارنة، السجلات) يبقى كما هو.</p>
               <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -723,7 +570,117 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <span id="stAnalyticsMsg" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem"></span>
               </div>
             </details>
-            <!-- END STATION ANALYTICS SECTION -->
+          </div>
+
+          <div class="admin-section admin-block" data-section="users">
+            <h4><i class="fa-solid fa-users"></i> إدارة المستخدمين</h4>
+            <div class="section-subtitle">إدارة الحسابات والصلاحيات بسرعة مع وضوح الحالة لكل مستخدم.</div>
+            <div class="admin-form-grid">
+              <div class="admin-field"><label>اسم المستخدم</label><input id="newUserName" type="text" placeholder="member_01"></div>
+              <div class="admin-field"><label>كلمة المرور</label><input id="newUserPass" type="password" placeholder="********"></div>
+              <div class="admin-field"><label>الدور</label><select id="newUserRole"><option value="member">member</option><option value="admin">admin</option><option value="super_admin">super_admin</option><option value="viewer">viewer</option></select></div>
+              <div class="admin-field"><label>المحطات المخصصة (CSV)</label><input id="newUserStations" type="text" placeholder="st_001,st_002"></div>
+            </div>
+            <div class="settings-actions">
+              <button class="settings-btn" id="createUserBtn">إنشاء مستخدم</button>
+            </div>
+            <div class="settings-status" id="usersStatus"></div>
+            <hr class="sep">
+            <div class="table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>المستخدم</th><th>الدور</th><th>الحالة</th><th>محطات</th><th>إجراءات</th></tr></thead>
+                <tbody id="usersBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="admin-section admin-block" data-section="stations">
+            <h4><i class="fa-solid fa-location-dot"></i> إدارة المحطات</h4>
+            <div id="gulfWarningBar" style="display:none;background:rgba(255,185,0,.12);border:1px solid rgba(255,185,0,.5);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:.88rem;color:#ffe7aa;font-weight:500"></div>
+            <div class="section-subtitle">إضافة تلقائية: ضع النقطة على الخريطة ← تُكتشف الدولة والمنطقة تلقائياً ← الاسم يُملأ تلقائياً. القرار النهائي للصيد يُحدد من التحليل الحي فقط.</div>
+            <div class="admin-form-grid">
+              <div class="admin-field">
+                <label>الدولة</label>
+                <select id="stCountry">
+                  <option value="">-- اختر الدولة --</option>
+                  <option>قطر</option>
+                  <option>السعودية</option>
+                  <option>الكويت</option>
+                  <option>البحرين</option>
+                  <option value="الإمارات">الإمارات العربية المتحدة</option>
+                  <option>عمان</option>
+                  <option>إيران</option>
+                </select>
+              </div>
+              <div class="admin-field">
+                <label>المنطقة</label>
+                <div style="display:flex;gap:6px;align-items:stretch">
+                  <select id="stRegion" style="flex:1"><option value="">-- اختر المنطقة --</option></select>
+                  <button type="button" id="addRegionBtn" class="small-btn" style="white-space:nowrap;padding:6px 10px;border-radius:8px">+ منطقة</button>
+                </div>
+                <div id="newRegionWrap" style="display:none;margin-top:6px">
+                  <div style="display:flex;gap:6px">
+                    <input id="stRegionNew" type="text" placeholder="اسم المنطقة الجديدة" style="flex:1;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;font-size:.88rem;font-family:inherit">
+                    <button type="button" id="confirmRegionBtn" class="small-btn" style="padding:6px 10px">تأكيد</button>
+                  </div>
+                </div>
+              </div>
+              <div class="admin-field full">
+                <label>اسم المحطة <span id="stNameAutoHint" style="color:#ffe7aa;font-size:.75rem;margin-right:6px;font-weight:400"></span></label>
+                <input id="stName" type="text" placeholder="يُملأ تلقائياً عند اختيار المنطقة">
+              </div>
+            </div>
+            <details class="adv-options" style="margin:10px 0">
+              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-sliders" style="margin-left:6px"></i> خيارات متقدمة</summary>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>المعرف التقني (اختياري)</label><input id="stId" type="text" placeholder="st_custom"></div>
+                <div class="admin-field"><label>نوع المحطة</label><select id="stRoleType"><option value="primary_reference">رئيسية مرجعية</option><option value="secondary_linked">تابعة</option><option value="latlon_band_station">مرتبطة بخطوط</option></select></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stPrimaryReference"><label for="stPrimaryReference">محطة رئيسية كبرى</label></div></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stIsReferenceStation"><label for="stIsReferenceStation">محطة مرجعية</label></div></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stIsVerified"><label for="stIsVerified">مرجع موثق</label></div></div>
+                <div class="admin-field"><label>محطة مرجعية مرتبطة</label><input id="stReferenceStation" type="text" placeholder="st_001"></div>
+                <div class="admin-field"><label>أولوية المرجع</label><input id="stReferencePriority" type="number" step="1" placeholder="1"></div>
+                <div class="admin-field"><label>مفتاح حزام العرض</label><input id="stLatitudeBandKey" type="text" placeholder="gulf_band_north"></div>
+                <div class="admin-field"><label>مرساة سهيل اليدوية</label><input id="stManualSuhailAnchorDate" type="date"></div>
+                <div class="admin-field"><label>بداية الدورة اليدوية</label><input id="stManualCycleStartDate" type="date"></div>
+                <div class="admin-field"><label>سنة مرساة سهيل (المصنف)</label><input id="stSuhailAnchorYearInput" type="number" min="2016" max="2055" placeholder="العام الحالي إن وُجد فارغاً"></div>
+                <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="stFetchWorkbookSuhailBtn" title="من الملف: data/true_final_station_reference.json">استدعاء مرساة سهيل من المرجع النهائي</button></div>
+                <div class="admin-field"><label>نطاق العرض</label><input id="stRadius" type="number" step="0.001" value="0.02"></div>
+                <div class="admin-field"><label>Sort Order</label><input id="stSort" type="number" step="1" value="1"></div>
+                <input type="hidden" id="stFishingMode" value="coastal">
+                <div class="admin-field"><label>Latitude</label><input id="stLat" type="number" step="0.0001"></div>
+                <div class="admin-field"><label>Longitude</label><input id="stLon" type="number" step="0.0001"></div>
+                <div class="admin-field"><label>Assigned Members (CSV)</label><input id="stMembers" type="text" placeholder="usr_x,usr_y"></div>
+                <div class="admin-field"><div class="admin-switch"><input type="checkbox" id="stActive" checked><label for="stActive">Active</label></div></div>
+                <div class="admin-field full"><label>ملاحظات المعايرة</label><textarea id="stCalibrationNotes"></textarea></div>
+                <div class="admin-field full"><label>Notes</label><textarea id="stNotes"></textarea></div>
+              </div>
+            </details>
+            <div class="station-map-wrap">
+              <div class="station-map-head">
+                <strong>اختيار الموقع من الخريطة</strong>
+                <span class="station-map-hint">اضغط على الخريطة لإضافة/نقل النقطة. يمكنك سحب النقطة بعد وضعها.</span>
+              </div>
+              <div id="stationsAdminMap"></div>
+              <div class="station-map-meta">
+                <span id="stCoordPreview">الإحداثيات الحالية: -- , --</span>
+              </div>
+              <div id="stMarineTypeHint" style="font-size:.8rem;padding:3px 4px;display:none"></div>
+              <div id="stPlaceSuggestion" class="station-place-suggestion">الموقع المختار: --</div>
+              <div id="stWaterStatus" class="st-water-status" style="display:none"></div>
+            </div>
+            <div class="settings-actions">
+              <button class="settings-btn" id="saveStationBtn">حفظ محطة</button>
+              <button class="settings-btn secondary" id="clearStationBtn">تفريغ النموذج</button>
+            </div>
+            <div class="settings-status" id="stationsStatus"></div>
+            <hr class="sep">
+            <div style="display:flex;justify-content:flex-end;margin:0 0 10px">
+              <label style="display:inline-flex;align-items:center;gap:8px;font-size:.85rem;color:#ffd0d0;background:rgba(255,82,82,.08);border:1px solid rgba(255,82,82,.22);border-radius:999px;padding:6px 12px;cursor:pointer">
+                <input id="stationsReferenceOnlyToggle" type="checkbox">
+                عرض المحطات المرجعية فقط
+              </label>
+            </div>
 
             <hr class="sep">
             <div class="table-wrap">
@@ -1041,6 +998,52 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <details class="astro-raw-debug">
               <summary>عرض البيانات الخام للتشخيص</summary>
               <pre id="astroDurPreviewRaw" class="astro-raw-pre">—</pre>
+            </details>
+
+            <hr class="sep" style="margin:18px 0">
+            <h4 style="margin-bottom:4px"><i class="fa-solid fa-book-atlas"></i> ملف الدر والمرجع (المحطة المختارة)</h4>
+            <p class="section-subtitle" style="margin-top:0">نفس المعرّفات <code>stId</code> من نموذج «المحطات». يُنصح بفتح نموذج محطة واختيار محطة قبل المراجعة.</p>
+            <details class="adv-options" style="margin:14px 0">
+              <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-calendar-days" style="margin-left:6px"></i> ملف الدرة</summary>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>الدر الحالي</label><input id="stDururCurrentName" type="text" readonly></div>
+                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stDururDayInPeriod" type="text" readonly></div>
+                <div class="admin-field"><label>المرحلة الحالية</label><input id="stDururActivePhase" type="text" readonly></div>
+                <div class="admin-field"><label>تاريخ بداية الدر</label><input id="stDururStartDate" type="text" readonly></div>
+                <div class="admin-field"><label>تاريخ نهاية الدر</label><input id="stDururEndDate" type="text" readonly></div>
+                <div class="admin-field"><label>الدر التالي</label><input id="stDururNextName" type="text" readonly></div>
+                <div class="admin-field"><label>الأيام المتبقية</label><input id="stDururDaysRemaining" type="text" readonly></div>
+              </div>
+              <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:8px;justify-content:flex-start">
+                <span id="stDururStatus" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem"></span>
+              </div>
+            </details>
+            <details class="adv-options" style="margin:14px 0" id="workbookMappingDetails">
+              <summary style="cursor:pointer;font-size:.88rem;color:#c4e0ff;background:rgba(92,225,255,.08);border:1px solid rgba(92,225,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-book-atlas" style="margin-left:6px"></i> المرجع المحلي النهائي للدرور</summary>
+              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">المصدر الوحيد: <strong>data/true_final_station_reference.json</strong> (الخادم: KV عند التفعيل، وإلا الملف المحلي). يُطابَق الصف بمعرّف المحطة أو باسمها العربي كما في المرجع. التوقيت يعتمد <strong>اليوم والشهر</strong> فقط.</p>
+              <p id="stTrueFinalRefStatus" style="margin:6px 0 10px;font-size:.82rem;color:#9ad9ff;min-height:1.2em"></p>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>الدر الحالي</label><input id="tfCurrentDur" type="text" autocomplete="off" placeholder="—"></div>
+                <div class="admin-field"><label>اليوم داخل الدر</label><input id="tfCurrentDurDay" type="number" min="1" max="99" step="1" placeholder="—"></div>
+                <div class="admin-field"><label>بداية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurStart" type="text" inputmode="numeric" placeholder="DD-MM مثل 16-04"></div>
+                <div class="admin-field"><label>نهاية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurEnd" type="text" inputmode="numeric" placeholder="DD-MM"></div>
+                <div class="admin-field full"><label>الدر التالي</label><input id="tfNextDur" type="text" autocomplete="off" placeholder="—"></div>
+                <div class="admin-field full"><label>&nbsp;</label><button type="button" class="settings-btn" id="stTrueFinalSaveBtn">حفظ التعديل</button></div>
+              </div>
+            </details>
+            <details class="adv-options" style="margin:14px 0" id="stStationLocalDurDetails">
+              <summary style="cursor:pointer;font-size:.88rem;color:#c4e8ff;background:rgba(120,200,255,.08);border:1px solid rgba(120,200,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-anchor" style="margin-left:6px"></i> الدر المحلي (مرساة سهيل يدوية)</summary>
+              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">عرض القراءة من <strong>data/true_final_station_reference.json</strong> للمحطة المطابقة. حقل <strong>مرساة سهيل اليدوية</strong> و<strong>معنى المرساة</strong> أدناه يعكسان حقلي النموذج في «المحطات».</p>
+              <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>تاريخ المرساة اليدوية</label><input id="stStationLocalAnchorDateRo" type="text" readonly></div>
+                <div class="admin-field full"><label>معنى المرساة</label><input id="stStationLocalAnchorMeaningRo" type="text" readonly></div>
+                <div class="admin-field"><label>الدر الحالي (محلي)</label><input id="stStationLocalDurNameRo" type="text" readonly></div>
+                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stStationLocalDayInDurRo" type="text" readonly></div>
+                <div class="admin-field"><label>بداية الدر</label><input id="stStationLocalStartRo" type="text" readonly></div>
+                <div class="admin-field"><label>نهاية الدر</label><input id="stStationLocalEndRo" type="text" readonly></div>
+                <div class="admin-field"><label>الدر التالي</label><input id="stStationLocalNextRo" type="text" readonly></div>
+                <div class="admin-field full"><span id="stStationLocalDurMsg" style="font-size:.82rem;color:#b8d4e8;line-height:1.45"></span></div>
+              </div>
             </details>
           </div>
 
