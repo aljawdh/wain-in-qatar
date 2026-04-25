@@ -4392,6 +4392,12 @@
       var el = getEl(id);
       if (el) el.value = v != null && v !== '' ? String(v) : '';
     };
+    set('tfStationCity', d.station_name_ar);
+    set('tfReferenceDate', d.reference_date_md);
+    set(
+      'tfRemainingDays',
+      d.remaining_days_sheet != null && d.remaining_days_sheet !== '' ? String(d.remaining_days_sheet) : ''
+    );
     set('tfCurrentDur', d.current_dur_name_ar);
     set('tfCurrentDurDay', d.current_dur_day_sheet != null ? d.current_dur_day_sheet : '');
     set('tfCurrentDurStart', d.current_dur_start_md);
@@ -4874,11 +4880,11 @@
   function clearStationLocalDurPanel() {
     setStationLocalField('stStationLocalAnchorDateRo', '');
     setStationLocalField('stStationLocalAnchorMeaningRo', '');
-    setStationLocalField('stStationLocalDurNameRo', '');
-    setStationLocalField('stStationLocalDayInDurRo', '');
-    setStationLocalField('stStationLocalStartRo', '');
-    setStationLocalField('stStationLocalEndRo', '');
-    setStationLocalField('stStationLocalNextRo', '');
+    setStationLocalField('stStationLocalDurName', '');
+    setStationLocalField('stStationLocalDurDay', '');
+    setStationLocalField('stStationLocalDurStart', '');
+    setStationLocalField('stStationLocalDurEnd', '');
+    setStationLocalField('stStationLocalNextDur', '');
     var msg = getEl('stStationLocalDurMsg');
     if (msg) {
       msg.textContent = '';
@@ -4886,11 +4892,11 @@
   }
 
   function applyTrueFinalRowToLocalDurPanel(st, row) {
-    setStationLocalField('stStationLocalDurNameRo', row.current_dur_name_ar);
-    setStationLocalField('stStationLocalDayInDurRo', row.current_dur_day_sheet != null ? String(row.current_dur_day_sheet) : '');
-    setStationLocalField('stStationLocalStartRo', row.current_dur_start_md);
-    setStationLocalField('stStationLocalEndRo', row.current_dur_end_md);
-    setStationLocalField('stStationLocalNextRo', row.next_dur_name_ar);
+    setStationLocalField('stStationLocalDurName', row.current_dur_name_ar);
+    setStationLocalField('stStationLocalDurDay', row.current_dur_day_sheet != null ? String(row.current_dur_day_sheet) : '');
+    setStationLocalField('stStationLocalDurStart', row.current_dur_start_md);
+    setStationLocalField('stStationLocalDurEnd', row.current_dur_end_md);
+    setStationLocalField('stStationLocalNextDur', row.next_dur_name_ar);
     if (st && st.manual_suhail_anchor_date) {
       setStationLocalField('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date);
     } else {
@@ -4917,11 +4923,11 @@
   }
 
   function applyNoTrueFinalRowForLocalPanel(st) {
-    setStationLocalField('stStationLocalDurNameRo', '');
-    setStationLocalField('stStationLocalDayInDurRo', '');
-    setStationLocalField('stStationLocalStartRo', '');
-    setStationLocalField('stStationLocalEndRo', '');
-    setStationLocalField('stStationLocalNextRo', '');
+    setStationLocalField('stStationLocalDurName', '');
+    setStationLocalField('stStationLocalDurDay', '');
+    setStationLocalField('stStationLocalDurStart', '');
+    setStationLocalField('stStationLocalDurEnd', '');
+    setStationLocalField('stStationLocalNextDur', '');
     setStationLocalField('stStationLocalAnchorDateRo', st && st.manual_suhail_anchor_date ? st.manual_suhail_anchor_date : '');
     var sar = st && st.suhail_anchor_resolution;
     if (sar && sar.dur_name_ar != null) {
@@ -6256,7 +6262,7 @@
   }
 
   async function runAstroPreview() {
-    var root = getEl('astroDurPreviewRoot');
+    var root = getEl('astroPreviewRoot');
     var raw = getEl('astroDurPreviewRaw');
     if (!root) return;
     if (!isAdminMode()) {
@@ -6749,7 +6755,7 @@
       if (sessBody) {
         sessBody.innerHTML = '';
         if (!sessions.length) {
-          sessBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا جلسات مطابقة للتصفية</td></tr>';
+          sessBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr>';
         } else {
           sessions.forEach(function (s) {
             var tr = document.createElement('tr');
@@ -6814,7 +6820,7 @@
         }
       }
 
-      var adjBody = getEl('fieldReviewAdjBody');
+      var adjBody = getEl('fieldReviewAdjustmentsBody');
       if (adjBody) {
         adjBody.innerHTML = '';
         if (!adjustments.length) {
@@ -7022,7 +7028,7 @@
   }
 
   function initAstroDurPanel() {
-    var r = getEl('astroDurRefreshBtn');
+    var r = getEl('astroRefreshBtn');
     if (r) {
       r.addEventListener('click', function () {
         void refreshAstroDurStatus();
@@ -7218,7 +7224,7 @@
     var body = getEl('feedbackBody');
     body.innerHTML = '';
     if (!list.length) {
-      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا توجد بيانات حالياً</td></tr>';
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا توجد تقييمات حالياً</td></tr>';
       var fs0 = getEl('feedbackStatusAdmin');
       if (fs0) fs0.textContent = 'إجمالي النتائج: 0';
       updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);

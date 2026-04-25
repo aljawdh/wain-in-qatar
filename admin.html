@@ -937,6 +937,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 </table>
               </div>
             </div>
+          </div>
 
           <div class="admin-section admin-block" data-section="feedback">
             <h4><i class="fa-solid fa-comments"></i> التقييمات</h4>
@@ -950,7 +951,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <div class="table-wrap" style="max-height:420px">
               <table class="admin-table">
                 <thead><tr><th>الوقت</th><th>المحطة</th><th>الإجابة</th><th>النتيجة</th><th>المستخدم</th><th></th></tr></thead>
-                <tbody id="feedbackBody"></tbody>
+                <tbody id="feedbackBody"><tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا توجد تقييمات حالياً</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -969,7 +970,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               </label>
             </div>
             <div class="settings-actions" style="margin-bottom:10px">
-              <button type="button" class="settings-btn secondary" id="astroDurRefreshBtn">تحديث حالة الطبقة</button>
+              <button type="button" class="settings-btn secondary" id="astroRefreshBtn">تحديث حالة الطبقة</button>
               <span id="astroDurFlagsHint" style="font-size:.82rem;color:#8ea4ba">فعّل المعاينة من الإعدادات ثم احفظ.</span>
             </div>
             <div id="astroDurMonitoringRoot" class="astro-monitoring-root">
@@ -992,7 +993,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <div class="admin-field"><label>تاريخ المعاينة (غرينتش، اختياري)</label><input id="astroPreviewDateInput" type="date"></div>
               <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="astroPreviewBtn">معاينة النوافذ</button></div>
             </div>
-            <div id="astroDurPreviewRoot" class="astro-preview-root" style="margin-top:12px">
+            <div id="astroPreviewRoot" class="astro-preview-root" style="margin-top:12px">
               <p class="astro-placeholder">اختر محطة أو حزاماً ثم «معاينة النوافذ».</p>
             </div>
             <details class="astro-raw-debug">
@@ -1023,6 +1024,9 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">المصدر الوحيد: <strong>data/true_final_station_reference.json</strong> (الخادم: KV عند التفعيل، وإلا الملف المحلي). يُطابَق الصف بمعرّف المحطة أو باسمها العربي كما في المرجع. التوقيت يعتمد <strong>اليوم والشهر</strong> فقط.</p>
               <p id="stTrueFinalRefStatus" style="margin:6px 0 10px;font-size:.82rem;color:#9ad9ff;min-height:1.2em"></p>
               <div class="admin-form-grid" style="margin-top:10px">
+                <div class="admin-field"><label>اسم المحطة (المرجع)</label><input id="tfStationCity" type="text" readonly placeholder="—"></div>
+                <div class="admin-field"><label>يوم المرجع (يوم-شهر)</label><input id="tfReferenceDate" type="text" readonly placeholder="—"></div>
+                <div class="admin-field"><label>الأيام المتبقية (المصنف)</label><input id="tfRemainingDays" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>الدر الحالي</label><input id="tfCurrentDur" type="text" autocomplete="off" placeholder="—"></div>
                 <div class="admin-field"><label>اليوم داخل الدر</label><input id="tfCurrentDurDay" type="number" min="1" max="99" step="1" placeholder="—"></div>
                 <div class="admin-field"><label>بداية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurStart" type="text" inputmode="numeric" placeholder="DD-MM مثل 16-04"></div>
@@ -1037,11 +1041,11 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <div class="admin-form-grid" style="margin-top:10px">
                 <div class="admin-field"><label>تاريخ المرساة اليدوية</label><input id="stStationLocalAnchorDateRo" type="text" readonly></div>
                 <div class="admin-field full"><label>معنى المرساة</label><input id="stStationLocalAnchorMeaningRo" type="text" readonly></div>
-                <div class="admin-field"><label>الدر الحالي (محلي)</label><input id="stStationLocalDurNameRo" type="text" readonly></div>
-                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stStationLocalDayInDurRo" type="text" readonly></div>
-                <div class="admin-field"><label>بداية الدر</label><input id="stStationLocalStartRo" type="text" readonly></div>
-                <div class="admin-field"><label>نهاية الدر</label><input id="stStationLocalEndRo" type="text" readonly></div>
-                <div class="admin-field"><label>الدر التالي</label><input id="stStationLocalNextRo" type="text" readonly></div>
+                <div class="admin-field"><label>الدر الحالي (محلي)</label><input id="stStationLocalDurName" type="text" readonly></div>
+                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stStationLocalDurDay" type="text" readonly></div>
+                <div class="admin-field"><label>بداية الدر</label><input id="stStationLocalDurStart" type="text" readonly></div>
+                <div class="admin-field"><label>نهاية الدر</label><input id="stStationLocalDurEnd" type="text" readonly></div>
+                <div class="admin-field"><label>الدر التالي</label><input id="stStationLocalNextDur" type="text" readonly></div>
                 <div class="admin-field full"><span id="stStationLocalDurMsg" style="font-size:.82rem;color:#b8d4e8;line-height:1.45"></span></div>
               </div>
             </details>
@@ -1081,7 +1085,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <div class="table-wrap" style="max-height:360px;margin-bottom:16px">
               <table class="admin-table" id="fieldReviewSessionsTable">
                 <thead><tr><th>المحطة</th><th>الوقت</th><th>الدر</th><th>الماء/المد</th><th>موصى بها / فعلي</th><th>المراجعة</th><th>تفاصيل</th></tr></thead>
-                <tbody id="fieldReviewSessionsBody"></tbody>
+                <tbody id="fieldReviewSessionsBody"><tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr></tbody>
               </table>
             </div>
             <h5 style="margin:10px 0 6px;font-size:.9rem">أنماط مقترحة (قوة القرار)</h5>
@@ -1095,7 +1099,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <div class="table-wrap" style="max-height:220px">
               <table class="admin-table">
                 <thead><tr><th>سمكة</th><th>شروط</th><th>Δ</th><th>قوة القرار</th><th>المصدر / الاعتماد / التاريخ</th><th>حالة / حذف</th></tr></thead>
-                <tbody id="fieldReviewAdjBody"></tbody>
+                <tbody id="fieldReviewAdjustmentsBody"></tbody>
               </table>
             </div>
             <p id="fieldReviewStatus" class="section-subtitle" style="margin-top:10px"></p>
@@ -1162,25 +1166,47 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </div>
             <div class="settings-status" id="settingsStatus">جاهز.</div>
 
-            <!-- ── Hidden fields for backend compatibility ─ -->
+            <h5 style="margin:16px 0 8px;font-size:.9rem;color:#bfe9ff">إعدادات المنصة (يُحفظ مع «حفظ»)</h5>
+            <div class="admin-form-grid">
+              <div class="admin-field">
+                <label for="siteModeInput">وضع الموقع <span style="font-weight:400;color:#8ea4ba">(live / maintenance / private_beta)</span></label>
+                <select id="siteModeInput">
+                  <option value="live">live</option>
+                  <option value="maintenance">maintenance</option>
+                  <option value="private_beta">private_beta</option>
+                </select>
+              </div>
+              <div class="admin-field">
+                <label for="stationListModeInput">عرض قائمة المحطات</label>
+                <select id="stationListModeInput">
+                  <option value="grouped" selected>grouped</option>
+                  <option value="chips">chips</option>
+                  <option value="classic">classic</option>
+                </select>
+              </div>
+              <div class="admin-field">
+                <label for="locationModeInput">وضع الموقع للمستخدم</label>
+                <select id="locationModeInput">
+                  <option value="ask" selected>ask</option>
+                  <option value="off">off</option>
+                  <option value="auto">auto</option>
+                </select>
+              </div>
+              <div class="admin-field full">
+                <div class="admin-switch">
+                  <input type="checkbox" id="allowAdminBypassInput" checked>
+                  <label for="allowAdminBypassInput">السماح للإدارة بتجاوز وضع الصيانة/الإغلاق</label>
+                </div>
+              </div>
+              <div class="admin-field full">
+                <div class="admin-switch">
+                  <input type="checkbox" id="sortStationsByDistanceInput">
+                  <label for="sortStationsByDistanceInput">ترتيب المحطات حسب المسافة عند توفر الموقع</label>
+                </div>
+              </div>
+            </div>
+
             <div style="display:none" aria-hidden="true">
-              <select id="siteModeInput">
-                <option value="live">live</option>
-                <option value="maintenance">maintenance</option>
-                <option value="private_beta">private_beta</option>
-              </select>
-              <select id="stationListModeInput">
-                <option value="grouped" selected>grouped</option>
-                <option value="chips">chips</option>
-                <option value="classic">classic</option>
-              </select>
-              <select id="locationModeInput">
-                <option value="ask" selected>ask</option>
-                <option value="off">off</option>
-                <option value="auto">auto</option>
-              </select>
-              <input type="checkbox" id="allowAdminBypassInput" checked>
-              <input type="checkbox" id="sortStationsByDistanceInput">
               <input type="checkbox" id="adBannerEnabled">
               <input type="text" id="adBannerImageInput">
               <input type="text" id="adBannerLinkInput">
@@ -1208,6 +1234,12 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
   <script src="/shared/navidur-live-analysis.js"></script>
   <script>window.IS_ADMIN = true;</script>
   <script src="/shared/navidur-ai-insight-engine.js"></script>
+  <script>
+    ['home','analytics','stations','users','astro-dur','field-review','feedback','settings'].forEach(function (section) {
+      var el = document.querySelector('[data-section="' + section + '"]');
+      console.log('admin section check:', section, el ? el.innerHTML.length : 'MISSING');
+    });
+  </script>
   <script src="/admin.js"></script>
 </body>
 </html>
