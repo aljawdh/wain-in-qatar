@@ -9,6 +9,7 @@
   var STATION_HEALTH_REPORT_ENDPOINT = '/api?route=admin&path=station-health-report';
   var STATION_REFERENCE_LINK_ENDPOINT = '/api?route=admin&path=station-reference-link';
   var REF_LINK_AUDIT_ENDPOINT = '/api?route=admin&path=reference-link-audit';
+  var WEATHER_FETCH_AUDIT_ENDPOINT = '/api?route=admin&path=weather-fetch-audit';
   var LOGIN_ENDPOINT = '/api?route=login';
   var LOGOUT_ENDPOINT = '/api?route=logout';
 
@@ -487,6 +488,8 @@
           break;
         case 'station-health':
           break;
+        case 'weather-audit':
+          break;
         default:
           break;
       }
@@ -497,6 +500,7 @@
   var stationHealthReportPayload = null;
   var stationHealthLinkPendingId = null;
   var refLinkAuditInFlight = false;
+  var weatherFetchAuditInFlight = false;
 
   function shEsc(s) {
     if (s == null) return '—';
@@ -854,6 +858,150 @@
       })
       .then(function () {
         refLinkAuditInFlight = false;
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  function wfaEsc(s) {
+    if (s == null) return '—';
+    return shEsc(s);
+  }
+
+  function wfaCoordAr(cs) {
+    if (cs === 'valid') return 'صالحة';
+    if (cs === 'missing') return 'نقص';
+    if (cs === 'invalid_format') return 'غير صالحة';
+    return wfaEsc(cs);
+  }
+
+  function wfaFetchStatusAr(v) {
+    if (v === 'success') return 'نجح';
+    if (v === 'failed') return 'فشل';
+    if (v === 'skipped') return 'تخطٍ';
+    return wfaEsc(v);
+  }
+
+  function wfaDataStatusAr(d) {
+    if (d === 'working') return 'كامل';
+    if (d === 'partial') return 'جزئي (كاش)';
+    if (d === 'failed') return 'تعثّر';
+    return wfaEsc(d);
+  }
+
+  function wfaResultSourceAr(s) {
+    if (s === 'live') return 'مباشر';
+    if (s === 'cache') return 'كاش';
+    if (s === 'defaults') return 'قيم افتراضية';
+    if (s === 'none') return '—';
+    return wfaEsc(s);
+  }
+
+  function renderWeatherFetchAudit(data) {
+    var sum = (data && data.summary) || {};
+    var m = getEl('weatherAuditMeta');
+    if (m) {
+      var topR = (sum.top_failure_reasons && sum.top_failure_reasons.length) ? sum.top_failure_reasons.slice(0, 5).map(function (x) {
+        return (x.reason || '—') + ': ' + (x.count != null ? x.count : 0);
+      }).join('؛ ') : '—';
+      m.textContent = 'الإجمالي: ' + (sum.total_stations != null ? sum.total_stations : '—') +
+        ' | كامل: ' + (sum.working_stations != null ? sum.working_stations : '—') +
+        ' | جزئي: ' + (sum.partial_stations != null ? sum.partial_stations : '—') +
+        ' | تعثّر: ' + (sum.failed_stations != null ? sum.failed_stations : '—') +
+        ' | بلا إحداثيات: ' + (sum.missing_coordinates_count != null ? sum.missing_coordinates_count : '—') +
+        ' | إحداثيات غير صالحة: ' + (sum.invalid_coordinates_count != null ? sum.invalid_coordinates_count : '—') +
+        ' | أسباب الفشل: ' + topR +
+        (data && data.generated_at ? (' | ' + data.generated_at) : '');
+    }
+    var allB = getEl('weatherAuditAllBody');
+    if (allB) {
+      allB.innerHTML = '';
+      var stAll = (data && data.stations) || [];
+      if (!stAll.length) {
+        allB.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#8ea4ba">—</td></tr>';
+      } else {
+        stAll.forEach(function (r) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + wfaEsc(r.station_id) + '</td>' +
+            '<td><strong>' + wfaEsc(r.station_name) + '</strong></td>' +
+            '<td>' + (r.station_type === 'reference' ? 'مرجع' : 'تشغيل') + '</td>' +
+            '<td>' + wfaEsc(r.status) + '</td>' +
+            '<td>' + wfaCoordAr(r.coordinates_status) + '</td>' +
+            '<td>' + (r.lat != null ? wfaEsc(String(r.lat)) : '—') + '</td>' +
+            '<td>' + (r.lon != null ? wfaEsc(String(r.lon)) : '—') + '</td>' +
+            '<td>' + (r.weather_fetch_attempted ? 'نعم' : 'لا') + '</td>' +
+            '<td>' + wfaFetchStatusAr(r.weather_fetch_status) + '</td>' +
+            '<td style="word-break:break-word;max-width:120px">' + wfaEsc(r.failure_reason) + '</td>' +
+            '<td>' + wfaDataStatusAr(r.data_status) + '</td>' +
+            '<td style="font-size:.75rem;white-space:nowrap">' + wfaEsc(r.last_checked_at) + '</td>';
+          allB.appendChild(tr);
+        });
+      }
+    }
+    var failB = getEl('weatherAuditFailedBody');
+    if (failB) {
+      var failed = (data && data.failed_stations_list) || [];
+      failB.innerHTML = '';
+      if (!failed.length) {
+        failB.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ea4ba">لا يوجد</td></tr>';
+      } else {
+        failed.forEach(function (r) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + wfaEsc(r.station_id) + '</td>' +
+            '<td><strong>' + wfaEsc(r.station_name) + '</strong></td>' +
+            '<td>' + wfaResultSourceAr(r.result_source) + ' / ' + wfaFetchStatusAr(r.weather_fetch_status) + '</td>' +
+            '<td>' + wfaEsc(r.failure_reason) + '</td>';
+          failB.appendChild(tr);
+        });
+      }
+    }
+    var ncB = getEl('weatherAuditNoCoordBody');
+    if (ncB) {
+      var nc = (data && data.no_coordinates_stations) || [];
+      ncB.innerHTML = '';
+      if (!nc.length) {
+        ncB.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#8ea4ba">لا يوجد</td></tr>';
+      } else {
+        nc.forEach(function (r) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + wfaEsc(r.station_id) + '</td>' +
+            '<td><strong>' + wfaEsc(r.station_name) + '</strong></td>' +
+            '<td>' + wfaCoordAr(r.coordinates_status) + '</td>';
+          ncB.appendChild(tr);
+        });
+      }
+    }
+  }
+
+  function runWeatherFetchAudit() {
+    if (weatherFetchAuditInFlight) return;
+    if (!adminAuthenticated) {
+      var a0 = getEl('weatherAuditStatus');
+      if (a0) a0.textContent = 'تسجيل الدخول مطلوب.';
+      return;
+    }
+    weatherFetchAuditInFlight = true;
+    var st = getEl('weatherAuditStatus');
+    var btn = getEl('weatherAuditRunBtn');
+    if (st) st.textContent = 'جاري الفحص (قد يطول)…';
+    if (btn) btn.disabled = true;
+    return apiFetch(WEATHER_FETCH_AUDIT_ENDPOINT, { method: 'GET' })
+      .then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (!json || !json.ok) {
+          if (st) st.textContent = (json && json.error) ? String(json.error) : 'تعذر إكمال الفحص.';
+          return;
+        }
+        renderWeatherFetchAudit(json);
+        if (st) st.textContent = 'اكتمل الفحص.';
+      })
+      .catch(function () {
+        if (st) st.textContent = 'تعذر الاتصال بالخادم.';
+      })
+      .then(function () {
+        weatherFetchAuditInFlight = false;
         if (btn) btn.disabled = false;
       });
   }
@@ -7996,6 +8144,12 @@
     if (stationRefLinkAuditBtn) {
       stationRefLinkAuditBtn.addEventListener('click', function () {
         void runReferenceLinkAudit();
+      });
+    }
+    var weatherAuditRunBtn = getEl('weatherAuditRunBtn');
+    if (weatherAuditRunBtn) {
+      weatherAuditRunBtn.addEventListener('click', function () {
+        void runWeatherFetchAudit();
       });
     }
 

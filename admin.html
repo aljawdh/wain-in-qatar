@@ -43,6 +43,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
 .admin-section[data-section="field-review"]{border-right:4px solid rgba(180,255,200,.55)}
 .admin-section[data-section="station-health"]{border-right:4px solid rgba(255,200,120,.5)}
+.admin-section[data-section="weather-audit"]{border-right:4px solid rgba(120,200,255,.5)}
 .admin-section[data-section="home"]{border-right:4px solid rgba(120,200,255,.45);background:linear-gradient(165deg,rgba(12,40,68,.5),rgba(8,24,40,.25))!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .admin-home-wrap{padding-bottom:6px}
 .ecc-home-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -276,6 +277,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <button class="admin-nav" data-filter="field-review" type="button">تحليل الميدان</button>
           <button class="admin-nav" data-filter="feedback" type="button">التقييمات</button>
           <button class="admin-nav" data-filter="station-health" type="button">صحة المحطات</button>
+          <button class="admin-nav" data-filter="weather-audit" type="button">فحص الطقس</button>
           <button class="admin-nav" data-filter="settings" type="button">الإعدادات</button>
           <button class="admin-nav" data-filter="durur" disabled style="opacity:0.5;cursor:not-allowed;" type="button" title="واجهة الدرور القديمة معطلة. استخدم NAVIDUROR">إدارة الدرور (معطّل)</button>
         </aside>
@@ -1222,6 +1224,50 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 </div>
               </div>
             </dialog>
+          </div>
+
+          <div class="admin-section admin-block" data-section="weather-audit" id="weatherAuditSection">
+            <h4><i class="fa-solid fa-cloud-sun-rain"></i> تقرير فحص الطقس (بدون تعديل)</h4>
+            <div class="section-subtitle">فحص قراءة فقط: استدعاء <code>getWeatherData</code> فقط (بدون كتابة كاش، بدون تعديل بيانات محطات). يشمل كل المحطات (مرجعية وتشغيلية، فعّالة وغير فعّالة).</div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+              <button type="button" class="settings-btn" id="weatherAuditRunBtn">تشغيل الفحص</button>
+              <span class="section-subtitle" id="weatherAuditStatus" style="margin:0">اضغط «تشغيل الفحص».</span>
+            </div>
+            <p class="section-subtitle" id="weatherAuditMeta" style="margin-top:0"></p>
+            <h5 style="margin:12px 0 8px;font-size:.9rem">1) جميع المحطات</h5>
+            <div class="table-wrap" style="max-height:320px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المعرّف</th><th>الاسم</th><th>النوع</th><th>سجل</th><th>الإحداثيات</th><th>lat</th><th>lon</th>
+                    <th>محاولة جلب</th><th>نتيجة الجلب</th><th>السبب</th><th>حالة البيانات</th><th>فحص</th>
+                  </tr>
+                </thead>
+                <tbody id="weatherAuditAllBody"></tbody>
+              </table>
+            </div>
+            <h5 style="margin:16px 0 8px;font-size:.9rem">2) المحطات المتعثرة فقط</h5>
+            <div class="table-wrap" style="max-height:220px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المعرّف</th><th>الاسم</th><th>فشل / مصدر</th><th>السبب</th>
+                  </tr>
+                </thead>
+                <tbody id="weatherAuditFailedBody"></tbody>
+              </table>
+            </div>
+            <h5 style="margin:16px 0 8px;font-size:.9rem">3) المحطات بدون إحداثيات</h5>
+            <div class="table-wrap" style="max-height:200px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المعرّف</th><th>الاسم</th><th>وضع الإحداثيات</th>
+                  </tr>
+                </thead>
+                <tbody id="weatherAuditNoCoordBody"></tbody>
+              </table>
+            </div>
           </div>
 
           <div class="admin-section admin-block" data-section="settings">
