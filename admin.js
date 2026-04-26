@@ -6,6 +6,7 @@
   var USERS_ENDPOINT = '/api?route=admin&path=users';
   var SUMMARY_ENDPOINT = '/api?route=admin-summary';
   var FEEDBACK_ENDPOINT = '/api?route=admin&path=feedback';
+  var STATION_HEALTH_REPORT_ENDPOINT = '/api?route=admin&path=station-health-report';
   var LOGIN_ENDPOINT = '/api?route=login';
   var LOGOUT_ENDPOINT = '/api?route=logout';
 
@@ -482,10 +483,161 @@
               if (ss) ss.textContent = 'تعذر تحميل بيانات المحطات';
             });
           break;
+        case 'station-health':
+          break;
         default:
           break;
       }
     });
+  }
+
+  var stationHealthRunInFlight = false;
+
+  function shEsc(s) {
+    if (s == null) return '—';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function shDataStatusAr(ds) {
+    if (ds === 'working') return 'عاملة';
+    if (ds === 'failed') return 'تعثّر جلب';
+    if (ds === 'missing_coordinates') return 'بلا إحداثيات';
+    if (ds === 'missing_reference') return 'بلا ربط مرجعي';
+    if (ds === 'reference_without_operational_children') return 'مرجعية بلا توابع';
+    return shEsc(ds);
+  }
+
+  function shWeatherAr(ws) {
+    if (ws === 'ok') return 'طبيعي';
+    if (ws === 'failed') return 'فشل';
+    if (ws === 'skipped') return 'تخطٍ';
+    return shEsc(ws);
+  }
+
+  function renderStationHealthReport(data) {
+    var sum = data && data.summary ? data.summary : {};
+    var setTxt = function (id, v) {
+      var el = getEl(id);
+      if (el) el.textContent = v;
+    };
+    setTxt('shSumTotal', sum.total_stations != null ? String(sum.total_stations) : '—');
+    setTxt('shSumOk', sum.working_stations != null ? String(sum.working_stations) : '—');
+    setTxt('shSumFail', sum.failed_stations != null ? String(sum.failed_stations) : '—');
+    setTxt('shSumNoCoord', sum.missing_coordinates_stations != null ? String(sum.missing_coordinates_stations) : '—');
+    setTxt('shSumNoRef', sum.operational_without_reference != null ? String(sum.operational_without_reference) : '—');
+    setTxt('shSumRefOrphan', sum.reference_without_operational_children != null ? String(sum.reference_without_operational_children) : '—');
+    var meta = getEl('stationHealthMeta');
+    if (meta) {
+      meta.textContent = data && data.generated_at
+        ? ('آخر توليد: ' + data.generated_at)
+        : '';
+    }
+    var stations = (data && data.stations) || [];
+    var mainBody = getEl('stationHealthTableBody');
+    if (mainBody) {
+      mainBody.innerHTML = '';
+      if (!stations.length) {
+        mainBody.innerHTML = '<tr><td colspan="16" style="text-align:center;color:#8ea4ba">لا توجد بيانات</td></tr>';
+      } else {
+        stations.forEach(function (row) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + shEsc(row.station_id) + '</td>' +
+            '<td><strong>' + shEsc(row.station_name) + '</strong></td>' +
+            '<td>' + (row.station_type === 'reference' ? 'مرجعية' : 'تشغيلية') + '</td>' +
+            '<td>' + shEsc(row.country) + '</td>' +
+            '<td>' + shEsc(row.region) + '</td>' +
+            '<td>' + shEsc(row.area) + '</td>' +
+            '<td>' + (row.lat != null ? shEsc(String(row.lat)) : '—') + '</td>' +
+            '<td>' + (row.lon != null ? shEsc(String(row.lon)) : '—') + '</td>' +
+            '<td>' + shEsc(row.active_status) + '</td>' +
+            '<td>' + shEsc(row.reference_station_id) + '</td>' +
+            '<td>' + shEsc(row.resolved_reference_station_name) + '</td>' +
+            '<td>' + shDataStatusAr(row.data_status) + '</td>' +
+            '<td>' + shWeatherAr(row.weather_fetch_status) + '</td>' +
+            '<td style="max-width:180px;word-break:break-word">' + shEsc(row.latest_error) + '</td>' +
+            '<td style="font-size:.78rem;white-space:nowrap">' + shEsc(row.last_checked_at) + '</td>';
+          mainBody.appendChild(tr);
+        });
+      }
+    }
+    var refBody = getEl('stationHealthRefBody');
+    if (refBody) {
+      refBody.innerHTML = '';
+      var groups = (data && data.reference_groups) || [];
+      if (!groups.length) {
+        refBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ea4ba">لا توجد محطات مرجعية</td></tr>';
+      } else {
+        groups.forEach(function (g) {
+          var n = (g.linked_operational_stations && g.linked_operational_stations.length) || 0;
+          var lines = (g.linked_operational_stations || []).map(function (op) {
+            return '<li style="margin:0 0 4px 0">' + shEsc(op.station_name) + ' <span style="color:var(--txt3)">(' + shEsc(op.station_id) + ')</span> — ' + shDataStatusAr(op.data_status) + '</li>';
+          }).join('');
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><strong>' + shEsc(g.reference_station_name) + '</strong></td>' +
+            '<td>' + shEsc(g.reference_station_id) + '</td>' +
+            '<td>' + String(n) + '</td>' +
+            '<td><ul style="margin:0;padding-right:18px">' + (lines || '<li style="color:var(--txt3)">لا توابع</li>') + '</ul></td>';
+          refBody.appendChild(tr);
+        });
+      }
+    }
+    var revBody = getEl('stationHealthReviewBody');
+    if (revBody) {
+      revBody.innerHTML = '';
+      var need = (data && data.needs_review) || [];
+      if (!need.length) {
+        revBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">لا توجد عناصر</td></tr>';
+      } else {
+        need.forEach(function (r) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + shEsc(r.station_id) + '</td>' +
+            '<td><strong>' + shEsc(r.station_name) + '</strong></td>' +
+            '<td>' + (r.station_type === 'reference' ? 'مرجعية' : 'تشغيلية') + '</td>' +
+            '<td>' + shDataStatusAr(r.data_status) + '</td>' +
+            '<td>' + shWeatherAr(r.weather_fetch_status) + '</td>' +
+            '<td style="max-width:220px;word-break:break-word">' + shEsc(r.latest_error) + '</td>';
+          revBody.appendChild(tr);
+        });
+      }
+    }
+  }
+
+  function runStationHealthReport() {
+    if (stationHealthRunInFlight) return;
+    if (!adminAuthenticated) {
+      var st0 = getEl('stationHealthStatus');
+      if (st0) st0.textContent = 'تسجيل الدخول مطلوب.';
+      return;
+    }
+    stationHealthRunInFlight = true;
+    var st = getEl('stationHealthStatus');
+    var btn = getEl('stationHealthRunBtn');
+    if (st) st.textContent = 'جاري الفحص (قد يستغرق وقتاً)…';
+    if (btn) btn.disabled = true;
+    return apiFetch(STATION_HEALTH_REPORT_ENDPOINT, { method: 'GET' })
+      .then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (!json || !json.ok) {
+          if (st) st.textContent = (json && json.error) ? String(json.error) : 'تعذر إكمال التقرير.';
+          return;
+        }
+        renderStationHealthReport(json);
+        if (st) st.textContent = 'اكتمل الفحص.';
+      })
+      .catch(function () {
+        if (st) st.textContent = 'تعذر الاتصال بالخادم.';
+      })
+      .then(function () {
+        stationHealthRunInFlight = false;
+        if (btn) btn.disabled = false;
+      });
   }
 
   function setAdminDataFilter(filter) {
@@ -7588,6 +7740,13 @@
         if (adminAuthenticated && !refreshInFlight) {
           renderAdminDashboard();
         }
+      });
+    }
+
+    var stationHealthRunBtn = getEl('stationHealthRunBtn');
+    if (stationHealthRunBtn) {
+      stationHealthRunBtn.addEventListener('click', function () {
+        void runStationHealthReport();
       });
     }
 

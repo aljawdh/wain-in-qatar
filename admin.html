@@ -42,6 +42,7 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
 .admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
 .admin-section[data-section="field-review"]{border-right:4px solid rgba(180,255,200,.55)}
+.admin-section[data-section="station-health"]{border-right:4px solid rgba(255,200,120,.5)}
 .admin-section[data-section="home"]{border-right:4px solid rgba(120,200,255,.45);background:linear-gradient(165deg,rgba(12,40,68,.5),rgba(8,24,40,.25))!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .admin-home-wrap{padding-bottom:6px}
 .ecc-home-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -274,6 +275,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <button class="admin-nav" data-filter="astro-dur" type="button">ملف الدرة</button>
           <button class="admin-nav" data-filter="field-review" type="button">تحليل الميدان</button>
           <button class="admin-nav" data-filter="feedback" type="button">التقييمات</button>
+          <button class="admin-nav" data-filter="station-health" type="button">صحة المحطات</button>
           <button class="admin-nav" data-filter="settings" type="button">الإعدادات</button>
           <button class="admin-nav" data-filter="durur" disabled style="opacity:0.5;cursor:not-allowed;" type="button" title="واجهة الدرور القديمة معطلة. استخدم NAVIDUROR">إدارة الدرور (معطّل)</button>
         </aside>
@@ -1132,6 +1134,59 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 </div>
               </div>
             </dialog>
+          </div>
+
+          <div class="admin-section admin-block" data-section="station-health">
+            <h4><i class="fa-solid fa-heart-pulse"></i> تقرير صحة المحطات والربط المرجعي</h4>
+            <div class="section-subtitle">قراءة فقط — فحص الاتصال بـ Open-Meteo وعرض ارتباط المحطات التشغيلية بالمرجعية دون تعديل أي بيانات.</div>
+            <div class="admin-stat" style="margin-bottom:12px;grid-template-columns:repeat(3,1fr)">
+              <div class="as-card"><div class="as-val" id="shSumTotal">—</div><div class="as-lbl">إجمالي المحطات</div></div>
+              <div class="as-card"><div class="as-val" id="shSumOk">—</div><div class="as-lbl">المحطات العاملة</div></div>
+              <div class="as-card"><div class="as-val" id="shSumFail">—</div><div class="as-lbl">المحطات المتعثرة</div></div>
+              <div class="as-card"><div class="as-val" id="shSumNoCoord">—</div><div class="as-lbl">بدون إحداثيات</div></div>
+              <div class="as-card"><div class="as-val" id="shSumNoRef">—</div><div class="as-lbl">تشغيلية بلا مرجع</div></div>
+              <div class="as-card"><div class="as-val" id="shSumRefOrphan">—</div><div class="as-lbl">مرجعية بلا توابع</div></div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px">
+              <button type="button" class="settings-btn" id="stationHealthRunBtn"><i class="fa-solid fa-play"></i> تشغيل الفحص الآن</button>
+              <span class="section-subtitle" id="stationHealthStatus" style="margin:0">اضغط للتشغيل — قد يستغرق وقتاً أثناء فحص الطقس.</span>
+            </div>
+            <p class="section-subtitle" id="stationHealthMeta" style="margin-top:0"></p>
+            <h5 style="margin:14px 0 8px;font-size:.9rem">حالة المحطات</h5>
+            <div class="table-wrap" style="max-height:420px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المعرّف</th><th>الاسم</th><th>النوع</th><th>الدولة</th><th>المنطقة</th><th>المنطقة المحلية</th>
+                    <th>lat</th><th>lon</th><th>الحالة</th><th>مرجع</th><th>اسم المرجع</th>
+                    <th>الصحة</th><th>الطقس</th><th>آخر خطأ</th><th>فحص</th>
+                  </tr>
+                </thead>
+                <tbody id="stationHealthTableBody"></tbody>
+              </table>
+            </div>
+            <h5 style="margin:18px 0 8px;font-size:.9rem">الربط المرجعي</h5>
+            <div class="table-wrap" style="max-height:360px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المحطة المرجعية</th><th>المعرّف</th><th>عدد التوابع</th><th>المحطات التشغيلية المرتبطة</th>
+                  </tr>
+                </thead>
+                <tbody id="stationHealthRefBody"></tbody>
+              </table>
+            </div>
+            <h5 style="margin:18px 0 8px;font-size:.9rem">محطات تحتاج مراجعة</h5>
+            <div class="table-wrap" style="max-height:320px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المعرّف</th><th>الاسم</th><th>النوع</th><th>الصحة</th><th>الطقس</th><th>ملاحظة</th>
+                  </tr>
+                </thead>
+                <tbody id="stationHealthReviewBody"></tbody>
+              </table>
+            </div>
           </div>
 
           <div class="admin-section admin-block" data-section="settings">

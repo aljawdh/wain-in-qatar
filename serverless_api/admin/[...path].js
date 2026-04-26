@@ -561,6 +561,22 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  /** Read-only: station health (Open-Meteo probe) + reference linkage; no station or cache writes. */
+  if (root === 'station-health-report') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const { buildStationHealthReport } = require('../_lib/station-health-report');
+    const report = await buildStationHealthReport();
+    return res.status(200).json(
+      Object.assign({ ok: true, path: 'station-health-report' }, report)
+    );
+  }
+
   if (root === 'sync-dur-windows-kv') {
     return res.status(410).json({ ok: false, error: 'dur_windows_sync_removed', message: 'NAVIDUR uses data/true_final_station_reference.json only' });
   }
