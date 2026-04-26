@@ -1084,7 +1084,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             <h5 style="margin:10px 0 6px;font-size:.9rem">جلسات الميدان</h5>
             <div class="table-wrap" style="max-height:360px;margin-bottom:16px">
               <table class="admin-table" id="fieldReviewSessionsTable">
-                <thead><tr><th>المحطة</th><th>الوقت</th><th>الدر</th><th>الماء/المد</th><th>موصى بها / فعلي</th><th>المراجعة</th><th>إجراءات</th></tr></thead>
+                <thead><tr><th>المحطة</th><th>الوقت</th><th>الدر</th><th>الماء/المد</th><th>موصى بها / فعلي</th><th>المراجعة</th><th>تفاصيل</th></tr></thead>
                 <tbody id="fieldReviewSessionsBody"><tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr></tbody>
               </table>
             </div>
@@ -1234,6 +1234,12 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
   <script src="/shared/navidur-live-analysis.js"></script>
   <script>window.IS_ADMIN = true;</script>
   <script src="/shared/navidur-ai-insight-engine.js"></script>
+  <script>
+    ['home','analytics','stations','users','astro-dur','field-review','feedback','settings'].forEach(function (section) {
+      var el = document.querySelector('[data-section="' + section + '"]');
+      console.log('admin section check:', section, el ? el.innerHTML.length : 'MISSING');
+    });
+  </script>
   <script src="/admin.js"></script>
 </body>
 </html>

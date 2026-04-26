@@ -1126,7 +1126,15 @@ module.exports = async function handler(req, res) {
       const stations = await readJsonFile('stations', []);
       const reviews = await readJsonFile('field_session_reviews', { version: 1, reviews: [] });
       const built = fieldInsight.buildSummaryFromData(fieldLogs, stations, reviews);
-      return res.status(200).json({ ok: true, summary: built.summary, session_count: built.sessions.length });
+      const all = built.sessions || [];
+      const excludedN = all.filter(function (s) { return s && s.excluded_from_accuracy; }).length;
+      return res.status(200).json({
+        ok: true,
+        summary: built.summary,
+        session_count: all.length,
+        excluded_from_accuracy_count: excludedN,
+        accuracy_session_count: all.length - excludedN
+      });
     } catch (err) {
       return res.status(500).json({ ok: false, error: 'field_review_summary_failed', detail: String(err.message || err) });
     }
@@ -1261,21 +1269,29 @@ module.exports = async function handler(req, res) {
     if (!catchId) return res.status(400).json({ error: 'catch_id_required' });
     const doc = await readJsonFile('field_session_reviews', { version: 1, reviews: [] });
     const reviews = Array.isArray(doc.reviews) ? doc.reviews : [];
-    const status = cleanString(body.review_status, 20) || 'pending';
-    const entry = {
-      catch_id: catchId,
-      review_status: ['pending', 'approved', 'rejected'].indexOf(status) >= 0 ? status : 'pending',
-      notes: cleanString(body.notes, 2000) || null,
-      photo_url: cleanString(body.photo_url, 500) || null,
-      updated_at: nowIso(),
-      reviewer: cleanString(actor.username, 80) || 'admin'
-    };
     const ix = reviews.findIndex(function (r) { return r && r.catch_id === catchId; });
-    if (ix >= 0) reviews[ix] = Object.assign({}, reviews[ix], entry);
+    const existing = (ix >= 0 && reviews[ix]) ? reviews[ix] : {};
+    const hasOwn = Object.prototype.hasOwnProperty.bind(body);
+    const entry = Object.assign({ catch_id: catchId, review_status: 'pending' }, existing);
+    entry.catch_id = catchId;
+    if (hasOwn('review_status')) {
+      const status = cleanString(body.review_status, 20) || 'pending';
+      entry.review_status = ['pending', 'approved', 'rejected'].indexOf(status) >= 0 ? status : 'pending';
+    } else if (!entry.review_status) {
+      entry.review_status = 'pending';
+    }
+    if (hasOwn('notes')) entry.notes = cleanString(body.notes, 2000) || null;
+    if (hasOwn('photo_url')) entry.photo_url = cleanString(body.photo_url, 500) || null;
+    if (hasOwn('excluded_from_accuracy')) {
+      entry.excluded_from_accuracy = body.excluded_from_accuracy === true;
+    }
+    entry.updated_at = nowIso();
+    entry.reviewer = cleanString(actor.username, 80) || 'admin';
+    if (ix >= 0) reviews[ix] = entry;
     else reviews.push(entry);
     doc.reviews = reviews;
     await writeJsonFile('field_session_reviews', doc);
-    await writeAudit('field_session_review', actor, { catch_id: catchId, review_status: entry.review_status });
+    await writeAudit('field_session_review', actor, { catch_id: catchId, review_status: entry.review_status, excluded_from_accuracy: !!entry.excluded_from_accuracy });
     return res.status(200).json({ ok: true, review: entry });
   }
 

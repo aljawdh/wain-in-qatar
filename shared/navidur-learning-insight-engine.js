@@ -65,6 +65,8 @@ function enrichSessionFromLog(log, stationMap, reviewMap) {
     trip_id: log.trip_id || null,
     source: log.source,
     station_id: log.station_id,
+    /** Soft-exclude from accuracy aggregates only; log row unchanged. */
+    excluded_from_accuracy: rev.excluded_from_accuracy === true,
     station_name: normalizeString(st.name) || log.station_id,
     analysis_timestamp: log.analysis_timestamp,
     created_at: log.created_at,
@@ -362,10 +364,12 @@ module.exports = {
   buildPatterns: buildPatterns,
   buildSummaryFromData: function (fieldLogs, stations, reviewsDoc) {
     var s = buildSessions(fieldLogs, stations, reviewsDoc);
-    return { sessions: s, summary: buildSummary(s) };
+    var forAccuracy = s.filter(function (x) { return !x || !x.excluded_from_accuracy; });
+    return { sessions: s, summary: buildSummary(forAccuracy) };
   },
   buildPatternsFromSessions: function (sessions) {
-    return buildPatterns(sessions);
+    var eligible = toArray(sessions).filter(function (x) { return !x || !x.excluded_from_accuracy; });
+    return buildPatterns(eligible);
   },
   sessionMatchesFilter: sessionMatchesFilter,
   patternToSuggestedRecord: patternToSuggestedRecord,

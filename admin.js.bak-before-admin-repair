@@ -369,6 +369,8 @@
     });
     var escF = (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') ? CSS.escape(f) : String(f).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     var target = document.querySelector('[data-section="' + escF + '"]');
+    console.log('Active section:', f);
+    console.log('Found element:', target);
     if (target) {
       target.classList.add('active');
     } else {
@@ -388,6 +390,7 @@
     }
     Promise.resolve().then(function () {
       var section = adminDataFilter;
+      console.log('Loading section:', section);
       if (!adminAuthenticated) {
         console.warn('[admin] skip section loaders: not authenticated');
         return;
@@ -458,29 +461,17 @@
           });
           break;
         case 'astro-dur':
-          void loadStations()
-            .then(function () {
-              void refreshAstroDurStatus();
-              var sid0 = (getEl('stId') && getEl('stId').value) ? String(getEl('stId').value).trim() : '';
-              if (sid0) {
-                var st0 = stationsCache.find(function (s) {
-                  return s && String(s.id) === sid0;
-                });
-                if (st0) {
-                  var stM = getStationForLocalDurReadout(st0);
-                  void refreshStationLocalDurReadout(stM, getCanonicalNavidurAsOfIso());
-                }
-              } else {
-                var localMsg = getEl('stStationLocalDurMsg');
-                if (localMsg) {
-                  localMsg.textContent = 'اختر محطة لعرض التحليل —افتح «المحطات» واختر معرّف محطة (stId).';
-                }
-              }
-            })
-            .catch(function () {
-              var ss = getEl('stationsStatus');
-              if (ss) ss.textContent = 'تعذر تحميل بيانات المحطات';
+          void refreshAstroDurStatus();
+          var sid0 = (getEl('stId') && getEl('stId').value) ? String(getEl('stId').value).trim() : '';
+          if (sid0) {
+            var st0 = stationsCache.find(function (s) {
+              return s && String(s.id) === sid0;
             });
+            if (st0) {
+              var stM = getStationForLocalDurReadout(st0);
+              void refreshStationLocalDurReadout(stM, getCanonicalNavidurAsOfIso());
+            }
+          }
           break;
         default:
           break;
@@ -494,10 +485,7 @@
 
   function renderTopTable(bodyId, items) {
     var body = getEl(bodyId);
-    if (!body) {
-      console.warn('Missing element:', bodyId);
-      return;
-    }
+    if (!body) return;
     body.innerHTML = '';
     if (!items || !items.length) {
       body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#8ea4ba">لا توجد بيانات بعد</td></tr>';
@@ -512,10 +500,7 @@
 
   function renderKeyValueRows(bodyId, rows, emptyMessage, colSpan) {
     var body = getEl(bodyId);
-    if (!body) {
-      console.warn('Missing element:', bodyId);
-      return;
-    }
+    if (!body) return;
     body.innerHTML = '';
     if (!rows || !rows.length) {
       body.innerHTML = '<tr><td colspan="' + String(colSpan || 3) + '" style="text-align:center;color:#8ea4ba">' + (emptyMessage || 'لا توجد بيانات بعد') + '</td></tr>';
@@ -888,6 +873,7 @@
   }
 
   async function loadSettingsIntoAdmin() {
+    console.log('Loader executed:', 'loadSettingsIntoAdmin');
     try {
       setSettingsBusy(true);
       showSettingsStatus('جاري تحميل الإعدادات...', false);
@@ -1015,11 +1001,13 @@
 
   async function renderSummarySection(preloaded, options) {
     options = options || {};
+    console.log('Current active section:', adminDataFilter);
     try {
       var s = (preloaded != null && typeof preloaded === 'object')
         ? preloaded
         : await fetchSummary();
       latestSummaryCache = s;
+      console.log('renderSummarySection START', s);
       if (!options.force && adminDataFilter !== 'analytics') {
         updateFieldTestingChecklist(latestSummaryCache, latestFeedbackCache);
         return;
@@ -4955,6 +4943,7 @@
   }
 
   function refreshStationLocalDurReadout(st, asOfIso) {
+    console.log('Loader executed:', 'refreshStationLocalDurReadout');
     if (!getEl('stStationLocalDurDetails')) {
       console.warn('Missing element:', 'stStationLocalDurDetails');
       return;
@@ -5741,6 +5730,7 @@
   }
 
   async function renderStationAnalytics() {
+    console.log('Loader executed:', 'renderStationAnalytics');
     currentTransientPreviewPoint = null;
     currentAnalysisRequestToken += 1;
     var requestToken = currentAnalysisRequestToken;
@@ -6243,6 +6233,7 @@
   }
 
   async function refreshAstroDurStatus() {
+    console.log('Loader executed:', 'refreshAstroDurStatus');
     var root = getEl('astroDurMonitoringRoot');
     var raw = getEl('astroDurStatusRaw');
     if (!root) {
@@ -6273,10 +6264,7 @@
   async function runAstroPreview() {
     var root = getEl('astroPreviewRoot');
     var raw = getEl('astroDurPreviewRaw');
-    if (!root) {
-      console.warn('Missing element:', 'astroPreviewRoot');
-      return;
-    }
+    if (!root) return;
     if (!isAdminMode()) {
       root.innerHTML = '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تتطلب صلاحية إدارة.</p></div>';
       return;
@@ -6702,6 +6690,7 @@
   }
 
   async function refreshFieldReview() {
+    console.log('Loader executed:', 'refreshFieldReview');
     if (!adminAuthenticated) {
       console.warn('[admin] refreshFieldReview skipped: not authenticated');
       return;
@@ -6773,23 +6762,13 @@
             var t = s.analysis_timestamp || s.created_at || '—';
             var pred = (s.species_predicted || []).join('، ') || '—';
             var act = (s.actual_species || []).join('، ') || '—';
-            var ex = !!(s && s.excluded_from_accuracy);
-            tr.style.opacity = ex ? '0.55' : '1';
-            var badge = ex
-              ? '<span class="fr-acc-badge" style="display:inline-block;font-size:.65rem;padding:2px 8px;border-radius:6px;background:rgba(255,180,100,.2);color:#ffe7aa;border:1px solid rgba(255,200,120,.28);">مستبعد</span>'
-              : '';
-            var btnAcc = ex ? 'إعادة التضمين' : 'استبعاد من الدقة';
-            var wantEx = ex ? '0' : '1';
             tr.innerHTML = '<td>' + escapeHtml(s.station_name || '—') + '</td>' +
               '<td style="font-size:.78rem">' + escapeHtml(String(t)) + '</td>' +
               '<td style="font-size:.8rem">' + escapeHtml(s.dur_name || '—') + '</td>' +
               '<td style="font-size:.78rem">' + escapeHtml((s.water_state || '—') + ' / ' + (s.tide_state || '—')) + '</td>' +
               '<td style="font-size:.72rem;max-width:200px;word-break:break-word">موصى: ' + escapeHtml(pred) + '<br>فعلي: ' + escapeHtml(act) + '</td>' +
               '<td style="font-size:.78rem">' + escapeHtml(fieldReviewStatusLabel(s.review_status)) + '</td>' +
-              '<td style="min-width:220px;vertical-align:top"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end">' +
-              badge +
-              '<button type="button" class="small-btn fr-acc-toggle" data-catch-ex="' + escapeHtml(s.catch_id || '') + '" data-want-exclude="' + wantEx + '">' + btnAcc + '</button>' +
-              '<button type="button" class="small-btn" data-field-detail="' + escapeHtml(s.catch_id || '') + '">تفاصيل</button></div></td>';
+              '<td><button type="button" class="small-btn" data-field-detail="' + escapeHtml(s.catch_id || '') + '">تفاصيل</button></td>';
             sessBody.appendChild(tr);
           });
           sessBody.querySelectorAll('button[data-field-detail]').forEach(function (btn) {
@@ -6797,29 +6776,6 @@
               var id = btn.getAttribute('data-field-detail');
               var s = sessions.find(function (x) { return x && x.catch_id === id; });
               if (s) openFieldSessionDetail(s);
-            });
-          });
-          sessBody.querySelectorAll('button.fr-acc-toggle').forEach(function (btn) {
-            btn.addEventListener('click', function (ev) {
-              ev.stopPropagation();
-              var id = btn.getAttribute('data-catch-ex');
-              var want = btn.getAttribute('data-want-exclude') === '1';
-              if (!id) return;
-              var st0 = getEl('fieldReviewStatus');
-              if (st0) st0.textContent = 'جاري تحديث الاستبعاد...';
-              void apiFetch('/api?route=admin&path=field-session-review', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ catch_id: id, excluded_from_accuracy: want })
-              })
-                .then(function (res) { return res.json(); })
-                .then(function (j) {
-                  if (j && j.ok) void refreshFieldReview();
-                  else if (st0) st0.textContent = 'فشل التحديث: ' + ((j && j.error) || '');
-                })
-                .catch(function () {
-                  if (st0) st0.textContent = 'تعذر تحميل البيانات';
-                });
             });
           });
         }
@@ -7249,6 +7205,7 @@
       console.warn('Missing element:', 'feedbackBody');
       return;
     }
+    console.log('Loader executed:', 'loadFeedback');
     var params = new URLSearchParams();
     var d = getEl('fbDateFilter') ? getEl('fbDateFilter').value : '';
     var st = getEl('fbStationFilter') ? getEl('fbStationFilter').value.trim() : '';
@@ -7758,6 +7715,12 @@
   window.renderStationAnalytics = renderStationAnalytics;
   window.refreshAstroDurStatus = refreshAstroDurStatus;
   window.refreshStationLocalDurReadout = refreshStationLocalDurReadout;
+
+  window.testRender = function () {
+    return fetch(SUMMARY_ENDPOINT)
+      .then(function (r) { return r.json(); })
+      .then(function (d) { return renderSummarySection(d, { force: true }); });
+  };
 
   document.addEventListener('DOMContentLoaded', initAdminPage);
 })();
