@@ -8,6 +8,7 @@
   var FEEDBACK_ENDPOINT = '/api?route=admin&path=feedback';
   var STATION_HEALTH_REPORT_ENDPOINT = '/api?route=admin&path=station-health-report';
   var STATION_REFERENCE_LINK_ENDPOINT = '/api?route=admin&path=station-reference-link';
+  var REF_LINK_AUDIT_ENDPOINT = '/api?route=admin&path=reference-link-audit';
   var LOGIN_ENDPOINT = '/api?route=login';
   var LOGOUT_ENDPOINT = '/api?route=logout';
 
@@ -495,6 +496,7 @@
   var stationHealthRunInFlight = false;
   var stationHealthReportPayload = null;
   var stationHealthLinkPendingId = null;
+  var refLinkAuditInFlight = false;
 
   function shEsc(s) {
     if (s == null) return '—';
@@ -519,6 +521,21 @@
     if (ws === 'failed') return 'فشل';
     if (ws === 'skipped') return 'تخطٍ';
     return shEsc(ws);
+  }
+
+  function shRefSourceAr(src) {
+    if (src === 'manual') return 'يدوي';
+    if (src === 'auto') return 'تلقائي';
+    if (src === 'none') return '—';
+    return shEsc(src);
+  }
+
+  function shRefMatchAr(ms) {
+    if (ms === 'ok') return 'تطابق';
+    if (ms === 'mismatch') return 'عدم تطابق';
+    if (ms === 'invalid_reference') return 'ربط غير صالح';
+    if (ms === 'missing_reference') return 'بلا ربط مرجعي';
+    return shEsc(ms);
   }
 
   function renderStationHealthReport(data) {
@@ -723,6 +740,9 @@
           })
           .catch(function () {
             return doStationHealthReportFetch({ successMessage: 'اكتمل التحديث بعد الربط.' });
+          })
+          .then(function () {
+            return runReferenceLinkAudit();
           });
       })
       .catch(function () {
@@ -768,6 +788,72 @@
     return doStationHealthReportFetch({})
       .finally(function () {
         stationHealthRunInFlight = false;
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  function renderReferenceLinkAudit(data) {
+    var meta = getEl('stationRefLinkAuditMeta');
+    if (data && data.summary) {
+      var s = data.summary;
+      if (meta) {
+        meta.textContent = 'مُراجَع: ' + (s.stations_audited != null ? s.stations_audited : '—') + ' | عدم تطابق: ' + (s.mismatch_count != null ? s.mismatch_count : '—') + ' | ربط غير صالح: ' + (s.invalid_reference_count != null ? s.invalid_reference_count : '—') + ' | بلا مرجع: ' + (s.missing_reference_count != null ? s.missing_reference_count : '—') + (data.as_of ? (' | بتاريخ: ' + data.as_of) : '');
+      }
+    } else {
+      if (meta) meta.textContent = '';
+    }
+    var body = getEl('stationRefLinkAuditBody');
+    if (!body) return;
+    var rows = (data && data.audits) || [];
+    body.innerHTML = '';
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8ea4ba">—</td></tr>';
+      return;
+    }
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr');
+      var manual = r.expected_reference_from_manual_link ? shEsc(String(r.expected_reference_from_manual_link)) : '—';
+      var actual = (r.resolved_reference_station_id || r.resolved_reference_station_name)
+        ? (shEsc(String(r.resolved_reference_station_id || '—')) + (r.resolved_reference_station_name ? ' — ' + shEsc(r.resolved_reference_station_name) : ''))
+        : '—';
+      tr.innerHTML =
+        '<td><strong>' + shEsc(r.station_name) + '</strong> <span style="color:var(--txt3);font-size:.78rem">(' + shEsc(r.station_id) + ')</span></td>' +
+        '<td style="word-break:break-all">' + manual + '</td>' +
+        '<td style="word-break:break-all">' + actual + '</td>' +
+        '<td>' + shRefSourceAr(r.reference_resolution_source) + '</td>' +
+        '<td>' + shRefMatchAr(r.match_status) + '</td>' +
+        '<td style="max-width:220px">' + shEsc(r.note_ar) + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function runReferenceLinkAudit() {
+    if (refLinkAuditInFlight) return;
+    if (!adminAuthenticated) {
+      var s0 = getEl('stationRefLinkAuditStatus');
+      if (s0) s0.textContent = 'تسجيل الدخول مطلوب.';
+      return;
+    }
+    refLinkAuditInFlight = true;
+    var st = getEl('stationRefLinkAuditStatus');
+    var btn = getEl('stationRefLinkAuditBtn');
+    if (st) st.textContent = 'جاري التدقيق…';
+    if (btn) btn.disabled = true;
+    return apiFetch(REF_LINK_AUDIT_ENDPOINT, { method: 'GET' })
+      .then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (!json || !json.ok) {
+          if (st) st.textContent = (json && json.error) ? String(json.error) : 'تعذر إكمال التدقيق.';
+          return;
+        }
+        renderReferenceLinkAudit(json);
+        if (st) st.textContent = 'تم التدقيق.';
+      })
+      .catch(function () {
+        if (st) st.textContent = 'تعذر الاتصال بالخادم.';
+      })
+      .then(function () {
+        refLinkAuditInFlight = false;
         if (btn) btn.disabled = false;
       });
   }
@@ -7904,6 +7990,12 @@
     if (stationHealthLinkSave) {
       stationHealthLinkSave.addEventListener('click', function () {
         void saveStationHealthReferenceLink();
+      });
+    }
+    var stationRefLinkAuditBtn = getEl('stationRefLinkAuditBtn');
+    if (stationRefLinkAuditBtn) {
+      stationRefLinkAuditBtn.addEventListener('click', function () {
+        void runReferenceLinkAudit();
       });
     }
 

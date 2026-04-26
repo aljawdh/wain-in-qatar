@@ -1187,6 +1187,28 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <tbody id="stationHealthReviewBody"></tbody>
               </table>
             </div>
+            <h5 style="margin:20px 0 8px;font-size:.9rem">فحص الربط المرجعي اليدوي</h5>
+            <p class="section-subtitle" style="margin-top:0">الطقس من إحداثيات المحطة التشغيلية؛ جدول الدور (DUR) من <code>true_final_station_reference.json</code> عبر المعرّف المرجعي. اضغط لتحميل التدقيق (قراءة فقط — لا يعدّل البيانات).</p>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+              <button type="button" class="settings-btn secondary" id="stationRefLinkAuditBtn">تحميل تدقيق الربط</button>
+              <span class="section-subtitle" id="stationRefLinkAuditStatus" style="margin:0">لم يُحمّل التدقيق بعد.</span>
+            </div>
+            <p class="section-subtitle" id="stationRefLinkAuditMeta" style="margin-top:0"></p>
+            <div class="table-wrap" style="max-height:400px;overflow:auto">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>المحطة التشغيلية / المرجعية</th>
+                    <th>المحطة المرجعية اليدوية (المعرّف)</th>
+                    <th>المرجع المستخدم فعلياً</th>
+                    <th>مصدر الربط</th>
+                    <th>حالة التطابق</th>
+                    <th>الملاحظات</th>
+                  </tr>
+                </thead>
+                <tbody id="stationRefLinkAuditBody"></tbody>
+              </table>
+            </div>
             <dialog id="stationHealthLinkModal" style="border:none;border-radius:14px;padding:0;max-width:440px;width:min(100%,440px);background:var(--bg2);color:var(--txt)">
               <div style="padding:20px 20px 16px">
                 <h4 style="margin:0 0 8px;font-size:1rem">ربط بمحطة مرجعية</h4>

@@ -577,6 +577,19 @@ module.exports = async function handler(req, res) {
     );
   }
 
+  if (root === 'reference-link-audit') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const { buildReferenceLinkAudit } = require('../_lib/reference-link-audit');
+    const report = await buildReferenceLinkAudit();
+    return res.status(200).json(Object.assign({ ok: true, path: 'reference-link-audit' }, report));
+  }
+
   if (root === 'station-reference-link') {
     if (req.method !== 'PATCH') {
       res.setHeader('Allow', 'PATCH');

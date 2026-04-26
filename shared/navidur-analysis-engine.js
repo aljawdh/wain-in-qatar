@@ -191,11 +191,16 @@
       return { source: station, method: 'self' };
     }
     var list = toArray(stationsList);
-    if (station.reference_station_id) {
-      var linked = findStationByIdInList(list, station.reference_station_id);
+    var explicitId = normalizeString(station.reference_station_id);
+    if (explicitId) {
+      var linked = findStationByIdInList(list, explicitId);
       if (linked) {
-        return { source: linked, method: 'explicit' };
+        if (linked.is_reference_station) {
+          return { source: linked, method: 'explicit' };
+        }
+        return { source: null, method: 'explicit_target_not_reference' };
       }
+      return { source: null, method: 'explicit_not_found' };
     }
     var band = normalizeString(station.latitude_band_key);
     if (band) {
@@ -1202,6 +1207,7 @@
   }
 
   return {
-    analyzeLiveStation: analyzeLiveStation
+    analyzeLiveStation: analyzeLiveStation,
+    resolveReferenceStationForDurInheritance: resolveReferenceStationForDurInheritance
   };
 });
