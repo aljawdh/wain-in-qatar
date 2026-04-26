@@ -3,6 +3,8 @@
 const { readJsonFile } = require('./data-store');
 const { toNumber, cleanString } = require('./security');
 const { getWeatherData } = require('./navidur-analysis-runtime');
+const { normalizeStatus } = require('./stations');
+const { latestErrorToAr, reviewNoteAr } = require('./station-health-messages');
 
 const WEATHER_CONCURRENCY = 4;
 
@@ -26,7 +28,11 @@ async function buildStationHealthReport() {
     const chunk = list.slice(i, i + WEATHER_CONCURRENCY);
     const part = await Promise.all(chunk.map((s) => buildOneStationRow(s, idToStation)));
     for (let j = 0; j < part.length; j += 1) {
-      stationRows.push(part[j]);
+      const r = part[j];
+      r.latest_error_ar = latestErrorToAr(r.latest_error);
+      r.link_reference_eligible =
+        r.station_type === 'operational' && r.data_status === 'missing_reference';
+      stationRows.push(r);
     }
   }
 
@@ -101,7 +107,7 @@ async function buildStationHealthReport() {
       row.data_status === 'missing_coordinates' ||
       row.data_status === 'missing_reference'
     ) {
-      needsReview.push({
+      const rv = {
         station_id: row.station_id,
         station_name: row.station_name,
         station_type: row.station_type,
@@ -111,14 +117,19 @@ async function buildStationHealthReport() {
         data_status: row.data_status,
         weather_fetch_status: row.weather_fetch_status,
         latest_error: row.latest_error,
+        latest_error_ar: row.latest_error_ar,
+        review_note_ar: '',
+        active_status: row.active_status,
         reference_station_id: row.reference_station_id,
         resolved_reference_station_name: row.resolved_reference_station_name
-      });
+      };
+      rv.review_note_ar = reviewNoteAr(rv);
+      needsReview.push(rv);
     }
   }
   for (let c = 0; c < referenceWithoutOperationalChildren.length; c += 1) {
     const o = referenceWithoutOperationalChildren[c];
-    needsReview.push({
+    const rv = {
       station_id: o.reference_station_id,
       station_name: o.reference_station_name,
       station_type: 'reference',
@@ -128,9 +139,14 @@ async function buildStationHealthReport() {
       data_status: 'reference_without_operational_children',
       weather_fetch_status: 'skipped',
       latest_error: null,
+      latest_error_ar: null,
+      review_note_ar: '',
+      active_status: null,
       reference_station_id: null,
       resolved_reference_station_name: null
-    });
+    };
+    rv.review_note_ar = reviewNoteAr(rv);
+    needsReview.push(rv);
   }
 
   let working = 0;
@@ -145,8 +161,29 @@ async function buildStationHealthReport() {
 
   const generatedAt = new Date().toISOString();
 
+  const referenceStationsSelect = list
+    .filter(function (s) {
+      return (
+        s &&
+        s.is_reference_station &&
+        normalizeStatus(s.status) === 'active'
+      );
+    })
+    .map(function (s) {
+      return {
+        id: String(s.id).trim(),
+        name: s.name,
+        country: s.country != null ? String(s.country) : null,
+        region: s.region != null ? String(s.region) : null
+      };
+    })
+    .sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name), 'ar');
+    });
+
   return {
     generated_at: generatedAt,
+    reference_stations_select: referenceStationsSelect,
     summary: {
       total_stations: stationRows.length,
       working_stations: working,

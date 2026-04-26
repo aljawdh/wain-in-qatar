@@ -7,6 +7,7 @@
   var SUMMARY_ENDPOINT = '/api?route=admin-summary';
   var FEEDBACK_ENDPOINT = '/api?route=admin&path=feedback';
   var STATION_HEALTH_REPORT_ENDPOINT = '/api?route=admin&path=station-health-report';
+  var STATION_REFERENCE_LINK_ENDPOINT = '/api?route=admin&path=station-reference-link';
   var LOGIN_ENDPOINT = '/api?route=login';
   var LOGOUT_ENDPOINT = '/api?route=logout';
 
@@ -492,6 +493,8 @@
   }
 
   var stationHealthRunInFlight = false;
+  var stationHealthReportPayload = null;
+  var stationHealthLinkPendingId = null;
 
   function shEsc(s) {
     if (s == null) return '—';
@@ -519,6 +522,7 @@
   }
 
   function renderStationHealthReport(data) {
+    stationHealthReportPayload = data || null;
     var sum = data && data.summary ? data.summary : {};
     var setTxt = function (id, v) {
       var el = getEl(id);
@@ -541,10 +545,18 @@
     if (mainBody) {
       mainBody.innerHTML = '';
       if (!stations.length) {
-        mainBody.innerHTML = '<tr><td colspan="16" style="text-align:center;color:#8ea4ba">لا توجد بيانات</td></tr>';
+        mainBody.innerHTML = '<tr><td colspan="18" style="text-align:center;color:#8ea4ba">لا توجد بيانات</td></tr>';
       } else {
         stations.forEach(function (row) {
           var tr = document.createElement('tr');
+          var arErr = row.latest_error_ar != null && row.latest_error_ar !== ''
+            ? String(row.latest_error_ar)
+            : '—';
+          var raw = row.latest_error;
+          var errHtml = '<div style="line-height:1.35">' + shEsc(arErr) + '</div>';
+          if (raw) {
+            errHtml += '<details style="font-size:.72rem;margin-top:4px;max-width:220px"><summary style="cursor:pointer">تفاصيل تقنية</summary><code style="display:block;word-break:break-all;margin-top:4px;opacity:.85">' + shEsc(String(raw)) + '</code></details>';
+          }
           tr.innerHTML =
             '<td>' + shEsc(row.station_id) + '</td>' +
             '<td><strong>' + shEsc(row.station_name) + '</strong></td>' +
@@ -559,9 +571,26 @@
             '<td>' + shEsc(row.resolved_reference_station_name) + '</td>' +
             '<td>' + shDataStatusAr(row.data_status) + '</td>' +
             '<td>' + shWeatherAr(row.weather_fetch_status) + '</td>' +
-            '<td style="max-width:180px;word-break:break-word">' + shEsc(row.latest_error) + '</td>' +
+            '<td style="max-width:220px;vertical-align:top">' + errHtml + '</td>' +
+            '<td class="sh-act-wrap" style="white-space:nowrap"></td>' +
             '<td style="font-size:.78rem;white-space:nowrap">' + shEsc(row.last_checked_at) + '</td>';
           mainBody.appendChild(tr);
+          var w = tr.querySelector('.sh-act-wrap');
+          if (w) {
+            if (row.link_reference_eligible) {
+              var b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'settings-btn secondary sh-link-ref-btn';
+              b.style.padding = '4px 10px';
+              b.style.fontSize = '.78rem';
+              b.textContent = '🔗 ربط';
+              b.setAttribute('data-station-id', String(row.station_id || ''));
+              b.setAttribute('data-station-name', String(row.station_name || ''));
+              w.appendChild(b);
+            } else {
+              w.textContent = '—';
+            }
+          }
         });
       }
     }
@@ -596,31 +625,126 @@
       } else {
         need.forEach(function (r) {
           var tr = document.createElement('tr');
+          var note = r.review_note_ar != null && r.review_note_ar !== '' ? r.review_note_ar : (r.latest_error_ar || '—');
           tr.innerHTML =
             '<td>' + shEsc(r.station_id) + '</td>' +
             '<td><strong>' + shEsc(r.station_name) + '</strong></td>' +
             '<td>' + (r.station_type === 'reference' ? 'مرجعية' : 'تشغيلية') + '</td>' +
             '<td>' + shDataStatusAr(r.data_status) + '</td>' +
             '<td>' + shWeatherAr(r.weather_fetch_status) + '</td>' +
-            '<td style="max-width:220px;word-break:break-word">' + shEsc(r.latest_error) + '</td>';
+            '<td style="max-width:240px;word-break:break-word;line-height:1.4">' + shEsc(note) + '</td>';
           revBody.appendChild(tr);
         });
       }
     }
   }
 
-  function runStationHealthReport() {
-    if (stationHealthRunInFlight) return;
+  function openStationHealthLinkModal(sid, sname) {
+    var payload = stationHealthReportPayload;
+    var errEl = getEl('stationHealthLinkErr');
+    if (errEl) {
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    }
+    stationHealthLinkPendingId = sid != null ? String(sid) : null;
+    var t = getEl('stationHealthLinkTarget');
+    if (t) {
+      t.textContent = (sname != null && String(sname) !== '' ? String(sname) : 'محطة') + '  (' + (sid != null ? String(sid) : '') + ')';
+    }
+    var sel = getEl('stationHealthRefSelect');
+    if (sel) {
+      sel.innerHTML = '';
+      var opts = (payload && payload.reference_stations_select) || [];
+      if (!opts.length) {
+        var o0 = document.createElement('option');
+        o0.value = '';
+        o0.textContent = 'لا توجد محطات مرجعية نشطة';
+        sel.appendChild(o0);
+        sel.disabled = true;
+      } else {
+        sel.disabled = false;
+        var ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = '— اختر —';
+        sel.appendChild(ph);
+        opts.forEach(function (r) {
+          var o = document.createElement('option');
+          o.value = r.id;
+          var bits = [r.name || r.id];
+          if (r.region) bits.push(r.region);
+          if (r.country) bits.push(r.country);
+          o.textContent = bits.join(' — ');
+          sel.appendChild(o);
+        });
+      }
+    }
+    var dlg = getEl('stationHealthLinkModal');
+    if (dlg && typeof dlg.showModal === 'function') dlg.showModal();
+  }
+
+  function saveStationHealthReferenceLink() {
+    var sel = getEl('stationHealthRefSelect');
+    var errEl = getEl('stationHealthLinkErr');
+    var refId = sel && !sel.disabled && sel.value ? String(sel.value).trim() : '';
+    if (!refId) {
+      if (errEl) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'يرجى اختيار محطة مرجعية.';
+      }
+      return;
+    }
+    if (!stationHealthLinkPendingId) return;
+    var saveBtn = getEl('stationHealthLinkSave');
+    if (saveBtn) saveBtn.disabled = true;
+    return apiFetch(STATION_REFERENCE_LINK_ENDPOINT, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        station_id: stationHealthLinkPendingId,
+        reference_station_id: refId
+      })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) {
+          if (errEl) {
+            errEl.style.display = 'block';
+            errEl.textContent = (j && j.error) ? String(j.error) : 'تعذر حفظ الربط';
+          }
+          return;
+        }
+        var dlg = getEl('stationHealthLinkModal');
+        if (dlg && typeof dlg.close === 'function') dlg.close();
+        var st = getEl('stationHealthStatus');
+        if (st) st.textContent = 'تم حفظ الربط. جارٍ تحديث التقرير…';
+        return loadStations()
+          .then(function () {
+            return doStationHealthReportFetch({ successMessage: 'اكتمل التحديث بعد الربط.' });
+          })
+          .catch(function () {
+            return doStationHealthReportFetch({ successMessage: 'اكتمل التحديث بعد الربط.' });
+          });
+      })
+      .catch(function () {
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.textContent = 'تعذر الاتصال بالخادم.';
+        }
+      })
+      .then(function () {
+        if (saveBtn) saveBtn.disabled = false;
+      });
+  }
+
+  function doStationHealthReportFetch(options) {
+    var opt = options || {};
     if (!adminAuthenticated) {
       var st0 = getEl('stationHealthStatus');
       if (st0) st0.textContent = 'تسجيل الدخول مطلوب.';
-      return;
+      return Promise.resolve();
     }
-    stationHealthRunInFlight = true;
     var st = getEl('stationHealthStatus');
-    var btn = getEl('stationHealthRunBtn');
-    if (st) st.textContent = 'جاري الفحص (قد يستغرق وقتاً)…';
-    if (btn) btn.disabled = true;
+    if (st) st.textContent = opt.statusMessage != null ? opt.statusMessage : 'جاري الفحص (قد يستغرق وقتاً)…';
     return apiFetch(STATION_HEALTH_REPORT_ENDPOINT, { method: 'GET' })
       .then(function (res) { return res.json(); })
       .then(function (json) {
@@ -629,12 +753,20 @@
           return;
         }
         renderStationHealthReport(json);
-        if (st) st.textContent = 'اكتمل الفحص.';
+        if (st) st.textContent = opt.successMessage != null ? opt.successMessage : 'اكتمل الفحص.';
       })
       .catch(function () {
         if (st) st.textContent = 'تعذر الاتصال بالخادم.';
-      })
-      .then(function () {
+      });
+  }
+
+  function runStationHealthReport() {
+    if (stationHealthRunInFlight) return;
+    var btn = getEl('stationHealthRunBtn');
+    stationHealthRunInFlight = true;
+    if (btn) btn.disabled = true;
+    return doStationHealthReportFetch({})
+      .finally(function () {
         stationHealthRunInFlight = false;
         if (btn) btn.disabled = false;
       });
@@ -7747,6 +7879,31 @@
     if (stationHealthRunBtn) {
       stationHealthRunBtn.addEventListener('click', function () {
         void runStationHealthReport();
+      });
+    }
+    var stationHealthSec = getEl('stationHealthSection');
+    if (stationHealthSec) {
+      stationHealthSec.addEventListener('click', function (e) {
+        var t = e.target && e.target.closest && e.target.closest('.sh-link-ref-btn');
+        if (!t) return;
+        e.preventDefault();
+        openStationHealthLinkModal(
+          t.getAttribute('data-station-id'),
+          t.getAttribute('data-station-name') || ''
+        );
+      });
+    }
+    var stationHealthLinkCancel = getEl('stationHealthLinkCancel');
+    if (stationHealthLinkCancel) {
+      stationHealthLinkCancel.addEventListener('click', function () {
+        var dlg = getEl('stationHealthLinkModal');
+        if (dlg && typeof dlg.close === 'function') dlg.close();
+      });
+    }
+    var stationHealthLinkSave = getEl('stationHealthLinkSave');
+    if (stationHealthLinkSave) {
+      stationHealthLinkSave.addEventListener('click', function () {
+        void saveStationHealthReferenceLink();
       });
     }
 

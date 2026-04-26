@@ -1136,9 +1136,9 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </dialog>
           </div>
 
-          <div class="admin-section admin-block" data-section="station-health">
+          <div class="admin-section admin-block" data-section="station-health" id="stationHealthSection">
             <h4><i class="fa-solid fa-heart-pulse"></i> تقرير صحة المحطات والربط المرجعي</h4>
-            <div class="section-subtitle">قراءة فقط — فحص الاتصال بـ Open-Meteo وعرض ارتباط المحطات التشغيلية بالمرجعية دون تعديل أي بيانات.</div>
+            <div class="section-subtitle">فحص الاتصال بـ Open-Meteo وعرض الربط المرجعي. يمكنك ربط محطة تشغيلية بمرجع من الجدول (زر «ربط») — يُحفظ فقط حقل <code>reference_station_id</code> في بيانات المحطات.</div>
             <div class="admin-stat" style="margin-bottom:12px;grid-template-columns:repeat(3,1fr)">
               <div class="as-card"><div class="as-val" id="shSumTotal">—</div><div class="as-lbl">إجمالي المحطات</div></div>
               <div class="as-card"><div class="as-val" id="shSumOk">—</div><div class="as-lbl">المحطات العاملة</div></div>
@@ -1159,7 +1159,7 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                   <tr>
                     <th>المعرّف</th><th>الاسم</th><th>النوع</th><th>الدولة</th><th>المنطقة</th><th>المنطقة المحلية</th>
                     <th>lat</th><th>lon</th><th>الحالة</th><th>مرجع</th><th>اسم المرجع</th>
-                    <th>الصحة</th><th>الطقس</th><th>آخر خطأ</th><th>فحص</th>
+                    <th>الصحة</th><th>الطقس</th><th>آخر خطأ</th><th>إجراء</th><th>فحص</th>
                   </tr>
                 </thead>
                 <tbody id="stationHealthTableBody"></tbody>
@@ -1187,6 +1187,19 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <tbody id="stationHealthReviewBody"></tbody>
               </table>
             </div>
+            <dialog id="stationHealthLinkModal" style="border:none;border-radius:14px;padding:0;max-width:440px;width:min(100%,440px);background:var(--bg2);color:var(--txt)">
+              <div style="padding:20px 20px 16px">
+                <h4 style="margin:0 0 8px;font-size:1rem">ربط بمحطة مرجعية</h4>
+                <p class="section-subtitle" id="stationHealthLinkTarget" style="margin:0 0 12px;line-height:1.5">—</p>
+                <label for="stationHealthRefSelect" style="font-size:.85rem;color:var(--txt2)">اختر المحطة المرجعية</label>
+                <select id="stationHealthRefSelect" style="width:100%;margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);font-family:inherit"></select>
+                <p class="section-subtitle" id="stationHealthLinkErr" style="display:none;margin:10px 0 0;color:#f8a0a0"></p>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:16px">
+                  <button type="button" class="settings-btn secondary" id="stationHealthLinkCancel">إلغاء</button>
+                  <button type="button" class="settings-btn" id="stationHealthLinkSave">حفظ الربط</button>
+                </div>
+              </div>
+            </dialog>
           </div>
 
           <div class="admin-section admin-block" data-section="settings">

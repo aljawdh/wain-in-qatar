@@ -577,6 +577,52 @@ module.exports = async function handler(req, res) {
     );
   }
 
+  if (root === 'station-reference-link') {
+    if (req.method !== 'PATCH') {
+      res.setHeader('Allow', 'PATCH');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const body = parseBody(req);
+    const opId = cleanString(body && body.station_id, 80);
+    const refId = cleanString(body && body.reference_station_id, 80);
+    if (!opId || !refId) {
+      return res.status(400).json({ error: 'station_id_and_reference_station_id_required' });
+    }
+    const rows = await readJsonFile('stations', []);
+    const list = Array.isArray(rows) ? rows : [];
+    const opIdx = list.findIndex((s) => s && String(s.id) === opId);
+    if (opIdx < 0) return res.status(404).json({ error: 'station_not_found' });
+    const op = list[opIdx];
+    if (op.is_reference_station) {
+      return res.status(400).json({ error: 'station_must_be_operational' });
+    }
+    const refIdx = list.findIndex((s) => s && String(s.id) === refId);
+    if (refIdx < 0) return res.status(404).json({ error: 'reference_station_not_found' });
+    const refSt = list[refIdx];
+    if (!refSt.is_reference_station) {
+      return res.status(400).json({ error: 'target_must_be_reference_station' });
+    }
+    const next = normalizeStationInput(
+      Object.assign({}, op, { reference_station_id: refId, id: op.id }),
+      op
+    );
+    list[opIdx] = next;
+    await writeJsonFile('stations', list);
+    await writeAudit('station_reference_link_set', actor, {
+      station_id: opId,
+      reference_station_id: refId
+    });
+    return res.status(200).json({
+      ok: true,
+      station_id: opId,
+      reference_station_id: refId,
+      reference_station_name: refSt.name
+    });
+  }
+
   if (root === 'sync-dur-windows-kv') {
     return res.status(410).json({ ok: false, error: 'dur_windows_sync_removed', message: 'NAVIDUR uses data/true_final_station_reference.json only' });
   }
