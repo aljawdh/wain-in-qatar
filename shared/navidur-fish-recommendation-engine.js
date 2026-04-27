@@ -502,7 +502,9 @@ function getGulfFishRecommendations(ctx) {
       habitat: fish.habitat || (fish.habitat_tags && fish.habitat_tags[0]) || '—',
       feeding: fish.feeding || '—',
       zone: fish.eco_zone || (fish.habitat_tags && fish.habitat_tags[0]) || '—',
-      best_time: bestTimesForFish(fish)
+      best_time: bestTimesForFish(fish),
+      water_state_pref: fish.water_state_pref != null ? fish.water_state_pref : null,
+      depth_m: fish.depth_m && typeof fish.depth_m === 'object' ? fish.depth_m : null
     };
   });
 
