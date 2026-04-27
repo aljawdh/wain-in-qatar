@@ -34,11 +34,27 @@ function normalizeRequestedStation(body, stations) {
   var storedStation = pickStationFromReference(stations, stationId);
   var raw = Object.assign({}, storedStation || {}, requestedStation || {});
 
-  // Persisted manual link must win when the client omits the field (public UI often does).
-  // Admins clear/edit the link by sending reference_station_id explicitly (including "").
+  // Persisted manual link must win when the client omits the field or sends a placeholder
+  // empty string. Public `mapApiStationToBase` used to always set reference_station_id: "",
+  // which made hasOwnProperty("reference_station_id") true and incorrectly cleared the
+  // merged id — bypassing the datastore link and falling back to nearest / same-band.
+  // Non-empty client values still win; to clear a link in one shot, save via admin first
+  // or send reference_station_id: null (treated as explicit clear when paired with hasOwn).
   var referenceStationId;
   if (requestedStation && Object.prototype.hasOwnProperty.call(requestedStation, 'reference_station_id')) {
-    referenceStationId = cleanString(requestedStation.reference_station_id, 80);
+    if (requestedStation.reference_station_id === null) {
+      referenceStationId = '';
+    } else {
+      var reqRef = cleanString(requestedStation.reference_station_id, 80);
+      if (reqRef) {
+        referenceStationId = reqRef;
+      } else {
+        referenceStationId = cleanString(
+          (storedStation && storedStation.reference_station_id) || raw.reference_station_id,
+          80
+        );
+      }
+    }
   } else {
     referenceStationId = cleanString(
       (storedStation && storedStation.reference_station_id) || raw.reference_station_id,

@@ -1671,7 +1671,7 @@
     }
 
     function mapApiStationToBase(st) {
-      return {
+      const base = {
         id: st.id,
         name: st.name,
         country: st.country,
@@ -1682,9 +1682,12 @@
         region: String(st.region || ''),
         default_radius: Number(st.default_radius || 0.02),
         is_reference_station: st.is_reference_station === true,
-        reference_station_id: st.reference_station_id != null ? String(st.reference_station_id) : '',
         latitude_band_key: String(st.latitude_band_key || '')
       };
+      if (st.reference_station_id != null && String(st.reference_station_id).trim() !== '') {
+        base.reference_station_id = String(st.reference_station_id);
+      }
+      return base;
     }
 
     function isEmergencyStationFallbackEnabled() {

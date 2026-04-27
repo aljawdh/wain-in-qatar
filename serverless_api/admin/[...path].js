@@ -603,6 +603,99 @@ module.exports = async function handler(req, res) {
     return res.status(200).json(Object.assign({ ok: true, path: 'weather-fetch-audit' }, report));
   }
 
+  /**
+   * Read-only: single-station DUR reference resolution (store → public shape → merge → resolver).
+   * GET /api?route=admin&path=debug-reference-resolution&station_id=...
+   */
+  if (root === 'debug-reference-resolution') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const stationId = cleanString(req.query && req.query.station_id, 80);
+    if (!stationId) {
+      return res.status(400).json({ error: 'station_id_required' });
+    }
+    const { normalizeRequestedStation, loadReferenceData } = require('../_lib/navidur-analysis-runtime');
+    const { resolveReferenceStationForDurInheritance } = require('../../shared/navidur-analysis-engine');
+    const refData = await loadReferenceData();
+    const list = Array.isArray(refData.stations) ? refData.stations : [];
+    const stationFromStore = list.find((s) => s && String(s.id).trim() === stationId) || null;
+
+    function isPublicOperationalStation(s) {
+      if (!s) return false;
+      if (s.status === 'archived' || s.status === 'disabled') return false;
+      if (s.is_reference_station) return false;
+      if (s.is_operational_station === false) return false;
+      if (s.operational_visibility === false) return false;
+      return true;
+    }
+
+    const publicRow = stationFromStore && isPublicOperationalStation(stationFromStore) ? stationFromStore : null;
+    const stationFromPublicShape = publicRow
+      ? (function mapPublicShape(st) {
+          const o = {
+            id: st.id,
+            name: st.name,
+            country: st.country,
+            lat: Number(st.lat),
+            lng: st.lon != null ? Number(st.lon) : (st.lng != null ? Number(st.lng) : null),
+            is_reference_station: st.is_reference_station === true
+          };
+          if (st.reference_station_id != null && String(st.reference_station_id).trim() !== '') {
+            o.reference_station_id = String(st.reference_station_id);
+          }
+          return o;
+        })(publicRow)
+      : null;
+
+    const preFixLegacyClient = publicRow
+      ? {
+          id: publicRow.id,
+          reference_station_id: publicRow.reference_station_id != null ? String(publicRow.reference_station_id) : ''
+        }
+      : null;
+
+    const body = { station: stationFromPublicShape || { id: stationId }, station_id: stationId };
+    const mergedAnalysisStation = normalizeRequestedStation(body, list);
+    const durResolution = resolveReferenceStationForDurInheritance(mergedAnalysisStation, list);
+    const durSource = durResolution && durResolution.source;
+    const method = durResolution && durResolution.method;
+    const refSourceTag = (function mapMethod(m) {
+      if (m === 'manual') return 'manual';
+      if (m === 'self') return 'self';
+      if (m === 'same_band') return 'latitude_band';
+      if (m === 'nearest') return 'nearest';
+      return m ? String(m) : 'unknown';
+    })(method);
+
+    return res.status(200).json({
+      ok: true,
+      path: 'debug-reference-resolution',
+      station_id: stationId,
+      station_from_store: stationFromStore,
+      station_from_public_shape: stationFromPublicShape,
+      legacy_client_reference_station_id_empty_string: preFixLegacyClient,
+      merged_analysis_station: mergedAnalysisStation,
+      resolver_result: {
+        reference_resolution_source: refSourceTag,
+        dur_source_station_id: durSource ? String(durSource.id) : null,
+        dur_source_station_name: durSource ? String(durSource.name) : null,
+        resolution_method: method || null,
+        error: durResolution && durResolution.error ? String(durResolution.error) : null
+      },
+      final_dur_source: durSource ? { id: durSource.id, name: durSource.name, is_reference_station: !!durSource.is_reference_station } : null,
+      fallback_attempted: method === 'nearest' || method === 'same_band',
+      weather_coordinates_used: {
+        lat: mergedAnalysisStation.lat,
+        lon: mergedAnalysisStation.lon
+      }
+    });
+  }
+
   if (root === 'station-reference-link') {
     if (req.method !== 'PATCH') {
       res.setHeader('Allow', 'PATCH');
