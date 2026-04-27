@@ -935,7 +935,7 @@
           <div class="pred-val" id="pvWaterState">—</div>
         </div>
         <div class="pred-cell">
-          <div class="pred-label">🌀 سقي / ثبر</div>
+          <div class="pred-label">🌀 اتجاه الماء (سقي / ثبر / خامل)</div>
           <div class="pred-val pred-val-md" id="pvSaghiThabr">—</div>
         </div>
         <div class="pred-cell">
@@ -951,7 +951,7 @@
           <div class="pred-val pred-val-md" id="pvWindSpeed">—</div>
         </div>
         <div class="pred-cell pred-cell-wide">
-          <div class="pred-label">🌊 التيار (منسوب)</div>
+          <div class="pred-label">🌊 ارتفاع المد (MSL)</div>
           <div class="pred-val pred-val-sm" id="pvTide">—</div>
         </div>
       </div>
@@ -2571,14 +2571,23 @@ function _pickCurrentValue(current, keys) {
   return null;
 }
 
-function _mapDtoWaterState(state) {
+function _mapDtoWaterState(dto) {
+  if (!dto) return null;
+  const et = dto.environment && dto.environment.tide;
+  if (et && et.state != null) {
+    const s = String(et.state).trim();
+    if (s === 'سقي') return 'حمل';
+    if (s === 'ثبر') return 'فساد';
+    if (s === 'خامل') return null;
+  }
+  const state = dto.tide ? dto.tide.state : null;
   if (state === 'LOAD') return 'حمل';
   if (state === 'FASAD') return 'فساد';
   return null;
 }
 
 function _mapDtoFishingMode(dto) {
-  const waterState = _mapDtoWaterState(dto && dto.tide ? dto.tide.state : null);
+  const waterState = _mapDtoWaterState(dto);
   if (waterState === 'حمل') return 'deep';
   if (waterState === 'فساد') return 'coastal';
   return null;
@@ -2618,8 +2627,14 @@ async function fetchAnalysis(station) {
         water_status: addStationState && addStationState.waterStatus ? addStationState.waterStatus : 'unknown'
       }
     });
-    const waterState = _mapDtoWaterState(dto && dto.tide ? dto.tide.state : null);
+    const waterState = _mapDtoWaterState(dto);
     const fishingMode = _mapDtoFishingMode(dto);
+    const envTide = dto && dto.environment && dto.environment.tide;
+    const tideDirectionAr = envTide && envTide.state != null ? String(envTide.state).trim() : null;
+    const tideHeightM = envTide && envTide.height_m != null && Number.isFinite(Number(envTide.height_m))
+      ? Number(envTide.height_m)
+      : null;
+    const tideTrend = envTide && envTide.trend != null ? String(envTide.trend).trim() : null;
     const speciesPredicted = Array.isArray(dto && dto.fishing && dto.fishing.species_activity)
       ? dto.fishing.species_activity.slice()
       : [];
@@ -2637,6 +2652,9 @@ async function fetchAnalysis(station) {
       wind_direction: dto && dto.environment ? dto.environment.wind_direction_deg : null,
       temperature: dto && dto.environment ? dto.environment.temp_c : null,
       water_state_predicted: waterState,
+      tide_direction_ar: (tideDirectionAr === 'سقي' || tideDirectionAr === 'ثبر' || tideDirectionAr === 'خامل') ? tideDirectionAr : null,
+      tide_height_m: tideHeightM,
+      tide_trend: tideTrend,
       tidal_coefficient_predicted: dto && dto.fishing ? dto.fishing.confidence_score : null,
       activity_score_predicted: dto && dto.fishing ? dto.fishing.confidence_score : null,
       fishing_mode_predicted: fishingMode,
@@ -2740,13 +2758,25 @@ function renderPredictionPanel() {
                                     snap.water_state_predicted === 'فساد' ? 'pred-val-fasad' : '');
   }
 
-  // سقي / ثبر
+  const _tideUnavailable = 'غير متاح حالياً';
   const stEl = document.getElementById('pvSaghiThabr');
   if (stEl) {
-    const ts = _getTideState(snap.tide_previous, snap.tide_current, snap.tide_next);
-    stEl.textContent = ts.label;
-    stEl.className = 'pred-val pred-val-md' +
-      (ts.key === 'sagi' ? ' pred-val-sagi' : ts.key === 'thabr' ? ' pred-val-thabr' : '');
+    const dir = snap.tide_direction_ar != null ? String(snap.tide_direction_ar).trim() : '';
+    if (dir === 'سقي' || dir === 'ثبر' || dir === 'خامل') {
+      stEl.textContent = 'اتجاه الماء: ' + dir;
+      stEl.className = 'pred-val pred-val-md' +
+        (dir === 'سقي' ? ' pred-val-sagi' : dir === 'ثبر' ? ' pred-val-thabr' : '');
+    } else {
+      const ts = _getTideState(snap.tide_previous, snap.tide_current, snap.tide_next);
+      if (ts.key !== 'unknown') {
+        stEl.textContent = 'اتجاه الماء: ' + ts.label.replace(/\s*[↑↓●]\s*$/, '').trim();
+        stEl.className = 'pred-val pred-val-md' +
+          (ts.key === 'sagi' ? ' pred-val-sagi' : ts.key === 'thabr' ? ' pred-val-thabr' : '');
+      } else {
+        stEl.textContent = _tideUnavailable;
+        stEl.className = 'pred-val pred-val-md';
+      }
+    }
   }
 
   // Activity
@@ -2766,14 +2796,16 @@ function renderPredictionPanel() {
   const wspdEl = document.getElementById('pvWindSpeed');
   if (wspdEl) wspdEl.textContent = snap.wind_speed_kmh != null ? snap.wind_speed_kmh.toFixed(0) + ' كم/س' : '—';
 
-  // Tide level
   const tideEl = document.getElementById('pvTide');
   if (tideEl) {
-    const tc = snap.tidal_coefficient_predicted;
-    const cur = snap.tide_current;
-    let tideText = cur != null ? cur.toFixed(2) + ' م' : '—';
-    if (tc != null) tideText += '  ·  معاملة: ' + tc;
-    tideEl.textContent = tideText;
+    const hm = snap.tide_height_m;
+    if (hm != null && Number.isFinite(Number(hm))) {
+      let line = 'ارتفاع المد: ' + Number(hm).toFixed(2) + ' م';
+      if (snap.tide_trend) line += '  ·  ' + snap.tide_trend;
+      tideEl.textContent = line;
+    } else {
+      tideEl.textContent = _tideUnavailable;
+    }
   }
 
   // Last updated
