@@ -1490,7 +1490,10 @@
         flag: getFlagByCountry(st.country),
         fishing_mode: String(st.fishing_mode || ''),
         region: String(st.region || ''),
-        default_radius: Number(st.default_radius || 0.02)
+        default_radius: Number(st.default_radius || 0.02),
+        is_reference_station: st.is_reference_station === true,
+        reference_station_id: st.reference_station_id != null ? String(st.reference_station_id) : '',
+        latitude_band_key: String(st.latitude_band_key || '')
       };
     }
 

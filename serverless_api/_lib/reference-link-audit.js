@@ -67,7 +67,7 @@ function buildNoteAr(row) {
     return 'يستخدم ربط تلقائي';
   }
   if (row.match_status === 'mismatch' && (row.dur_state_match === false || row.dur_state_match == null)) {
-    if (row.resolution_method === 'explicit' && row.reference_resolution_source === 'manual') {
+    if (row.resolution_method === 'manual' && row.reference_resolution_source === 'manual') {
       if (row.true_final_dur_mismatch_fields && row.true_final_dur_mismatch_fields.length) {
         return 'اختلاف في بيانات الدور بين التحليل والملف الحقيقي';
       }
@@ -75,10 +75,10 @@ function buildNoteAr(row) {
     return 'اختلاف في المرجع المستخدم';
   }
   if (row.match_status === 'invalid_reference') {
-    if (row.resolution_method === 'explicit_not_found') {
+    if (row.resolution_method === 'manual_invalid' && row.resolution_error === 'manual_reference_not_found') {
       return 'المحطة المرجعية غير موجودة';
     }
-    if (row.resolution_method === 'explicit_target_not_reference') {
+    if (row.resolution_method === 'manual_invalid' && row.resolution_error === 'manual_target_not_reference') {
       return 'المعرّف المرتبط ليس محطة مرجعية';
     }
     return 'بيانات مرجع غير صالحة';
@@ -170,12 +170,9 @@ async function buildReferenceLinkAudit() {
     if (isRef) {
       matchStatus = 'ok';
     } else if (storedRef) {
-      if (res.method === 'explicit' && res.source && String(res.source.id) === storedRef) {
+      if (res.method === 'manual' && res.source && String(res.source.id) === storedRef) {
         matchStatus = 'ok';
-      } else if (
-        res.method === 'explicit_not_found' ||
-        res.method === 'explicit_target_not_reference'
-      ) {
+      } else if (res.method === 'manual_invalid') {
         matchStatus = 'invalid_reference';
       } else {
         matchStatus = 'mismatch';
@@ -189,7 +186,7 @@ async function buildReferenceLinkAudit() {
     }
 
     var durStateMatch = null;
-    if (!isRef && storedRef && res.method === 'explicit' && res.source && String(res.source.id) === storedRef) {
+    if (!isRef && storedRef && res.method === 'manual' && res.source && String(res.source.id) === storedRef) {
       if (tfFromLinkedReferenceRow == null && tfActual == null) {
         durStateMatch = null;
       } else if (tfFromLinkedReferenceRow == null || tfActual == null) {
@@ -207,7 +204,7 @@ async function buildReferenceLinkAudit() {
     }
 
     const durDiff =
-      !isRef && storedRef && res.method === 'explicit' && tfFromLinkedReferenceRow && tfActual
+      !isRef && storedRef && res.method === 'manual' && tfFromLinkedReferenceRow && tfActual
         ? compareTrueFinalDur(tfFromLinkedReferenceRow, tfActual).differences
         : [];
 
@@ -223,6 +220,7 @@ async function buildReferenceLinkAudit() {
       actual_reference_used_by_analysis: actual.id,
       actual_reference_name_used: actual.name,
       resolution_method: res.method,
+      resolution_error: res.error || null,
       match_status: matchStatus,
       as_of: asOfIso,
       true_final_dur_for_expected_manual: tfFromLinkedReferenceRow,

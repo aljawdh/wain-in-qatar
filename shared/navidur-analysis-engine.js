@@ -196,11 +196,11 @@
       var linked = findStationByIdInList(list, explicitId);
       if (linked) {
         if (linked.is_reference_station) {
-          return { source: linked, method: 'explicit' };
+          return { source: linked, method: 'manual' };
         }
-        return { source: null, method: 'explicit_target_not_reference' };
+        return { source: null, method: 'manual_invalid', error: 'manual_target_not_reference' };
       }
-      return { source: null, method: 'explicit_not_found' };
+      return { source: null, method: 'manual_invalid', error: 'manual_reference_not_found' };
     }
     var band = normalizeString(station.latitude_band_key);
     if (band) {
@@ -936,7 +936,16 @@
     var referenceData = normalizeReferenceData(options.reference_data);
     var stationInput = options.station || {};
     var storedStation = findStoredStation(referenceData, stationInput);
-    var station = normalizeStationRecord(Object.assign({}, storedStation || {}, stationInput || {}));
+    var mergedIn = Object.assign({}, storedStation || {}, stationInput || {});
+    if (
+      !stationInput ||
+      !Object.prototype.hasOwnProperty.call(stationInput, 'reference_station_id')
+    ) {
+      if (storedStation && normalizeString(storedStation.reference_station_id)) {
+        mergedIn.reference_station_id = storedStation.reference_station_id;
+      }
+    }
+    var station = normalizeStationRecord(mergedIn);
 
     var analysisDateTime = parseAnalysisDateTime(options.datetime);
     var analysisDate = startOfUtcDay(analysisDateTime);
@@ -1018,10 +1027,18 @@
     var durResolution = resolveReferenceStationForDurInheritance(station, stationsForRef);
     var durSource = durResolution.source;
     if (!station.is_reference_station && !durSource) {
-      return failResponse({
-        code: 'DUR_REFERENCE_UNRESOLVED',
-        message: 'no reference station found for DUR inheritance'
-      });
+      var mErr = durResolution && durResolution.method === 'manual_invalid' && durResolution.error;
+      return failResponse(
+        mErr
+          ? {
+            code: mErr,
+            message:
+              mErr === 'manual_reference_not_found'
+                ? 'reference_station_id does not match any station'
+                : 'reference_station_id must point to a reference station (is_reference_station)'
+          }
+          : { code: 'DUR_REFERENCE_UNRESOLVED', message: 'no reference station found for DUR inheritance' }
+      );
     }
     if (!durSource) {
       return failResponse({ code: 'DUR_SOURCE_MISSING', message: 'internal: DUR source missing' });
@@ -1142,9 +1159,23 @@
         }
       } catch (_logErr) { /* ignore */ }
     }
+    var savedRefId = normalizeString(station.reference_station_id);
+    var savedRefRow = savedRefId ? findStationByIdInList(stationsForRef, savedRefId) : null;
+    var refResolutionSource = (function (m) {
+      if (m === 'manual') return 'manual';
+      if (m === 'self') return 'self';
+      if (m === 'same_band') return 'latitude_band';
+      if (m === 'nearest') return 'nearest';
+      return normalizeString(m) || 'unknown';
+    })(durResolution.method);
     return {
       station_id: station.id || null,
       analysis_timestamp: analysisDateTime.toISOString(),
+      reference_station_id: savedRefId,
+      reference_station_name: savedRefRow ? normalizeString(savedRefRow.name) : '',
+      reference_resolution_source: refResolutionSource,
+      dur_source_station_id: normalizeString(durSource && durSource.id),
+      dur_source_station_name: normalizeString(durSource && durSource.name),
       true_final_reference_active: true,
       operational_workbook_inactive: true,
       legacy_suhail_engine_inactive: true,
@@ -1179,6 +1210,8 @@
           source_station_name: normalizeString(durSource.name),
           operational_station_id: normalizeString(station.id)
         },
+        dur_source_station_id: normalizeString(durSource && durSource.id),
+        dur_source_station_name: normalizeString(durSource && durSource.name),
         calibration_reference_station_id: station.is_reference_station ? '' : normalizeString(durSource.id),
         calibration_reference_station_name: station.is_reference_station ? '' : normalizeString(durSource.name),
         calibration_latitude_band_key: '',

@@ -33,6 +33,19 @@ function normalizeRequestedStation(body, stations) {
 
   var storedStation = pickStationFromReference(stations, stationId);
   var raw = Object.assign({}, storedStation || {}, requestedStation || {});
+
+  // Persisted manual link must win when the client omits the field (public UI often does).
+  // Admins clear/edit the link by sending reference_station_id explicitly (including "").
+  var referenceStationId;
+  if (requestedStation && Object.prototype.hasOwnProperty.call(requestedStation, 'reference_station_id')) {
+    referenceStationId = cleanString(requestedStation.reference_station_id, 80);
+  } else {
+    referenceStationId = cleanString(
+      (storedStation && storedStation.reference_station_id) || raw.reference_station_id,
+      80
+    );
+  }
+
   var lat = toNumber(raw.lat != null ? raw.lat : body && body.lat);
   var lon = toNumber(raw.lon != null ? raw.lon : (raw.lng != null ? raw.lng : (body && (body.lon != null ? body.lon : body.lng))));
 
@@ -47,7 +60,7 @@ function normalizeRequestedStation(body, stations) {
     country: cleanString(raw.country, 80),
     region: cleanString(raw.region, 80),
     station_role_type: cleanString(raw.station_role_type, 40),
-    reference_station_id: cleanString(raw.reference_station_id, 80),
+    reference_station_id: referenceStationId,
     is_reference_station: !!raw.is_reference_station,
     reference_priority: toNumber(raw.reference_priority),
     latitude_band_key: cleanString(raw.latitude_band_key, 80),

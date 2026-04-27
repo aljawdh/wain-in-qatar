@@ -1680,7 +1680,10 @@
         flag: getFlagByCountry(st.country),
         fishing_mode: String(st.fishing_mode || ''),
         region: String(st.region || ''),
-        default_radius: Number(st.default_radius || 0.02)
+        default_radius: Number(st.default_radius || 0.02),
+        is_reference_station: st.is_reference_station === true,
+        reference_station_id: st.reference_station_id != null ? String(st.reference_station_id) : '',
+        latitude_band_key: String(st.latitude_band_key || '')
       };
     }
 
@@ -3025,7 +3028,10 @@
       }
       const refEl = document.getElementById('nvHdrDurRef');
       if (refEl) {
-        if (dto && dto.dur && dto.dur.reference_resolved_for_dur) {
+        const dsn = dto && (dto.dur_source_station_name || (dto.dur && dto.dur.dur_source_station_name));
+        if (dsn) {
+          refEl.textContent = String(dsn);
+        } else if (dto && dto.dur && dto.dur.reference_resolved_for_dur) {
           const r = dto.dur.reference_resolved_for_dur;
           refEl.textContent = String(r.source_station_name || r.source_station_id || 'المرجع النهائي');
         } else if (selectedStation && selectedStation.is_reference_station) {
