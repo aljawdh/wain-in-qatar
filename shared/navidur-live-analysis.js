@@ -167,6 +167,10 @@
     if (!dto || typeof dto !== 'object') return null;
     var e = dto.environment || {};
     var t = dto.tide || {};
+    var envTide = e.tide && typeof e.tide === 'object' ? e.tide : null;
+    var tideMerged = envTide && (envTide.state || envTide.height_m != null)
+      ? Object.assign({}, t, envTide)
+      : (t && typeof t === 'object' ? t : null);
     var temp = e.temperature_c != null ? e.temperature_c : e.temp_c;
     var hum = e.humidity_pct != null ? e.humidity_pct : e.relative_humidity_2m;
     return {
@@ -180,12 +184,14 @@
       ),
       wave_height_m: toFiniteNumber(e.wave_height_m),
       current_speed_ms: toFiniteNumber(t.current_speed_ms),
-      tide: t && typeof t === 'object' ? t : null
+      tide: tideMerged
     };
   }
 
   function tideStateArabic(tide) {
     if (!tide) return null;
+    var st = tide.state != null ? String(tide.state).trim() : '';
+    if (st === 'سقي' || st === 'ثبر' || st === 'خامل') return st;
     if (tide.state === 'LOAD' || String(tide.state) === 'LOAD') return 'حمل';
     if (tide.state === 'FASAD' || String(tide.state) === 'FASAD') return 'فساد';
     return null;

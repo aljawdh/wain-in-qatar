@@ -6,15 +6,99 @@ const { cleanString, toNumber } = require('./security');
 /** Shown when sky/condition cannot be derived (UI only; analysis still uses numeric fallbacks). */
 var WEATHER_UNAVAILABLE_AR = 'الحالة الجوية غير متاحة حالياً';
 
-/** Mild defaults (non-null) when both API and cache miss — analysis still runs. */
+/** Mild defaults (non-null) when both API and cache miss — analysis still runs. Tide is never fabricated. */
 var DEFAULT_LIVE = {
   temp_c: 28,
   wind_speed_kmh: 12,
   wind_direction_deg: 200,
   wave_height_m: 0.6,
-  current_speed_ms: 0.5,
-  tide: { current: 0.12, previous: 0.1, next: 0.14 }
+  current_speed_ms: 0.5
 };
+
+/** ~2 cm MSL change across the prev→next window → treat as flat (خامل). */
+var TIDE_FLAT_DELTA_M = 0.02;
+
+function findMarineHourlyIndexForInstant(timeStrings, instantMs) {
+  if (!Array.isArray(timeStrings) || !timeStrings.length) return -1;
+  var best = -1;
+  for (var i = 0; i < timeStrings.length; i += 1) {
+    var ts = Date.parse(timeStrings[i]);
+    if (Number.isNaN(ts)) continue;
+    if (ts <= instantMs) best = i;
+    else break;
+  }
+  if (best >= 0) return best;
+  return 0;
+}
+
+/**
+ * @returns {{ tide: object, tide_debug: object }}
+ */
+function buildOperationalTideFromHourly(timeStrings, mslValues, instantMs) {
+  var debug = {
+    has_hourly: Array.isArray(mslValues) && mslValues.length > 0,
+    values_sample: [],
+    computed_state: '',
+    trend: '',
+    index: -1
+  };
+  var emptyTide = { state: null, height_m: null, trend: null };
+  if (!Array.isArray(mslValues) || !mslValues.length) {
+    return { tide: emptyTide, tide_debug: debug };
+  }
+  if (!Array.isArray(timeStrings) || timeStrings.length !== mslValues.length) {
+    return { tide: emptyTide, tide_debug: debug };
+  }
+  var idx = findMarineHourlyIndexForInstant(timeStrings, instantMs);
+  debug.index = idx;
+  var n = mslValues.length;
+  var prev = idx > 0 ? toNumber(mslValues[idx - 1]) : null;
+  var cur = toNumber(mslValues[idx]);
+  var next = idx < n - 1 ? toNumber(mslValues[idx + 1]) : null;
+  var lo = Math.max(0, idx - 1);
+  debug.values_sample = mslValues.slice(lo, Math.min(n, lo + 5)).map(function (v) {
+    return toNumber(v);
+  });
+
+  if (cur == null) {
+    return { tide: emptyTide, tide_debug: debug };
+  }
+
+  var delta = null;
+  if (prev != null && next != null) delta = next - prev;
+  else if (prev != null) delta = cur - prev;
+  else if (next != null) delta = next - cur;
+  else {
+    return { tide: emptyTide, tide_debug: debug };
+  }
+
+  var state;
+  var trend;
+  if (!Number.isFinite(delta) || Math.abs(delta) < TIDE_FLAT_DELTA_M) {
+    state = 'خامل';
+    trend = 'stable';
+  } else if (delta > 0) {
+    state = 'سقي';
+    trend = 'rising';
+  } else {
+    state = 'ثبر';
+    trend = 'falling';
+  }
+  debug.computed_state = state;
+  debug.trend = trend;
+
+  return {
+    tide: {
+      state: state,
+      height_m: cur,
+      trend: trend,
+      previous: prev,
+      current: cur,
+      next: next
+    },
+    tide_debug: debug
+  };
+}
 
 function pickStationFromReference(stations, stationId) {
   var id = cleanString(stationId, 80);
@@ -230,21 +314,37 @@ async function saveWeatherCacheEntry(key, liveInputs, weatherStatusAr) {
  * DUR is untouched — caller only uses this for live_inputs / environment.
  * @param {object} station — must include lat, lon
  * @param {string} [asOfDate] — YYYY-MM-DD (optional; current forecast used for today)
+ * @param {string} [asOfInstantIso] — ISO instant for hourly tide alignment (defaults to now)
  */
-async function getWeatherData(station, asOfDate) {
+async function getWeatherData(station, asOfDate, asOfInstantIso) {
   var out = {
     ok: false,
     from_cache: false,
     from_defaults: false,
     live_inputs: null,
-    weather_status_ar: ''
+    weather_status_ar: '',
+    tide_debug: {
+      has_hourly: false,
+      values_sample: [],
+      computed_state: '',
+      trend: ''
+    }
   };
   var la = toNumber(station && station.lat);
   var lo = toNumber(station && station.lon);
   if (la == null || lo == null) {
     out.ok = true;
     out.from_defaults = true;
-    out.live_inputs = Object.assign({}, DEFAULT_LIVE);
+    out.live_inputs = Object.assign({}, DEFAULT_LIVE, {
+      tide: { state: null, height_m: null, trend: null }
+    });
+    out.tide_debug = {
+      has_hourly: false,
+      values_sample: [],
+      computed_state: '',
+      trend: '',
+      no_coordinates: true
+    };
     out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
     return out;
   }
@@ -288,11 +388,18 @@ async function getWeatherData(station, asOfDate) {
     var marineCurrent = marinePayload && marinePayload.current ? marinePayload.current : {};
     var hourly = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
     var tideArray = Array.isArray(hourly.sea_level_height_msl) ? hourly.sea_level_height_msl : [];
+    var timeArray = Array.isArray(hourly.time) ? hourly.time : [];
 
-    var tideIndex = Math.max(0, tideArray.length - 1);
-    var currentTide = toNumber(tideArray[tideIndex]);
-    var prevTide = toNumber(tideArray[Math.max(0, tideIndex - 1)]);
-    var nextTide = toNumber(tideArray[Math.min(tideArray.length - 1, tideIndex + 1)]);
+    var instantMs = Date.now();
+    if (asOfInstantIso && String(asOfInstantIso).length >= 10) {
+      var parsedInst = Date.parse(String(asOfInstantIso));
+      if (!Number.isNaN(parsedInst)) instantMs = parsedInst;
+    }
+
+    var tidePack = buildOperationalTideFromHourly(timeArray, tideArray, instantMs);
+    out.tide_debug = Object.assign({}, out.tide_debug, tidePack.tide_debug, {
+      has_hourly: tideArray.length > 0 && timeArray.length === tideArray.length
+    });
 
     var li = {
       temp_c: toNumber(marineCurrent.sea_surface_temperature),
@@ -302,11 +409,7 @@ async function getWeatherData(station, asOfDate) {
       current_speed_ms: toNumber(marineCurrent.ocean_current_velocity),
       relative_humidity_2m: toNumber(weatherCurrent.relative_humidity_2m),
       weather_code: toNumber(weatherCurrent.weather_code),
-      tide: {
-        current: currentTide,
-        previous: prevTide != null ? prevTide : currentTide,
-        next: nextTide != null ? nextTide : currentTide
-      }
+      tide: tidePack.tide
     };
     if (
       li.wind_speed_kmh == null &&
@@ -336,6 +439,14 @@ async function getWeatherData(station, asOfDate) {
       out.ok = true;
       out.from_cache = true;
       out.live_inputs = ent.live_inputs;
+      var cTide = ent.live_inputs.tide && typeof ent.live_inputs.tide === 'object' ? ent.live_inputs.tide : {};
+      out.tide_debug = {
+        has_hourly: false,
+        values_sample: [],
+        computed_state: cTide.state != null ? String(cTide.state) : '',
+        trend: cTide.trend != null ? String(cTide.trend) : '',
+        from_cache: true
+      };
       var cachedAr = cleanString(ent.weather_status_ar, 200);
       if (cachedAr) {
         out.weather_status_ar = cachedAr;
@@ -352,7 +463,16 @@ async function getWeatherData(station, asOfDate) {
     }
     out.ok = true;
     out.from_defaults = true;
-    out.live_inputs = Object.assign({}, DEFAULT_LIVE);
+    out.live_inputs = Object.assign({}, DEFAULT_LIVE, {
+      tide: { state: null, height_m: null, trend: null }
+    });
+    out.tide_debug = {
+      has_hourly: false,
+      values_sample: [],
+      computed_state: '',
+      trend: '',
+      from_defaults: true
+    };
     out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
     return out;
   }
@@ -373,7 +493,14 @@ async function fetchWeatherAndMarineInputs(station, body) {
     liveInputs.current_speed_ms != null ||
     (liveInputs.wind && (liveInputs.wind.speed_kmh != null || liveInputs.wind.direction_deg != null)) ||
     (liveInputs.marine && (liveInputs.marine.wave_height_m != null || liveInputs.marine.current_speed_ms != null)) ||
-    (liveInputs.tide && (liveInputs.tide.current != null || liveInputs.tide.previous != null || liveInputs.tide.next != null));
+    (liveInputs.tide && typeof liveInputs.tide === 'object' && (
+      liveInputs.tide.height_m != null ||
+      liveInputs.tide.state != null ||
+      liveInputs.tide.trend != null ||
+      liveInputs.tide.current != null ||
+      liveInputs.tide.previous != null ||
+      liveInputs.tide.next != null
+    ));
   if (hasExplicitValues) {
     return {
       live_inputs: liveInputs,
@@ -382,19 +509,38 @@ async function fetchWeatherAndMarineInputs(station, body) {
   }
   if (station.lat == null || station.lon == null) {
     return {
-      live_inputs: Object.assign({}, DEFAULT_LIVE),
-      weather_meta: { from_defaults: true, weather_status_ar: WEATHER_UNAVAILABLE_AR, humidity_pct: null }
+      live_inputs: Object.assign({}, DEFAULT_LIVE, {
+        tide: { state: null, height_m: null, trend: null }
+      }),
+      weather_meta: { from_defaults: true, weather_status_ar: WEATHER_UNAVAILABLE_AR, humidity_pct: null },
+      tide_debug: {
+        has_hourly: false,
+        values_sample: [],
+        computed_state: '',
+        trend: '',
+        no_coordinates: true
+      }
     };
   }
   var asOf = '';
+  var asOfInstant = '';
   if (body && body.datetime) {
     var ds = String(body.datetime);
     if (ds.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(ds)) {
       asOf = ds.slice(0, 10);
+      asOfInstant = ds;
     }
   }
-  var pack = await getWeatherData(station, asOf);
-  var li = pack.live_inputs || Object.assign({}, DEFAULT_LIVE);
+  if (!asOfInstant) {
+    asOfInstant = new Date().toISOString();
+  }
+  if (!asOf) {
+    asOf = asOfInstant.slice(0, 10);
+  }
+  var pack = await getWeatherData(station, asOf, asOfInstant);
+  var li = pack.live_inputs || Object.assign({}, DEFAULT_LIVE, {
+    tide: { state: null, height_m: null, trend: null }
+  });
   if (pack.ok && !pack.from_cache && !pack.from_defaults) {
     await saveWeatherCacheEntry(weatherCacheKey(station), li, pack.weather_status_ar);
   }
@@ -407,6 +553,12 @@ async function fetchWeatherAndMarineInputs(station, body) {
       weather_status_ar: cleanString(pack.weather_status_ar, 200) || '',
       as_of: asOf || null,
       humidity_pct: hum != null ? hum : null
+    },
+    tide_debug: pack.tide_debug || {
+      has_hourly: false,
+      values_sample: [],
+      computed_state: '',
+      trend: ''
     }
   };
 }

@@ -50,6 +50,7 @@ module.exports = async function handler(req, res) {
       overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
       live_inputs: liveInputs,
       weather_meta: weatherMeta,
+      tide_debug: weatherPack.tide_debug && typeof weatherPack.tide_debug === 'object' ? weatherPack.tide_debug : null,
       debug_log: !!(body && (body.debug_log === true || body.debug === true || body.debug_analysis === true)),
       field_validation: fieldValidation
     });

@@ -2807,10 +2807,16 @@
       const targetDate = new Date(date || new Date());
       const out = {};
       navidurEngine.getStations().forEach(function (st) {
-        const sharedWaterState = currentSharedAnalysisDto && selectedStation && st.id === selectedStation.id
-          ? (currentSharedAnalysisDto.tide && currentSharedAnalysisDto.tide.state === 'LOAD' ? 'حمل' :
-            currentSharedAnalysisDto.tide && currentSharedAnalysisDto.tide.state === 'FASAD' ? 'فساد' : null)
-          : null;
+        const envT = currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.environment.tide;
+        const tideSt = envT && envT.state ? String(envT.state).trim() : '';
+        let sharedWaterState = null;
+        if (currentSharedAnalysisDto && selectedStation && st.id === selectedStation.id) {
+          if (tideSt === 'سقي') sharedWaterState = 'حمل';
+          else if (tideSt === 'ثبر') sharedWaterState = 'فساد';
+          else if (tideSt === 'خامل') sharedWaterState = null;
+          else if (currentSharedAnalysisDto.tide && currentSharedAnalysisDto.tide.state === 'LOAD') sharedWaterState = 'حمل';
+          else if (currentSharedAnalysisDto.tide && currentSharedAnalysisDto.tide.state === 'FASAD') sharedWaterState = 'فساد';
+        }
         const decision = st.id === selectedStation.id && !sharedWaterState
           ? getStationDecisionEngine(targetDate, st)
           : null;
@@ -2842,7 +2848,20 @@
       return out;
     }
 
+    function getSharedTideDisplayArabic() {
+      if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.environment) return null;
+      const et = currentSharedAnalysisDto.environment.tide;
+      if (!et || et.state == null) return null;
+      const s = String(et.state).trim();
+      if (s === 'سقي' || s === 'ثبر' || s === 'خامل') return s;
+      return null;
+    }
+
     function getSharedWaterStateArabic() {
+      const disp = getSharedTideDisplayArabic();
+      if (disp === 'سقي') return 'حمل';
+      if (disp === 'ثبر') return 'فساد';
+      if (disp === 'خامل') return null;
       if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.tide) return null;
       if (currentSharedAnalysisDto.tide.state === 'LOAD') return 'حمل';
       if (currentSharedAnalysisDto.tide.state === 'FASAD') return 'فساد';
@@ -3535,7 +3554,9 @@
       if (currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.dur) {
         const d = currentSharedAnalysisDto.dur;
         const durRef = d.reference || null;
-        const tideLabel = getSharedWaterStateArabic() || 'غير معروف';
+        const tideDisplayRaw = getSharedTideDisplayArabic();
+        const tideDisplay = tideDisplayRaw || 'غير متاح حالياً';
+        const tideBadgeClass = tideDisplayRaw === 'سقي' ? 'tide-up' : tideDisplayRaw === 'ثبر' ? 'tide-down' : 'tide-turn';
         const activeModeFromDto = getSharedFishingMode() || getActiveMode(date);
         const escapeHtml = function (value) {
           return String(value == null ? '' : value)
@@ -3578,8 +3599,8 @@
         setText('durPeriodRangeVal', pr);
         setText('dorahCountdownLine', d.days_remaining != null ? ('تبقى ' + d.days_remaining + ' يوماً على نهاية هذا الدر') : '');
         (function setInfo() { const el = document.getElementById('dorahInfoBox'); if (el) el.innerHTML = refHtml; }());
-        setText('dorahWarning', tideLabel && tideLabel !== 'غير معروف' ? ('سياق المد: ' + tideLabel) : '');
-        document.getElementById('currentWaterHeight').innerHTML = 'الحالة المدية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span>';
+        setText('dorahWarning', tideDisplayRaw ? ('سياق المد: ' + tideDisplayRaw) : '');
+        document.getElementById('currentWaterHeight').innerHTML = 'اتجاه الماء: <span class="tide-dir-badge ' + tideBadgeClass + '">' + tideDisplay + '</span>';
         document.getElementById('coastalBtn').classList.toggle('active', activeModeFromDto === 'coastal');
         document.getElementById('deepBtn').classList.toggle('active', activeModeFromDto === 'deep');
         const statusEl = document.getElementById('windOfficialStatus');

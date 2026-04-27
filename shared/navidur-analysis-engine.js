@@ -543,6 +543,7 @@
     var wind = input.wind || {};
     var marine = input.marine || {};
     var tide = input.tide || {};
+    var trendRaw = tide.trend != null ? tide.trend : input.tide_trend;
     return {
       temp_c: toNumber(input.temp_c != null ? input.temp_c : (weather.temp_c != null ? weather.temp_c : marine.temp_c)),
       wind_speed_kmh: toNumber(input.wind_speed_kmh != null ? input.wind_speed_kmh : (wind.speed_kmh != null ? wind.speed_kmh : weather.wind_speed_kmh)),
@@ -552,7 +553,8 @@
       tide_previous: toNumber(input.tide_previous != null ? input.tide_previous : tide.previous),
       tide_current: toNumber(input.tide_current != null ? input.tide_current : tide.current),
       tide_next: toNumber(input.tide_next != null ? input.tide_next : tide.next),
-      explicit_tide_state: normalizeString(input.tide_state != null ? input.tide_state : tide.state)
+      explicit_tide_state: normalizeString(input.tide_state != null ? input.tide_state : tide.state),
+      tide_trend: normalizeString(trendRaw != null ? trendRaw : '')
     };
   }
 
@@ -571,6 +573,9 @@
     if (!raw) return '';
     if (raw === 'load' || raw === 'hamal' || raw === 'حمل') return 'LOAD';
     if (raw === 'fasad' || raw === 'فساد') return 'FASAD';
+    if (raw === 'سقي' || raw === 'sagi') return 'LOAD';
+    if (raw === 'ثبر' || raw === 'thabr') return 'FASAD';
+    if (raw === 'خامل' || raw === 'stable' || raw === 'flat') return 'UNKNOWN';
     if (raw === 'unknown' || raw === 'steady') return 'UNKNOWN';
     return '';
   }
@@ -578,6 +583,10 @@
   function resolveTideState(environment) {
     var explicit = normalizeTideState(environment.explicit_tide_state);
     if (explicit) return explicit;
+    var tr = normalizeForMatch(environment.tide_trend);
+    if (tr === 'rising') return 'LOAD';
+    if (tr === 'falling') return 'FASAD';
+    if (tr === 'stable') return 'UNKNOWN';
     var seriesState = getTideStateFromSeries(environment.tide_previous, environment.tide_current, environment.tide_next);
     if (seriesState !== 'UNKNOWN') return seriesState;
     if (environment.current_speed_ms == null) return 'UNKNOWN';
@@ -953,7 +962,19 @@
     var weatherMeta = options.weather_meta && typeof options.weather_meta === 'object' ? options.weather_meta : {};
     var liveEnvironment = resolveLiveEnvironment(options.live_inputs);
     var tideState = resolveTideState(liveEnvironment);
+    function operationalTideForEnvironment() {
+      var raw = options.live_inputs && options.live_inputs.tide;
+      if (!raw || typeof raw !== 'object') return null;
+      var st = normalizeString(raw.state);
+      if (!st || (st !== 'سقي' && st !== 'ثبر' && st !== 'خامل')) return null;
+      return {
+        state: st,
+        height_m: toNumber(raw.height_m),
+        trend: normalizeString(raw.trend) || null
+      };
+    }
     function buildEnvironmentOut() {
+      var envTide = operationalTideForEnvironment();
       return {
         temp_c: liveEnvironment.temp_c,
         wind_speed_kmh: liveEnvironment.wind_speed_kmh,
@@ -962,7 +983,17 @@
         live_weather_from_cache: !!weatherMeta.from_cache,
         from_weather_defaults: !!weatherMeta.from_defaults,
         weather_status_ar: normalizeString(weatherMeta.weather_status_ar) || '',
-        humidity_pct: weatherMeta.humidity_pct == null ? null : toNumber(weatherMeta.humidity_pct)
+        humidity_pct: weatherMeta.humidity_pct == null ? null : toNumber(weatherMeta.humidity_pct),
+        tide: envTide
+      };
+    }
+    function buildTideDebugOut() {
+      if (!options.tide_debug || typeof options.tide_debug !== 'object') return null;
+      return {
+        has_hourly: !!options.tide_debug.has_hourly,
+        values_sample: Array.isArray(options.tide_debug.values_sample) ? options.tide_debug.values_sample.slice(0, 8) : [],
+        computed_state: normalizeString(options.tide_debug.computed_state) || '',
+        trend: normalizeString(options.tide_debug.trend) || ''
       };
     }
     var asOfIso = analysisDate && analysisDate.toISOString ? analysisDate.toISOString().slice(0, 10) : '';
@@ -1010,7 +1041,8 @@
         },
         environment: buildEnvironmentOut(),
         tide: { state: tideState, current_speed_ms: liveEnvironment.current_speed_ms },
-        fishing: { is_recommended: false, species_activity: [], fish_recommendations: [], confidence_score: 0, advice_text: '' }
+        fishing: { is_recommended: false, species_activity: [], fish_recommendations: [], confidence_score: 0, advice_text: '' },
+        tide_debug: buildTideDebugOut()
       };
     }
 
@@ -1171,6 +1203,7 @@
     return {
       station_id: station.id || null,
       analysis_timestamp: analysisDateTime.toISOString(),
+      tide_debug: buildTideDebugOut(),
       reference_station_id: savedRefId,
       reference_station_name: savedRefRow ? normalizeString(savedRefRow.name) : '',
       reference_resolution_source: refResolutionSource,

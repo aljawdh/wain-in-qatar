@@ -51,6 +51,7 @@ async function captureSnapshotInternal(body, options) {
     overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
     live_inputs: liveInputs,
     weather_meta: weatherMeta,
+    tide_debug: weatherPack.tide_debug && typeof weatherPack.tide_debug === 'object' ? weatherPack.tide_debug : null,
     field_validation: fieldValidation
   });
 
