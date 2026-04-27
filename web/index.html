@@ -930,7 +930,7 @@
     <div class="cards">
       <div class="card"><div class="label">الحرارة</div><div class="value" id="tempVal">🌡️ ---</div></div>
       <div class="card"><div class="label">الريح</div><div class="value" id="windVal">💨 ---</div></div>
-      <div class="card"><div class="label">الحالة الجوية</div><div class="value" id="skyConditionVal">الحالة الجوية غير متاحة حالياً</div></div>
+      <div class="card"><div class="label">الحالة الجوية</div><div class="value" id="skyConditionVal">غير متاح حالياً</div></div>
       <div class="card"><div class="label">ارتفاع الماء</div><div class="value" id="tideHeightVal">🌊 ---</div></div>
       <div class="card"><div class="label">حالة القمر</div><div class="moon-icon" id="moonIcon">🌕</div><div class="value" id="moonVal">---</div></div>
     </div>
@@ -1007,6 +1007,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <script src="../shared/navidur-live-analysis.js"></script>
   <script>window.IS_ADMIN = false;</script>
   <script>
     const COUNTRY_TIMEZONES = {
@@ -1552,7 +1553,8 @@
     let weatherByDay = [[], [], [], []];
     let weekDates = [];
     let stationStates = {};
-    let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار NAVIDUR', weatherModelProfile: 'icon_seamless', isLive: false };
+    let currentStationLiveMeta = { source: 'navidur_analysis_dto', sourceLabel: 'NAVIDUR (تحليل)', weatherModelProfile: 'analysis_dto', isLive: true };
+    let currentSharedAnalysisDto = null;
     let windRefreshTimer = null;
     let dayChangeSyncTimer = null;
     let dayRefreshInFlight = null;
@@ -2286,181 +2288,27 @@
       return 'ثابت';
     }
 
-    const LIVE_PROVIDERS = {
-      qatar_ports: {
-        key: 'qatar_ports',
-        label: 'رادار NAVIDUR',
-        marineBase: 'https://marine-api.open-meteo.com/v1/marine',
-        weatherBase: 'https://api.open-meteo.com/v1/forecast'
-      },
-      saudi_ports: {
-        key: 'saudi_ports',
-        label: 'رادار NAVIDUR',
-        marineBase: 'https://marine-api.open-meteo.com/v1/marine',
-        weatherBase: 'https://api.open-meteo.com/v1/forecast'
-      },
-      global_precise: {
-        key: 'global_precise',
-        label: 'رادار NAVIDUR',
-        marineBase: 'https://marine-api.open-meteo.com/v1/marine',
-        weatherBase: 'https://api.open-meteo.com/v1/forecast'
-      }
-    };
-
     function toIsoDay(date) {
       const d = new Date(date || Date.now());
       return d.toISOString().slice(0, 10);
     }
 
-    function groupHoursByWeekDates(hours, targetWeekDates, station) {
-      const map = {};
-      const todayKey = getAppIsoDay(new Date());
-      targetWeekDates.forEach(function (d) {
-        map[getAppIsoDay(d)] = [];
-      });
-
-      (hours || []).forEach(function (h) {
-        const key = getAppIsoDay(new Date(h.time));
-        if (key < todayKey || !map[key]) return;
-        map[key].push(h);
-      });
-
-      return targetWeekDates.map(function (d) {
-        const key = getAppIsoDay(d);
-        const sorted = (map[key] || []).sort(function (a, b) {
-          return new Date(a.time).getTime() - new Date(b.time).getTime();
-        });
-        return sorted.length ? sorted.slice(0, 24) : [];
-      });
-    }
-
-    function getProviderForStation(station) {
-      if (!station) return LIVE_PROVIDERS.global_precise;
-      if (station.country === 'قطر') return LIVE_PROVIDERS.qatar_ports;
-      if (station.country === 'السعودية') return LIVE_PROVIDERS.saudi_ports;
-      return LIVE_PROVIDERS.global_precise;
-    }
-
-    async function fetchWeatherWithIconModels(provider, station, startDate, endDate) {
-      const modelProfiles = [
-        'icon_seamless,icon_global',
-        'icon_global',
-        'icon_seamless'
-      ];
-
-      for (let i = 0; i < modelProfiles.length; i++) {
-        const models = modelProfiles[i];
-        const weatherUrl = provider.weatherBase +
-          '?latitude=' + encodeURIComponent(station.marineLat != null ? station.marineLat : station.lat) +
-          '&longitude=' + encodeURIComponent(station.marineLng != null ? station.marineLng : station.lng) +
-          '&hourly=' + encodeURIComponent('wind_speed_10m,wind_direction_10m,wind_gusts_10m,sea_surface_temperature') +
-          '&models=' + encodeURIComponent(models) +
-          '&start_date=' + encodeURIComponent(startDate) +
-          '&end_date=' + encodeURIComponent(endDate) +
-          '&timezone=UTC';
-
-        try {
-          const response = await fetch(weatherUrl);
-          if (!response.ok) continue;
-          const payload = await response.json();
-          const weather = payload && payload.hourly ? payload.hourly : {};
-          if (!weather.wind_gusts_10m || !weather.wind_direction_10m || !(weather.time || []).length) continue;
-          return { weather: weather, weatherModelProfile: models };
-        } catch (err) {
-          continue;
-        }
-      }
-
-      throw new Error('official-wind-missing');
-    }
-
-    async function fetchProviderHours(provider, station, targetWeekDates) {
-      const startDate = getAppIsoDay(new Date());
-      const endAnchor = new Date(targetWeekDates[targetWeekDates.length - 1].getTime());
-      endAnchor.setUTCDate(endAnchor.getUTCDate() + 1);
-      const endDate = getAppIsoDay(endAnchor);
-
-      const marineUrl = provider.marineBase +
-        '?latitude=' + encodeURIComponent(station.marineLat != null ? station.marineLat : station.lat) +
-        '&longitude=' + encodeURIComponent(station.marineLng != null ? station.marineLng : station.lng) +
-        '&hourly=' + encodeURIComponent('sea_level_height_msl,wave_height,wave_direction,wave_period') +
-        '&start_date=' + encodeURIComponent(startDate) +
-        '&end_date=' + encodeURIComponent(endDate) +
-        '&timezone=UTC';
-
-      const marineResponse = await fetch(marineUrl);
-      if (!marineResponse.ok) {
-        throw new Error('live-provider-http-failed');
-      }
-
-      const marinePayload = await marineResponse.json();
-      const marine = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
-      const weatherBundle = await fetchWeatherWithIconModels(provider, station, startDate, endDate);
-      const weather = weatherBundle.weather;
-      const times = weather.time || marine.time || [];
-      if (!times.length) throw new Error('live-provider-empty');
-
-      const merged = times.map(function (t, idx) {
-        const seaRaw = marine.sea_level_height_msl && marine.sea_level_height_msl[idx] != null
-          ? Number(marine.sea_level_height_msl[idx]) : null;
-        const sea = seaRaw == null || Number.isNaN(seaRaw) ? null : seaRaw;
-        const windMsRaw = weather.wind_speed_10m && weather.wind_speed_10m[idx] != null
-          ? Number(weather.wind_speed_10m[idx]) : null;
-        const windMs = windMsRaw == null || Number.isNaN(windMsRaw) ? null : windMsRaw / 3.6;
-        const gustMsRaw = weather.wind_gusts_10m && weather.wind_gusts_10m[idx] != null
-          ? Number(weather.wind_gusts_10m[idx]) : null;
-        const gustMs = gustMsRaw == null || Number.isNaN(gustMsRaw) ? null : gustMsRaw / 3.6;
-        const wtempRaw = weather.sea_surface_temperature && weather.sea_surface_temperature[idx] != null
-          ? Number(weather.sea_surface_temperature[idx]) : null;
-
+    function buildStationWeatherFromAnalysis(station, targetWeekDates, dto) {
+      if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.buildWeatherByDayFromDto !== 'function') {
         return {
-          time: new Date(t).toISOString(),
-          windSpeed: { sg: windMs != null ? +windMs.toFixed(2) : null },
-          windDirection: { sg: weather.wind_direction_10m && weather.wind_direction_10m[idx] != null ? Number(weather.wind_direction_10m[idx]) : null },
-          windGust: { sg: gustMs != null ? +gustMs.toFixed(2) : null },
-          seaLevel: { sg: sea != null ? +sea.toFixed(2) : null },
-          waterTemperature: { sg: wtempRaw != null && !Number.isNaN(wtempRaw) ? +wtempRaw.toFixed(1) : null },
-          waveHeight: marine.wave_height && marine.wave_height[idx] != null ? Number(marine.wave_height[idx]) : null,
-          wavePeriod: marine.wave_period && marine.wave_period[idx] != null ? Number(marine.wave_period[idx]) : null
+          hoursByDay: (targetWeekDates || []).map(function () { return []; }),
+          meta: { source: 'navidur_analysis_dto', isLive: false, error: 'navidur_live_script_missing' }
         };
-      });
-
+      }
+      const out = window.NavidurLiveAnalysis.buildWeatherByDayFromDto(dto, targetWeekDates, getAppIsoDay);
       return {
-        hoursByDay: groupHoursByWeekDates(merged, targetWeekDates, station),
-        meta: {
-          source: provider.key,
-          sourceLabel: provider.label,
-          stationId: station.id,
-          stationName: station.name,
-          tideSource: station.tideSource,
-          weatherModelProfile: weatherBundle.weatherModelProfile,
-          isLive: true,
-          updatedAt: new Date().toISOString()
-        }
+        hoursByDay: out.hoursByDay,
+        meta: Object.assign({}, out.meta, {
+          stationId: station && station.id,
+          stationName: station && station.name,
+          tideSource: station && station.tideSource
+        })
       };
-    }
-
-    async function loadLiveOrFallbackWeather(station, targetWeekDates) {
-      const provider = getProviderForStation(station);
-      try {
-        return await fetchProviderHours(provider, station, targetWeekDates);
-      } catch (liveErr) {
-        return {
-          status: 'NO_DATA_AVAILABLE',
-          hoursByDay: targetWeekDates.map(function () { return []; }),
-          meta: {
-            source: 'official-wind-pending',
-            sourceLabel: 'رادار NAVIDUR',
-            stationId: station.id,
-            stationName: station.name,
-            tideSource: station.tideSource,
-            weatherModelProfile: 'icon_seamless',
-            isLive: false,
-            error: liveErr && liveErr.message ? liveErr.message : 'unknown-live-error',
-            updatedAt: new Date().toISOString()
-          }
-        };
-      }
     }
 
     function getActiveHours() {
@@ -3171,17 +3019,17 @@
     }
 
     function renderHero(date) {
+      if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.renderEnvironment === 'function') {
+        window.NavidurLiveAnalysis.renderEnvironment(
+          window.NavidurLiveAnalysis.normalizeDisplayEnv(currentSharedAnalysisDto)
+        );
+      }
+      const hasEnvDto = currentSharedAnalysisDto && currentSharedAnalysisDto.environment;
       const dar = getCurrentDar(date);
       const moon = getMoonPhase(date);
-      const hf = getHamalFasadStatus(date);
       const activeMode = getActiveMode(date);
       const hr = getSelectedHourEntry().hour || {};
-      const ws = getDisplayedWindKmh(hr);
       const sea = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
-      const wtForecast = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null;
-      const wtEngine = latestHotspotResult && latestHotspotResult.data && latestHotspotResult.data.temp != null
-        ? Number(latestHotspotResult.data.temp) : null;
-      const wt = wtForecast != null ? wtForecast : (Number.isFinite(wtEngine) ? wtEngine : null);
       const activeHours = getActiveHours();
       const cur = sea;
       const prev = selectedHourIndex > 0
@@ -3196,17 +3044,10 @@
       const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
       const activeWind = hasLiveWind && isActiveWind(hr);
       document.getElementById('dateLine').textContent = formatDateArabic(currentDate) + ' • ' + selectedStation.name;
-      document.getElementById('moonIcon').textContent = moon.icon;
-      document.getElementById('moonVal').textContent = moon.label;
-      document.getElementById('tempVal').textContent = wt != null ? ('🌡️ ' + wt.toFixed(1) + '°') : '🌡️ ---';
-      document.getElementById('windVal').textContent = hasLiveWind && ws != null ? ('💨 ' + ws + ' كم/س' + (activeWind ? ' • رياح نشطة' : '')) : '💨 جاري جلب بيانات الرادار البحري...';
-      (function setSkyOfflineWeb() {
-        const skyEl = document.getElementById('skyConditionVal');
-        if (skyEl) {
-          skyEl.textContent = 'الحالة الجوية غير متاحة حالياً';
-        }
-      }());
-      document.getElementById('tideHeightVal').textContent = sea != null ? ('🌊 ' + sea.toFixed(2) + ' م') : '🌊 ---';
+      if (!hasEnvDto) {
+        document.getElementById('moonIcon').textContent = moon.icon;
+        document.getElementById('moonVal').textContent = moon.label;
+      }
       const fdi = computeFDI(date);
       document.getElementById('currentWaterHeight').innerHTML = '≈ اتجاه الماء الحالي: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> • الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : '---') + ' • FDI: ' + fdi + '/100';
 
@@ -3221,7 +3062,7 @@
       if (statusEl) {
         if (!hasLiveWind) {
           statusEl.style.display = 'block';
-          statusEl.textContent = 'جاري جلب بيانات الرادار البحري...';
+          statusEl.textContent = 'بيانات الرياح مبسطة من التحليل (بدون نموذج ساعي خارجي).';
         } else if (activeWind) {
           statusEl.style.display = 'block';
           statusEl.textContent = 'رياح نشطة: تم اعتماد الهبة الفعلية بدلاً من المتوسط';
@@ -3439,7 +3280,23 @@
       rebuildDays();
       selectedForecastDay = 0;
 
-      const liveBundle = await loadLiveOrFallbackWeather(selectedStation, weekDates);
+      try {
+        if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.getStationAnalysis === 'function') {
+          const dto = await window.NavidurLiveAnalysis.getStationAnalysis(selectedStation, {
+            datetime: new Date().toISOString()
+          });
+          if (dto && typeof dto === 'object') {
+            try { delete dto.field_validation; } catch (_e) { /* ignore */ }
+          }
+          currentSharedAnalysisDto = dto;
+        } else {
+          currentSharedAnalysisDto = null;
+        }
+      } catch (_sharedErr) {
+        currentSharedAnalysisDto = null;
+      }
+
+      const liveBundle = buildStationWeatherFromAnalysis(selectedStation, weekDates, currentSharedAnalysisDto);
       weatherByDay = liveBundle.hoursByDay;
       currentStationLiveMeta = liveBundle.meta;
 
@@ -3455,7 +3312,6 @@
         latestHotspotResult = hotspot;
         renderHotspotPanel(hotspot);
         renderGridOnMap(hotspot, selectedStation);
-        // Refresh temperature card with engine data now that latestHotspotResult is set
         renderHero(getForecastDateByIndex(selectedForecastDay));
         trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), region: selectionTracking.region || (selectedStation ? selectedStation.region : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {

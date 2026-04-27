@@ -1112,7 +1112,7 @@
 
     <div class="section-label">الطقس والمياه (محطة التشغيل)</div>
     <div class="nv-weather">
-      <div class="card"><div class="label">الحالة الجوية</div><div class="value" id="skyConditionVal" style="font-size:16px">الحالة الجوية غير متاحة حالياً</div></div>
+      <div class="card"><div class="label">الحالة الجوية</div><div class="value" id="skyConditionVal" style="font-size:16px">غير متاح حالياً</div></div>
       <div class="card"><div class="label">حرارة الماء (سطح)</div><div class="value" id="tempVal">بانتظار</div></div>
       <div class="card"><div class="label">سرعة الرياح</div><div class="value" id="windVal">بانتظار</div></div>
       <div class="card"><div class="label">اتجاه الرياح</div><div class="value" id="envWindDirVal">بانتظار</div></div>
@@ -2520,181 +2520,27 @@
       return 'ثابت';
     }
 
-    const LIVE_PROVIDERS = {
-      qatar_ports: {
-        key: 'qatar_ports',
-        label: 'رادار NAVIDUR',
-        marineBase: 'https://marine-api.open-meteo.com/v1/marine',
-        weatherBase: 'https://api.open-meteo.com/v1/forecast'
-      },
-      saudi_ports: {
-        key: 'saudi_ports',
-        label: 'رادار NAVIDUR',
-        marineBase: 'https://marine-api.open-meteo.com/v1/marine',
-        weatherBase: 'https://api.open-meteo.com/v1/forecast'
-      },
-      global_precise: {
-        key: 'global_precise',
-        label: 'رادار NAVIDUR',
-        marineBase: 'https://marine-api.open-meteo.com/v1/marine',
-        weatherBase: 'https://api.open-meteo.com/v1/forecast'
-      }
-    };
-
     function toIsoDay(date) {
       const d = new Date(date || Date.now());
       return d.toISOString().slice(0, 10);
     }
 
-    function groupHoursByWeekDates(hours, targetWeekDates, station) {
-      const map = {};
-      const todayKey = getAppIsoDay(new Date());
-      targetWeekDates.forEach(function (d) {
-        map[getAppIsoDay(d)] = [];
-      });
-
-      (hours || []).forEach(function (h) {
-        const key = getAppIsoDay(new Date(h.time));
-        if (key < todayKey || !map[key]) return;
-        map[key].push(h);
-      });
-
-      return targetWeekDates.map(function (d) {
-        const key = getAppIsoDay(d);
-        const sorted = (map[key] || []).sort(function (a, b) {
-          return new Date(a.time).getTime() - new Date(b.time).getTime();
-        });
-        return sorted.length ? sorted.slice(0, 24) : [];
-      });
-    }
-
-    function getProviderForStation(station) {
-      if (!station) return LIVE_PROVIDERS.global_precise;
-      if (station.country === 'قطر') return LIVE_PROVIDERS.qatar_ports;
-      if (station.country === 'السعودية') return LIVE_PROVIDERS.saudi_ports;
-      return LIVE_PROVIDERS.global_precise;
-    }
-
-    async function fetchWeatherWithIconModels(provider, station, startDate, endDate) {
-      const modelProfiles = [
-        'icon_seamless,icon_global',
-        'icon_global',
-        'icon_seamless'
-      ];
-
-      for (let i = 0; i < modelProfiles.length; i++) {
-        const models = modelProfiles[i];
-        const weatherUrl = provider.weatherBase +
-          '?latitude=' + encodeURIComponent(station.marineLat != null ? station.marineLat : station.lat) +
-          '&longitude=' + encodeURIComponent(station.marineLng != null ? station.marineLng : station.lng) +
-          '&hourly=' + encodeURIComponent('wind_speed_10m,wind_direction_10m,wind_gusts_10m,sea_surface_temperature') +
-          '&models=' + encodeURIComponent(models) +
-          '&start_date=' + encodeURIComponent(startDate) +
-          '&end_date=' + encodeURIComponent(endDate) +
-          '&timezone=UTC';
-
-        try {
-          const response = await fetch(weatherUrl);
-          if (!response.ok) continue;
-          const payload = await response.json();
-          const weather = payload && payload.hourly ? payload.hourly : {};
-          if (!weather.wind_gusts_10m || !weather.wind_direction_10m || !(weather.time || []).length) continue;
-          return { weather: weather, weatherModelProfile: models };
-        } catch (err) {
-          continue;
-        }
-      }
-
-      throw new Error('official-wind-missing');
-    }
-
-    async function fetchProviderHours(provider, station, targetWeekDates) {
-      const startDate = getAppIsoDay(new Date());
-      const endAnchor = new Date(targetWeekDates[targetWeekDates.length - 1].getTime());
-      endAnchor.setUTCDate(endAnchor.getUTCDate() + 1);
-      const endDate = getAppIsoDay(endAnchor);
-
-      const marineUrl = provider.marineBase +
-        '?latitude=' + encodeURIComponent(station.marineLat != null ? station.marineLat : station.lat) +
-        '&longitude=' + encodeURIComponent(station.marineLng != null ? station.marineLng : station.lng) +
-        '&hourly=' + encodeURIComponent('sea_level_height_msl,wave_height,wave_direction,wave_period') +
-        '&start_date=' + encodeURIComponent(startDate) +
-        '&end_date=' + encodeURIComponent(endDate) +
-        '&timezone=UTC';
-
-      const marineResponse = await fetch(marineUrl);
-      if (!marineResponse.ok) {
-        throw new Error('live-provider-http-failed');
-      }
-
-      const marinePayload = await marineResponse.json();
-      const marine = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
-      const weatherBundle = await fetchWeatherWithIconModels(provider, station, startDate, endDate);
-      const weather = weatherBundle.weather;
-      const times = weather.time || marine.time || [];
-      if (!times.length) throw new Error('live-provider-empty');
-
-      const merged = times.map(function (t, idx) {
-        const seaRaw = marine.sea_level_height_msl && marine.sea_level_height_msl[idx] != null
-          ? Number(marine.sea_level_height_msl[idx]) : null;
-        const sea = seaRaw == null || Number.isNaN(seaRaw) ? null : seaRaw;
-        const windMsRaw = weather.wind_speed_10m && weather.wind_speed_10m[idx] != null
-          ? Number(weather.wind_speed_10m[idx]) : null;
-        const windMs = windMsRaw == null || Number.isNaN(windMsRaw) ? null : windMsRaw / 3.6;
-        const gustMsRaw = weather.wind_gusts_10m && weather.wind_gusts_10m[idx] != null
-          ? Number(weather.wind_gusts_10m[idx]) : null;
-        const gustMs = gustMsRaw == null || Number.isNaN(gustMsRaw) ? null : gustMsRaw / 3.6;
-        const wtempRaw = weather.sea_surface_temperature && weather.sea_surface_temperature[idx] != null
-          ? Number(weather.sea_surface_temperature[idx]) : null;
-
+    function buildStationWeatherFromAnalysis(station, targetWeekDates, dto) {
+      if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.buildWeatherByDayFromDto !== 'function') {
         return {
-          time: new Date(t).toISOString(),
-          windSpeed: { sg: windMs != null ? +windMs.toFixed(2) : null },
-          windDirection: { sg: weather.wind_direction_10m && weather.wind_direction_10m[idx] != null ? Number(weather.wind_direction_10m[idx]) : null },
-          windGust: { sg: gustMs != null ? +gustMs.toFixed(2) : null },
-          seaLevel: { sg: sea != null ? +sea.toFixed(2) : null },
-          waterTemperature: { sg: wtempRaw != null && !Number.isNaN(wtempRaw) ? +wtempRaw.toFixed(1) : null },
-          waveHeight: marine.wave_height && marine.wave_height[idx] != null ? Number(marine.wave_height[idx]) : null,
-          wavePeriod: marine.wave_period && marine.wave_period[idx] != null ? Number(marine.wave_period[idx]) : null
+          hoursByDay: (targetWeekDates || []).map(function () { return []; }),
+          meta: { source: 'navidur_analysis_dto', isLive: false, error: 'navidur_live_script_missing' }
         };
-      });
-
+      }
+      const out = window.NavidurLiveAnalysis.buildWeatherByDayFromDto(dto, targetWeekDates, getAppIsoDay);
       return {
-        hoursByDay: groupHoursByWeekDates(merged, targetWeekDates, station),
-        meta: {
-          source: provider.key,
-          sourceLabel: provider.label,
-          stationId: station.id,
-          stationName: station.name,
-          tideSource: station.tideSource,
-          weatherModelProfile: weatherBundle.weatherModelProfile,
-          isLive: true,
-          updatedAt: new Date().toISOString()
-        }
+        hoursByDay: out.hoursByDay,
+        meta: Object.assign({}, out.meta, {
+          stationId: station && station.id,
+          stationName: station && station.name,
+          tideSource: station && station.tideSource
+        })
       };
-    }
-
-    async function loadLiveOrFallbackWeather(station, targetWeekDates) {
-      const provider = getProviderForStation(station);
-      try {
-        return await fetchProviderHours(provider, station, targetWeekDates);
-      } catch (liveErr) {
-        return {
-          status: 'NO_DATA_AVAILABLE',
-          hoursByDay: targetWeekDates.map(function () { return []; }),
-          meta: {
-            source: 'official-wind-pending',
-            sourceLabel: 'رادار NAVIDUR',
-            stationId: station.id,
-            stationName: station.name,
-            tideSource: station.tideSource,
-            weatherModelProfile: 'icon_seamless',
-            isLive: false,
-            error: liveErr && liveErr.message ? liveErr.message : 'unknown-live-error',
-            updatedAt: new Date().toISOString()
-          }
-        };
-      }
     }
 
     function getActiveHours() {
@@ -3050,12 +2896,12 @@
 
     function getSharedSkyStatusArabic() {
       if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.environment) {
-        return 'الحالة الجوية غير متاحة حالياً';
+        return 'غير متاح حالياً';
       }
       const w = String(currentSharedAnalysisDto.environment.weather_status_ar != null
         ? currentSharedAnalysisDto.environment.weather_status_ar
         : '').trim();
-      return w || 'الحالة الجوية غير متاحة حالياً';
+      return w || 'غير متاح حالياً';
     }
 
     function nvEscapeHtml(value) {
@@ -3885,10 +3731,13 @@
 
     function renderHero(date) {
       updatePublicHeaderBar();
+      if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.renderEnvironment === 'function') {
+        window.NavidurLiveAnalysis.renderEnvironment(
+          window.NavidurLiveAnalysis.normalizeDisplayEnv(currentSharedAnalysisDto)
+        );
+      }
       if (currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.dur) {
         const d = currentSharedAnalysisDto.dur;
-        const env = currentSharedAnalysisDto.environment;
-        const t = currentSharedAnalysisDto.tide;
         const durRef = d.reference || null;
         const tideLabel = getSharedWaterStateArabic() || 'غير معروف';
         const activeModeFromDto = getSharedFishingMode() || getActiveMode(date);
@@ -3922,11 +3771,9 @@
           renderRefList('سمات السمك', durRef.fish_traits || []),
           renderRefList('أحداث موسمية', seasonalEventNames)
         ].filter(Boolean).join('') : escapeHtml(currentSharedAnalysisDto.fishing && currentSharedAnalysisDto.fishing.advice_text ? currentSharedAnalysisDto.fishing.advice_text : 'تعذر تحميل التوصية حالياً');
-        const deg = env.wind_direction_deg != null ? Number(env.wind_direction_deg) : null;
         const setText = function (id, val) { const el = document.getElementById(id); if (el) el.textContent = val; };
         setText('dateLine', formatDateArabic(new Date()) + ' • ' + (selectedStation && selectedStation.name));
         setText('moonIcon', '🌊');
-        setText('moonVal', tideLabel);
         setText('dorahName', d.period_name || 'غير معروف');
         setText('durDayInPeriodVal', d.day_in_period != null ? String(d.day_in_period) : unknown);
         setText('durElapsedVal', d.day_in_period != null ? String(d.day_in_period) : unknown);
@@ -3937,19 +3784,6 @@
         setText('dorahCountdownLine', d.days_remaining != null ? ('تبقى ' + d.days_remaining + ' يوماً على نهاية هذا الدر') : '');
         (function setInfo() { const el = document.getElementById('dorahInfoBox'); if (el) el.innerHTML = refHtml; }());
         setText('dorahWarning', currentSharedAnalysisDto.fishing.is_recommended ? 'التوصية مناسبة حسب الثقة.' : 'الصيد يحتاج حذراً في هذه الظروف.');
-        setText('tempVal', env.temp_c != null ? (env.temp_c.toFixed(1) + '°م') : 'لا توجد بيانات لهذه المحطة');
-        setText('windVal', env.wind_speed_kmh != null ? (String(env.wind_speed_kmh) + ' كم/س') : 'لا توجد بيانات لهذه المحطة');
-        setText('envWindDirVal', deg != null && !isNaN(deg) ? (windDirText8(deg) + ' — ' + Math.round(deg) + '°') : 'لا توجد بيانات لهذه المحطة');
-        setText('envHumidityVal', env.humidity_pct != null ? (String(env.humidity_pct) + '%') : 'غير متاح من الخادم');
-        setText('envPrecipVal', 'معلومة الأمطار غير متاحة من الخادم حالياً');
-        setText('envWaveVal', env.wave_height_m != null ? (env.wave_height_m.toFixed(2) + ' م') : 'لا توجد بيانات لهذه المحطة');
-        setText('envCurrentVal', t && t.current_speed_ms != null ? (String(t.current_speed_ms) + ' م/ث') : 'لا توجد بيانات لهذه المحطة');
-        setText('tideHeightVal', 'مستوى المد التفصيلي: غير متوفر في العرض المشترك');
-        (function setSky() {
-          const raw = env.weather_status_ar != null ? String(env.weather_status_ar).trim() : '';
-          const skyEl = document.getElementById('skyConditionVal');
-          if (skyEl) skyEl.textContent = raw || 'الحالة الجوية غير متاحة حالياً';
-        }());
         document.getElementById('currentWaterHeight').innerHTML = 'الحالة المدية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span> — الثقة: ' + (currentSharedAnalysisDto.fishing.confidence_score != null ? currentSharedAnalysisDto.fishing.confidence_score + '%' : unknown);
         document.getElementById('coastalBtn').classList.toggle('active', activeModeFromDto === 'coastal');
         document.getElementById('deepBtn').classList.toggle('active', activeModeFromDto === 'deep');
@@ -3959,16 +3793,12 @@
         void nvRefreshSuhailFromTrueFinal();
         return;
       }
+      const hasEnvDto = currentSharedAnalysisDto && currentSharedAnalysisDto.environment;
       const dar = getCurrentDar(date);
       const moon = getMoonPhase(date);
       const activeMode = getActiveMode(date);
       const hr = getSelectedHourEntry().hour || {};
-      const ws = getDisplayedWindKmh(hr);
       const sea = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
-      const wtForecast = hr.waterTemperature && hr.waterTemperature.sg != null ? hr.waterTemperature.sg : null;
-      const wtEngine = latestHotspotResult && latestHotspotResult.data && latestHotspotResult.data.temp != null
-        ? Number(latestHotspotResult.data.temp) : null;
-      const wt = wtForecast != null ? wtForecast : (Number.isFinite(wtEngine) ? wtEngine : null);
       const activeHours = getActiveHours();
       const cur = sea;
       const prev = selectedHourIndex > 0
@@ -3982,26 +3812,11 @@
       const currentDate = getForecastBaseDate(0);
       const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
       const activeWind = hasLiveWind && isActiveWind(hr);
-      const windDirOffline = hasLiveWind && hr.windDirection && hr.windDirection.sg != null ? Number(hr.windDirection.sg) : null;
-      const waveH = hr.waveHeight != null ? Number(hr.waveHeight) : null;
       document.getElementById('dateLine').textContent = formatDateArabic(currentDate) + ' • ' + selectedStation.name;
-      document.getElementById('moonIcon').textContent = moon.icon;
-      document.getElementById('moonVal').textContent = moon.label;
-      document.getElementById('tempVal').textContent = wt != null ? (wt.toFixed(1) + '°م') : 'لا توجد بيانات لهذه المحطة';
-      document.getElementById('windVal').textContent = hasLiveWind && ws != null ? (String(ws) + ' كم/س' + (activeWind ? ' — رياح نشطة' : '')) : 'جاري جلب بيانات الرادار البحري';
-      document.getElementById('envWindDirVal').textContent = windDirOffline != null && !isNaN(windDirOffline)
-        ? (windDirText8(windDirOffline) + ' — ' + Math.round(windDirOffline) + '°') : 'لا توجد بيانات لهذه المحطة';
-      document.getElementById('envHumidityVal').textContent = 'غير متاح في نموذج الساعات';
-      document.getElementById('envPrecipVal').textContent = 'معلومة الأمطار غير متاحة من الخادم حالياً';
-      document.getElementById('envWaveVal').textContent = waveH != null && !isNaN(waveH) ? (waveH.toFixed(2) + ' م') : 'غير معروض في الساعة';
-      document.getElementById('envCurrentVal').textContent = 'غير معروض في نموذج الساعة';
-      (function setSkyOffline() {
-        const skyEl = document.getElementById('skyConditionVal');
-        if (skyEl) {
-          skyEl.textContent = 'الحالة الجوية غير متاحة حالياً';
-        }
-      }());
-      document.getElementById('tideHeightVal').textContent = sea != null ? (sea.toFixed(2) + ' م (سطح البحر — الساعة)') : 'لا توجد بيانات لهذه المحطة';
+      if (!hasEnvDto) {
+        document.getElementById('moonIcon').textContent = moon.icon;
+        document.getElementById('moonVal').textContent = moon.label;
+      }
       const fdi = computeFDI(date);
       const _fdiLabel = fdi >= 70 ? 'نشاط عالٍ' : fdi >= 45 ? 'نشاط متوسط' : 'نشاط منخفض';
       document.getElementById('currentWaterHeight').innerHTML = 'اتجاه الماء: <span class="tide-dir-badge ' + tideState.cls + '">' + tideState.arrow + ' ' + tideState.label + '</span> — الارتفاع: ' + (sea != null ? sea.toFixed(2) + ' م' : 'غير معروف') + ' — ' + _fdiLabel;
@@ -4020,7 +3835,7 @@
       if (statusEl) {
         if (!hasLiveWind) {
           statusEl.style.display = 'block';
-          statusEl.textContent = 'جاري جلب بيانات الرادار البحري...';
+          statusEl.textContent = 'بيانات الرياح مبسطة من التحليل (بدون نموذج ساعي خارجي).';
         } else if (activeWind) {
           statusEl.style.display = 'block';
           statusEl.textContent = 'رياح نشطة: تم اعتماد الهبة الفعلية بدلاً من المتوسط';
@@ -4271,10 +4086,6 @@
       rebuildDays();
       selectedForecastDay = 0;
 
-      const liveBundle = await loadLiveOrFallbackWeather(selectedStation, weekDates);
-      weatherByDay = liveBundle.hoursByDay;
-      currentStationLiveMeta = liveBundle.meta;
-
       try {
         if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.getStationAnalysis === 'function') {
           const dto = await window.NavidurLiveAnalysis.getStationAnalysis(selectedStation, {
@@ -4286,12 +4097,18 @@
             }
             currentSharedAnalysisDto = dto;
           }
+        } else {
+          currentSharedAnalysisDto = null;
         }
       } catch (_sharedErr) {
         if (requestToken === currentSharedAnalysisRequest) {
           currentSharedAnalysisDto = null;
         }
       }
+
+      const liveBundle = buildStationWeatherFromAnalysis(selectedStation, weekDates, currentSharedAnalysisDto);
+      weatherByDay = liveBundle.hoursByDay;
+      currentStationLiveMeta = liveBundle.meta;
 
       selectedHourIndex = getDefaultHourIndex(selectedForecastDay);
       updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
