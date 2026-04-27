@@ -923,14 +923,15 @@
       .nv-weather { grid-template-columns: repeat(4, 1fr); }
     }
     .nv-weather .card { min-height: 84px; }
-    .nv-fishing-hero { margin-bottom: 12px; }
-    .nv-fishing-hero .nawkhada-box-title { font-size: 0.9rem; color: #8fd6ff; }
-    .nv-fish-rec-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(120, 200, 255, 0.2); }
-    .nv-fish-rec-title { font-size: 0.95rem; font-weight: 800; color: #a8e6ff; margin-bottom: 10px; }
-    .nv-fish-rec-item { font-size: 12.5px; line-height: 1.45; margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(0, 40, 80, 0.35); }
-    .nv-fish-rec-item .nv-fish-name { font-weight: 800; color: #fff; }
-    .nv-fish-rec-item .nv-fish-score { color: #7dffb3; font-weight: 700; }
-    .nv-fish-rec-meta { color: #b8d9f0; margin-top: 6px; font-size: 12px; }
+    .nv-daily-advice-card { margin-bottom: 12px; }
+    .nv-daily-advice-card .nawkhada-box-title { font-size: 1rem; color: #c8ecff; font-weight: 800; }
+    .nv-daily-advice-text {
+      margin: 10px 0 0;
+      font-size: 15px;
+      line-height: 1.65;
+      color: #e7f4fc;
+      font-weight: 600;
+    }
     .nv-bad { color: #ffb3b3; }
   </style>
 </head>
@@ -1001,17 +1002,16 @@
             <span class="nv-hdr-label">مصدر الدر (المرجع النهائي)</span>
             <div id="nvHdrDurRef">يُعرض بعد التحليل</div>
           </div>
+          <div>
+            <span class="nv-hdr-label">التحليل</span>
+            <div><span id="analysisLoadingHint" class="analysis-loading-hint" style="display:none;font-size:12px;color:#9fd1ec">جاري التحليل…</span></div>
+          </div>
         </div>
       </div>
 
-      <div class="nv-glass nv-fishing-hero nawkhada-box" id="nawkhadaBox">
-        <div class="nawkhada-box-title">التوصية وخطة الصيد</div>
-        <div id="nawkhadaBoxAdvice" class="nawkhada-advice-hamal">جاري التحليل…</div>
-        <div id="fishingGearLine" class="n-tip" style="display:none; margin-top:8px"></div>
-        <div id="fishingAreaLine" class="n-tip" style="display:none; margin-top:4px"></div>
-        <div id="nawkhadaDataSource" class="nawkhada-source-line">مصدر البيانات: رادار NAVIDUR (ICON-Seamless)</div>
-        <div id="kanaadAlert" class="kanaad-alert" style="display:none">⚡ تنبيه الكنعد: موسم ذروة الكنعد (المقدم / المؤخر). جهّز عدتك الثقيلة واللورات — هذا أفضل وقت في السنة!</div>
-        <div id="nvRecommendedFishBlock" class="nv-fish-rec-block" style="display:none" aria-live="polite"></div>
+      <div class="nv-glass nv-daily-advice-card nawkhada-box" id="nawkhadaBox">
+        <div class="nawkhada-box-title">نصيحة اليوم</div>
+        <p id="dailyAdviceText" class="nv-daily-advice-text">بانتظار بيانات التحليل المشترك.</p>
       </div>
     </div>
 
@@ -1021,32 +1021,6 @@
         <span id="mapMetaText">نطاق التحليل: 0.02</span>
       </div>
       <div id="stationMap"></div>
-    </div>
-
-    <div id="hotspotPanel" class="hotspot-panel">
-      <div class="hotspot-title-row">
-        <div class="label">نتيجة التحليل</div>
-        <div id="analysisLoadingHint" class="analysis-loading-hint">جاري التحليل</div>
-      </div>
-      <div class="hotspot-score-row">
-        <div class="hot-score" id="hotspotScore">بانتظار</div>
-        <div id="confidenceBadge" class="confidence-pill low">الثقة: منخفضة</div>
-      </div>
-      <div class="hotspot-detail-grid">
-        <div id="hotspotBest">أفضل نقطة: بانتظار التحليل</div>
-        <div id="hotspotZone">المنطقة: بانتظار</div>
-        <div id="hotspotCurrent">التيار: بانتظار</div>
-        <div id="hotspotPoints">النقاط: بانتظار</div>
-      </div>
-      <button id="whyToggleBtn" class="why-toggle" type="button">تفاصيل التوقع ▾</button>
-      <div id="whySpotBox" class="why-box"></div>
-      <div class="feedback-row">
-        <span style="font-size:12px;color:#d9efff;font-weight:800">هل التوقع مناسب؟</span>
-        <button id="feedbackYes" type="button" class="feedback-btn yes" style="display:none">YES</button>
-        <button id="feedbackNo" type="button" class="feedback-btn no" style="display:none">NO</button>
-        <span id="feedbackGateNote" class="feedback-gate-note">سجّل كعضو اختبار لإرسال YES / NO.</span>
-        <span id="feedbackStatus" class="feedback-status"></span>
-      </div>
     </div>
 
     <div class="nv-glass nv-dur-hero hero card dorah-priority" id="durHeroBlock">
@@ -1078,32 +1052,6 @@
         </div>
       </div>
       <p class="explain" id="suhailNoteText">التاريخ التراثي يمثل بداية الموسم محليًا وفق خبرة أهل البحر، بينما التاريخ الفلكي يمثل الظهور المحسوب لسهيل وفق معيار الرصد لنظام Navidur.</p>
-    </div>
-
-    <div class="nv-glass nv-intel" id="stationIntelBlock">
-      <h3>ذكاء المحطة: السمات المتوقعة والملحوظة</h3>
-      <div class="cols">
-        <div>
-          <div class="label" style="margin-bottom:4px">السمات المتوقعة (موحّد)</div>
-          <div id="intelExpected">بانتظار التحليل</div>
-        </div>
-        <div>
-          <div class="label" style="margin-bottom:4px">السمات الملحوظة (من الظروف الحية)</div>
-          <div id="intelAchieved">بانتظار التحليل</div>
-        </div>
-        <div>
-          <div class="label" style="margin-bottom:4px">نسبة المطابقة</div>
-          <div id="intelMatch" class="v" style="font-size:1.2rem;font-weight:900">بانتظار</div>
-        </div>
-        <div>
-          <div class="label" style="margin-bottom:4px">حالة البحر (حمل/فساد)</div>
-          <div id="intelSeaState">بانتظار</div>
-        </div>
-        <div>
-          <div class="label" style="margin-bottom:4px">الثقة</div>
-          <div id="intelConfidence">بانتظار</div>
-        </div>
-      </div>
     </div>
 
     <div class="section-label">بيانات العوامل البحرية</div>
@@ -1199,6 +1147,7 @@
   <script src="/shared/station-map-ui.js"></script>
   <script>window.IS_ADMIN = false;</script>
   <script src="/shared/navidur-live-analysis.js"></script>
+  <script src="/shared/navidur-daily-advice.js"></script>
   <script>
     const COUNTRY_TIMEZONES = {
       'قطر': 'Asia/Qatar',
@@ -3045,92 +2994,15 @@
       }
     }
 
-    function updateIntelBlock() {
-      const ex = document.getElementById('intelExpected');
-      const ac = document.getElementById('intelAchieved');
-      const mt = document.getElementById('intelMatch');
-      const sea = document.getElementById('intelSeaState');
-      const cf = document.getElementById('intelConfidence');
-      const na = 'لا توجد بيانات لهذه المحطة';
-      const dto = currentSharedAnalysisDto;
-      if (!dto || !dto.dur) {
-        const pend = 'بانتظار التحليل المشترك';
-        if (ex) ex.textContent = pend;
-        if (ac) ac.textContent = pend;
-        if (mt) mt.textContent = pend;
-        if (sea) sea.textContent = pend;
-        if (cf) cf.textContent = pend;
-        return;
-      }
-      const expected = Array.isArray(dto.dur.unified_expected_traits) ? dto.dur.unified_expected_traits : [];
-      if (ex) {
-        ex.innerHTML = expected.length
-          ? expected.map(function (t) { return '<span class="trait-pill">' + nvEscapeHtml(t) + '</span>'; }).join(' ')
-          : '<span class="nv-bad">لا سمات موحّدة مذكورة</span>';
-      }
-      const obs = deriveObservedTraitsFromEnv(dto.environment, dto.tide);
-      if (ac) {
-        ac.innerHTML = obs.length
-          ? obs.map(function (t) { return '<span class="trait-pill">' + nvEscapeHtml(t) + '</span>'; }).join(' ')
-          : 'لا ملاحظات من الظروف الحالية';
-      }
-      let pct = null;
-      if (expected.length && obs.length) {
-        const set = new Set(expected);
-        const m = obs.filter(function (x) { return set.has(x); }).length;
-        pct = Math.round((m / expected.length) * 100);
-      }
-      if (mt) mt.textContent = pct != null ? String(pct) + '%' : (expected.length ? 'لا تطابق بعد' : 'غير منطبق');
-      if (sea) sea.textContent = getSharedWaterStateArabic() || 'غير محدد';
-      if (cf) cf.textContent = dto.fishing && dto.fishing.confidence_score != null ? String(dto.fishing.confidence_score) + '%' : 'غير محدد';
-    }
+    function updateIntelBlock() {}
 
-    function renderRecommendedFishBlock(dto) {
-      const el = document.getElementById('nvRecommendedFishBlock');
+    function updateDailyAdviceFromDto() {
+      const el = document.getElementById('dailyAdviceText');
       if (!el) return;
-      const fr = dto && dto.fishing && dto.fishing.fish_recommendations;
-      if (!Array.isArray(fr) || !fr.length) {
-        el.style.display = 'none';
-        el.innerHTML = '';
-        return;
-      }
-      el.style.display = 'block';
-      const rows = fr.map(function (f) {
-        const pct = f.score != null ? String(f.score) + '%' : '—';
-        const methods = Array.isArray(f.recommended_methods) ? f.recommended_methods.join('، ') : '—';
-        const times = Array.isArray(f.best_time) ? f.best_time.join('، ') : '—';
-        return (
-          '<div class="nv-fish-rec-item">' +
-          '<span class="nv-fish-name">' + nvEscapeHtml(f.fish_name_ar || '') + '</span> ' +
-          '<span class="nv-fish-score">(' + nvEscapeHtml(pct) + ')</span>' +
-          '<div class="nv-fish-rec-meta">' + nvEscapeHtml(f.reason_ar || '') + '</div>' +
-          '<div class="nv-fish-rec-meta"><strong>أفضل طريقة:</strong> ' + nvEscapeHtml(methods) + ' — <strong>الموطن:</strong> ' + nvEscapeHtml(f.habitat || '—') + ' — <strong>أفضل وقت:</strong> ' + nvEscapeHtml(times) + '</div>' +
-          '</div>'
-        );
-      });
-      el.innerHTML = '<div class="nv-fish-rec-title">الأسماك الموصى بها الآن</div>' + rows.join('');
-    }
-
-    function updateFishingExtras() {
-      const g = document.getElementById('fishingGearLine');
-      const ar = document.getElementById('fishingAreaLine');
-      if (!g || !ar) return;
-      if (!currentSharedAnalysisDto || !currentSharedAnalysisDto.fishing) {
-        g.style.display = 'none';
-        ar.style.display = 'none';
-        return;
-      }
-      ar.style.display = 'block';
-      const reg = selectedStation && selectedStation.region;
-      ar.textContent = 'النطاق المقترح: ' + (reg || 'غير محدد') + ' (حسب محطة التشغيل).';
-      const names = getSharedSpeciesNames();
-      const first = names[0];
-      const fish = FISH_SPECIES_DATABASE.find(function (f) { return f.name_ar === first; });
-      if (fish && (fish.rig || (fish.bait && fish.bait.length))) {
-        g.style.display = 'block';
-        g.innerHTML = '<strong>عدة مقترحة:</strong> ' + nvEscapeHtml(fish.rig || '') + (fish.bait && fish.bait.length ? ' — <strong>طعم:</strong> ' + fish.bait.map(nvEscapeHtml).join('، ') : '');
+      if (currentSharedAnalysisDto && typeof generateDailyAdvice === 'function' && typeof buildEnvFromAnalysisDto === 'function') {
+        el.textContent = generateDailyAdvice(buildEnvFromAnalysisDto(currentSharedAnalysisDto));
       } else {
-        g.style.display = 'none';
+        el.textContent = 'بانتظار بيانات التحليل المشترك.';
       }
     }
 
@@ -3322,14 +3194,8 @@
     }
 
     function setAnalysisLoading(isLoading) {
-      const panel = document.getElementById('hotspotPanel');
       const hint = document.getElementById('analysisLoadingHint');
-      if (panel) panel.classList.toggle('is-loading', !!isLoading);
-      if (hint) hint.style.display = isLoading ? 'inline-flex' : 'none';
-      if (isLoading) {
-        const statusEl = document.getElementById('feedbackStatus');
-        if (statusEl) statusEl.textContent = 'جاري تحديث نتائج التحليل...';
-      }
+      if (hint) hint.style.display = isLoading ? 'inline' : 'none';
     }
 
     function getWhyBreakdown(result) {
@@ -3429,6 +3295,8 @@
 
     async function sendFeedbackVote(answer) {
       if (!latestHotspotResult || !latestHotspotResult.best_spot) return;
+      const feedbackStatus = document.getElementById('feedbackStatus');
+      if (!feedbackStatus) return;
       if (!isLoggedInMember()) {
         updateMemberAuthUi('feedback متاح فقط لعضو اختبار مسجل.', true);
         return;
@@ -3445,7 +3313,6 @@
         session_id: getSessionId()
       };
 
-      const feedbackStatus = document.getElementById('feedbackStatus');
       feedbackStatus.textContent = 'Sending...';
       try {
         const response = await fetch('/api?route=feedback', {
@@ -3466,49 +3333,11 @@
     }
 
     function renderHotspotPanel(result) {
-      if (!result) return;
-      if (result.fishing && result.environment && result.dur && result.tide) {
-        const confidence = getConfidenceMeta(result.fishing.confidence_score != null ? result.fishing.confidence_score : 0);
-        const fishNames = getSharedSpeciesNames();
-        document.getElementById('hotspotScore').textContent = String(result.fishing.confidence_score != null ? result.fishing.confidence_score : 'لا نتيجة');
-        document.getElementById('hotspotZone').textContent = 'الحالة: ' + (getSharedWaterStateArabic() || 'غير معروف');
-        document.getElementById('hotspotBest').textContent = 'الدر: ' + (result.dur.period_name || 'غير معروف');
-        document.getElementById('hotspotCurrent').textContent = 'التيار: ' + (result.tide.current_speed_ms != null ? result.tide.current_speed_ms : 'لا بيانات') + ' — حرارة: ' + (result.environment.temp_c != null ? result.environment.temp_c : 'لا بيانات');
-        document.getElementById('hotspotPoints').textContent = 'الأنواع: ' + (fishNames.length ? fishNames.join('، ') : 'لا بيانات');
-        document.getElementById('mapMetaText').textContent = 'المحطة: ' + (selectedStation ? selectedStation.name : 'غير معروف');
-        const confidenceBadge = document.getElementById('confidenceBadge');
-        confidenceBadge.className = 'confidence-pill ' + confidence.cls;
-        confidenceBadge.textContent = 'الثقة: ' + (confidence.labelAr || confidence.label);
-        document.getElementById('whySpotBox').innerHTML = result.fishing.advice_text || '';
-        document.getElementById('feedbackStatus').textContent = '';
-        return;
-      }
-      const best = result.best_spot || {};
-      const data = result.data || {};
-      const area = result.search_area || {};
-      document.getElementById('hotspotScore').textContent = String(best.score != null ? best.score : 'لا نتيجة');
-      document.getElementById('hotspotZone').textContent = 'المنطقة: ' + (best.zone || 'غير معروف');
-      document.getElementById('hotspotBest').textContent = 'أفضل نقطة: ' + (best.lat != null ? best.lat.toFixed(4) : 'لا') + ' ، ' + (best.lon != null ? best.lon.toFixed(4) : 'لا');
-      document.getElementById('hotspotCurrent').textContent = 'التيار: ' + (data.current != null ? data.current : 'لا بيانات') + ' — حرارة: ' + (data.temp != null ? data.temp : 'لا بيانات');
-      document.getElementById('hotspotPoints').textContent = 'النقاط: ' + (area.points_evaluated != null ? area.points_evaluated : 'لا');
-      const radiusText = area.radius != null ? area.radius : 0.02;
-      document.getElementById('mapMetaText').textContent = 'نطاق التحليل: ' + radiusText;
-
-      const confidence = getConfidenceMeta(best.score != null ? best.score : 0);
-      const confidenceBadge = document.getElementById('confidenceBadge');
-      confidenceBadge.className = 'confidence-pill ' + confidence.cls;
-      confidenceBadge.textContent = 'الثقة: ' + (confidence.labelAr || confidence.label);
-
-      const why = getWhyBreakdown(result);
-      const whyBox = document.getElementById('whySpotBox');
-      whyBox.classList.remove('is-open');
-      const _cQ = why.current >= 0.6 ? 'قوي' : why.current >= 0.45 ? 'متوسط' : 'خفيف';
-      const _wQ = why.wind <= 20 ? 'مناسب' : why.wind <= 30 ? 'نشط' : 'شديد';
-      const _aQ = why.wave >= 0.3 && why.wave <= 1.2 ? 'نشط' : 'هادئ';
-      whyBox.innerHTML =
-        'التيار: <strong>' + _cQ + '</strong> • الرياح: <strong>' + _wQ + '</strong> • نشاط البحر: <strong>' + _aQ + '</strong>';
-
-      document.getElementById('feedbackStatus').textContent = '';
+      const meta = document.getElementById('mapMetaText');
+      if (!meta || !selectedStation) return;
+      const area = result && result.search_area ? result.search_area : {};
+      const radius = area.radius != null ? area.radius : (selectedStation.default_radius != null ? selectedStation.default_radius : 0.02);
+      meta.textContent = 'المحطة: ' + selectedStation.name + ' — نطاق التحليل: ' + radius;
     }
 
     function renderGridOnMap(result, station) {
@@ -3656,48 +3485,6 @@
     }
 
     function renderFish(date) {
-      if (currentSharedAnalysisDto && currentSharedAnalysisDto.fishing) {
-        const root = document.getElementById('fishList');
-        const fishNames = getSharedSpeciesNames();
-        root.innerHTML = '';
-        if (!fishNames.length) {
-          root.innerHTML = '<div class="empty">لا توجد أسماك مطابقة حالياً.</div>';
-          return;
-        }
-        fishNames.forEach(function (name, index) {
-          const fallback = {
-            name_ar: name,
-            name_en: '',
-            type: getSharedFishingMode() === 'deep' ? 'قاعي' : 'ساحلي',
-            best_time: 'الآن',
-            rig: 'حسب حالة المحطة',
-            bait: [],
-            methods: [],
-            durur: [currentSharedAnalysisDto.dur.period_name || ''],
-            tag: '',
-            seasonLabel: currentSharedAnalysisDto.dur.period_name || 'نشط',
-            score: Math.max(20, (currentSharedAnalysisDto.fishing.confidence_score || 50) - (index * 8))
-          };
-          const matched = FISH_SPECIES_DATABASE.find(function (item) {
-            return item.name_ar === name || item.name_en === name;
-          });
-          const fish = matched ? Object.assign({}, matched, {
-            score: fallback.score,
-            seasonLabel: fallback.seasonLabel
-          }) : fallback;
-          const el = document.createElement('div');
-          el.className = 'fish-item';
-          el.innerHTML =
-            '<div class="fish-row"><div>' +
-              '<div class="fish-name">' + fish.name_ar + '</div>' +
-              '<div class="fish-meta">' + (fish.seasonLabel || 'نشط') + ' • ' + (currentSharedAnalysisDto.dur.period_name || 'الدر') + '</div>' +
-            '</div><div class="score">' + fish.score + '%</div></div>' +
-            '<div class="bar"><span style="width:' + fish.score + '%"></span></div>';
-          el.addEventListener('click', function () { showFishModal(fish); });
-          root.appendChild(el);
-        });
-        return;
-      }
       const hr = getSelectedHourEntry().hour || {};
       const dorahLabel = (getCurrentDar(date).darName.split(' - ')[1] || getCurrentDar(date).darName);
       // Use the authoritative per-station live waterState so fish ranking is
@@ -3771,7 +3558,6 @@
           return values && values.length ? '<div><strong>' + escapeHtml(label) + ':</strong> ' + values.map(escapeHtml).join('، ') + '</div>' : '';
         };
         const refHtml = durRef ? [
-          '<div><strong>ملخص نصي:</strong> ' + escapeHtml(currentSharedAnalysisDto.fishing.advice_text || 'تعذر تحميل التوصية حالياً') + '</div>',
           '<div><strong>الموسم (مرجع):</strong> ' + escapeHtml(durRef.season_ar || unknown) + '</div>',
           '<div><strong>المعنى التراثي:</strong> ' + escapeHtml(durRef.heritage_meaning_ar || unknown) + '</div>',
           durNotes.length ? '<div><strong>وصف / ملاحظات:</strong> ' + durNotes.map(escapeHtml).join(' | ') + '</div>' : '',
@@ -3779,7 +3565,7 @@
           renderRefList('سمات البحر', durRef.marine_traits || []),
           renderRefList('سمات السمك', durRef.fish_traits || []),
           renderRefList('أحداث موسمية', seasonalEventNames)
-        ].filter(Boolean).join('') : escapeHtml(currentSharedAnalysisDto.fishing && currentSharedAnalysisDto.fishing.advice_text ? currentSharedAnalysisDto.fishing.advice_text : 'تعذر تحميل التوصية حالياً');
+        ].filter(Boolean).join('') : '—';
         const setText = function (id, val) { const el = document.getElementById(id); if (el) el.textContent = val; };
         setText('dateLine', formatDateArabic(new Date()) + ' • ' + (selectedStation && selectedStation.name));
         setText('moonIcon', '🌊');
@@ -3792,8 +3578,8 @@
         setText('durPeriodRangeVal', pr);
         setText('dorahCountdownLine', d.days_remaining != null ? ('تبقى ' + d.days_remaining + ' يوماً على نهاية هذا الدر') : '');
         (function setInfo() { const el = document.getElementById('dorahInfoBox'); if (el) el.innerHTML = refHtml; }());
-        setText('dorahWarning', currentSharedAnalysisDto.fishing.is_recommended ? 'التوصية مناسبة حسب الثقة.' : 'الصيد يحتاج حذراً في هذه الظروف.');
-        document.getElementById('currentWaterHeight').innerHTML = 'الحالة المدية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span> — الثقة: ' + (currentSharedAnalysisDto.fishing.confidence_score != null ? currentSharedAnalysisDto.fishing.confidence_score + '%' : unknown);
+        setText('dorahWarning', tideLabel && tideLabel !== 'غير معروف' ? ('سياق المد: ' + tideLabel) : '');
+        document.getElementById('currentWaterHeight').innerHTML = 'الحالة المدية: <span class="tide-dir-badge ' + (tideLabel === 'حمل' ? 'sagi' : tideLabel === 'فساد' ? 'thabr' : 'steady') + '">' + tideLabel + '</span>';
         document.getElementById('coastalBtn').classList.toggle('active', activeModeFromDto === 'coastal');
         document.getElementById('deepBtn').classList.toggle('active', activeModeFromDto === 'deep');
         const statusEl = document.getElementById('windOfficialStatus');
@@ -3865,203 +3651,8 @@
       void nvRefreshSuhailFromTrueFinal();
     }
 
-    // Returns season-aware fish advice using FISHING_CALENDAR + station bathymetry + dar cycle.
-    function getSeasonalFishAdvice(date, station) {
-      const p = getAppDateParts(date);
-      const monthCode = getMonthCode(p.month);
-      const region = getMarineRegion(station);
-      const bathymetry = (station && station.bathymetry) || 'mid';
-      const seasonalIds = FISHING_CALENDAR[monthCode] || [];
-      const dar = getCurrentDar(date, station);
-      const pool = FISH_SPECIES_DATABASE.filter(function(f) {
-        return f.regions.includes(region) && seasonalIds.includes(f.id);
-      });
-      function sortByDarPeak(list) {
-        return list.sort(function(a, b) {
-          const darTradName = dar && dar.darName ? (dar.darName.split(' - ')[1] || '') : '';
-          const aPeak = darTradName && a.durur && a.durur.includes(darTradName) ? 1 : 0;
-          const bPeak = darTradName && b.durur && b.durur.includes(darTradName) ? 1 : 0;
-          return bPeak - aPeak;
-        });
-      }
-      var hamalPool = bathymetry === 'shallow'
-        ? pool.filter(function(f) { return f.type === 'ساحلي'; })
-        : pool.filter(function(f) { return !f.prefer_fasad; });
-      var fasadPool = bathymetry === 'deep'
-        ? pool.filter(function(f) { return f.type === 'قاعي' || f.type === 'سطحي'; })
-        : pool.filter(function(f) { return f.prefer_fasad; });
-      sortByDarPeak(hamalPool);
-      sortByDarPeak(fasadPool);
-      return {
-        hamal: hamalPool.slice(0, 4).map(function(f) { return f.name_ar; }).join('، ') || 'صافي، شعم، بدح',
-        fasad: fasadPool.slice(0, 4).map(function(f) { return f.name_ar; }).join('، ') || 'هامور، سولي، عندق'
-      };
-    }
-
-    function renderNawkhadaBox(date) {
-      if (currentSharedAnalysisDto && currentSharedAnalysisDto.fishing) {
-        const adviceEl = document.getElementById('nawkhadaBoxAdvice');
-        const sourceEl = document.getElementById('nawkhadaDataSource');
-        const kanaadEl = document.getElementById('kanaadAlert');
-        const fishTargets = getSharedSpeciesNames();
-        if (sourceEl) sourceEl.textContent = 'NAVIDUR المشترك';
-        adviceEl.className = getSharedWaterStateArabic() === 'حمل' ? 'nawkhada-advice-hamal' : 'nawkhada-advice-fasad';
-        const adv = currentSharedAnalysisDto.fishing.advice_text && String(currentSharedAnalysisDto.fishing.advice_text).trim();
-        adviceEl.innerHTML =
-          '📍 <strong>ملخص الحالة:</strong> ' + getSharedSkyStatusArabic() + ' — ' + (getSharedWaterStateArabic() || 'غير معروف') + ' ضمن ' + (currentSharedAnalysisDto.dur.period_name || 'الدر الحالي') + '.<br>' +
-          '🌊 <strong>الحالة البحرية:</strong> تيار ' + (currentSharedAnalysisDto.tide.current_speed_ms != null ? currentSharedAnalysisDto.tide.current_speed_ms + ' م/ث' : 'لا بيانات') + ' — موج ' + (currentSharedAnalysisDto.environment.wave_height_m != null ? currentSharedAnalysisDto.environment.wave_height_m + ' م' : 'لا بيانات') + '.<br>' +
-          '🎣 <strong>التوصية:</strong> ' + (adv || 'تعذر تحميل التوصية حالياً') + '<br>' +
-          '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف:</strong> ' + (fishTargets.length ? fishTargets.join('، ') : 'لا أهداف مذكورة') + '</span>';
-        kanaadEl.style.display = 'none';
-        updateFishingExtras();
-        renderRecommendedFishBlock(currentSharedAnalysisDto);
-        return;
-      }
-      (function hideFishingExtras() {
-        const g = document.getElementById('fishingGearLine');
-        const a = document.getElementById('fishingAreaLine');
-        if (g) { g.style.display = 'none'; g.textContent = ''; }
-        if (a) { a.style.display = 'none'; a.textContent = ''; }
-        const nv = document.getElementById('nvRecommendedFishBlock');
-        if (nv) { nv.style.display = 'none'; nv.innerHTML = ''; }
-      }());
-      const dar = getCurrentDar(date);
-      const darLabel = (dar.darName.split(' - ')[1] || dar.darName);
-      const adviceEl = document.getElementById('nawkhadaBoxAdvice');
-      const sourceEl = document.getElementById('nawkhadaDataSource');
-      const kanaadEl = document.getElementById('kanaadAlert');
-
-      // ─── حالة المحطة والماية ─────────────────────────────────────────────
-      const stationState = stationStates[selectedStation.id] || null;
-      const localMode = stationState ? stationState.mode : getDailyFishingLabel(date, selectedStation).mode;
-      const tidalCoef = stationState && typeof stationState.tidalCoefficient === 'number' ? stationState.tidalCoefficient : null;
-      const waterState = stationState && stationState.waterState ? stationState.waterState : null;
-
-      // ─── اتجاه الماية (سقي / ثبر) من بيانات ساعات المد ──────────────────
-      const activeHours = getActiveHours();
-      const hr = activeHours[selectedHourIndex] || {};
-      const seaCur  = hr.seaLevel && hr.seaLevel.sg != null ? hr.seaLevel.sg : null;
-      const seaPrev = selectedHourIndex > 0 && activeHours[selectedHourIndex - 1] && activeHours[selectedHourIndex - 1].seaLevel && activeHours[selectedHourIndex - 1].seaLevel.sg != null
-        ? activeHours[selectedHourIndex - 1].seaLevel.sg : seaCur;
-      const seaNext = selectedHourIndex < activeHours.length - 1 && activeHours[selectedHourIndex + 1] && activeHours[selectedHourIndex + 1].seaLevel && activeHours[selectedHourIndex + 1].seaLevel.sg != null
-        ? activeHours[selectedHourIndex + 1].seaLevel.sg : seaCur;
-      const tideState = getTideState(seaPrev, seaCur, seaNext);
-
-      // ─── بيانات الرياح ────────────────────────────────────────────────────
-      const hasLiveWind = !!(hr.windGust && hr.windGust.sg != null && hr.windDirection && hr.windDirection.sg != null);
-      const windSpeedKmh = hasLiveWind ? (getDisplayedWindKmh(hr) || 0) : 0;
-      const windDirDeg   = hasLiveWind ? (hr.windDirection.sg || 0) : 0;
-      const windDirAr    = hasLiveWind ? windDirText8(windDirDeg) : null;
-      const windKnots    = windSpeedKmh / 1.852;
-      const waveH        = (hr.waveHeight != null) ? hr.waveHeight : null;
-
-      // ─── قوائم الأسماك الموسمية ───────────────────────────────────────────
-      const seasonalAdvice = getSeasonalFishAdvice(date, selectedStation);
-      const hamalFish = seasonalAdvice.hamal || 'سبيطي، كنعد، بريم، منقوس';
-      const fasadFish = seasonalAdvice.fasad || 'هامور، شعم، قواع، بدح';
-
-      if (sourceEl) sourceEl.textContent = getSourceBrandingText();
-
-      if (!waterState) {
-        adviceEl.className = 'nawkhada-advice-fasad';
-        adviceEl.innerHTML =
-          '📍 <strong>ملخص الحالة:</strong> البيانات البحرية غير مكتملة حالياً.<br>' +
-          '🌊 <strong>حالة التيار والموج:</strong> لا توجد قراءة حية كافية لتحديد حمل/فساد.<br>' +
-          '🎣 <strong>التوصية الفنية:</strong> انتظر التحديث الرسمي قبل اتخاذ قرار نزول.<br>' +
-          '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف المتوقعة:</strong> ' + hamalFish + ' • ' + fasadFish + '</span>';
-        const isKanaadDarFallback = darLabel === 'المقدم' || darLabel === 'المؤخر';
-        kanaadEl.style.display = isKanaadDarFallback ? 'block' : 'none';
-        return;
-      }
-
-      // ─── المنطق الذكي ─────────────────────────────────────────────────────
-      const isStrongWind     = windKnots > 15;
-      const isVeryStrongWind = windKnots > 25;
-      // كوس = رياح شمالية / شمالية غربية (270°–360° أو 0°–45°)
-      const isKaosWind  = hasLiveWind && (windDirDeg >= 270 || windDirDeg <= 45);
-      // تضارب = حمل + سقي + رياح كوس فوق 8 عقد
-      const isConflict  = waterState === 'حمل' && tideState.key === 'sagi' && isKaosWind && windKnots > 8;
-      const isWaqfa     = tideState.key === 'steady';
-
-      // ─── القسم الأول: ملخص الحالة ─────────────────────────────────────────
-      const tideDirLabel = tideState.key === 'sagi' ? 'سقي' : tideState.key === 'thabr' ? 'ثبر' : 'وقفة ماية';
-      var summaryText;
-      if (waterState === 'حمل') {
-        summaryText = 'الماية <strong>حمل</strong> والاتجاه <strong>' + tideDirLabel + '</strong>';
-        if (hasLiveWind) {
-          summaryText += '، الرياح <strong>' + windDirAr + '</strong> بسرعة ' + Math.round(windSpeedKmh) + ' كم/س';
-          summaryText += isConflict
-            ? ' — رياح مضادة لاتجاه السقي، <strong>احذر من ضرب الموج</strong>.'
-            : '.';
-        }
-      } else {
-        summaryText = 'الماية <strong>فساد</strong> والاتجاه <strong>' + tideDirLabel + '</strong> — المياه هادئة والتيار خفيف';
-        if (hasLiveWind) {
-          summaryText += '، الرياح من <strong>' + windDirAr + '</strong> (' + Math.round(windSpeedKmh) + ' كم/س).';
-        } else {
-          summaryText += '.';
-        }
-      }
-
-      // ─── القسم الثاني: حالة التيار والموج ────────────────────────────────
-      const coefStrength = tidalCoef != null
-        ? (tidalCoef >= 70 ? 'قوي جداً' : tidalCoef >= 55 ? 'قوي' : tidalCoef >= 35 ? 'معتدل' : 'خفيف')
-        : 'غير محدد';
-      var currentWaveText = 'قوة التيار <strong>' + coefStrength + '</strong>';
-      if (waveH != null) {
-        const waveClass = waveH >= 1.5 ? 'مرتفع' : waveH >= 0.7 ? 'متوسط' : 'خفيف';
-        currentWaveText += ' • ارتفاع الموج <strong>' + waveH.toFixed(1) + ' م</strong> (' + waveClass + ')';
-      }
-      if (isStrongWind) {
-        currentWaveText += ' • الرياح القوية ترفع الموج وتصعّب الوقفة في المناطق المكشوفة';
-      }
-
-      // ─── القسم الثالث: التوصية الفنية ─────────────────────────────────────
-      var techTip;
-      if (isVeryStrongWind) {
-        techTip = '⚠️ رياح شديدة تجاوزت 25 عقدة — <strong>أولوية السلامة</strong>، تجنب الخروج للغزير وابقَ في الأماكن المحمية للصيد الساحلي فقط.';
-      } else if (isStrongWind && isConflict) {
-        techTip = 'رياح نشطة مع تضارب تيار — الأفضل الصيد من <strong>الساحل أو الأماكن المحمية</strong>، قلّل وزن الطعم وابتعد عن المناطق المكشوفة حتى تهدأ الرياح.';
-      } else if (isStrongWind) {
-        techTip = 'الرياح فوق 15 عقدة — الأولوية للسلامة، وإن أردت الصيد فجرّب <strong>العدة الخفيفة في الأماكن المحمية</strong> وانتظر وقفة الماية.';
-      } else if (waterState === 'حمل') {
-        if (isWaqfa) {
-          techTip = '⭐ أنت في <strong>وقفة الماية</strong> — أفضل لحظة للغزير، فعّل العدة الثقيلة واستغل هذه النافذة قبل انقلاب التيار.';
-        } else if (tideState.key === 'sagi') {
-          techTip = 'الحمل في مرحلة سقي ينشّط الأسماك في الممرات. العدة المتوسطة مع <strong>طعم حي</strong> مناسبة لاصطياد أسماك الممرات، وأفضل لحظة ستكون عند <strong>وقفة الماية</strong>.';
-        } else {
-          techTip = 'الحمل في مرحلة ثبر — انتظر <strong>وقفة الماية</strong> للحصول على أفضل نتيجة في الغزير، بينها جرّب التعمق أكثر في القاع.';
-        }
-      } else {
-        if (isWaqfa) {
-          techTip = '⭐ <strong>وقفة ماية في الفساد</strong> — القاع هادئ ومثالي لأسماك الچبة والهامور. العدة الثقيلة على القاع هي الأنسب لهذه اللحظة.';
-        } else {
-          techTip = 'الفساد يُبطئ التيار ويُقرّب الأسماك من الساحل. ابحث عن <strong>الحدبات والصخور</strong> وجرّب العدة الساحلية الخفيفة.';
-        }
-      }
-
-      // ─── القسم الرابع: الأهداف المتوقعة ──────────────────────────────────
-      var fishTargets;
-      if (isVeryStrongWind) {
-        fishTargets = 'أجّل الصيد حتى تتحسن الظروف.';
-      } else if (waterState === 'حمل') {
-        fishTargets = 'أسماك الممرات والنشاط السطحي: <strong>' + hamalFish + '</strong>';
-        fishTargets += ' • وفي القاع: <strong>' + fasadFish + '</strong>';
-      } else {
-        fishTargets = 'أسماك القاع والچبة: <strong>' + fasadFish + '</strong>';
-        fishTargets += ' • ساحلي: <strong>' + hamalFish + '</strong>';
-      }
-
-      // ─── تجميع النصيحة النهائية ───────────────────────────────────────────
-      adviceEl.className = waterState === 'حمل' ? 'nawkhada-advice-hamal' : 'nawkhada-advice-fasad';
-      adviceEl.innerHTML =
-        '📍 <strong>ملخص الحالة:</strong> ' + summaryText + '<br>' +
-        '🌊 <strong>حالة التيار والموج:</strong> ' + currentWaveText + '<br>' +
-        '🎣 <strong>التوصية الفنية:</strong> ' + techTip + '<br>' +
-        '<span style="font-size:12.5px;opacity:.95">🐟 <strong>الأهداف المتوقعة:</strong> ' + fishTargets + '</span>';
-
-      const isKanaadDar = darLabel === 'المقدم' || darLabel === 'المؤخر';
-      kanaadEl.style.display = isKanaadDar ? 'block' : 'none';
+    function renderNawkhadaBox(_date) {
+      updateDailyAdviceFromDto();
     }
 
     function renderAll() {
@@ -4145,11 +3736,10 @@
         trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), region: selectionTracking.region || (selectedStation ? selectedStation.region : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
-        document.getElementById('hotspotScore').textContent = 'تعذر التحليل';
-        document.getElementById('hotspotZone').textContent = 'تعذر التحليل';
-        document.getElementById('hotspotBest').textContent = 'تعذر التحليل';
-        document.getElementById('hotspotCurrent').textContent = 'تعذر التحليل';
-        document.getElementById('hotspotPoints').textContent = 'تعذر التحليل';
+        const mm = document.getElementById('mapMetaText');
+        if (mm && selectedStation) {
+          mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر رسم نطاق التحليل';
+        }
       } finally {
         setAnalysisLoading(false);
       }
@@ -4265,19 +3855,21 @@
         });
       }
 
-      document.getElementById('whyToggleBtn').addEventListener('click', function () {
-        const box = document.getElementById('whySpotBox');
-        const visible = box.classList.contains('is-open');
-        box.classList.toggle('is-open', !visible);
-      });
-
-      document.getElementById('feedbackYes').addEventListener('click', function () {
-        sendFeedbackVote('YES');
-      });
-
-      document.getElementById('feedbackNo').addEventListener('click', function () {
-        sendFeedbackVote('NO');
-      });
+      (function bindOptionalUi() {
+        var w = document.getElementById('whyToggleBtn');
+        if (w) {
+          w.addEventListener('click', function () {
+            var box = document.getElementById('whySpotBox');
+            if (!box) return;
+            var visible = box.classList.contains('is-open');
+            box.classList.toggle('is-open', !visible);
+          });
+        }
+        var fy = document.getElementById('feedbackYes');
+        if (fy) fy.addEventListener('click', function () { sendFeedbackVote('YES'); });
+        var fn = document.getElementById('feedbackNo');
+        if (fn) fn.addEventListener('click', function () { sendFeedbackVote('NO'); });
+      }());
 
       document.getElementById('coastalBtn').addEventListener('click', function () {
         const msg = 'هذا المؤشر للعرض فقط ويعكس نوع الصيد من بيانات المحطة المختارة.';
