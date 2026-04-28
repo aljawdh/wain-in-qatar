@@ -1824,7 +1824,6 @@
     let nvHeatToggleBound = false;
     let nvHeatZoomListenerBound = false;
     let latestNavidurHotspotBest = null;
-    let navidurWaterLandOverridesDoc = { points: {} };
     let navidurCastGeo = { lat: null, lon: null, error: false, sessionStarted: false };
     let navidurCastWatchId = null;
     let navidurCastPollTimer = null;
@@ -4352,98 +4351,19 @@
       return 'unknown';
     }
 
-    function navidurWaterLandPointId(lat, lon) {
-      return Number(lat).toFixed(6) + '_' + Number(lon).toFixed(6);
-    }
-
-    async function fetchNavidurWaterLandOverrides() {
-      try {
-        const r = await fetch('/api?route=water-land-overrides', { cache: 'no-store' });
-        if (!r.ok) throw new Error('http_' + r.status);
-        const j = await r.json();
-        navidurWaterLandOverridesDoc = { points: j && typeof j.points === 'object' && j.points ? j.points : {} };
-        return true;
-      } catch (err) {
-        console.warn('[NAVIDUR] فشل تحميل تصنيفات الماء/اليابسة (Upstash KV) — يُستخدم التصنيف من نقاط التحليل فقط', err);
-        navidurWaterLandOverridesDoc = { points: {} };
-        return false;
-      }
-    }
-
-    /** Placeholder: optional land-mask GeoJSON — غير مفعّل حالياً */
-    function navidurLandMaskGeojsonClassify(_lat, _lon) {
-      return null;
-    }
-
-    /** After nearest-source hints: تطبيق أولوية KV ثم قناع جغرافي ثم تصنيف نهائي. */
-    function navidurApplyWaterOverridesAndKindsToGrid(gridPoints, overridesDoc) {
-      const entries = [];
-      const list = Array.isArray(gridPoints) ? gridPoints : [];
-      const pts = overridesDoc && overridesDoc.points ? overridesDoc.points : {};
-      for (let i = 0; i < list.length; i++) {
-        const p = list[i];
-        const pid = navidurWaterLandPointId(p.lat, p.lon);
-        const kv = pts[pid];
-        let source_priority = 'evaluated_points';
-        if (kv && kv.status) {
-          source_priority = 'kv_override';
-          const st = String(kv.status).trim().toLowerCase();
-          p.water_status = st;
-          if (st === 'confirmed_water') {
-            p.is_water = true;
-            p.is_land = false;
-          } else if (st === 'confirmed_land') {
-            p.is_land = true;
-            p.is_water = false;
-          } else if (st === 'unknown') {
-            delete p.is_water;
-            delete p.is_land;
-            p.water_status = 'unknown';
-          }
-        } else {
-          const g = navidurLandMaskGeojsonClassify(Number(p.lat), Number(p.lon));
-          if (g === 'land' || g === 'water') {
-            source_priority = 'geojson_mask';
-            if (g === 'land') {
-              p.water_status = 'confirmed_land';
-              p.is_land = true;
-              p.is_water = false;
-            } else {
-              p.water_status = 'confirmed_water';
-              p.is_water = true;
-              p.is_land = false;
-            }
-          }
-        }
-        const kind = navidurClassifyPointWaterKind(p);
-        p._nv_water_kind = kind;
-        let final_status = 'unknown';
-        if (kind === 'land') final_status = 'confirmed_land';
-        else if (kind === 'water') final_status = 'confirmed_water';
-        entries.push({
-          point_id: pid,
-          matched_override: !!(kv && kv.status),
-          final_status: final_status,
-          source_priority: source_priority
-        });
-      }
-      console.debug('NAVIDUR_WATER_LAND_OVERRIDE_APPLIED', { entries: entries });
-      return entries;
-    }
-
     function navidurFinalizeGridWaterMeta(gridPoints, sourceEvaluatedPoints) {
       const out = Array.isArray(gridPoints) ? gridPoints : [];
       const src = Array.isArray(sourceEvaluatedPoints) ? sourceEvaluatedPoints : [];
       for (let i = 0; i < out.length; i++) {
         navidurAttachWaterMetaFromNearestSource(out[i], src);
+        out[i]._nv_water_kind = navidurClassifyPointWaterKind(out[i]);
       }
     }
 
     function navidurFilterAquaticGridPoints(gridPoints) {
       const list = Array.isArray(gridPoints) ? gridPoints : [];
       return list.filter(function (p) {
-        const k = p._nv_water_kind != null ? p._nv_water_kind : navidurClassifyPointWaterKind(p);
-        return k !== 'land';
+        return navidurClassifyPointWaterKind(p) !== 'land';
       });
     }
 
@@ -4499,6 +4419,8 @@
       const inner_ring_points = addRing(8, innerFrac);
       const outer_ring_points = addRing(16, outerFrac);
 
+      navidurFinalizeGridWaterMeta(out, src);
+
       return {
         points: out,
         inner_ring_points: inner_ring_points,
@@ -4527,8 +4449,6 @@
       const radiusDegrees = result.search_area && result.search_area.radius != null ? result.search_area.radius : 0.02;
       const rawEvaluated = Array.isArray(result.evaluated_points) ? result.evaluated_points : [];
       const dens = buildNavidurDisplayDensityGrid(rawEvaluated, station, radiusDegrees);
-      navidurFinalizeGridWaterMeta(dens.points, rawEvaluated);
-      navidurApplyWaterOverridesAndKindsToGrid(dens.points, navidurWaterLandOverridesDoc);
       const pointsAll = dens.points;
       const aquaticPoints = navidurFilterAquaticGridPoints(pointsAll);
       const landRemoved = pointsAll.filter(function (p) {
@@ -4662,9 +4582,7 @@
           }
           if (e.target.id === 'toggleShowSamplePoints') {
             if (latestHotspotResult && selectedStation && stationMap) {
-              void fetchNavidurWaterLandOverrides().then(function () {
-                renderGridOnMap(latestHotspotResult, selectedStation);
-              });
+              renderGridOnMap(latestHotspotResult, selectedStation);
             }
           }
         });
@@ -5129,7 +5047,6 @@
       try {
         const hotspot = await fetchHotspotForStation(selectedStation);
         latestHotspotResult = hotspot;
-        await fetchNavidurWaterLandOverrides();
         renderGridOnMap(hotspot, selectedStation);
         if (!currentSharedAnalysisDto) {
           renderHotspotPanel(hotspot);

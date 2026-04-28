@@ -44,7 +44,6 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="field-review"]{border-right:4px solid rgba(180,255,200,.55)}
 .admin-section[data-section="station-health"]{border-right:4px solid rgba(255,200,120,.5)}
 .admin-section[data-section="weather-audit"]{border-right:4px solid rgba(120,200,255,.5)}
-.admin-section[data-section="water-land"]{border-right:4px solid rgba(100,180,240,.55)}
 .admin-section[data-section="home"]{border-right:4px solid rgba(120,200,255,.45);background:linear-gradient(165deg,rgba(12,40,68,.5),rgba(8,24,40,.25))!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .admin-home-wrap{padding-bottom:6px}
 .ecc-home-header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -279,7 +278,6 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
           <button class="admin-nav" data-filter="feedback" type="button">التقييمات</button>
           <button class="admin-nav" data-filter="station-health" type="button">صحة المحطات</button>
           <button class="admin-nav" data-filter="weather-audit" type="button">فحص الطقس</button>
-          <button class="admin-nav" data-filter="water-land" type="button">إدارة الماء واليابسة</button>
           <button class="admin-nav" data-filter="settings" type="button">الإعدادات</button>
           <button class="admin-nav" data-filter="durur" disabled style="opacity:0.5;cursor:not-allowed;" type="button" title="واجهة الدرور القديمة معطلة. استخدم NAVIDUROR">إدارة الدرور (معطّل)</button>
         </aside>
@@ -1270,37 +1268,6 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <tbody id="weatherAuditNoCoordBody"></tbody>
               </table>
             </div>
-          </div>
-
-          <div class="admin-section admin-block" data-section="water-land" id="waterLandAdminSection">
-            <h4><i class="fa-solid fa-water"></i> إدارة الماء واليابسة</h4>
-            <div class="section-subtitle">تصنيف يدوي لنقاط شبكة التحليل حول كل محطة. يُحفظ في Upstash KV ويُطبَّق على الخريطة العامة (Heatmap / Hotspot / اتجاه الرمي).</div>
-            <div class="admin-form-grid" style="margin-top:12px;align-items:end">
-              <div class="admin-field">
-                <label for="wlStationSelect">المحطة</label>
-                <select id="wlStationSelect" style="width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 10px;font-family:inherit">
-                  <option value="">— اختر محطة —</option>
-                </select>
-              </div>
-              <div class="admin-field" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
-                <button type="button" class="settings-btn" id="wlLoadPointsBtn">تحميل نقاط التحليل</button>
-                <label class="admin-switch" style="margin:0;display:inline-flex;align-items:center;gap:8px;cursor:pointer">
-                  <input type="checkbox" id="wlShowSamples" checked>
-                  <span style="font-size:.85rem;color:var(--txt2)">إظهار نقاط العينة على الخريطة</span>
-                </label>
-              </div>
-            </div>
-            <p class="section-subtitle" id="wlStatus" style="margin-top:10px">اختر محطة ثم اضغط «تحميل نقاط التحليل».</p>
-            <div id="wlAdminMap" style="height:min(52vh,480px);min-height:360px;width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.12);margin-top:12px;z-index:1"></div>
-            <div class="section-subtitle" id="wlSelectionHint" style="margin-top:10px">انقر نقطة على الخريطة.</div>
-            <div id="wlActionBar" style="display:none;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">
-              <span style="font-size:.82rem;color:#9fc1d7;margin-left:6px">إجراء سريع:</span>
-              <button type="button" class="small-btn" id="wlBtnLand" style="background:rgba(122,45,24,.25);border-color:rgba(200,90,60,.5);color:#f0c4b8">تعيين كيابسة</button>
-              <button type="button" class="small-btn" id="wlBtnWater" style="background:rgba(43,124,255,.2);border-color:rgba(90,170,255,.45);color:#cfe6ff">تعيين كماء</button>
-              <button type="button" class="small-btn secondary" id="wlBtnUnknown">غير معروف</button>
-              <button type="button" class="small-btn danger" id="wlBtnDelete">حذف التصنيف</button>
-            </div>
-            <p class="section-subtitle" style="margin-top:12px;font-size:.78rem;color:#8ea4ba;line-height:1.45">الألوان: ماء = أزرق، يابسة = بني داكن، غير معروف = رمادي، المحدد = إطار أبيض. التخزين: <code>navidur:water_land_overrides</code> (Upstash KV).</p>
           </div>
 
           <div class="admin-section admin-block" data-section="settings">
