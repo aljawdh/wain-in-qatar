@@ -1113,7 +1113,6 @@
         <div class="map-head-right">
           <div class="map-head-row">
             <label class="nv-heatmap-toggle"><input type="checkbox" id="toggleAnalysisHeatmap" checked /> خريطة حرارية</label>
-            <label class="nv-heatmap-toggle"><input type="checkbox" id="toggleShowSamplePoints" /> إظهار نقاط العينة</label>
             <span id="mapMetaText">نطاق التحليل: 0.02</span>
           </div>
           <div id="hotspotSummaryText" class="hotspot-summary-line">—</div>
@@ -4272,29 +4271,25 @@
         points_used_for_hotspot: points.length
       });
 
-      const sampleToggleEl = document.getElementById('toggleShowSamplePoints');
-      const showSamplePoints = !!(sampleToggleEl && sampleToggleEl.checked);
-      if (showSamplePoints) {
-        const displayVisuals = computeMapPointDisplayVisuals(points);
-        points.forEach(function (p, idx) {
-          const isBest = mapBestIdx === idx;
-          const disp = displayVisuals[idx] || { finalVisual: getScoreVisual(p.score || 0), rawVisual: getScoreVisual(p.score || 0), is_outlier: false };
-          const visual = disp.finalVisual;
-          const gridMarker = L.circleMarker([p.lat, p.lon], {
-            radius: isBest ? 11 : 6,
-            color: isBest ? '#ffffff' : visual.color,
-            fillColor: isBest ? visual.fill : visual.fill,
-            fillOpacity: isBest ? 0.98 : 0.82,
-            weight: isBest ? 3 : 1.5
-          });
-          gridMarker.bindPopup(
-            'Score: ' + p.score + '<br>Zone: ' + p.zone +
-              (disp.is_outlier ? '<br><small>عرض ملسّن (لون فقط)</small>' : '') +
-              (isBest ? '<br><strong>BEST SPOT</strong>' : '')
-          );
-          gridMarker.addTo(evaluatedLayer);
+      const displayVisuals = computeMapPointDisplayVisuals(points);
+      points.forEach(function (p, idx) {
+        const isBest = mapBestIdx === idx;
+        const disp = displayVisuals[idx] || { finalVisual: getScoreVisual(p.score || 0), rawVisual: getScoreVisual(p.score || 0), is_outlier: false };
+        const visual = disp.finalVisual;
+        const gridMarker = L.circleMarker([p.lat, p.lon], {
+          radius: isBest ? 11 : 6,
+          color: isBest ? '#ffffff' : visual.color,
+          fillColor: isBest ? visual.fill : visual.fill,
+          fillOpacity: isBest ? 0.98 : 0.82,
+          weight: isBest ? 3 : 1.5
         });
-      }
+        gridMarker.bindPopup(
+          'Score: ' + p.score + '<br>Zone: ' + p.zone +
+            (disp.is_outlier ? '<br><small>عرض ملسّن (لون فقط)</small>' : '') +
+            (isBest ? '<br><strong>BEST SPOT</strong>' : '')
+        );
+        gridMarker.addTo(evaluatedLayer);
+      });
 
       const heatMeta = addAnalysisHeatmapLayer(points);
 
@@ -4310,14 +4305,6 @@
       }).addTo(stationMap);
 
       updateHotspotClusterUi(result, station, points, heatMeta);
-
-      const heatToggleEl = document.getElementById('toggleAnalysisHeatmap');
-      console.debug('NAVIDUR_SAMPLE_POINTS_VISIBILITY', {
-        sample_points_count: points.length,
-        visible: showSamplePoints,
-        heatmap_enabled: !heatToggleEl || heatToggleEl.checked,
-        hotspot_enabled: !!latestNavidurHotspotBest
-      });
     }
 
     async function fetchHotspotForStation(station) {
@@ -4345,19 +4332,12 @@
       if (!nvHeatToggleBound) {
         nvHeatToggleBound = true;
         document.addEventListener('change', function (e) {
-          if (!e.target) return;
-          if (e.target.id === 'toggleAnalysisHeatmap') {
-            if (!stationMap || !analysisHeatLayer) return;
-            try {
-              if (e.target.checked) stationMap.addLayer(analysisHeatLayer);
-              else stationMap.removeLayer(analysisHeatLayer);
-            } catch (_err) { /* ignore */ }
-          }
-          if (e.target.id === 'toggleShowSamplePoints') {
-            if (latestHotspotResult && selectedStation && stationMap) {
-              renderGridOnMap(latestHotspotResult, selectedStation);
-            }
-          }
+          if (!e.target || e.target.id !== 'toggleAnalysisHeatmap') return;
+          if (!stationMap || !analysisHeatLayer) return;
+          try {
+            if (e.target.checked) stationMap.addLayer(analysisHeatLayer);
+            else stationMap.removeLayer(analysisHeatLayer);
+          } catch (_err) { /* ignore */ }
         });
       }
       renderStationMarkers();
