@@ -621,6 +621,7 @@ module.exports = async function handler(req, res) {
     }
     const { normalizeRequestedStation, loadReferenceData } = require('../_lib/navidur-analysis-runtime');
     const { resolveReferenceStationForDurInheritance } = require('../../shared/navidur-analysis-engine');
+    const tfLookup = require('../../shared/true-final-station-reference-lookup');
     const refData = await loadReferenceData();
     const list = Array.isArray(refData.stations) ? refData.stations : [];
     const stationFromStore = list.find((s) => s && String(s.id).trim() === stationId) || null;
@@ -661,7 +662,8 @@ module.exports = async function handler(req, res) {
 
     const body = { station: stationFromPublicShape || { id: stationId }, station_id: stationId };
     const mergedAnalysisStation = normalizeRequestedStation(body, list);
-    const durResolution = resolveReferenceStationForDurInheritance(mergedAnalysisStation, list);
+    const durNameSet = tfLookup.buildTrueFinalStationNameNormSet(refData.true_final_station_reference || { stations: [] });
+    const durResolution = resolveReferenceStationForDurInheritance(mergedAnalysisStation, list, durNameSet);
     const durSource = durResolution && durResolution.source;
     const method = durResolution && durResolution.method;
     const refSourceTag = (function mapMethod(m) {

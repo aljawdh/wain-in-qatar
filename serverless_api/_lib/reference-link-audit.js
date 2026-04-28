@@ -3,7 +3,7 @@
 const { readJsonFile } = require('./data-store');
 const { cleanString } = require('./security');
 const { utcTodayIso } = require('./station-local-dur-resolver');
-const { getTrueFinalDurState } = require('../../shared/true-final-station-reference-lookup');
+const { getTrueFinalDurState, buildTrueFinalStationNameNormSet } = require('../../shared/true-final-station-reference-lookup');
 const { resolveReferenceStationForDurInheritance } = require('../../shared/navidur-analysis-engine');
 
 const TF_KEYS = [
@@ -107,6 +107,7 @@ async function buildReferenceLinkAudit() {
   const list = await readJsonFile('stations', []);
   const stations = Array.isArray(list) ? list : [];
   const tfrDoc = await readJsonFile('true_final_station_reference', { version: 0, stations: [] });
+  const durNameNormSet = buildTrueFinalStationNameNormSet(tfrDoc && typeof tfrDoc === 'object' ? tfrDoc : { stations: [] });
   const asOfIso = utcTodayIso() || new Date().toISOString().slice(0, 10);
 
   const rows = [];
@@ -119,7 +120,7 @@ async function buildReferenceLinkAudit() {
     const isRef = !!s.is_reference_station;
     const stationType = isRef ? 'reference' : 'operational';
 
-    const res = resolveReferenceStationForDurInheritance(s, stations);
+    const res = resolveReferenceStationForDurInheritance(s, stations, durNameNormSet);
     const refIdRaw = !isRef ? cleanString(s.reference_station_id, 80) : '';
     const storedRef = refIdRaw && String(refIdRaw).trim() ? String(refIdRaw).trim() : null;
 

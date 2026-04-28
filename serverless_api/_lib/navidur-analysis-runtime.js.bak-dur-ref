@@ -146,42 +146,6 @@ function normalizeRequestedStation(body, stations) {
     );
   }
 
-  var referenceStationNameAr;
-  if (requestedStation && Object.prototype.hasOwnProperty.call(requestedStation, 'reference_station_name_ar')) {
-    var rsn = cleanString(requestedStation.reference_station_name_ar, 200);
-    if (rsn) {
-      referenceStationNameAr = rsn;
-    } else {
-      referenceStationNameAr = cleanString(
-        (storedStation && storedStation.reference_station_name_ar) || raw.reference_station_name_ar,
-        200
-      );
-    }
-  } else {
-    referenceStationNameAr = cleanString(
-      (storedStation && storedStation.reference_station_name_ar) || raw.reference_station_name_ar,
-      200
-    );
-  }
-
-  var durReferenceStation;
-  if (requestedStation && Object.prototype.hasOwnProperty.call(requestedStation, 'dur_reference_station')) {
-    var drs0 = cleanString(requestedStation.dur_reference_station, 120);
-    if (drs0) {
-      durReferenceStation = drs0;
-    } else {
-      durReferenceStation = cleanString(
-        (storedStation && storedStation.dur_reference_station) || raw.dur_reference_station,
-        120
-      );
-    }
-  } else {
-    durReferenceStation = cleanString(
-      (storedStation && storedStation.dur_reference_station) || raw.dur_reference_station,
-      120
-    );
-  }
-
   var lat = toNumber(raw.lat != null ? raw.lat : body && body.lat);
   var lon = toNumber(raw.lon != null ? raw.lon : (raw.lng != null ? raw.lng : (body && (body.lon != null ? body.lon : body.lng))));
 
@@ -202,8 +166,6 @@ function normalizeRequestedStation(body, stations) {
     latitude_band_key: cleanString(raw.latitude_band_key, 80),
     manual_suhail_anchor_date: cleanString(raw.manual_suhail_anchor_date, 20),
     manual_cycle_start_date: cleanString(raw.manual_cycle_start_date, 20),
-    reference_station_name_ar: referenceStationNameAr,
-    dur_reference_station: durReferenceStation,
     is_verified: !!raw.is_verified,
     calibration_notes: cleanString(raw.calibration_notes, 1200),
     workbook_city_key: cleanString(raw.workbook_city_key, 80),

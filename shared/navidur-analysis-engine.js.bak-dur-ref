@@ -8,43 +8,12 @@
   'use strict';
 
   var getTrueFinalDurState;
-  var normalizeArabicNameForDur;
-  var buildTrueFinalStationNameNormSet;
-  var nfcStringForDur;
   try {
     if (typeof require === 'function') {
-      var tfLookupModule = require('./true-final-station-reference-lookup');
-      getTrueFinalDurState = tfLookupModule.getTrueFinalDurState;
-      normalizeArabicNameForDur =
-        typeof tfLookupModule.normalizeArabicName === 'function'
-          ? tfLookupModule.normalizeArabicName
-          : function (v) {
-            return String(v == null ? '' : v).trim();
-          };
-      buildTrueFinalStationNameNormSet =
-        typeof tfLookupModule.buildTrueFinalStationNameNormSet === 'function'
-          ? tfLookupModule.buildTrueFinalStationNameNormSet
-          : function () {
-            return new Set();
-          };
-      nfcStringForDur =
-        typeof tfLookupModule.nfcString === 'function'
-          ? tfLookupModule.nfcString
-          : function (v) {
-            return String(v == null ? '' : v).trim();
-          };
+      getTrueFinalDurState = require('./true-final-station-reference-lookup').getTrueFinalDurState;
     }
   } catch (_tfErr) {
     getTrueFinalDurState = null;
-    normalizeArabicNameForDur = function (v) {
-      return String(v == null ? '' : v).trim();
-    };
-    buildTrueFinalStationNameNormSet = function () {
-      return new Set();
-    };
-    nfcStringForDur = function (v) {
-      return String(v == null ? '' : v).trim();
-    };
   }
   var getGulfFishRecommendations;
   try {
@@ -198,71 +167,23 @@
     return best;
   }
 
-  function stationLonForDur(s) {
-    return toNumber(s && (s.lon != null ? s.lon : s.lng));
-  }
-
-  function stationLatForDur(s) {
-    return toNumber(s && s.lat);
-  }
-
-  function isEligibleDurSourceCandidate(s, nameNormSet) {
-    if (!s) return false;
-    var la = stationLatForDur(s);
-    var lo = stationLonForDur(s);
-    if (!Number.isFinite(la) || !Number.isFinite(lo)) return false;
-    if (s.is_reference_station) return true;
-    if (nameNormSet && nameNormSet.size) {
-      var key = normalizeArabicNameForDur(normalizeString(s.name_ar || s.name));
-      if (key && nameNormSet.has(key)) return true;
-    }
-    return false;
-  }
-
-  function findNearestReferenceStation(station, stationsList, nameNormSet) {
+  function findNearestReferenceStation(station, stationsList) {
     var refs = toArray(stationsList).filter(function (s) {
-      return isEligibleDurSourceCandidate(s, nameNormSet);
+      return s && s.is_reference_station && Number.isFinite(s.lat) && Number.isFinite(s.lon);
     });
     if (!refs.length) return null;
-    var sla = stationLatForDur(station);
-    var slo = stationLonForDur(station);
-    if (station && Number.isFinite(sla) && Number.isFinite(slo)) {
-      return pickClosestStationByGeo({ lat: sla, lon: slo }, refs);
+    if (station && Number.isFinite(station.lat) && Number.isFinite(station.lon)) {
+      return pickClosestStationByGeo(station, refs);
     }
     return refs[0] || null;
-  }
-
-  function findStationByManualArabicName(list, manualToken) {
-    if (!manualToken) return null;
-    var wantNorm = normalizeArabicNameForDur(manualToken);
-    var wantExact = nfcStringForDur(manualToken);
-    var arr = toArray(list);
-    var i;
-    for (i = 0; i < arr.length; i += 1) {
-      var s = arr[i];
-      if (!s) continue;
-      var nm = normalizeString(s.name_ar || s.name);
-      if (!nm) continue;
-      if (nfcStringForDur(nm) === wantExact) return s;
-    }
-    if (wantNorm) {
-      for (i = 0; i < arr.length; i += 1) {
-        var t = arr[i];
-        if (!t) continue;
-        var n2 = normalizeString(t.name_ar || t.name);
-        if (n2 && normalizeArabicNameForDur(n2) === wantNorm) return t;
-      }
-    }
-    return null;
   }
 
   /**
    * DUR source only: which reference station’s row in true_final_station_reference to use.
    * Weather/traits for analysis still use the operational `station` (caller responsibility).
-   * @param {Set<string>|undefined} nameNormSet — from buildTrueFinalStationNameNormSet(true_final doc)
+   * @returns {{ source: object|null, method: string }}
    */
-  function resolveReferenceStationForDurInheritance(station, stationsList, nameNormSet) {
-    nameNormSet = nameNormSet && nameNormSet.size != null ? nameNormSet : new Set();
+  function resolveReferenceStationForDurInheritance(station, stationsList) {
     if (!station) {
       return { source: null, method: 'none' };
     }
@@ -274,46 +195,26 @@
     if (explicitId) {
       var linked = findStationByIdInList(list, explicitId);
       if (linked) {
-        return {
-          source: linked,
-          method: 'manual',
-          detail: {
-            via: 'reference_station_id',
-            target_flagged_reference: !!linked.is_reference_station
-          }
-        };
+        if (linked.is_reference_station) {
+          return { source: linked, method: 'manual' };
+        }
+        return { source: null, method: 'manual_invalid', error: 'manual_target_not_reference' };
       }
       return { source: null, method: 'manual_invalid', error: 'manual_reference_not_found' };
-    }
-    var manualDurToken = normalizeString(station.reference_station_name_ar);
-    if (!manualDurToken) manualDurToken = normalizeString(station.dur_reference_station);
-    if (manualDurToken) {
-      if (/^st_[0-9a-zA-Z_-]+$/.test(manualDurToken)) {
-        var byDurId = findStationByIdInList(list, manualDurToken);
-        if (byDurId) {
-          return { source: byDurId, method: 'manual', detail: { via: 'dur_reference_station_as_id' } };
-        }
-      }
-      var byName = findStationByManualArabicName(list, manualDurToken);
-      if (byName) {
-        return { source: byName, method: 'manual', detail: { via: 'reference_station_name_ar_or_dur_reference_name' } };
-      }
     }
     var band = normalizeString(station.latitude_band_key);
     if (band) {
       var inBand = list.filter(function (s) {
-        return isEligibleDurSourceCandidate(s, nameNormSet) && normalizeString(s.latitude_band_key) === band;
+        return s && s.is_reference_station && normalizeString(s.latitude_band_key) === band;
       });
       if (inBand.length) {
-        var slaB = stationLatForDur(station);
-        var sloB = stationLonForDur(station);
-        if (Number.isFinite(slaB) && Number.isFinite(sloB)) {
-          return { source: pickClosestStationByGeo({ lat: slaB, lon: sloB }, inBand) || inBand[0], method: 'same_band' };
+        if (Number.isFinite(station.lat) && Number.isFinite(station.lon)) {
+          return { source: pickClosestStationByGeo(station, inBand) || inBand[0], method: 'same_band' };
         }
         return { source: inBand[0], method: 'same_band' };
       }
     }
-    var near = findNearestReferenceStation(station, list, nameNormSet);
+    var near = findNearestReferenceStation(station, list);
     if (near) {
       return { source: near, method: 'nearest' };
     }
@@ -1098,19 +999,6 @@
     var asOfIso = analysisDate && analysisDate.toISOString ? analysisDate.toISOString().slice(0, 10) : '';
     var trueFinalDoc = referenceData.true_final_station_reference;
     var stationsArr = trueFinalDoc && Array.isArray(trueFinalDoc.stations) ? trueFinalDoc.stations : [];
-    var trueFinalNameNormSet = buildTrueFinalStationNameNormSet(trueFinalDoc);
-
-    function logDurRefResolutionDbg(payload) {
-      if (!payload) return;
-      try {
-        if (typeof console === 'undefined' || !console) return;
-        if (options.debug_log && typeof console.debug === 'function') {
-          console.debug('NAVIDUR_DUR_REFERENCE_RESOLUTION', payload);
-        } else if (payload.matched_true_final === false && typeof console.warn === 'function') {
-          console.warn('NAVIDUR_DUR_REFERENCE_RESOLUTION', payload);
-        }
-      } catch (_e) { /* ignore */ }
-    }
 
     function failResponse(timingError) {
       return {
@@ -1168,103 +1056,41 @@
       return failResponse({ code: 'INVALID_ANALYSIS_DATE', message: 'analysis date must be a valid calendar day' });
     }
     var stationsForRef = toArray(referenceData.stations);
-    var durResolution = resolveReferenceStationForDurInheritance(station, stationsForRef, trueFinalNameNormSet);
+    var durResolution = resolveReferenceStationForDurInheritance(station, stationsForRef);
     var durSource = durResolution.source;
     if (!station.is_reference_station && !durSource) {
       var mErr = durResolution && durResolution.method === 'manual_invalid' && durResolution.error;
-      logDurRefResolutionDbg({
-        operational_station_id: normalizeString(station.id),
-        operational_station_name: normalizeString(station.name_ar || station.name),
-        manual_reference_id: normalizeString(station.reference_station_id),
-        manual_reference_name: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
-        resolved_reference_station_id: '',
-        resolved_reference_station_name_ar: '',
-        true_final_lookup_name: '',
-        matched_true_final: false,
-        reason_if_failed: mErr || 'dur_reference_unresolved'
-      });
       return failResponse(
         mErr
           ? {
             code: mErr,
             message:
               mErr === 'manual_reference_not_found'
-                ? 'reference_station_id does not match any station in the NAVIDUR station list'
-                : String(mErr)
+                ? 'reference_station_id does not match any station'
+                : 'reference_station_id must point to a reference station (is_reference_station)'
           }
           : { code: 'DUR_REFERENCE_UNRESOLVED', message: 'no reference station found for DUR inheritance' }
       );
     }
     if (!durSource) {
-      logDurRefResolutionDbg({
-        operational_station_id: normalizeString(station.id),
-        operational_station_name: normalizeString(station.name_ar || station.name),
-        manual_reference_id: normalizeString(station.reference_station_id),
-        manual_reference_name: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
-        resolved_reference_station_id: '',
-        resolved_reference_station_name_ar: '',
-        true_final_lookup_name: '',
-        matched_true_final: false,
-        reason_if_failed: 'internal_dur_source_missing'
-      });
       return failResponse({ code: 'DUR_SOURCE_MISSING', message: 'internal: DUR source missing' });
     }
-    var durNameForTrueFinal = normalizeString(durSource.name_ar || durSource.name);
-    if (!durNameForTrueFinal) {
-      logDurRefResolutionDbg({
-        operational_station_id: normalizeString(station.id),
-        operational_station_name: normalizeString(station.name_ar || station.name),
-        manual_reference_id: normalizeString(station.reference_station_id),
-        manual_reference_name: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
-        resolved_reference_station_id: normalizeString(durSource.id),
-        resolved_reference_station_name_ar: '',
-        true_final_lookup_name: '',
-        matched_true_final: false,
-        reason_if_failed: 'dur_source_station_has_no_name_for_true_final_workbook'
-      });
+    if (!normalizeString(durSource.name)) {
       return failResponse({
         code: 'STATION_NAME_REQUIRED',
-        message:
-          'DUR source station needs name or name_ar to match a row in data/true_final_station_reference.json (check linked reference station in admin / KV)'
+        message: 'Arabic station name required on reference (or link) to match data/true_final_station_reference.json'
       });
     }
 
     var tf;
     try {
-      tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: durNameForTrueFinal, asOfIso: asOfIso });
+      tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: durSource.name, asOfIso: asOfIso });
     } catch (tfEx) {
       tf = { ok: false, code: 'EXCEPTION', message: String((tfEx && tfEx.message) || tfEx) };
     }
     if (!tf || !tf.ok) {
-      var tfMsg = tf && tf.message ? String(tf.message) : 'true_final_lookup_failed';
-      logDurRefResolutionDbg({
-        operational_station_id: normalizeString(station.id),
-        operational_station_name: normalizeString(station.name_ar || station.name),
-        manual_reference_id: normalizeString(station.reference_station_id),
-        manual_reference_name: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
-        resolved_reference_station_id: normalizeString(durSource.id),
-        resolved_reference_station_name_ar: normalizeString(durSource.name_ar || durSource.name),
-        true_final_lookup_name: durNameForTrueFinal,
-        matched_true_final: false,
-        reason_if_failed: (tf && tf.code ? String(tf.code) + ': ' : '') + tfMsg
-      });
       return failResponse(tf && !tf.ok ? { code: tf.code, message: tf.message, detail: tf } : { code: 'TRUE_FINAL_LOOKUP_FAILED', message: 'station not in true_final dataset or as_of outside window' });
     }
-
-    var durRefDbgStore = {
-      operational_station_id: normalizeString(station.id),
-      operational_station_name: normalizeString(station.name_ar || station.name),
-      manual_reference_id: normalizeString(station.reference_station_id),
-      manual_reference_name: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
-      resolved_reference_station_id: normalizeString(durSource.id),
-      resolved_reference_station_name_ar: normalizeString(durSource.name_ar || durSource.name),
-      true_final_lookup_name: durNameForTrueFinal,
-      matched_true_final: true,
-      reason_if_failed: '',
-      dur_resolution_method: normalizeString(durResolution.method) || '',
-      dur_resolution_detail: durResolution.detail && typeof durResolution.detail === 'object' ? durResolution.detail : null
-    };
-    logDurRefResolutionDbg(durRefDbgStore);
 
     var dayIn = toNumber(tf.day_in_dur);
     var curMaster = findDururMasterByNameAr(referenceData, tf.current_dur_name_ar);
@@ -1374,16 +1200,15 @@
       if (m === 'nearest') return 'nearest';
       return normalizeString(m) || 'unknown';
     })(durResolution.method);
-    var durSourceDisplayName = normalizeString(durSource && (durSource.name_ar || durSource.name));
-    var _dtoOut = {
+    return {
       station_id: station.id || null,
       analysis_timestamp: analysisDateTime.toISOString(),
       tide_debug: buildTideDebugOut(),
       reference_station_id: savedRefId,
-      reference_station_name: savedRefRow ? normalizeString(savedRefRow.name_ar || savedRefRow.name) : '',
+      reference_station_name: savedRefRow ? normalizeString(savedRefRow.name) : '',
       reference_resolution_source: refResolutionSource,
       dur_source_station_id: normalizeString(durSource && durSource.id),
-      dur_source_station_name: durSourceDisplayName,
+      dur_source_station_name: normalizeString(durSource && durSource.name),
       true_final_reference_active: true,
       operational_workbook_inactive: true,
       legacy_suhail_engine_inactive: true,
@@ -1415,13 +1240,13 @@
         reference_resolved_for_dur: {
           resolution_method: durResolution.method,
           source_station_id: normalizeString(durSource.id),
-          source_station_name: durSourceDisplayName,
+          source_station_name: normalizeString(durSource.name),
           operational_station_id: normalizeString(station.id)
         },
         dur_source_station_id: normalizeString(durSource && durSource.id),
-        dur_source_station_name: durSourceDisplayName,
+        dur_source_station_name: normalizeString(durSource && durSource.name),
         calibration_reference_station_id: station.is_reference_station ? '' : normalizeString(durSource.id),
-        calibration_reference_station_name: station.is_reference_station ? '' : durSourceDisplayName,
+        calibration_reference_station_name: station.is_reference_station ? '' : normalizeString(durSource.name),
         calibration_latitude_band_key: '',
         calibration_selection_reason: station.is_reference_station
           ? 'true_final_self_reference_station'
@@ -1445,10 +1270,6 @@
         advice_text: fishingTf.advice_text
       }
     };
-    if (options.debug_log && durRefDbgStore) {
-      _dtoOut.dur_reference_resolution = durRefDbgStore;
-    }
-    return _dtoOut;
   }
 
   return {

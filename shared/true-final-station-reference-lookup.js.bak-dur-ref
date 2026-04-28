@@ -94,45 +94,13 @@ function syntheticTimelineMs(pStart, pEnd, asM, asD) {
   return { startMs: startMs, endMs: endMsW, asMs: asMsW };
 }
 
-function normalizeArabicName(value) {
-  var t = nfcString(value);
-  if (!t) return '';
-  t = t.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
-  t = t.replace(/[\u0622\u0623\u0625\u0671]/g, '\u0627');
-  t = t.replace(/\u0624/g, '\u0648');
-  t = t.replace(/\u0626/g, '\u064A');
-  return t.replace(/\s+/g, ' ').trim();
-}
-
 function findStationRow(doc, stationNameAr) {
-  var wantExact = nfcString(stationNameAr);
-  var wantNorm = normalizeArabicName(stationNameAr);
-  var list = Array.isArray(doc && doc.stations) ? doc.stations : [];
-  var i;
-  for (i = 0; i < list.length; i += 1) {
-    if (nfcString(list[i].station_name_ar) === wantExact) return list[i];
-  }
-  if (wantNorm) {
-    for (i = 0; i < list.length; i += 1) {
-      if (normalizeArabicName(list[i].station_name_ar) === wantNorm) return list[i];
-    }
-  }
-  return null;
-}
-
-/**
- * Normalized Arabic names (for matching stations to workbook rows when is_reference_station is unset).
- * @param {object} doc — true_final_station_reference root
- * @returns {Set<string>}
- */
-function buildTrueFinalStationNameNormSet(doc) {
-  var set = new Set();
+  var want = nfcString(stationNameAr);
   var list = Array.isArray(doc && doc.stations) ? doc.stations : [];
   for (var i = 0; i < list.length; i += 1) {
-    var n = normalizeArabicName(list[i].station_name_ar);
-    if (n) set.add(n);
+    if (nfcString(list[i].station_name_ar) === want) return list[i];
   }
-  return set;
+  return null;
 }
 
 /**
@@ -148,14 +116,7 @@ function getTrueFinalDurState(doc, params) {
   }
   var row = findStationRow(doc, stationNameAr);
   if (!row) {
-    return {
-      ok: false,
-      code: 'STATION_NOT_FOUND',
-      message:
-        'no matching row in true_final_station_reference.json (compare station name to station_name_ar; tried exact NFC and Arabic-normalized match)',
-      attempted_station_name_ar: stationNameAr,
-      normalized_lookup_key: normalizeArabicName(stationNameAr)
-    };
+    return { ok: false, code: 'STATION_NOT_FOUND', message: 'no row for station' };
   }
 
   var pStart = parseDayMonthDdMm(row.current_dur_start_md);
@@ -221,8 +182,5 @@ module.exports = {
   getTrueFinalDurState: getTrueFinalDurState,
   getMonthDayKey: getMonthDayKey,
   findStationRow: findStationRow,
-  parseDayMonthDdMm: parseDayMonthDdMm,
-  normalizeArabicName: normalizeArabicName,
-  buildTrueFinalStationNameNormSet: buildTrueFinalStationNameNormSet,
-  nfcString: nfcString
+  parseDayMonthDdMm: parseDayMonthDdMm
 };
