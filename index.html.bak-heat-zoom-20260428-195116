@@ -1819,10 +1819,8 @@
     let evaluatedLayer = null;
     let analysisCircle = null;
     let analysisHeatLayer = null;
-    let analysisHeatTriplets = null;
     let analysisHotspotMarker = null;
     let nvHeatToggleBound = false;
-    let nvHeatZoomListenerBound = false;
     let latestNavidurHotspotBest = null;
     let navidurCastGeo = { lat: null, lon: null, error: false, sessionStarted: false };
     let navidurCastWatchId = null;
@@ -3549,90 +3547,6 @@
       };
     }
 
-    const NAVIDUR_HEAT_GRADIENT = {
-      0.0: '#1e40af',
-      0.35: '#38bdf8',
-      0.55: '#facc15',
-      0.78: '#fb923c',
-      1.0: '#dc2626'
-    };
-
-    /**
-     * Visual-only heatmap params by zoom: soft when zoomed out, stronger when zoomed in.
-     * maxOpacity in debug = tier label (~0.35 / 0.55 / 0.75); minOpacity = value passed to Leaflet.heat.
-     */
-    function getNavidurHeatmapZoomVisualParams(zoom) {
-      const z = Number(zoom);
-      const zz = isFinite(z) ? z : 10;
-      if (zz <= 9) {
-        return { radius: 26, blur: 38, minOpacity: 0.14, maxOpacity: 0.35, max: 0.5 };
-      }
-      if (zz <= 12) {
-        return { radius: 38, blur: 24, minOpacity: 0.24, maxOpacity: 0.55, max: 0.62 };
-      }
-      return { radius: 52, blur: 14, minOpacity: 0.36, maxOpacity: 0.75, max: 0.76 };
-    }
-
-    function navidurStackMapLayersOrder() {
-      if (!stationMap) return;
-      try {
-        if (analysisHeatLayer && typeof analysisHeatLayer.bringToBack === 'function') {
-          analysisHeatLayer.bringToBack();
-        }
-        if (analysisCircle && typeof analysisCircle.bringToFront === 'function') {
-          analysisCircle.bringToFront();
-        }
-        if (evaluatedLayer && typeof evaluatedLayer.bringToFront === 'function') {
-          evaluatedLayer.bringToFront();
-        }
-        if (analysisHotspotMarker && typeof analysisHotspotMarker.bringToFront === 'function') {
-          analysisHotspotMarker.bringToFront();
-        }
-        if (navidurCastOverlayGroup && typeof navidurCastOverlayGroup.bringToFront === 'function') {
-          navidurCastOverlayGroup.bringToFront();
-        }
-        if (navidurCastUserMarker && typeof navidurCastUserMarker.bringToFront === 'function') {
-          navidurCastUserMarker.bringToFront();
-        }
-      } catch (_e) { /* ignore */ }
-    }
-
-    function navidurRebuildHeatmapForCurrentZoom() {
-      if (!stationMap || typeof L === 'undefined' || typeof L.heatLayer !== 'function') return;
-      const heatToggle = document.getElementById('toggleAnalysisHeatmap');
-      if (!heatToggle || !heatToggle.checked) return;
-      if (!analysisHeatTriplets || !analysisHeatTriplets.length) return;
-      const z = stationMap.getZoom();
-      const vis = getNavidurHeatmapZoomVisualParams(z);
-      if (analysisHeatLayer) {
-        try {
-          stationMap.removeLayer(analysisHeatLayer);
-        } catch (_e) { /* ignore */ }
-        analysisHeatLayer = null;
-      }
-      try {
-        analysisHeatLayer = L.heatLayer(analysisHeatTriplets, {
-          radius: vis.radius,
-          blur: vis.blur,
-          minOpacity: vis.minOpacity,
-          maxZoom: 18,
-          max: vis.max,
-          gradient: NAVIDUR_HEAT_GRADIENT
-        });
-        analysisHeatLayer.addTo(stationMap);
-        navidurStackMapLayersOrder();
-      } catch (_e) {
-        analysisHeatLayer = null;
-      }
-      console.debug('NAVIDUR_HEATMAP_ZOOM_VISUAL', {
-        zoom_level: z,
-        radius: vis.radius,
-        blur: vis.blur,
-        maxOpacity: vis.maxOpacity,
-        points_count: analysisHeatTriplets.length
-      });
-    }
-
     function teardownAnalysisHeatExtras() {
       if (analysisHeatLayer && stationMap) {
         try {
@@ -3640,7 +3554,6 @@
         } catch (_e) { /* ignore */ }
         analysisHeatLayer = null;
       }
-      analysisHeatTriplets = null;
       if (analysisHotspotMarker && stationMap) {
         try {
           stationMap.removeLayer(analysisHotspotMarker);
@@ -3654,12 +3567,8 @@
       const heatToggle = document.getElementById('toggleAnalysisHeatmap');
       const heatWanted = !heatToggle || heatToggle.checked;
       const list = Array.isArray(points) ? points : [];
-      if (!stationMap || !list.length) {
-        analysisHeatTriplets = null;
-        return { triplets: [], heat_ok: false, heat_error: null };
-      }
+      if (!stationMap || !list.length) return { triplets: [], heat_ok: false, heat_error: null };
       const triplets = buildHeatmapSmoothedTriplets(list);
-      analysisHeatTriplets = triplets;
       if (!heatWanted) {
         return { triplets: triplets, heat_ok: false, heat_error: 'heatmap_toggle_off' };
       }
@@ -3671,24 +3580,21 @@
         };
       }
       try {
-        const vis = getNavidurHeatmapZoomVisualParams(stationMap.getZoom());
         analysisHeatLayer = L.heatLayer(triplets, {
-          radius: vis.radius,
-          blur: vis.blur,
-          minOpacity: vis.minOpacity,
+          radius: 38,
+          blur: 26,
+          minOpacity: 0.12,
           maxZoom: 18,
-          max: vis.max,
-          gradient: NAVIDUR_HEAT_GRADIENT
+          max: 0.65,
+          gradient: {
+            0.0: '#1e40af',
+            0.35: '#38bdf8',
+            0.55: '#facc15',
+            0.78: '#fb923c',
+            1.0: '#dc2626'
+          }
         });
         analysisHeatLayer.addTo(stationMap);
-        navidurStackMapLayersOrder();
-        console.debug('NAVIDUR_HEATMAP_ZOOM_VISUAL', {
-          zoom_level: stationMap.getZoom(),
-          radius: vis.radius,
-          blur: vis.blur,
-          maxOpacity: vis.maxOpacity,
-          points_count: triplets.length
-        });
         return { triplets: triplets, heat_ok: true, heat_error: null };
       } catch (err) {
         analysisHeatLayer = null;
@@ -4436,12 +4342,6 @@
       stationMap = stationMapContext.map;
       stationMarkerLayer = stationMapContext.markerLayer;
       evaluatedLayer = L.layerGroup().addTo(stationMap);
-      if (!nvHeatZoomListenerBound) {
-        nvHeatZoomListenerBound = true;
-        stationMap.on('zoomend', function () {
-          navidurRebuildHeatmapForCurrentZoom();
-        });
-      }
       if (!nvHeatToggleBound) {
         nvHeatToggleBound = true;
         document.addEventListener('change', function (e) {
