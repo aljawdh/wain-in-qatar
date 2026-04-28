@@ -3208,78 +3208,6 @@
       return { color: '#4fa7ff', fill: '#7ec0ff' };
     }
 
-    /**
-     * Post-processing for map circle colors only. Does not modify point scores or server logic.
-     * Downgrades isolated high-score (red) points surrounded by low-scoring neighbors.
-     */
-    function computeMapPointDisplayVisuals(points) {
-      const RED_THRESHOLD = 80;
-      const BLUE_NEIGHBOR_AVG_MAX = 58;
-      const HIGH_NEIGHBOR_SCORE_MIN = 80;
-      const MIN_NEIGHBORS = 2;
-      const NEIGHBOR_RADIUS_DEG = 0.018;
-
-      const list = Array.isArray(points) ? points : [];
-      const n = list.length;
-      const scores = list.map(function (p) { return Number(p && p.score) || 0; });
-      const lats = list.map(function (p) { return Number(p && p.lat); });
-      const lons = list.map(function (p) { return Number(p && p.lon); });
-
-      const out = [];
-      for (let i = 0; i < n; i += 1) {
-        const neighScores = [];
-        for (let j = 0; j < n; j += 1) {
-          if (i === j) continue;
-          const dLat = lats[i] - lats[j];
-          const dLon = lons[i] - lons[j];
-          const dist = Math.sqrt(dLat * dLat + dLon * dLon);
-          if (dist > 0 && dist <= NEIGHBOR_RADIUS_DEG) {
-            neighScores.push(scores[j]);
-          }
-        }
-        const raw_score = scores[i];
-        const rawVisual = getScoreVisual(raw_score);
-        let neighbor_avg = neighScores.length
-          ? neighScores.reduce(function (a, b) { return a + b; }, 0) / neighScores.length
-          : null;
-        const high_neighbors_count = neighScores.filter(function (s) { return s >= HIGH_NEIGHBOR_SCORE_MIN; }).length;
-
-        let finalVisual = rawVisual;
-        let is_outlier = false;
-        if (
-          raw_score >= RED_THRESHOLD &&
-          neighScores.length >= MIN_NEIGHBORS &&
-          neighbor_avg != null &&
-          neighbor_avg <= BLUE_NEIGHBOR_AVG_MAX &&
-          high_neighbors_count < 2
-        ) {
-          is_outlier = true;
-          finalVisual = neighbor_avg >= 52 ? getScoreVisual(65) : getScoreVisual(45);
-        }
-
-        console.debug('NAVIDUR_MAP_POINT_SMOOTHING', {
-          point_id: i,
-          raw_score: raw_score,
-          raw_color: rawVisual.color,
-          neighbor_avg: neighbor_avg,
-          high_neighbors_count: high_neighbors_count,
-          final_color: finalVisual.color,
-          is_outlier: is_outlier
-        });
-
-        out.push({
-          rawVisual: rawVisual,
-          finalVisual: finalVisual,
-          rawColor: rawVisual.color,
-          finalColor: finalVisual.color,
-          is_outlier: is_outlier,
-          neighbor_avg: neighbor_avg,
-          high_neighbors_count: high_neighbors_count
-        });
-      }
-      return out;
-    }
-
     function getConfidenceMeta(score) {
       if (score >= 80) return { label: 'High', cls: 'high', labelAr: 'عالية' };
       if (score >= 60) return { label: 'Medium', cls: 'medium', labelAr: 'متوسطة' };
@@ -3441,23 +3369,17 @@
       }
 
       const points = Array.isArray(result.evaluated_points) ? result.evaluated_points : [];
-      const displayVisuals = computeMapPointDisplayVisuals(points);
-      points.forEach(function (p, idx) {
+      points.forEach(function (p) {
         const isBest = result.best_spot && p.lat === result.best_spot.lat && p.lon === result.best_spot.lon;
-        const disp = displayVisuals[idx] || { finalVisual: getScoreVisual(p.score || 0), rawVisual: getScoreVisual(p.score || 0), is_outlier: false };
-        const visual = disp.finalVisual;
+        const visual = getScoreVisual(p.score || 0);
         const gridMarker = L.circleMarker([p.lat, p.lon], {
           radius: isBest ? 11 : 6,
           color: isBest ? '#ffffff' : visual.color,
-          fillColor: isBest ? visual.fill : visual.fill,
+          fillColor: isBest ? '#ff3b30' : visual.fill,
           fillOpacity: isBest ? 0.98 : 0.82,
           weight: isBest ? 3 : 1.5
         });
-        gridMarker.bindPopup(
-          'Score: ' + p.score + '<br>Zone: ' + p.zone +
-            (disp.is_outlier ? '<br><small>عرض ملسّن (لون فقط)</small>' : '') +
-            (isBest ? '<br><strong>BEST SPOT</strong>' : '')
-        );
+        gridMarker.bindPopup('Score: ' + p.score + '<br>Zone: ' + p.zone + (isBest ? '<br><strong>BEST SPOT</strong>' : ''));
         gridMarker.addTo(evaluatedLayer);
       });
 
