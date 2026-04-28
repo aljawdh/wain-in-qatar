@@ -1820,8 +1820,6 @@
     let analysisCircle = null;
     let analysisHeatLayer = null;
     let analysisHeatTriplets = null;
-    /** Set when heatmap triplets are built — controls zoom radius/blur (cluster vs diffuse). */
-    let navidurHeatmapClusterFocusedFlag = false;
     let analysisHotspotMarker = null;
     let nvHeatToggleBound = false;
     let nvHeatZoomListenerBound = false;
@@ -3425,94 +3423,37 @@
       return Math.max(0, Math.min(100, Number(p.score) || 0));
     }
 
-    function navidurHeatmapPointEligibleForHeat(p) {
-      if (!p) return false;
-      const fs = p.final_status != null ? String(p.final_status).trim().toLowerCase() : '';
-      if (fs === 'confirmed_land') return false;
-      const ws = p.water_status != null ? String(p.water_status).trim().toLowerCase() : '';
-      if (ws === 'confirmed_land') return false;
-      const k = p._nv_water_kind != null ? p._nv_water_kind : navidurClassifyPointWaterKind(p);
-      return k !== 'land';
-    }
-
-    /** Visual-only tier weight: scores under 50 excluded; 50–64 light, 65–74 medium, 75+ strong. */
-    function navidurHeatmapTierMultiplier(score) {
-      const s = Number(score);
-      if (!isFinite(s) || s < 50) return null;
-      if (s < 65) return 0.24;
-      if (s < 75) return 0.52;
-      return 1.0;
-    }
-
     /**
-     * Heatmap triplets: water-safe, score thresholds, optional cluster focus — display only (no engine/DTO change).
+     * Spatial smoothing for heatmap intensities only (does not alter point scores).
+     * Gaussian weights by planar distance in degrees; caps intensity for softer overlay.
      */
-    function buildNavidurHeatmapPrecisionTriplets(points, hsResult) {
+    function buildHeatmapSmoothedTriplets(points) {
       const list = Array.isArray(points) ? points : [];
-      const hs = hsResult && typeof hsResult === 'object' ? hsResult : {};
-      const best = hs.best || null;
-      const cluster_focused = !!(best && best.center_lat != null && best.center_lon != null);
-      let reason_if_no_cluster = '';
-      if (!cluster_focused) {
-        if (!list.length) {
-          reason_if_no_cluster = 'no_points';
-        } else if (!hs.highIdx || !hs.highIdx.length) {
-          reason_if_no_cluster = 'no_high_activity_points';
-        } else if (!hs.clusters || !hs.clusters.length) {
-          reason_if_no_cluster = 'high_activity_not_clustered';
-        } else {
-          reason_if_no_cluster = 'no_best_cluster';
-        }
-      }
-      const total_points = list.length;
-      let water_points = 0;
-      let points_above_50 = 0;
-      let points_above_65 = 0;
-      let points_above_75 = 0;
-      for (let i = 0; i < list.length; i += 1) {
-        const p = list[i];
-        if (!navidurHeatmapPointEligibleForHeat(p)) continue;
-        water_points += 1;
-        const s = navidurPointScoreForHeat(p);
-        if (s >= 50) points_above_50 += 1;
-        if (s >= 65) points_above_65 += 1;
-        if (s >= 75) points_above_75 += 1;
-      }
+      const n = list.length;
+      if (!n) return [];
+      const NEIGHBOR_RAD_DEG = 0.014;
+      const sigma = NEIGHBOR_RAD_DEG / 2.2;
+      const INTENSITY_CAP = 0.58;
+      const scores = list.map(function (p) { return navidurPointScoreForHeat(p); });
+      const lats = list.map(function (p) { return Number(p && p.lat); });
+      const lons = list.map(function (p) { return Number(p && p.lon); });
       const triplets = [];
-      const INTENSITY_CAP = cluster_focused ? 0.46 : 0.24;
-      const NO_CLUSTER_SCALE = 0.19;
-      const CLUSTER_SIGMA_M = 420;
-      for (let j = 0; j < list.length; j += 1) {
-        const p = list[j];
-        if (!navidurHeatmapPointEligibleForHeat(p)) continue;
-        const k = p._nv_water_kind != null ? p._nv_water_kind : navidurClassifyPointWaterKind(p);
-        const s = navidurPointScoreForHeat(p);
-        const tierMul = navidurHeatmapTierMultiplier(s);
-        if (tierMul == null) continue;
-        const unknownMul = k === 'unknown' ? 0.4 : 1.0;
-        let intensity = tierMul * unknownMul;
-        if (cluster_focused) {
-          const dM = haversineKm(Number(p.lat), Number(p.lon), best.center_lat, best.center_lon) * 1000;
-          const focusMul = Math.exp(-(dM * dM) / (2 * CLUSTER_SIGMA_M * CLUSTER_SIGMA_M));
-          intensity *= focusMul;
-        } else {
-          intensity *= NO_CLUSTER_SCALE;
+      for (let i = 0; i < n; i += 1) {
+        let wsum = 0;
+        let ssum = 0;
+        for (let j = 0; j < n; j += 1) {
+          const dLat = lats[i] - lats[j];
+          const dLon = lons[i] - lons[j];
+          const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+          if (dist > NEIGHBOR_RAD_DEG) continue;
+          const w = dist < 1e-9 ? 1 : Math.exp(-(dist * dist) / (2 * sigma * sigma));
+          wsum += w;
+          ssum += w * (scores[j] / 100);
         }
-        intensity = Math.min(INTENSITY_CAP, intensity);
-        if (intensity < 0.018) continue;
-        triplets.push([Number(p.lat), Number(p.lon), intensity]);
+        const intensity = wsum > 0 ? Math.min(1, (ssum / wsum) * INTENSITY_CAP) : 0;
+        triplets.push([lats[i], lons[i], intensity]);
       }
-      const debug = {
-        total_points: total_points,
-        water_points: water_points,
-        points_above_50: points_above_50,
-        points_above_65: points_above_65,
-        points_above_75: points_above_75,
-        cluster_focused: cluster_focused,
-        heatmap_triplets_used: triplets.length,
-        reason_if_no_cluster: cluster_focused ? '' : reason_if_no_cluster
-      };
-      return { triplets: triplets, debug: debug };
+      return triplets;
     }
 
     function clusterHighActivityHotspot(points, station) {
@@ -3618,29 +3559,19 @@
     };
 
     /**
-     * Visual-only heatmap params by zoom: low zoom = broad, soft; high zoom = tight radius/blur;
-     * diffuse mode (no cluster) keeps maxOpacity low to avoid full-disc saturation.
+     * Visual-only heatmap params by zoom: soft when zoomed out, stronger when zoomed in.
+     * maxOpacity in debug = tier label (~0.35 / 0.55 / 0.75); minOpacity = value passed to Leaflet.heat.
      */
-    function getNavidurHeatmapZoomVisualParams(zoom, clusterFocused) {
+    function getNavidurHeatmapZoomVisualParams(zoom) {
       const z = Number(zoom);
       const zz = isFinite(z) ? z : 10;
-      const focused = clusterFocused === true;
-      if (focused) {
-        if (zz <= 9) {
-          return { radius: 22, blur: 28, minOpacity: 0.1, maxOpacity: 0.38, max: 0.52 };
-        }
-        if (zz <= 12) {
-          return { radius: 16, blur: 15, minOpacity: 0.16, maxOpacity: 0.52, max: 0.58 };
-        }
-        return { radius: 11, blur: 9, minOpacity: 0.2, maxOpacity: 0.62, max: 0.64 };
-      }
       if (zz <= 9) {
-        return { radius: 28, blur: 34, minOpacity: 0.08, maxOpacity: 0.28, max: 0.42 };
+        return { radius: 26, blur: 38, minOpacity: 0.14, maxOpacity: 0.35, max: 0.5 };
       }
       if (zz <= 12) {
-        return { radius: 22, blur: 22, minOpacity: 0.1, maxOpacity: 0.32, max: 0.48 };
+        return { radius: 38, blur: 24, minOpacity: 0.24, maxOpacity: 0.55, max: 0.62 };
       }
-      return { radius: 15, blur: 12, minOpacity: 0.12, maxOpacity: 0.36, max: 0.5 };
+      return { radius: 52, blur: 14, minOpacity: 0.36, maxOpacity: 0.75, max: 0.76 };
     }
 
     function navidurStackMapLayersOrder() {
@@ -3673,7 +3604,7 @@
       if (!heatToggle || !heatToggle.checked) return;
       if (!analysisHeatTriplets || !analysisHeatTriplets.length) return;
       const z = stationMap.getZoom();
-      const vis = getNavidurHeatmapZoomVisualParams(z, navidurHeatmapClusterFocusedFlag);
+      const vis = getNavidurHeatmapZoomVisualParams(z);
       if (analysisHeatLayer) {
         try {
           stationMap.removeLayer(analysisHeatLayer);
@@ -3711,7 +3642,6 @@
         analysisHeatLayer = null;
       }
       analysisHeatTriplets = null;
-      navidurHeatmapClusterFocusedFlag = false;
       if (analysisHotspotMarker && stationMap) {
         try {
           stationMap.removeLayer(analysisHotspotMarker);
@@ -3721,22 +3651,16 @@
     }
 
     /** Heatmap sits under the analysis radius circle; sample points and hotspot marker stay on top. */
-    function addAnalysisHeatmapLayer(points, clusterHotspotResult) {
+    function addAnalysisHeatmapLayer(points) {
       const heatToggle = document.getElementById('toggleAnalysisHeatmap');
       const heatWanted = !heatToggle || heatToggle.checked;
       const list = Array.isArray(points) ? points : [];
       if (!stationMap || !list.length) {
         analysisHeatTriplets = null;
-        navidurHeatmapClusterFocusedFlag = false;
-        const emptyBuilt = buildNavidurHeatmapPrecisionTriplets([], clusterHotspotResult);
-        console.debug('NAVIDUR_HEATMAP_PRECISION', emptyBuilt.debug);
         return { triplets: [], heat_ok: false, heat_error: null };
       }
-      const built = buildNavidurHeatmapPrecisionTriplets(list, clusterHotspotResult);
-      analysisHeatTriplets = built.triplets;
-      navidurHeatmapClusterFocusedFlag = built.debug.cluster_focused === true;
-      console.debug('NAVIDUR_HEATMAP_PRECISION', built.debug);
-      const triplets = built.triplets;
+      const triplets = buildHeatmapSmoothedTriplets(list);
+      analysisHeatTriplets = triplets;
       if (!heatWanted) {
         return { triplets: triplets, heat_ok: false, heat_error: 'heatmap_toggle_off' };
       }
@@ -3748,7 +3672,7 @@
         };
       }
       try {
-        const vis = getNavidurHeatmapZoomVisualParams(stationMap.getZoom(), navidurHeatmapClusterFocusedFlag);
+        const vis = getNavidurHeatmapZoomVisualParams(stationMap.getZoom());
         analysisHeatLayer = L.heatLayer(triplets, {
           radius: vis.radius,
           blur: vis.blur,
@@ -4048,7 +3972,7 @@
       }
     }
 
-    function updateHotspotClusterUi(result, station, points, heatMeta, waterUi, precomputedHs) {
+    function updateHotspotClusterUi(result, station, points, heatMeta, waterUi) {
       waterUi = waterUi || {};
       const summaryEl = document.getElementById('hotspotSummaryText');
       const list = Array.isArray(points) ? points : [];
@@ -4100,7 +4024,7 @@
         reason_if_no_hotspot = reason_if_no_hotspot || 'تعذر عرض الحرارة: ' + heatMeta.heat_error;
       }
 
-      const hs = precomputedHs != null ? precomputedHs : clusterHighActivityHotspot(list, station);
+      const hs = clusterHighActivityHotspot(list, station);
       const clusters_count = hs.clusters.length;
       const best = hs.best;
       const best_cluster = best
@@ -4121,7 +4045,7 @@
           ('لا يوجد هوتسبوت واضح داخل نطاق التحليل — يتطلب تجمّع ' + hs.minCluster + ' نقاط قريبة عالية');
       }
 
-      let summaryText = 'النشاط منتشر وغير حاسم';
+      let summaryText = 'لا يوجد هوتسبوت واضح؛ النشاط متشتت أو ضعيف.';
       if (best && hs.direction_from_station != null && hs.distance_from_station_m != null) {
         summaryText =
           'أفضل نشاط مرصود: ' +
@@ -4151,7 +4075,7 @@
           analysisHotspotMarker.addTo(stationMap);
         }
       } else if (hs.clusters.length === 0 && hs.highIdx.length > 0) {
-        summaryText = 'النشاط منتشر وغير حاسم';
+        summaryText = 'لا يوجد هوتسبوت واضح داخل نطاق التحليل';
       }
 
       if (summaryEl) summaryEl.textContent = summaryText;
@@ -4673,11 +4597,7 @@
         });
       }
 
-      let hsClusterResult = null;
-      if (!insufficientAquatic && aquaticPoints.length) {
-        hsClusterResult = clusterHighActivityHotspot(aquaticPoints, station);
-      }
-      const heatMeta = insufficientAquatic ? addAnalysisHeatmapLayer([], null) : addAnalysisHeatmapLayer(aquaticPoints, hsClusterResult);
+      const heatMeta = insufficientAquatic ? addAnalysisHeatmapLayer([]) : addAnalysisHeatmapLayer(aquaticPoints);
 
       if (analysisCircle) {
         analysisCircle.remove();
@@ -4690,7 +4610,7 @@
         fillOpacity: 0.08
       }).addTo(stationMap);
 
-      updateHotspotClusterUi(result, station, aquaticPoints, heatMeta, { insufficientAquatic: insufficientAquatic }, hsClusterResult);
+      updateHotspotClusterUi(result, station, aquaticPoints, heatMeta, { insufficientAquatic: insufficientAquatic });
 
       const heatToggleEl = document.getElementById('toggleAnalysisHeatmap');
       console.debug('NAVIDUR_SAMPLE_POINTS_VISIBILITY', {
