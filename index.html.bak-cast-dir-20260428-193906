@@ -278,62 +278,6 @@
       color: #c4e8ff;
       line-height: 1.55;
     }
-    .nv-cast-direction-bar {
-      padding: 10px 12px 12px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-      background: rgba(6, 28, 42, 0.45);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .cast-direction-line {
-      font-size: 13px;
-      font-weight: 800;
-      color: #dff4ff;
-      line-height: 1.55;
-    }
-    .cast-gps-hint {
-      font-size: 11px;
-      color: #8db2c8;
-      font-weight: 600;
-    }
-    .cast-direction-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-    }
-    .cast-direction-actions button {
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 800;
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(94, 207, 255, 0.45);
-      background: rgba(15, 80, 110, 0.55);
-      color: #c8efff;
-      cursor: pointer;
-    }
-    .cast-direction-actions button:hover {
-      background: rgba(25, 100, 135, 0.65);
-    }
-    .cast-direction-status {
-      font-size: 12px;
-      font-weight: 700;
-      color: #fbbf24;
-      min-height: 1.2em;
-    }
-    .nv-cast-target-ico {
-      background: rgba(15, 40, 55, 0.82);
-      border: 1px solid rgba(255,255,255,0.35);
-      border-radius: 6px;
-      color: #e0f2fe;
-      font-size: 10px;
-      font-weight: 800;
-      text-align: center;
-      line-height: 18px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-    }
     #stationMap {
       height: 420px;
       width: 100%;
@@ -1119,15 +1063,6 @@
         </div>
       </div>
       <div id="stationMap"></div>
-      <div class="nv-cast-direction-bar">
-        <div id="castDirectionLine" class="cast-direction-line">فعّل موقعي لعرض اتجاه الرمي.</div>
-        <div id="castGpsHint" class="cast-gps-hint">قد تختلف الدقة ±10–20م حسب GPS — الاتجاه محسوب هندسيًا وليس بوصلة الجهاز.</div>
-        <div class="cast-direction-actions">
-          <button type="button" id="castEnableLocationBtn">تفعيل موقعي لتحديد اتجاه الرمي</button>
-          <button type="button" id="castLiveToggleBtn" style="display:none">إيقاف التحديث اللحظي</button>
-        </div>
-        <div id="castDirectionStatus" class="cast-direction-status"></div>
-      </div>
     </div>
 
     <div class="nv-glass nv-dur-hero hero card dorah-priority" id="durHeroBlock">
@@ -1820,14 +1755,6 @@
     let analysisHeatLayer = null;
     let analysisHotspotMarker = null;
     let nvHeatToggleBound = false;
-    let latestNavidurHotspotBest = null;
-    let navidurCastGeo = { lat: null, lon: null, error: false, sessionStarted: false };
-    let navidurCastWatchId = null;
-    let navidurCastPollTimer = null;
-    let navidurCastLiveEnabled = true;
-    let navidurCastUserMarker = null;
-    let navidurCastOverlayGroup = null;
-    let navidurCastFittedOnce = false;
     let stationMarkerMap = new Map();
     let latestHotspotResult = null;
     let currentSharedAnalysisDto = null;
@@ -3601,281 +3528,6 @@
       }
     }
 
-    function roundCastDistanceM(meters) {
-      if (!isFinite(meters)) return 0;
-      if (meters < 150) return Math.round(meters / 5) * 5;
-      return Math.round(meters / 10) * 10;
-    }
-
-    function navidurCastLineColor(avgScore) {
-      const t = Math.max(0, Math.min(1, (Number(avgScore) || 0) / 100));
-      const r = Math.round(56 + (220 - 56) * t);
-      const g = Math.round(189 + (38 - 189) * t);
-      const b = Math.round(248 + (38 - 248) * t);
-      return 'rgb(' + r + ',' + g + ',' + b + ')';
-    }
-
-    /** Destination point from (lat,lon) moving bearingDeg (0=north) for distM meters. */
-    function navidurDestinationFrom(lat, lon, bearingDeg, distM) {
-      const toRad = Math.PI / 180;
-      const R = 6371000;
-      const δ = distM / R;
-      const θ = bearingDeg * toRad;
-      const φ1 = lat * toRad;
-      const λ1 = lon * toRad;
-      const sinφ1 = Math.sin(φ1);
-      const cosφ1 = Math.cos(φ1);
-      const sinδ = Math.sin(δ);
-      const cosδ = Math.cos(δ);
-      const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
-      const φ2 = Math.asin(sinφ2);
-      const y = Math.sin(θ) * sinδ * cosφ1;
-      const x = cosδ - sinφ1 * sinφ2;
-      const λ2 = λ1 + Math.atan2(y, x);
-      return {
-        lat: φ2 / toRad,
-        lon: (((λ2 / toRad) + 540) % 360) - 180
-      };
-    }
-
-    function navidurClearCastMapOverlays() {
-      if (navidurCastOverlayGroup && stationMap) {
-        try {
-          stationMap.removeLayer(navidurCastOverlayGroup);
-        } catch (_e) { /* ignore */ }
-        navidurCastOverlayGroup = null;
-      }
-      if (navidurCastUserMarker && stationMap) {
-        try {
-          stationMap.removeLayer(navidurCastUserMarker);
-        } catch (_e) { /* ignore */ }
-        navidurCastUserMarker = null;
-      }
-    }
-
-    function navidurStopCastLiveTracking() {
-      if (navidurCastWatchId != null && navigator.geolocation) {
-        try {
-          navigator.geolocation.clearWatch(navidurCastWatchId);
-        } catch (_e) { /* ignore */ }
-        navidurCastWatchId = null;
-      }
-      if (navidurCastPollTimer != null) {
-        clearInterval(navidurCastPollTimer);
-        navidurCastPollTimer = null;
-      }
-    }
-
-    function navidurStartCastLiveTracking() {
-      navidurStopCastLiveTracking();
-      if (!navidurCastLiveEnabled || !navigator.geolocation || !navidurCastGeo.sessionStarted) return;
-      navidurCastWatchId = navigator.geolocation.watchPosition(
-        function (pos) {
-          navidurCastGeo.lat = Number(pos.coords.latitude);
-          navidurCastGeo.lon = Number(pos.coords.longitude);
-          navidurCastGeo.error = false;
-          const statusEl = document.getElementById('castDirectionStatus');
-          if (statusEl) statusEl.textContent = '';
-          navidurRefreshCastDirectionMapAndUi();
-        },
-        function () {
-          navidurCastGeo.error = true;
-          const statusEl = document.getElementById('castDirectionStatus');
-          if (statusEl) statusEl.textContent = 'تعذر تحديد موقعك الحالي';
-          navidurRefreshCastDirectionMapAndUi();
-        },
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
-      );
-      navidurCastPollTimer = setInterval(function () {
-        if (!navidurCastLiveEnabled || !navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-          function (pos) {
-            navidurCastGeo.lat = Number(pos.coords.latitude);
-            navidurCastGeo.lon = Number(pos.coords.longitude);
-            navidurCastGeo.error = false;
-            const statusEl = document.getElementById('castDirectionStatus');
-            if (statusEl) statusEl.textContent = '';
-            navidurRefreshCastDirectionMapAndUi();
-          },
-          function () { /* silent — watch handles errors */ },
-          { enableHighAccuracy: true, maximumAge: 12000, timeout: 12000 }
-        );
-      }, 12000);
-    }
-
-    function navidurRequestCastGeolocation() {
-      if (!navigator.geolocation) {
-        navidurCastGeo.error = true;
-        navidurCastGeo.sessionStarted = true;
-        const statusEl = document.getElementById('castDirectionStatus');
-        if (statusEl) statusEl.textContent = 'تعذر تحديد موقعك الحالي';
-        navidurRefreshCastDirectionMapAndUi();
-        return;
-      }
-      navidurCastGeo.sessionStarted = true;
-      navidurCastFittedOnce = false;
-      const liveBtn = document.getElementById('castLiveToggleBtn');
-      if (liveBtn) {
-        liveBtn.style.display = 'inline-block';
-        liveBtn.textContent = navidurCastLiveEnabled ? 'إيقاف التحديث اللحظي' : 'تفعيل التحديث اللحظي';
-      }
-      navigator.geolocation.getCurrentPosition(
-        function (pos) {
-          navidurCastGeo.lat = Number(pos.coords.latitude);
-          navidurCastGeo.lon = Number(pos.coords.longitude);
-          navidurCastGeo.error = false;
-          const statusEl = document.getElementById('castDirectionStatus');
-          if (statusEl) statusEl.textContent = '';
-          navidurStartCastLiveTracking();
-          navidurRefreshCastDirectionMapAndUi();
-        },
-        function () {
-          navidurCastGeo.error = true;
-          const statusEl = document.getElementById('castDirectionStatus');
-          if (statusEl) statusEl.textContent = 'تعذر تحديد موقعك الحالي';
-          navidurRefreshCastDirectionMapAndUi();
-        },
-        { enableHighAccuracy: true, timeout: 14000, maximumAge: 0 }
-      );
-    }
-
-    function navidurRefreshCastDirectionMapAndUi() {
-      const lineEl = document.getElementById('castDirectionLine');
-      const statusEl = document.getElementById('castDirectionStatus');
-      const hbest = latestNavidurHotspotBest;
-      const hlat = hbest && hbest.center_lat != null ? Number(hbest.center_lat) : null;
-      const hlon = hbest && hbest.center_lon != null ? Number(hbest.center_lon) : null;
-      const avgScore = hbest != null && hbest.avg_score != null ? Number(hbest.avg_score) : null;
-      const ulat = navidurCastGeo.lat;
-      const ulon = navidurCastGeo.lon;
-
-      const debugPayload = {
-        user_lat: ulat,
-        user_lng: ulon,
-        hotspot_lat: isFinite(hlat) ? hlat : null,
-        hotspot_lng: isFinite(hlon) ? hlon : null,
-        bearing_deg: null,
-        direction_text: null,
-        distance_m: null,
-        avg_score: avgScore
-      };
-
-      if (!hbest || !isFinite(hlat) || !isFinite(hlon)) {
-        navidurClearCastMapOverlays();
-        if (lineEl) lineEl.textContent = 'لا يوجد اتجاه رمي واضح الآن';
-        console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
-        return;
-      }
-
-      if (ulat == null || ulon == null || !isFinite(ulat) || !isFinite(ulon)) {
-        navidurClearCastMapOverlays();
-        if (navidurCastGeo.error && navidurCastGeo.sessionStarted) {
-          if (lineEl) lineEl.textContent = 'تعذر تحديد موقعك الحالي';
-          if (statusEl) statusEl.textContent = 'تعذر تحديد موقعك الحالي';
-        } else {
-          if (lineEl) lineEl.textContent = 'فعّل موقعي لعرض اتجاه الرمي.';
-          if (statusEl && !navidurCastGeo.error) statusEl.textContent = '';
-        }
-        console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
-        return;
-      }
-
-      const bearing = bearingDegFromTo(ulat, ulon, hlat, hlon);
-      const dirText = windDirText8(bearing);
-      const rawM = haversineKm(ulat, ulon, hlat, hlon) * 1000;
-      const distRounded = roundCastDistanceM(rawM);
-      debugPayload.bearing_deg = bearing;
-      debugPayload.direction_text = dirText;
-      debugPayload.distance_m = distRounded;
-
-      if (lineEl) {
-        if (rawM < 10) {
-          lineEl.textContent = 'أنت قريب جدًا من أفضل نقطة — قوة ' + Math.round(avgScore || 0) + '%';
-        } else {
-          lineEl.textContent =
-            'اتجاه الرمي: ' + dirText + ' — ' + distRounded + 'م — قوة ' + Math.round(avgScore || 0) + '%';
-        }
-      }
-      if (statusEl && !navidurCastGeo.error) statusEl.textContent = '';
-
-      if (!stationMap) {
-        console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
-        return;
-      }
-
-      navidurClearCastMapOverlays();
-      const lineColor = navidurCastLineColor(avgScore);
-      navidurCastOverlayGroup = L.layerGroup();
-      const pl = L.polyline([[ulat, ulon], [hlat, hlon]], {
-        color: lineColor,
-        weight: 4,
-        opacity: 0.9
-      });
-      navidurCastOverlayGroup.addLayer(pl);
-
-      const baseMid = navidurDestinationFrom(hlat, hlon, bearing + 180, 42);
-      const left = navidurDestinationFrom(baseMid.lat, baseMid.lon, bearing - 90, 20);
-      const right = navidurDestinationFrom(baseMid.lat, baseMid.lon, bearing + 90, 20);
-      const arrow = L.polygon([[hlat, hlon], [left.lat, left.lon], [right.lat, right.lon]], {
-        color: lineColor,
-        fillColor: lineColor,
-        fillOpacity: 0.92,
-        weight: 2
-      });
-      navidurCastOverlayGroup.addLayer(arrow);
-
-      const targetIcon = L.divIcon({
-        className: 'nv-cast-target-ico',
-        html: '<span>Target</span>',
-        iconSize: [52, 20],
-        iconAnchor: [26, 28]
-      });
-      navidurCastOverlayGroup.addLayer(L.marker([hlat, hlon], { icon: targetIcon, zIndexOffset: 350 }));
-
-      navidurCastUserMarker = L.circleMarker([ulat, ulon], {
-        radius: 8,
-        color: '#0f766e',
-        weight: 2,
-        fillColor: '#5eead4',
-        fillOpacity: 0.92,
-        className: 'navidur-cast-user-marker'
-      });
-      navidurCastUserMarker.bindPopup('موقعك — اتجاه الرمي');
-
-      navidurCastOverlayGroup.addTo(stationMap);
-      navidurCastUserMarker.addTo(stationMap);
-
-      if (navidurCastGeo.sessionStarted && !navidurCastFittedOnce) {
-        navidurCastFittedOnce = true;
-        try {
-          stationMap.fitBounds(L.latLngBounds([[ulat, ulon], [hlat, hlon]]), { padding: [52, 52], maxZoom: 15, animate: true });
-        } catch (_e) { /* ignore */ }
-      }
-
-      console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
-    }
-
-    function navidurBindCastDirectionControls() {
-      const enableBtn = document.getElementById('castEnableLocationBtn');
-      const liveBtn = document.getElementById('castLiveToggleBtn');
-      if (enableBtn) {
-        enableBtn.addEventListener('click', function () {
-          navidurRequestCastGeolocation();
-        });
-      }
-      if (liveBtn) {
-        liveBtn.addEventListener('click', function () {
-          navidurCastLiveEnabled = !navidurCastLiveEnabled;
-          liveBtn.textContent = navidurCastLiveEnabled ? 'إيقاف التحديث اللحظي' : 'تفعيل التحديث اللحظي';
-          if (navidurCastLiveEnabled && navidurCastGeo.sessionStarted) {
-            navidurStartCastLiveTracking();
-          } else {
-            navidurStopCastLiveTracking();
-          }
-        });
-      }
-    }
-
     function updateHotspotClusterUi(result, station, points, heatMeta) {
       const summaryEl = document.getElementById('hotspotSummaryText');
       const list = Array.isArray(points) ? points : [];
@@ -3883,7 +3535,6 @@
       const heatmap_points_count = heatMeta && heatMeta.triplets ? heatMeta.triplets.length : 0;
 
       if (!list.length) {
-        latestNavidurHotspotBest = null;
         reason_if_no_hotspot = 'لا توجد نقاط تحليل';
         if (summaryEl) summaryEl.textContent = 'لا يوجد هوتسبوت واضح؛ النشاط متشتت أو ضعيف.';
         console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
@@ -3896,7 +3547,6 @@
           distance_from_station_m: null,
           reason_if_no_hotspot: reason_if_no_hotspot
         });
-        navidurRefreshCastDirectionMapAndUi();
         return;
       }
 
@@ -3959,17 +3609,6 @@
       }
 
       if (summaryEl) summaryEl.textContent = summaryText;
-
-      if (best && best.center_lat != null && best.center_lon != null) {
-        latestNavidurHotspotBest = {
-          center_lat: best.center_lat,
-          center_lon: best.center_lon,
-          avg_score: best.avg_score
-        };
-      } else {
-        latestNavidurHotspotBest = null;
-      }
-      navidurRefreshCastDirectionMapAndUi();
 
       console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
         heatmap_points_count: heatmap_points_count,
@@ -4902,7 +4541,6 @@
         updateStationFlowHint(stationLoad.warning);
       }
       initStationMap();
-      navidurBindCastDirectionControls();
       applyLocationModeUi();
       const locationSeenKey = 'navidur_location_prompt_seen';
       if (!localStorage.getItem(locationSeenKey) && !userGeoState.granted && !userGeoState.promptRequested) {
