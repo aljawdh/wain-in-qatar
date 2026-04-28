@@ -1660,32 +1660,14 @@
     class NavidurStation {
       constructor(index, base) {
         this.index = index;
-        const apiId = base && base.id != null ? String(base.id).trim() : '';
-        this.id = apiId || ('st_' + String(index + 1).padStart(3, '0'));
+        this.id = 'st_' + String(index + 1).padStart(3, '0');
         this.name = base.name;
         this.country = base.country;
         this.region = base.region || '';
         this.lat = base.lat;
         this.lng = base.lng;
         this.flag = base.flag;
-        if (base.name_ar != null && String(base.name_ar).trim() !== '') {
-          this.name_ar = String(base.name_ar).trim();
-        }
-        if (base.reference_station_id != null && String(base.reference_station_id).trim() !== '') {
-          this.reference_station_id = String(base.reference_station_id).trim();
-        }
-        if (base.reference_station_name_ar != null && String(base.reference_station_name_ar).trim() !== '') {
-          this.reference_station_name_ar = String(base.reference_station_name_ar).trim();
-        }
-        if (base.dur_reference_station != null && String(base.dur_reference_station).trim() !== '') {
-          this.dur_reference_station = String(base.dur_reference_station).trim();
-        }
-        this.is_reference_station = base.is_reference_station === true;
-        if (base.latitude_band_key != null && String(base.latitude_band_key).trim() !== '') {
-          this.latitude_band_key = String(base.latitude_band_key).trim();
-        }
         this.defaultRadius = Number(base.default_radius || 0.02);
-        this.default_radius = this.defaultRadius;
         this.timezone = COUNTRY_TIMEZONES[base.country] || 'Asia/Qatar';
         this.utcOffset = COUNTRY_UTC_OFFSET_HOURS[base.country] || 3;
         const mappedBathymetry = STATION_BATHYMETRY[base.name] || null;
@@ -1761,17 +1743,8 @@
         is_reference_station: st.is_reference_station === true,
         latitude_band_key: String(st.latitude_band_key || '')
       };
-      if (st.name_ar != null && String(st.name_ar).trim() !== '') {
-        base.name_ar = String(st.name_ar).trim();
-      }
       if (st.reference_station_id != null && String(st.reference_station_id).trim() !== '') {
         base.reference_station_id = String(st.reference_station_id);
-      }
-      if (st.reference_station_name_ar != null && String(st.reference_station_name_ar).trim() !== '') {
-        base.reference_station_name_ar = String(st.reference_station_name_ar).trim();
-      }
-      if (st.dur_reference_station != null && String(st.dur_reference_station).trim() !== '') {
-        base.dur_reference_station = String(st.dur_reference_station).trim();
       }
       return base;
     }

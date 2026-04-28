@@ -80,6 +80,10 @@
     if (opts.field_validation != null && typeof opts.field_validation === 'object') {
       body.field_validation = opts.field_validation;
     }
+    if (opts.debug_log === true || opts.debug_analysis === true) {
+      body.debug_log = true;
+      body.debug_analysis = true;
+    }
     var attemptFetch = function (b) {
       return fetchSharedAnalysis(b);
     };
