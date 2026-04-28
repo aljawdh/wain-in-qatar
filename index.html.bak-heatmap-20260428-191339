@@ -235,48 +235,12 @@
       padding: 12px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 8px;
       font-size: 13px;
       color: #b9ddf2;
       font-weight: 800;
-      flex-wrap: wrap;
-    }
-    .map-head-right {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-      text-align: right;
-      max-width: min(100%, 520px);
-    }
-    .map-head-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-    }
-    .nv-heatmap-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 700;
-      color: #9fd1ec;
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
-    }
-    .nv-heatmap-toggle input {
-      accent-color: #5ecfff;
-    }
-    .hotspot-summary-line {
-      font-size: 12px;
-      font-weight: 700;
-      color: #c4e8ff;
-      line-height: 1.55;
     }
     #stationMap {
       height: 420px;
@@ -1054,13 +1018,7 @@
     <div class="card map-card">
       <div class="map-head">
         <span>خريطة المحطات والتحليل</span>
-        <div class="map-head-right">
-          <div class="map-head-row">
-            <label class="nv-heatmap-toggle"><input type="checkbox" id="toggleAnalysisHeatmap" checked /> خريطة حرارية</label>
-            <span id="mapMetaText">نطاق التحليل: 0.02</span>
-          </div>
-          <div id="hotspotSummaryText" class="hotspot-summary-line">—</div>
-        </div>
+        <span id="mapMetaText">نطاق التحليل: 0.02</span>
       </div>
       <div id="stationMap"></div>
     </div>
@@ -1187,7 +1145,6 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
-  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="/shared/station-map-ui.js"></script>
   <script>window.IS_ADMIN = false;</script>
   <script src="/shared/navidur-live-analysis.js"></script>
@@ -1752,9 +1709,6 @@
     let stationMarkerLayer = null;
     let evaluatedLayer = null;
     let analysisCircle = null;
-    let analysisHeatLayer = null;
-    let analysisHotspotMarker = null;
-    let nvHeatToggleBound = false;
     let stationMarkerMap = new Map();
     let latestHotspotResult = null;
     let currentSharedAnalysisDto = null;
@@ -1906,18 +1860,6 @@
         Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
-    }
-
-    /** Bearing from (lat1,lon1) to (lat2,lon2), degrees 0–360 (0 = north). */
-    function bearingDegFromTo(lat1, lon1, lat2, lon2) {
-      const toRad = function (v) { return (v * Math.PI) / 180; };
-      const φ1 = toRad(lat1);
-      const φ2 = toRad(lat2);
-      const Δλ = toRad(lon2 - lon1);
-      const y = Math.sin(Δλ) * Math.cos(φ2);
-      const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-      const θ = (Math.atan2(y, x) * 180) / Math.PI;
-      return (θ + 360) % 360;
     }
 
     function getOrderedStationsForList(stationsInput) {
@@ -3338,290 +3280,6 @@
       return out;
     }
 
-    /** Score used only for heatmap/hotspot spatial UI; prefers normalized_score, then raw_score, then score — no recomputation. */
-    function navidurPointScoreForHeat(p) {
-      if (p == null) return 0;
-      if (p.normalized_score != null && !isNaN(Number(p.normalized_score))) return Math.max(0, Math.min(100, Number(p.normalized_score)));
-      if (p.raw_score != null && !isNaN(Number(p.raw_score))) return Math.max(0, Math.min(100, Number(p.raw_score)));
-      return Math.max(0, Math.min(100, Number(p.score) || 0));
-    }
-
-    /**
-     * Spatial smoothing for heatmap intensities only (does not alter point scores).
-     * Gaussian weights by planar distance in degrees; caps intensity for softer overlay.
-     */
-    function buildHeatmapSmoothedTriplets(points) {
-      const list = Array.isArray(points) ? points : [];
-      const n = list.length;
-      if (!n) return [];
-      const NEIGHBOR_RAD_DEG = 0.014;
-      const sigma = NEIGHBOR_RAD_DEG / 2.2;
-      const INTENSITY_CAP = 0.58;
-      const scores = list.map(function (p) { return navidurPointScoreForHeat(p); });
-      const lats = list.map(function (p) { return Number(p && p.lat); });
-      const lons = list.map(function (p) { return Number(p && p.lon); });
-      const triplets = [];
-      for (let i = 0; i < n; i += 1) {
-        let wsum = 0;
-        let ssum = 0;
-        for (let j = 0; j < n; j += 1) {
-          const dLat = lats[i] - lats[j];
-          const dLon = lons[i] - lons[j];
-          const dist = Math.sqrt(dLat * dLat + dLon * dLon);
-          if (dist > NEIGHBOR_RAD_DEG) continue;
-          const w = dist < 1e-9 ? 1 : Math.exp(-(dist * dist) / (2 * sigma * sigma));
-          wsum += w;
-          ssum += w * (scores[j] / 100);
-        }
-        const intensity = wsum > 0 ? Math.min(1, (ssum / wsum) * INTENSITY_CAP) : 0;
-        triplets.push([lats[i], lons[i], intensity]);
-      }
-      return triplets;
-    }
-
-    function clusterHighActivityHotspot(points, station) {
-      const HIGH_MIN = 72;
-      const LINK_M = 480;
-      const list = Array.isArray(points) ? points : [];
-      const highIdx = [];
-      for (let i = 0; i < list.length; i += 1) {
-        const s = navidurPointScoreForHeat(list[i]);
-        if (s >= HIGH_MIN) highIdx.push(i);
-      }
-      const minCluster = highIdx.length >= 4 ? 3 : 2;
-      const parent = highIdx.map(function (_, k) { return k; });
-
-      function find(k) {
-        while (parent[k] !== k) {
-          parent[k] = parent[parent[parent[k]]];
-          k = parent[k];
-        }
-        return k;
-      }
-      function union(a, b) {
-        let ra = find(a);
-        let rb = find(b);
-        if (ra === rb) return;
-        if (ra < rb) parent[rb] = ra;
-        else parent[ra] = rb;
-      }
-
-      for (let a = 0; a < highIdx.length; a += 1) {
-        for (let b = a + 1; b < highIdx.length; b += 1) {
-          const ia = highIdx[a];
-          const ib = highIdx[b];
-          const p1 = list[ia];
-          const p2 = list[ib];
-          const dM = haversineKm(Number(p1.lat), Number(p1.lon), Number(p2.lat), Number(p2.lon)) * 1000;
-          if (dM <= LINK_M) union(a, b);
-        }
-      }
-
-      const groups = {};
-      for (let k = 0; k < highIdx.length; k += 1) {
-        const r = find(k);
-        if (!groups[r]) groups[r] = [];
-        groups[r].push(highIdx[k]);
-      }
-
-      let clusters = Object.keys(groups).map(function (key) {
-        const idxs = groups[key];
-        let sum = 0;
-        let maxS = 0;
-        let clat = 0;
-        let clon = 0;
-        idxs.forEach(function (ii) {
-          const s = navidurPointScoreForHeat(list[ii]);
-          sum += s;
-          if (s > maxS) maxS = s;
-          clat += Number(list[ii].lat);
-          clon += Number(list[ii].lon);
-        });
-        const cnt = idxs.length;
-        return {
-          point_indices: idxs,
-          point_count: cnt,
-          avg_score: cnt ? sum / cnt : 0,
-          max_score: maxS,
-          center_lat: cnt ? clat / cnt : null,
-          center_lon: cnt ? clon / cnt : null
-        };
-      }).filter(function (c) { return c.point_count >= minCluster; });
-
-      clusters.sort(function (a, b) {
-        if (b.avg_score !== a.avg_score) return b.avg_score - a.avg_score;
-        if (b.max_score !== a.max_score) return b.max_score - a.max_score;
-        return b.point_count - a.point_count;
-      });
-
-      const best = clusters.length ? clusters[0] : null;
-      let direction_from_station = null;
-      let distance_from_station_m = null;
-      if (best && station && best.center_lat != null && best.center_lon != null) {
-        const br = bearingDegFromTo(Number(station.lat), Number(station.lng), best.center_lat, best.center_lon);
-        direction_from_station = windDirText8(br);
-        distance_from_station_m = haversineKm(Number(station.lat), Number(station.lng), best.center_lat, best.center_lon) * 1000;
-      }
-
-      return {
-        clusters: clusters,
-        best: best,
-        minCluster: minCluster,
-        highIdx: highIdx,
-        direction_from_station: direction_from_station,
-        distance_from_station_m: distance_from_station_m
-      };
-    }
-
-    function teardownAnalysisHeatExtras() {
-      if (analysisHeatLayer && stationMap) {
-        try {
-          stationMap.removeLayer(analysisHeatLayer);
-        } catch (_e) { /* ignore */ }
-        analysisHeatLayer = null;
-      }
-      if (analysisHotspotMarker && stationMap) {
-        try {
-          stationMap.removeLayer(analysisHotspotMarker);
-        } catch (_e) { /* ignore */ }
-        analysisHotspotMarker = null;
-      }
-    }
-
-    /** Heatmap sits under the analysis radius circle; sample points and hotspot marker stay on top. */
-    function addAnalysisHeatmapLayer(points) {
-      const heatToggle = document.getElementById('toggleAnalysisHeatmap');
-      const heatWanted = !heatToggle || heatToggle.checked;
-      const list = Array.isArray(points) ? points : [];
-      if (!stationMap || !list.length) return { triplets: [], heat_ok: false, heat_error: null };
-      const triplets = buildHeatmapSmoothedTriplets(list);
-      if (!heatWanted) {
-        return { triplets: triplets, heat_ok: false, heat_error: 'heatmap_toggle_off' };
-      }
-      if (!triplets.length || typeof L === 'undefined' || typeof L.heatLayer !== 'function') {
-        return {
-          triplets: triplets,
-          heat_ok: false,
-          heat_error: typeof L !== 'undefined' && typeof L.heatLayer !== 'function' ? 'leaflet_heat_missing' : 'no_triplets'
-        };
-      }
-      try {
-        analysisHeatLayer = L.heatLayer(triplets, {
-          radius: 38,
-          blur: 26,
-          minOpacity: 0.12,
-          maxZoom: 18,
-          max: 0.65,
-          gradient: {
-            0.0: '#1e40af',
-            0.35: '#38bdf8',
-            0.55: '#facc15',
-            0.78: '#fb923c',
-            1.0: '#dc2626'
-          }
-        });
-        analysisHeatLayer.addTo(stationMap);
-        return { triplets: triplets, heat_ok: true, heat_error: null };
-      } catch (err) {
-        analysisHeatLayer = null;
-        return { triplets: triplets, heat_ok: false, heat_error: String(err && err.message ? err.message : err) };
-      }
-    }
-
-    function updateHotspotClusterUi(result, station, points, heatMeta) {
-      const summaryEl = document.getElementById('hotspotSummaryText');
-      const list = Array.isArray(points) ? points : [];
-      let reason_if_no_hotspot = '';
-      const heatmap_points_count = heatMeta && heatMeta.triplets ? heatMeta.triplets.length : 0;
-
-      if (!list.length) {
-        reason_if_no_hotspot = 'لا توجد نقاط تحليل';
-        if (summaryEl) summaryEl.textContent = 'لا يوجد هوتسبوت واضح؛ النشاط متشتت أو ضعيف.';
-        console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
-          heatmap_points_count: 0,
-          clusters_count: 0,
-          best_cluster: null,
-          avg_score: null,
-          max_score: null,
-          direction_from_station: null,
-          distance_from_station_m: null,
-          reason_if_no_hotspot: reason_if_no_hotspot
-        });
-        return;
-      }
-
-      if (heatMeta && !heatMeta.heat_ok && heatMeta.heat_error) {
-        reason_if_no_hotspot = reason_if_no_hotspot || 'تعذر عرض الحرارة: ' + heatMeta.heat_error;
-      }
-
-      const hs = clusterHighActivityHotspot(list, station);
-      const clusters_count = hs.clusters.length;
-      const best = hs.best;
-      const best_cluster = best
-        ? {
-          center_lat: best.center_lat,
-          center_lon: best.center_lon,
-          point_count: best.point_count,
-          avg_score: best.avg_score,
-          max_score: best.max_score
-        }
-        : null;
-
-      if (!hs.highIdx.length) {
-        reason_if_no_hotspot = reason_if_no_hotspot || 'لا توجد نقاط بنشاط عالٍ كافٍ داخل الشبكة';
-      } else if (!hs.clusters.length) {
-        reason_if_no_hotspot =
-          reason_if_no_hotspot ||
-          ('لا يوجد هوتسبوت واضح داخل نطاق التحليل — يتطلب تجمّع ' + hs.minCluster + ' نقاط قريبة عالية');
-      }
-
-      let summaryText = 'لا يوجد هوتسبوت واضح؛ النشاط متشتت أو ضعيف.';
-      if (best && hs.direction_from_station != null && hs.distance_from_station_m != null) {
-        summaryText =
-          'أفضل نشاط مرصود: ' +
-          hs.direction_from_station +
-          ' المحطة — ' +
-          Math.round(hs.distance_from_station_m) +
-          'م — قوة ' +
-          Math.round(best.avg_score) +
-          '%';
-        if (stationMap) {
-          analysisHotspotMarker = L.circleMarker([best.center_lat, best.center_lon], {
-            radius: 11,
-            color: '#c084fc',
-            weight: 2,
-            fillColor: '#f5d0fe',
-            fillOpacity: 0.38,
-            className: 'navidur-hotspot-marker'
-          });
-          analysisHotspotMarker.bindPopup(
-            '<strong>Hotspot</strong><br>متوسط النقاط: ' +
-              best.avg_score.toFixed(1) +
-              '<br>أعلى نقطة: ' +
-              best.max_score +
-              '<br>عدد النقاط: ' +
-              best.point_count
-          );
-          analysisHotspotMarker.addTo(stationMap);
-        }
-      } else if (hs.clusters.length === 0 && hs.highIdx.length > 0) {
-        summaryText = 'لا يوجد هوتسبوت واضح داخل نطاق التحليل';
-      }
-
-      if (summaryEl) summaryEl.textContent = summaryText;
-
-      console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
-        heatmap_points_count: heatmap_points_count,
-        clusters_count: clusters_count,
-        best_cluster: best_cluster,
-        avg_score: best ? best.avg_score : null,
-        max_score: best ? best.max_score : null,
-        direction_from_station: hs.direction_from_station,
-        distance_from_station_m: hs.distance_from_station_m,
-        reason_if_no_hotspot: best ? (reason_if_no_hotspot || '') : (reason_if_no_hotspot || summaryText)
-      });
-    }
-
     function getConfidenceMeta(score) {
       if (score >= 80) return { label: 'High', cls: 'high', labelAr: 'عالية' };
       if (score >= 60) return { label: 'Medium', cls: 'medium', labelAr: 'متوسطة' };
@@ -3778,8 +3436,6 @@
     function renderGridOnMap(result, station) {
       if (!stationMap || !station || !result) return;
 
-      teardownAnalysisHeatExtras();
-
       if (evaluatedLayer) {
         evaluatedLayer.clearLayers();
       }
@@ -3805,8 +3461,6 @@
         gridMarker.addTo(evaluatedLayer);
       });
 
-      const heatMeta = addAnalysisHeatmapLayer(points);
-
       if (analysisCircle) {
         analysisCircle.remove();
       }
@@ -3818,8 +3472,6 @@
         fillColor: '#4db7e8',
         fillOpacity: 0.08
       }).addTo(stationMap);
-
-      updateHotspotClusterUi(result, station, points, heatMeta);
     }
 
     async function fetchHotspotForStation(station) {
@@ -3844,17 +3496,6 @@
       stationMap = stationMapContext.map;
       stationMarkerLayer = stationMapContext.markerLayer;
       evaluatedLayer = L.layerGroup().addTo(stationMap);
-      if (!nvHeatToggleBound) {
-        nvHeatToggleBound = true;
-        document.addEventListener('change', function (e) {
-          if (!e.target || e.target.id !== 'toggleAnalysisHeatmap') return;
-          if (!stationMap || !analysisHeatLayer) return;
-          try {
-            if (e.target.checked) stationMap.addLayer(analysisHeatLayer);
-            else stationMap.removeLayer(analysisHeatLayer);
-          } catch (_err) { /* ignore */ }
-        });
-      }
       renderStationMarkers();
     }
 
