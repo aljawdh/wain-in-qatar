@@ -3767,117 +3767,6 @@
       }
     }
 
-    /**
-     * Client-only densification for map/heatmap/hotspot display.
-     * Scores are IDW from engine `evaluated_points` (no extra API calls, no DTO change).
-     */
-    function interpolateScoreZoneFromEvaluated(lat, lon, sourcePoints) {
-      const list = Array.isArray(sourcePoints) ? sourcePoints : [];
-      if (!list.length) return { score: 0, zone: '' };
-      const eps = 1e-10;
-      let wsum = 0;
-      let ssum = 0;
-      let bestIdx = 0;
-      let bestD = Infinity;
-      for (let i = 0; i < list.length; i++) {
-        const p = list[i];
-        const plat = Number(p.lat);
-        const plon = Number(p.lon);
-        const dLat = lat - plat;
-        const dLon = lon - plon;
-        const d = Math.sqrt(dLat * dLat + dLon * dLon) + eps;
-        if (d < bestD) {
-          bestD = d;
-          bestIdx = i;
-        }
-        const w = 1 / (d * d);
-        wsum += w;
-        ssum += w * navidurPointScoreForHeat(p);
-      }
-      const rawAvg = wsum > 0 ? ssum / wsum : 0;
-      const score = Math.round(Math.max(0, Math.min(100, rawAvg)));
-      const zone = list[bestIdx] && list[bestIdx].zone != null ? list[bestIdx].zone : '';
-      return { score: score, zone: zone };
-    }
-
-    function navidurDisplayGridFindBestIdx(displayPoints, bestSpot) {
-      if (!bestSpot || !Array.isArray(displayPoints) || !displayPoints.length) return -1;
-      const bl = Number(bestSpot.lat);
-      const bo = Number(bestSpot.lon);
-      if (!isFinite(bl) || !isFinite(bo)) return -1;
-      let bestIdx = -1;
-      let bestD = Infinity;
-      for (let i = 0; i < displayPoints.length; i++) {
-        const p = displayPoints[i];
-        const d = haversineKm(Number(p.lat), Number(p.lon), bl, bo);
-        if (d < bestD) {
-          bestD = d;
-          bestIdx = i;
-        }
-      }
-      return bestIdx;
-    }
-
-    /**
-     * 1 center + 8 inner + 16 outer within analysis_radius_deg (default 0.02). No land mask in app — coastal ring only.
-     */
-    function buildNavidurDisplayDensityGrid(sourceEvaluatedPoints, station, analysisRadiusDeg) {
-      const src = Array.isArray(sourceEvaluatedPoints) ? sourceEvaluatedPoints : [];
-      const R = Number(analysisRadiusDeg) > 0 ? Number(analysisRadiusDeg) : 0.02;
-      const innerFrac = 0.44;
-      const outerFrac = 0.92;
-      const centerLat = Number(station.lat);
-      const centerLon = Number(station.lng != null ? station.lng : station.lon);
-      const phi = (centerLat * Math.PI) / 180;
-      let cosPhi = Math.cos(phi);
-      if (cosPhi < 0.2) cosPhi = 0.2;
-
-      if (!src.length) {
-        return {
-          points: [],
-          inner_ring_points: 0,
-          outer_ring_points: 0,
-          source_count: 0
-        };
-      }
-
-      const out = [];
-      const c0 = interpolateScoreZoneFromEvaluated(centerLat, centerLon, src);
-      out.push({ lat: centerLat, lon: centerLon, score: c0.score, zone: c0.zone });
-
-      function addRing(count, frac) {
-        const r = R * frac;
-        for (let k = 0; k < count; k++) {
-          const ang = (2 * Math.PI * k) / count - Math.PI / 2;
-          let dLat = r * Math.cos(ang);
-          let dLon = (r * Math.sin(ang)) / cosPhi;
-          let plat = centerLat + dLat;
-          let plon = centerLon + dLon;
-          const dist = Math.sqrt(dLat * dLat + (dLon * cosPhi) * (dLon * cosPhi));
-          if (dist > R + 1e-6) {
-            const scale = R / dist;
-            dLat *= scale;
-            dLon *= scale;
-            plat = centerLat + dLat;
-            plon = centerLon + dLon;
-          }
-          const it = interpolateScoreZoneFromEvaluated(plat, plon, src);
-          out.push({ lat: plat, lon: plon, score: it.score, zone: it.zone });
-        }
-        return count;
-      }
-
-      const inner_ring_points = addRing(8, innerFrac);
-      const outer_ring_points = addRing(16, outerFrac);
-
-      return {
-        points: out,
-        inner_ring_points: inner_ring_points,
-        outer_ring_points: outer_ring_points,
-        source_count: src.length
-      };
-    }
-
     function renderHotspotPanel(result) {
       const meta = document.getElementById('mapMetaText');
       if (!meta || !selectedStation) return;
@@ -3895,24 +3784,10 @@
         evaluatedLayer.clearLayers();
       }
 
-      const radiusDegrees = result.search_area && result.search_area.radius != null ? result.search_area.radius : 0.02;
-      const rawEvaluated = Array.isArray(result.evaluated_points) ? result.evaluated_points : [];
-      const dens = buildNavidurDisplayDensityGrid(rawEvaluated, station, radiusDegrees);
-      const points = dens.points;
-      const mapBestIdx = navidurDisplayGridFindBestIdx(points, result.best_spot);
-
-      console.debug('NAVIDUR_GRID_DENSITY', {
-        total_points: points.length,
-        inner_ring_points: dens.inner_ring_points,
-        outer_ring_points: dens.outer_ring_points,
-        analysis_radius: radiusDegrees,
-        points_used_for_heatmap: points.length,
-        points_used_for_hotspot: points.length
-      });
-
+      const points = Array.isArray(result.evaluated_points) ? result.evaluated_points : [];
       const displayVisuals = computeMapPointDisplayVisuals(points);
       points.forEach(function (p, idx) {
-        const isBest = mapBestIdx === idx;
+        const isBest = result.best_spot && p.lat === result.best_spot.lat && p.lon === result.best_spot.lon;
         const disp = displayVisuals[idx] || { finalVisual: getScoreVisual(p.score || 0), rawVisual: getScoreVisual(p.score || 0), is_outlier: false };
         const visual = disp.finalVisual;
         const gridMarker = L.circleMarker([p.lat, p.lon], {
@@ -3935,6 +3810,7 @@
       if (analysisCircle) {
         analysisCircle.remove();
       }
+      const radiusDegrees = result.search_area && result.search_area.radius != null ? result.search_area.radius : 0.02;
       analysisCircle = L.circle([station.lat, station.lng], {
         radius: Math.round(radiusDegrees * 111000),
         color: '#7ed9ff',
