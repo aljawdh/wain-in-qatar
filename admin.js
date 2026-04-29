@@ -4772,6 +4772,32 @@
     // ── Analytics panel (true-final dur + live analysis) ──────────────────
     var refreshBtn = getEl('stAnalyticsRefreshBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', onAnalyticsRefresh);
+    var countryPicker = getEl('stAnalysisCountryPicker');
+    if (countryPicker) {
+      countryPicker.addEventListener('change', function () {
+        rebuildAnalysisRegionPicker();
+        rebuildAnalysisStationPicker();
+      });
+    }
+    var regionPicker = getEl('stAnalysisRegionPicker');
+    if (regionPicker) {
+      regionPicker.addEventListener('change', function () {
+        rebuildAnalysisStationPicker();
+      });
+    }
+    var stationPicker = getEl('stAnalysisStationPicker');
+    if (stationPicker) {
+      stationPicker.addEventListener('change', function () {
+        onAdminAnalysisPickerChange(true);
+      });
+    }
+    var rawToggle = getEl('stAnalyticsRawToggle');
+    if (rawToggle) {
+      rawToggle.addEventListener('change', function () {
+        var raw = getEl('stAnalyticsRawJson');
+        if (raw) raw.style.display = rawToggle.checked ? '' : 'none';
+      });
+    }
     var periodSel = getEl('stAnalyticsPeriod');
     if (periodSel) periodSel.addEventListener('change', onAnalyticsPeriodChange);
     var asOfInp = getEl('stAnalyticsAsOfDate');
@@ -4914,6 +4940,7 @@
     if (getEl('stId')) {
       getEl('stId').value = station.id;
     }
+    rebuildAnalysisCountryPicker(station.id);
   }
 
   function clearTrueFinalReferenceCache() {
@@ -6071,7 +6098,176 @@
       throw new Error('shared_live_engine_unavailable');
     }
     var nowIso = opts.datetime || new Date().toISOString();
-    return window.NavidurLiveAnalysis.getStationAnalysis(station, { datetime: nowIso });
+    return window.NavidurLiveAnalysis.getStationAnalysis(station, {
+      datetime: nowIso,
+      debug_log: true,
+      debug_analysis: true
+    });
+  }
+
+  function stationTypeAr(station) {
+    return station && station.is_reference_station ? 'مرجعية' : 'تشغيلية';
+  }
+
+  function analysisRegionValue(station) {
+    var st = station || {};
+    var rawRegion = String(st.region || '').trim();
+    if (rawRegion && rawRegion !== 'gulf') return rawRegion;
+    var country = String(st.country || '').trim();
+    if (country === 'السعودية') return 'الشرقية';
+    if (country === 'قطر') return String(st.name || '').trim();
+    return rawRegion || String(st.name || '').trim();
+  }
+
+  function renderStationAnalysisSummary(dto, stationObj) {
+    var d = dto && dto.dur ? dto.dur : {};
+    var tide = dto && dto.tide ? dto.tide : {};
+    var fish = dto && dto.fishing ? dto.fishing : {};
+    var station = stationObj || {};
+    var fishList = Array.isArray(fish.fish_recommendations)
+      ? fish.fish_recommendations.map(function (x) {
+          if (x && typeof x === 'object') return x.species_name_ar || x.name_ar || x.name || '';
+          return '';
+        }).filter(Boolean)
+      : [];
+    var evalCount = Array.isArray(dto && dto.evaluated_points) ? dto.evaluated_points.length : 0;
+    var hotspotAvg = dto && dto.hotspot && dto.hotspot.avg_score != null ? dto.hotspot.avg_score : null;
+    setTextIfEl('stAnalysisSummaryStationName', station.name || dto.station_name || '');
+    setTextIfEl('stAnalysisSummaryStationType', stationTypeAr(station));
+    setTextIfEl('stAnalysisSummaryReferenceId', dto.reference_station_id || '—');
+    setTextIfEl('stAnalysisSummaryResolvedRef', d.dur_source_station_name || dto.reference_station_name || '—');
+    setTextIfEl('stAnalysisSummaryLookupMode', d.lookup_mode || '—');
+    setTextIfEl('stAnalysisSummaryDurDay', d.day_in_period != null ? String(d.day_in_period) : '—');
+    setTextIfEl('stAnalysisSummaryNextDur', d.next_period_name || '—');
+    setTextIfEl('stAnalysisSummaryTideState', mapDtoTideStateToArabic(tide.state));
+    setTextIfEl('stAnalysisSummaryConfidence', fish.confidence_score != null ? String(fish.confidence_score) : '—');
+    setTextIfEl('stAnalysisSummaryEvalCount', String(evalCount));
+    setTextIfEl('stAnalysisSummaryHotspotAvg', hotspotAvg != null ? String(hotspotAvg) : '—');
+    setTextIfEl('stAnalysisSummaryReason', d.reason_if_unknown || 'null');
+    setTextIfEl('stAnalysisSummaryFishList', fishList.length ? fishList.join('، ') : '—');
+    var rawEl = getEl('stAnalyticsRawJson');
+    var rawToggle = getEl('stAnalyticsRawToggle');
+    if (rawEl) {
+      rawEl.textContent = JSON.stringify(dto || {}, null, 2);
+      rawEl.style.display = rawToggle && rawToggle.checked ? '' : 'none';
+    }
+  }
+
+  function clearStationAnalysisSummary() {
+    [
+      'stAnalysisSummaryStationName',
+      'stAnalysisSummaryStationType',
+      'stAnalysisSummaryReferenceId',
+      'stAnalysisSummaryResolvedRef',
+      'stAnalysisSummaryLookupMode',
+      'stAnalysisSummaryDurDay',
+      'stAnalysisSummaryNextDur',
+      'stAnalysisSummaryTideState',
+      'stAnalysisSummaryConfidence',
+      'stAnalysisSummaryEvalCount',
+      'stAnalysisSummaryHotspotAvg',
+      'stAnalysisSummaryReason',
+      'stAnalysisSummaryFishList'
+    ].forEach(function (id) { setTextIfEl(id, ''); });
+    var rawEl = getEl('stAnalyticsRawJson');
+    if (rawEl) {
+      rawEl.textContent = '';
+      rawEl.style.display = 'none';
+    }
+  }
+
+  function getSelectedPickerStation() {
+    var stationId = getEl('stAnalysisStationPicker') ? String(getEl('stAnalysisStationPicker').value || '').trim() : '';
+    if (!stationId) return null;
+    return stationsCache.find(function (s) { return s && String(s.id) === stationId; }) || null;
+  }
+
+  function rebuildAnalysisStationPicker() {
+    var country = getEl('stAnalysisCountryPicker') ? String(getEl('stAnalysisCountryPicker').value || '').trim() : '';
+    var region = getEl('stAnalysisRegionPicker') ? String(getEl('stAnalysisRegionPicker').value || '').trim() : '';
+    var stationSel = getEl('stAnalysisStationPicker');
+    if (!stationSel) return;
+    var keep = String(stationSel.value || '').trim();
+    stationSel.innerHTML = '<option value="">اختر المحطة...</option>';
+    var filtered = stationsCache.filter(function (s) {
+      if (!s || !s.id) return false;
+      if (country && String(s.country || '').trim() !== country) return false;
+      if (region && analysisRegionValue(s) !== region) return false;
+      return true;
+    });
+    filtered.sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'ar');
+    }).forEach(function (s) {
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = (s.name || s.id) + ' (' + stationTypeAr(s) + ')';
+      stationSel.appendChild(opt);
+    });
+    if (keep && filtered.some(function (s) { return String(s.id) === keep; })) {
+      stationSel.value = keep;
+    }
+  }
+
+  function rebuildAnalysisRegionPicker() {
+    var country = getEl('stAnalysisCountryPicker') ? String(getEl('stAnalysisCountryPicker').value || '').trim() : '';
+    var regionSel = getEl('stAnalysisRegionPicker');
+    if (!regionSel) return;
+    var keep = String(regionSel.value || '').trim();
+    regionSel.innerHTML = '<option value="">اختر المنطقة...</option>';
+    var uniq = {};
+    stationsCache.forEach(function (s) {
+      if (!s || !s.id) return;
+      if (country && String(s.country || '').trim() !== country) return;
+      var r = analysisRegionValue(s);
+      if (!r || uniq[r]) return;
+      uniq[r] = true;
+      var opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      regionSel.appendChild(opt);
+    });
+    if (keep && uniq[keep]) regionSel.value = keep;
+  }
+
+  function rebuildAnalysisCountryPicker(preserveStationId) {
+    var countrySel = getEl('stAnalysisCountryPicker');
+    if (!countrySel) return;
+    var keepCountry = String(countrySel.value || '').trim();
+    countrySel.innerHTML = '<option value="">اختر الدولة...</option>';
+    var uniq = {};
+    stationsCache.forEach(function (s) {
+      var c = String(s && s.country || '').trim();
+      if (!c || uniq[c]) return;
+      uniq[c] = true;
+      var opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      countrySel.appendChild(opt);
+    });
+    var keep = keepCountry;
+    if (preserveStationId) {
+      var st = stationsCache.find(function (s) { return s && String(s.id) === String(preserveStationId); });
+      if (st) keep = String(st.country || '').trim();
+    }
+    if (keep && uniq[keep]) countrySel.value = keep;
+    rebuildAnalysisRegionPicker();
+    if (preserveStationId) {
+      var st2 = stationsCache.find(function (s) { return s && String(s.id) === String(preserveStationId); });
+      if (st2 && getEl('stAnalysisRegionPicker')) getEl('stAnalysisRegionPicker').value = analysisRegionValue(st2);
+    }
+    rebuildAnalysisStationPicker();
+    if (preserveStationId && getEl('stAnalysisStationPicker')) getEl('stAnalysisStationPicker').value = String(preserveStationId);
+  }
+
+  function onAdminAnalysisPickerChange(triggerRender) {
+    var station = getSelectedPickerStation();
+    if (!station) return;
+    if (getEl('stId')) getEl('stId').value = station.id;
+    currentAnalyzedStationId = station.id;
+    currentStationId = station.id;
+    if (triggerRender) {
+      void renderStationAnalytics();
+    }
   }
 
   function renderAdminAnalysisDto(dto, stationId, expertNotes, modeLabel, durStateOpt) {
@@ -6151,6 +6347,20 @@
       'stWeatherStatusNote',
       dto.environment && dto.environment.weather_status_ar ? String(dto.environment.weather_status_ar) : ''
     );
+    var stationObj = stationsCache.find(function (s) { return s && String(s.id) === String(stationId || dto.station_id || ''); }) || null;
+    renderStationAnalysisSummary(dto, stationObj);
+    try {
+      console.log('NAVIDUR_ADMIN_STATION_ANALYSIS_PICKER', {
+        country: stationObj ? stationObj.country : '',
+        region: stationObj ? analysisRegionValue(stationObj) : '',
+        station_id: stationObj ? stationObj.id : (dto.station_id || null),
+        station_name: stationObj ? stationObj.name : '',
+        is_reference_station: stationObj ? !!stationObj.is_reference_station : false,
+        reference_station_id: dto.reference_station_id || '',
+        current_dur: d.period_name || '',
+        lookup_mode: d.lookup_mode || ''
+      });
+    } catch (_e) {}
 
     renderValidationExplanation(dto, observedTraits);
     updateAnalyticsDurReferenceDisplay(d, [], [], [], [], []);
@@ -6258,6 +6468,7 @@
     renderValidationExplanation(null, []);
     setTextIfEl('stAnalyticsScore', '');
     setTextIfEl('stAnalyticsStatus', '');
+    clearStationAnalysisSummary();
     void clearReadOnlyDurProfile();
     refreshAllStationMarkers();
     renderDururStationPreview();
@@ -6374,7 +6585,10 @@
   }
 
   function onAnalyticsRefresh() {
-    var sid = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
+    var pickerStation = getSelectedPickerStation();
+    var sid = pickerStation && pickerStation.id
+      ? String(pickerStation.id).trim()
+      : (getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '');
     if (!sid) {
       if (getEl('stAnalyticsMsg')) {
         getEl('stAnalyticsMsg').textContent = 'لا توجد محطة محددة';
@@ -6492,6 +6706,7 @@
     refreshAllStationMarkers(editingId, visibleStations);
     updateDururStationInfoPanel();
     updateAstroPreviewStationOptions();
+    rebuildAnalysisCountryPicker(currentAnalyzedStationId || currentStationId || (getEl('stId') ? getEl('stId').value.trim() : ''));
   }
 
   function updateAstroPreviewStationOptions() {

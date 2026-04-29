@@ -475,11 +475,31 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </div>
 
             <hr class="sep">
-            <h4><i class="fa-solid fa-anchor"></i> تحليل المحطة (مستند إلى المحطة المختارة في «المحطات»)</h4>
-            <p class="section-subtitle" style="margin-top:0">يُستخدَم معرّف المحطة <code>stId</code> من نموذج إدارة المحطات. اختر محطة هناك ثم حدّث التحليل.</p>
+            <h4><i class="fa-solid fa-anchor"></i> تحليل المحطة</h4>
+            <p class="section-subtitle" style="margin-top:0">اختيار متدرّج سريع: الدولة ← المنطقة ← المحطة. يدعم المحطات التشغيلية والمرجعية مباشرة.</p>
             <details class="adv-options" style="margin:14px 0" id="stAnalyticsDetails" open>
               <summary style="cursor:pointer;font-size:.88rem;color:#9fc1d7;background:var(--bg3);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-chart-line" style="margin-left:6px"></i> تحليل المحطة</summary>
               <p style="margin:10px 0 0;font-size:.8rem;color:#8fb0c4;line-height:1.5">توقيت الدر الموسمي من <strong>data/true_final_station_reference.json</strong> فقط؛ بقية التحليل (الطقس، المقارنة، السجلات) يبقى كما هو.</p>
+              <div style="margin-top:10px;display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:8px">
+                <div class="admin-field" style="margin:0">
+                  <label for="stAnalysisCountryPicker">الدولة</label>
+                  <select id="stAnalysisCountryPicker">
+                    <option value="">اختر الدولة...</option>
+                  </select>
+                </div>
+                <div class="admin-field" style="margin:0">
+                  <label for="stAnalysisRegionPicker">المنطقة</label>
+                  <select id="stAnalysisRegionPicker">
+                    <option value="">اختر المنطقة...</option>
+                  </select>
+                </div>
+                <div class="admin-field" style="margin:0">
+                  <label for="stAnalysisStationPicker">المحطة</label>
+                  <select id="stAnalysisStationPicker">
+                    <option value="">اختر المحطة...</option>
+                  </select>
+                </div>
+              </div>
               <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <label style="font-size:.85rem;color:#c5d5e0;margin:0" for="stAnalyticsPeriod">الفترة الزمنية:</label>
                 <select id="stAnalyticsPeriod" style="background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 10px;font-size:.85rem;cursor:pointer" title="الافتراضي: اليوم (UTC) تلقائياً">
@@ -494,6 +514,24 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div id="stAnalyticsAsOfRow" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
                   <label style="font-size:.82rem;color:#9fc1d7;margin:0" for="stAnalyticsAsOfDate">يوم التحليل (UTC):</label>
                   <input id="stAnalyticsAsOfDate" type="date" style="background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px 10px;font-size:.85rem">
+                </div>
+              </div>
+              <div style="margin-top:12px;padding:12px;background:rgba(152,108,255,.08);border:1px solid rgba(152,108,255,.2);border-radius:10px">
+                <h5 style="margin:0 0 10px;font-size:.9rem;color:#d2b8ff;font-weight:600">ملخص نتيجة التحليل</h5>
+                <div id="stAnalysisSummaryGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.84rem;color:#cfd8e5">
+                  <div><strong style="color:#bda7ea">اسم المحطة</strong><br><span id="stAnalysisSummaryStationName"></span></div>
+                  <div><strong style="color:#bda7ea">النوع</strong><br><span id="stAnalysisSummaryStationType"></span></div>
+                  <div><strong style="color:#bda7ea">reference_station_id</strong><br><span id="stAnalysisSummaryReferenceId"></span></div>
+                  <div><strong style="color:#bda7ea">resolved_reference_station_name_ar</strong><br><span id="stAnalysisSummaryResolvedRef"></span></div>
+                  <div><strong style="color:#bda7ea">lookup_mode</strong><br><span id="stAnalysisSummaryLookupMode"></span></div>
+                  <div><strong style="color:#bda7ea">current_dur_day</strong><br><span id="stAnalysisSummaryDurDay"></span></div>
+                  <div><strong style="color:#bda7ea">next_dur</strong><br><span id="stAnalysisSummaryNextDur"></span></div>
+                  <div><strong style="color:#bda7ea">tide.state</strong><br><span id="stAnalysisSummaryTideState"></span></div>
+                  <div><strong style="color:#bda7ea">confidence_score</strong><br><span id="stAnalysisSummaryConfidence"></span></div>
+                  <div><strong style="color:#bda7ea">evaluated_points_count</strong><br><span id="stAnalysisSummaryEvalCount"></span></div>
+                  <div><strong style="color:#bda7ea">hotspot.avg_score</strong><br><span id="stAnalysisSummaryHotspotAvg"></span></div>
+                  <div><strong style="color:#bda7ea">reason_if_unknown</strong><br><span id="stAnalysisSummaryReason"></span></div>
+                  <div style="grid-column:1 / -1"><strong style="color:#bda7ea">fish_recommendations</strong><br><span id="stAnalysisSummaryFishList"></span></div>
                 </div>
               </div>
               <div style="margin-top:12px;padding:12px;background:rgba(92,225,255,.08);border:1px solid rgba(92,225,255,.2);border-radius:10px">
@@ -572,9 +610,14 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                   </div>
                 </div>
               <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:flex;gap:8px;justify-content:flex-start;align-items:center;flex-wrap:wrap">
+                <label style="display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:#c5d5e0;cursor:pointer">
+                  <input id="stAnalyticsRawToggle" type="checkbox">
+                  عرض البيانات الخام
+                </label>
                 <button type="button" id="stAnalyticsRefreshBtn" class="small-btn" style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:rgba(255,185,0,.15);border:1px solid rgba(255,185,0,.3);border-radius:8px;cursor:pointer;color:#ffe7aa;font-weight:500;font-size:.85rem"><i class="fa-solid fa-rotate-right"></i> تحديث</button>
                 <span id="stAnalyticsMsg" style="display:inline-flex;align-items:center;color:#9fc1d7;font-size:.85rem"></span>
               </div>
+              <pre id="stAnalyticsRawJson" style="display:none;margin-top:10px;padding:10px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1);border-radius:10px;max-height:280px;overflow:auto;color:#cfe4f5;font-size:.77rem;line-height:1.45"></pre>
             </details>
           </div>
 

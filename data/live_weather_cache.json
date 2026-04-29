@@ -1,4 +1,68 @@
 {
   "version": 1,
-  "entries": {}
+  "entries": {
+    "id:st_001": {
+      "live_inputs": {
+        "temp_c": 26.8,
+        "wind_speed_kmh": 10.4,
+        "wind_direction_deg": 330,
+        "wave_height_m": 0.68,
+        "current_speed_ms": 0,
+        "relative_humidity_2m": 46,
+        "weather_code": 3,
+        "tide": {
+          "state": "سقي",
+          "height_m": 0.62,
+          "trend": "rising",
+          "previous": 0.52,
+          "current": 0.62,
+          "next": null
+        }
+      },
+      "weather_status_ar": "غائم",
+      "saved_at": "2026-04-29T22:54:20.745Z"
+    },
+    "id:st_033": {
+      "live_inputs": {
+        "temp_c": 0,
+        "wind_speed_kmh": 15.1,
+        "wind_direction_deg": 332,
+        "wave_height_m": 0,
+        "current_speed_ms": 0,
+        "relative_humidity_2m": 57,
+        "weather_code": 3,
+        "tide": {
+          "state": "خامل",
+          "height_m": 0,
+          "trend": "stable",
+          "previous": 0,
+          "current": 0,
+          "next": null
+        }
+      },
+      "weather_status_ar": "غائم",
+      "saved_at": "2026-04-29T22:54:22.954Z"
+    },
+    "id:st_010": {
+      "live_inputs": {
+        "temp_c": 24.9,
+        "wind_speed_kmh": 11.2,
+        "wind_direction_deg": 315,
+        "wave_height_m": 0.4,
+        "current_speed_ms": 0.3,
+        "relative_humidity_2m": 59,
+        "weather_code": 2,
+        "tide": {
+          "state": "ثبر",
+          "height_m": -0.03,
+          "trend": "falling",
+          "previous": 0.02,
+          "current": -0.03,
+          "next": null
+        }
+      },
+      "weather_status_ar": "غائم جزئياً",
+      "saved_at": "2026-04-29T22:54:24.809Z"
+    }
+  }
 }
