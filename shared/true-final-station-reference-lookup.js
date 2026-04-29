@@ -222,7 +222,10 @@ function buildTrueFinalStationNameNormSet(doc) {
  * @returns {object} ok snapshot or { ok: false, code, message }
  */
 function getTrueFinalDurState(doc, params) {
+  console.log('TRUE_FINAL_INPUT_KEYS', Object.keys(doc || {}));
   var stationNameAr = normalizeString(params && params.station_name_ar);
+  var normalizedStationName = normalizeArabicName(stationNameAr);
+  console.log('NORMALIZED_STATION', normalizedStationName);
   var asOfIso = normalizeString(params && params.asOfIso);
   if (!stationNameAr || !asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) {
     return { ok: false, code: 'BAD_INPUT', message: 'station_name_ar and asOfIso (calendar day) required' };
@@ -238,6 +241,8 @@ function getTrueFinalDurState(doc, params) {
 
   if (hasAnnualRows(doc)) {
     var stationAnnualRows = matchAnnualRowsForStation(doc, stationNameAr);
+    console.log('ANNUAL_ROWS_COUNT', annualRowsList(doc).length);
+    console.log('MATCHED_ROWS_FOR_STATION', stationNameAr, stationAnnualRows.length);
     if (!stationAnnualRows.length) {
       debugLookupMode('annual_flat', stationNameAr, 0, null, 'STATION_NOT_FOUND');
       return {
@@ -305,6 +310,8 @@ function getTrueFinalDurState(doc, params) {
       _fishing_as_of: new Date(tlA.asMs)
     };
   }
+  console.log('ANNUAL_ROWS_COUNT', annualRowsList(doc).length);
+  console.log('MATCHED_ROWS_FOR_STATION', stationNameAr, 0);
 
   var row = findStationRow(doc, stationNameAr);
   if (!row) {

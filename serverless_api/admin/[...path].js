@@ -726,8 +726,14 @@ module.exports = async function handler(req, res) {
     if (!refSt.is_reference_station) {
       return res.status(400).json({ error: 'target_must_be_reference_station' });
     }
+    const refNameAr = cleanString(refSt.name_ar || refSt.name, 120);
     const next = normalizeStationInput(
-      Object.assign({}, op, { reference_station_id: refId, id: op.id }),
+      Object.assign({}, op, {
+        reference_station_id: refId,
+        reference_station_name_ar: refNameAr,
+        dur_reference_station: refId,
+        id: op.id
+      }),
       op
     );
     list[opIdx] = next;
@@ -740,7 +746,9 @@ module.exports = async function handler(req, res) {
       ok: true,
       station_id: opId,
       reference_station_id: refId,
-      reference_station_name: refSt.name
+      reference_station_name: refSt.name,
+      reference_station_name_ar: refNameAr,
+      dur_reference_station: refId
     });
   }
 

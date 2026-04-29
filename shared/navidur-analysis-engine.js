@@ -285,18 +285,24 @@
       }
       return { source: null, method: 'manual_invalid', error: 'manual_reference_not_found' };
     }
-    var manualDurToken = normalizeString(station.reference_station_name_ar);
-    if (!manualDurToken) manualDurToken = normalizeString(station.dur_reference_station);
-    if (manualDurToken) {
-      if (/^st_[0-9a-zA-Z_-]+$/.test(manualDurToken)) {
-        var byDurId = findStationByIdInList(list, manualDurToken);
+    var durReferenceToken = normalizeString(station.dur_reference_station);
+    if (durReferenceToken) {
+      if (/^st_[0-9a-zA-Z_-]+$/.test(durReferenceToken)) {
+        var byDurId = findStationByIdInList(list, durReferenceToken);
         if (byDurId) {
           return { source: byDurId, method: 'manual', detail: { via: 'dur_reference_station_as_id' } };
         }
       }
-      var byName = findStationByManualArabicName(list, manualDurToken);
+      var byDurName = findStationByManualArabicName(list, durReferenceToken);
+      if (byDurName) {
+        return { source: byDurName, method: 'manual', detail: { via: 'dur_reference_station_name' } };
+      }
+    }
+    var manualRefName = normalizeString(station.reference_station_name_ar);
+    if (manualRefName) {
+      var byName = findStationByManualArabicName(list, manualRefName);
       if (byName) {
-        return { source: byName, method: 'manual', detail: { via: 'reference_station_name_ar_or_dur_reference_name' } };
+        return { source: byName, method: 'manual', detail: { via: 'reference_station_name_ar' } };
       }
     }
     var band = normalizeString(station.latitude_band_key);
@@ -1112,6 +1118,13 @@
       } catch (_e) { /* ignore */ }
     }
 
+    function logReferenceLinkRuntimeCheck(payload) {
+      try {
+        if (typeof console === 'undefined' || !console || typeof console.log !== 'function') return;
+        console.log('NAVIDUR_REFERENCE_LINK_RUNTIME_CHECK', payload);
+      } catch (_e) { /* ignore */ }
+    }
+
     function failResponse(timingError) {
       return {
         station_id: station.id || null,
@@ -1247,6 +1260,18 @@
         true_final_lookup_name: durNameForTrueFinal,
         matched_true_final: false,
         reason_if_failed: (tf && tf.code ? String(tf.code) + ': ' : '') + tfMsg
+      });
+      logReferenceLinkRuntimeCheck({
+        station_id: normalizeString(station.id),
+        station_name: normalizeString(station.name_ar || station.name),
+        stored_reference_station_id: normalizeString(station.reference_station_id),
+        stored_reference_station_name_ar: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
+        resolved_reference_station_id: normalizeString(durSource.id),
+        resolved_reference_station_name_ar: normalizeString(durSource.name_ar || durSource.name),
+        true_final_lookup_name: durNameForTrueFinal,
+        lookup_mode: normalizeString(tf && tf.lookup_mode),
+        current_dur: normalizeString(tf && (tf.current_dur || tf.current_dur_name_ar)),
+        status: 'failed'
       });
       return failResponse(tf && !tf.ok ? { code: tf.code, message: tf.message, detail: tf } : { code: 'TRUE_FINAL_LOOKUP_FAILED', message: 'station not in true_final dataset or as_of outside window' });
     }
@@ -1397,6 +1422,7 @@
         next_period_id: normalizeString(nextRowForRef && nextRowForRef.id),
         next_period_name: normalizeString(tf.next_dur_name_ar),
         days_remaining: toNumber(tf.days_remaining_in_dur),
+        lookup_mode: normalizeString(tf.lookup_mode) || '',
         timing_mode: 'month_day_only',
         source: 'true_final_station_reference',
         period_start_date: '',
@@ -1448,6 +1474,18 @@
     if (options.debug_log && durRefDbgStore) {
       _dtoOut.dur_reference_resolution = durRefDbgStore;
     }
+    logReferenceLinkRuntimeCheck({
+      station_id: normalizeString(station.id),
+      station_name: normalizeString(station.name_ar || station.name),
+      stored_reference_station_id: normalizeString(station.reference_station_id),
+      stored_reference_station_name_ar: normalizeString(station.reference_station_name_ar || station.dur_reference_station),
+      resolved_reference_station_id: normalizeString(durSource.id),
+      resolved_reference_station_name_ar: normalizeString(durSource.name_ar || durSource.name),
+      true_final_lookup_name: durNameForTrueFinal,
+      lookup_mode: normalizeString(tf.lookup_mode),
+      current_dur: normalizeString(tf.current_dur || tf.current_dur_name_ar),
+      status: 'ok'
+    });
     return _dtoOut;
   }
 

@@ -150,6 +150,12 @@ function normalizeStationInput(input, existing) {
     reference_station_id: isReferenceStation
       ? ''
       : cleanString(input.reference_station_id != null ? input.reference_station_id : base.reference_station_id, 80),
+    reference_station_name_ar: isReferenceStation
+      ? ''
+      : cleanString(input.reference_station_name_ar != null ? input.reference_station_name_ar : base.reference_station_name_ar, 120),
+    dur_reference_station: isReferenceStation
+      ? ''
+      : cleanString(input.dur_reference_station != null ? input.dur_reference_station : base.dur_reference_station, 120),
     reference_inheritance: normalizeReferenceInheritance(input, base, isReferenceStation),
     notes: cleanString(input.notes != null ? input.notes : base.notes, 800),
     added_from_field: input.added_from_field != null ? !!input.added_from_field : !!base.added_from_field,
