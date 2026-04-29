@@ -3545,47 +3545,13 @@
       return isAdminMode() ? 'admin' : 'public';
     }
 
-    const NAVIDUR_REASON_VARIANTS = {
-      CLUSTER_STRONG: [
-        'تجمّع نشاط مائي',
-        'نشاط واضح في المنطقة',
-        'منطقة فيها حركة جيدة'
-      ],
-      CURRENT_SUPPORT: [
-        'ظروف مناسبة الآن',
-        'الوضع البحري مساعد',
-        'الحالة الحالية تدعم الصيد'
-      ],
-      WATER_CONFIDENT: [
-        'نقاط مائية مؤكدة',
-        'الموقع داخل نطاق مائي',
-        'بيئة مناسبة للرمي'
-      ],
-      STABLE_ZONE: [
-        'منطقة مستقرة للرمي',
-        'حركة متوازنة في المنطقة'
-      ]
-    };
-
-    function navidurPickReasonVariant(code) {
-      const key = String(code || '').trim().toUpperCase();
-      const list = NAVIDUR_REASON_VARIANTS[key];
-      if (!list || !list.length) return null;
-      const index = Math.floor(Math.random() * list.length);
-      return list[index];
-    }
-
-    function navidurBuildReasonText(reasonCodes) {
-      if (!Array.isArray(reasonCodes)) return '';
-      const picked = [];
-      for (let i = 0; i < reasonCodes.length; i += 1) {
-        const text = navidurPickReasonVariant(reasonCodes[i]);
-        if (text && picked.indexOf(text) < 0) {
-          picked.push(text);
-        }
-        if (picked.length === 2) break;
-      }
-      return picked.join(' + ');
+    function navidurReasonLabelFromCode(code) {
+      const c = String(code || '').trim().toUpperCase();
+      if (c === 'CLUSTER_STRONG') return 'تجمّع نشاط مائي';
+      if (c === 'WATER_CONFIDENT') return 'نقاط مائية مؤكدة';
+      if (c === 'CURRENT_SUPPORT') return 'ظروف مناسبة الآن';
+      if (c === 'STABLE_ZONE') return 'منطقة مستقرة للرمي';
+      return '';
     }
 
     function navidurRenderHeatmapDecisionBadge(payload) {
@@ -3604,14 +3570,15 @@
         : (p.fallback_direction_text || 'لا يوجد اتجاه رمي مؤكد');
 
       const codes = Array.isArray(p.reason_codes) ? p.reason_codes : [];
-      const reasonText = navidurBuildReasonText(codes);
-      reasonEl.textContent = 'السبب: ' + (reasonText || (p.fallback_reason_text || 'النشاط غير واضح حالياً'));
-      if (navidurUiMode() === 'admin') {
-        console.debug('NAVIDUR_REASON_VARIANT_USED', {
-          codes: codes,
-          final_text: reasonText
-        });
+      const labels = [];
+      for (let i = 0; i < codes.length; i += 1) {
+        const lb = navidurReasonLabelFromCode(codes[i]);
+        if (lb && labels.indexOf(lb) < 0) labels.push(lb);
+        if (labels.length >= 2) break;
       }
+      reasonEl.textContent = labels.length
+        ? ('السبب: ' + labels.join(' + '))
+        : ('السبب: ' + (p.fallback_reason_text || 'النشاط غير واضح حالياً'));
     }
 
     function navidurBuildHeatDecisionLayer(points, station) {

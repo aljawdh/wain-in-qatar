@@ -278,52 +278,6 @@
       color: #c4e8ff;
       line-height: 1.55;
     }
-    .heatmap-decision-badge-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-top: 2px;
-    }
-    .heatmap-confidence-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: fit-content;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 800;
-      border: 1px solid rgba(255,255,255,0.2);
-      background: rgba(20, 40, 55, 0.8);
-      color: #d7ebff;
-    }
-    .heatmap-confidence-badge.high {
-      background: rgba(18, 116, 64, 0.28);
-      border-color: rgba(86, 214, 133, 0.52);
-      color: #b9f6d4;
-    }
-    .heatmap-confidence-badge.medium {
-      background: rgba(133, 103, 21, 0.28);
-      border-color: rgba(250, 218, 120, 0.52);
-      color: #fff0bf;
-    }
-    .heatmap-confidence-badge.low {
-      background: rgba(72, 88, 104, 0.28);
-      border-color: rgba(167, 184, 203, 0.45);
-      color: #dde6f3;
-    }
-    .casting-direction-summary {
-      font-size: 12px;
-      font-weight: 700;
-      color: #d9efff;
-      line-height: 1.45;
-    }
-    .heatmap-reason-line {
-      font-size: 11px;
-      font-weight: 700;
-      color: #b7d8ee;
-      line-height: 1.45;
-    }
     .nv-cast-direction-bar {
       padding: 10px 12px 12px;
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -1163,11 +1117,6 @@
             <span id="mapMetaText">نطاق التحليل: 0.02</span>
           </div>
           <div id="hotspotSummaryText" class="hotspot-summary-line">—</div>
-          <div class="heatmap-decision-badge-wrap">
-            <div id="heatmapConfidenceBadge" class="heatmap-confidence-badge low">ثقة الخريطة: منخفضة</div>
-            <div id="castingDirectionSummaryText" class="casting-direction-summary">لا يوجد اتجاه رمي مؤكد</div>
-            <div id="heatmapReasonLine" class="heatmap-reason-line">السبب: النشاط غير واضح حالياً</div>
-          </div>
         </div>
       </div>
       <div id="stationMap"></div>
@@ -3541,79 +3490,6 @@
       return 20;
     }
 
-    function navidurUiMode() {
-      return isAdminMode() ? 'admin' : 'public';
-    }
-
-    const NAVIDUR_REASON_VARIANTS = {
-      CLUSTER_STRONG: [
-        'تجمّع نشاط مائي',
-        'نشاط واضح في المنطقة',
-        'منطقة فيها حركة جيدة'
-      ],
-      CURRENT_SUPPORT: [
-        'ظروف مناسبة الآن',
-        'الوضع البحري مساعد',
-        'الحالة الحالية تدعم الصيد'
-      ],
-      WATER_CONFIDENT: [
-        'نقاط مائية مؤكدة',
-        'الموقع داخل نطاق مائي',
-        'بيئة مناسبة للرمي'
-      ],
-      STABLE_ZONE: [
-        'منطقة مستقرة للرمي',
-        'حركة متوازنة في المنطقة'
-      ]
-    };
-
-    function navidurPickReasonVariant(code) {
-      const key = String(code || '').trim().toUpperCase();
-      const list = NAVIDUR_REASON_VARIANTS[key];
-      if (!list || !list.length) return null;
-      const index = Math.floor(Math.random() * list.length);
-      return list[index];
-    }
-
-    function navidurBuildReasonText(reasonCodes) {
-      if (!Array.isArray(reasonCodes)) return '';
-      const picked = [];
-      for (let i = 0; i < reasonCodes.length; i += 1) {
-        const text = navidurPickReasonVariant(reasonCodes[i]);
-        if (text && picked.indexOf(text) < 0) {
-          picked.push(text);
-        }
-        if (picked.length === 2) break;
-      }
-      return picked.join(' + ');
-    }
-
-    function navidurRenderHeatmapDecisionBadge(payload) {
-      const p = payload && typeof payload === 'object' ? payload : {};
-      const badgeEl = document.getElementById('heatmapConfidenceBadge');
-      const dirEl = document.getElementById('castingDirectionSummaryText');
-      const reasonEl = document.getElementById('heatmapReasonLine');
-      if (!badgeEl || !dirEl || !reasonEl) return;
-      const conf = String(p.heatmap_confidence || 'low').toLowerCase();
-      const confAr = conf === 'high' ? 'عالية' : conf === 'medium' ? 'متوسطة' : 'منخفضة';
-      badgeEl.className = 'heatmap-confidence-badge ' + (conf === 'high' ? 'high' : conf === 'medium' ? 'medium' : 'low');
-      badgeEl.textContent = 'ثقة الخريطة: ' + confAr;
-
-      dirEl.textContent = p.direction_text
-        ? ('أفضل اتجاه: ' + p.direction_text + (p.distance_text ? (' — ' + p.distance_text) : ''))
-        : (p.fallback_direction_text || 'لا يوجد اتجاه رمي مؤكد');
-
-      const codes = Array.isArray(p.reason_codes) ? p.reason_codes : [];
-      const reasonText = navidurBuildReasonText(codes);
-      reasonEl.textContent = 'السبب: ' + (reasonText || (p.fallback_reason_text || 'النشاط غير واضح حالياً'));
-      if (navidurUiMode() === 'admin') {
-        console.debug('NAVIDUR_REASON_VARIANT_USED', {
-          codes: codes,
-          final_text: reasonText
-        });
-      }
-    }
-
     function navidurBuildHeatDecisionLayer(points, station) {
       const list = Array.isArray(points) ? points : [];
       const gps = { lat: navidurCastGeo.lat, lon: navidurCastGeo.lon };
@@ -3855,8 +3731,7 @@
           radius_m: radius_m,
           confidence: confidence,
           water_confidence: cnt ? (waterSum / cnt) : 0,
-          reason: 'تجمع نقاط مائية + نشاط غير منفرد',
-          reason_codes: ['CLUSTER_STRONG', 'WATER_CONFIDENT', 'STABLE_ZONE']
+          reason: 'تجمع نقاط مائية + نشاط غير منفرد'
         };
       }).filter(Boolean);
       const gpsOk = navidurCastGeo.lat != null && navidurCastGeo.lon != null && isFinite(navidurCastGeo.lat) && isFinite(navidurCastGeo.lon);
@@ -4246,7 +4121,6 @@
     function navidurRefreshCastDirectionMapAndUi() {
       const lineEl = document.getElementById('castDirectionLine');
       const statusEl = document.getElementById('castDirectionStatus');
-      const mode = navidurUiMode();
       let hbest = latestNavidurHotspotBest;
       const castDecision = latestNavidurCastTargetDecision;
       if (castDecision && castDecision.lat != null && castDecision.lng != null) {
@@ -4297,7 +4171,7 @@
       if (!hbest || !isFinite(hlat) || !isFinite(hlon)) {
         navidurClearCastMapOverlays();
         if (lineEl) lineEl.textContent = 'لا يوجد اتجاه رمي واضح الآن';
-        if (mode === 'admin') console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
+        console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
         return;
       }
 
@@ -4310,7 +4184,7 @@
           if (lineEl) lineEl.textContent = 'فعّل موقعي لعرض اتجاه الرمي.';
           if (statusEl && !navidurCastGeo.error) statusEl.textContent = '';
         }
-        if (mode === 'admin') console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
+        console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
         return;
       }
 
@@ -4324,13 +4198,10 @@
 
       if (lineEl) {
         if (rawM < 10) {
-          lineEl.textContent = mode === 'public'
-            ? 'أنت قريب جدًا من أفضل نقطة للرمي'
-            : ('أنت قريب جدًا من أفضل نقطة — قوة ' + Math.round(avgScore || 0) + '%');
+          lineEl.textContent = 'أنت قريب جدًا من أفضل نقطة — قوة ' + Math.round(avgScore || 0) + '%';
         } else {
-          lineEl.textContent = mode === 'public'
-            ? ('اتجاه الرمي: ' + dirText + ' — ' + distRounded + 'م')
-            : ('اتجاه الرمي: ' + dirText + ' — ' + distRounded + 'م — قوة ' + Math.round(avgScore || 0) + '%');
+          lineEl.textContent =
+            'اتجاه الرمي: ' + dirText + ' — ' + distRounded + 'م — قوة ' + Math.round(avgScore || 0) + '%';
         }
       }
       if (statusEl && !navidurCastGeo.error) statusEl.textContent = '';
@@ -4389,7 +4260,7 @@
         } catch (_e) { /* ignore */ }
       }
 
-      if (mode === 'admin') console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
+      console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
     }
 
     function navidurBindCastDirectionControls() {
@@ -4415,7 +4286,6 @@
 
     function updateHotspotClusterUi(result, station, points, heatMeta, waterUi, precomputedHs, decisionLayer) {
       waterUi = waterUi || {};
-      const mode = navidurUiMode();
       const summaryEl = document.getElementById('hotspotSummaryText');
       const list = Array.isArray(points) ? points : [];
       const dl = decisionLayer && typeof decisionLayer === 'object' ? decisionLayer : {};
@@ -4431,16 +4301,9 @@
           analysisHotspotMarker = null;
         }
         if (summaryEl) summaryEl.textContent = 'نقاط مائية غير كافية لتكوين هوتسبوت واضح';
-        navidurRenderHeatmapDecisionBadge({
-          heatmap_confidence: 'low',
-          direction_text: '',
-          fallback_direction_text: 'لا يوجد اتجاه رمي مؤكد',
-          reason_codes: [],
-          fallback_reason_text: 'النشاط غير واضح حالياً'
-        });
         latestNavidurCastTargetDecision = null;
         navidurRefreshCastDirectionMapAndUi();
-        if (mode === 'admin') console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
+        console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
           total_points: dl.total_points != null ? dl.total_points : list.length,
           water_points: dl.water_points != null ? dl.water_points : 0,
           unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
@@ -4461,14 +4324,7 @@
         latestNavidurCastTargetDecision = null;
         reason_if_no_hotspot = 'لا توجد نقاط تحليل';
         if (summaryEl) summaryEl.textContent = 'لا يوجد هوتسبوت واضح؛ النشاط متشتت أو ضعيف.';
-        navidurRenderHeatmapDecisionBadge({
-          heatmap_confidence: 'low',
-          direction_text: '',
-          fallback_direction_text: 'لا يوجد اتجاه رمي مؤكد',
-          reason_codes: [],
-          fallback_reason_text: 'النشاط غير واضح حالياً'
-        });
-        if (mode === 'admin') console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
+        console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
           total_points: dl.total_points != null ? dl.total_points : 0,
           water_points: dl.water_points != null ? dl.water_points : 0,
           unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
@@ -4518,12 +4374,15 @@
 
       let summaryText = 'النشاط منتشر وغير حاسم';
       if (best && hs.direction_from_station != null && hs.distance_from_station_m != null) {
+        const confAr = hs.heatmap_confidence === 'high' ? 'ثقة عالية' : hs.heatmap_confidence === 'medium' ? 'ثقة متوسطة' : 'ثقة منخفضة';
         summaryText =
           'أفضل منطقة نشاط: ' +
           hs.direction_from_station +
           ' المحطة — ' +
           Math.round(hs.distance_from_station_m) +
-          'م';
+          'م — قوة ' +
+          Math.round(best.avg_score) +
+          '% — ' + confAr;
         if (stationMap) {
           analysisHotspotMarker = L.circleMarker([best.center_lat, best.center_lon], {
             radius: 11,
@@ -4534,16 +4393,14 @@
             className: 'navidur-hotspot-marker'
           });
           analysisHotspotMarker.bindPopup(
-            mode === 'admin'
-              ? ('<strong>Hotspot</strong><br>متوسط النقاط: ' +
-                best.avg_score.toFixed(1) +
-                '<br>أعلى نقطة: ' +
-                best.max_score +
-                '<br>عدد النقاط: ' +
-                best.point_count +
-                '<br>الثقة: ' +
-                Math.round(best.confidence || 0) + '%')
-              : '<strong>منطقة نشاط مرجّحة</strong><br>أفضل منطقة للرمي حالياً'
+            '<strong>Hotspot</strong><br>متوسط النقاط: ' +
+              best.avg_score.toFixed(1) +
+              '<br>أعلى نقطة: ' +
+              best.max_score +
+              '<br>عدد النقاط: ' +
+              best.point_count +
+              '<br>الثقة: ' +
+              Math.round(best.confidence || 0) + '%'
           );
           analysisHotspotMarker.addTo(stationMap);
         }
@@ -4569,21 +4426,9 @@
         latestNavidurHotspotBest = null;
         latestNavidurCastTargetDecision = null;
       }
-      const distTxt = hs.distance_from_station_m != null ? (Math.round(hs.distance_from_station_m) + 'م') : '';
-      const reasonCodes = best && Array.isArray(best.reason_codes) ? best.reason_codes.slice(0, 2) : [];
-      if (best) {
-        if (reasonCodes.indexOf('CURRENT_SUPPORT') < 0) reasonCodes.push('CURRENT_SUPPORT');
-      }
-      navidurRenderHeatmapDecisionBadge({
-        heatmap_confidence: hs.heatmap_confidence || 'low',
-        direction_text: hs.direction_from_station,
-        distance_text: distTxt,
-        reason_codes: reasonCodes.slice(0, 2),
-        fallback_reason_text: best ? 'منطقة مستقرة للرمي' : 'النشاط غير واضح حالياً'
-      });
       navidurRefreshCastDirectionMapAndUi();
 
-      if (mode === 'admin') console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
+      console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
         total_points: dl.total_points != null ? dl.total_points : list.length,
         water_points: dl.water_points != null ? dl.water_points : list.length,
         unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
@@ -5122,7 +4967,7 @@
             weight: isBest ? 3 : 1.5
           });
           gridMarker.bindPopup(
-            'نشاط مرصود: ' + p.zone +
+            'Score: ' + p.score + '<br>Final Heat: ' + p.final_heat_score + '<br>Zone: ' + p.zone +
               (disp.is_outlier ? '<br><small>عرض ملسّن (لون فقط)</small>' : '') +
               (isBest ? '<br><strong>BEST SPOT</strong>' : '')
           );
@@ -5690,13 +5535,6 @@
           if (summaryEl) {
             summaryEl.textContent = 'تعذر توليد خريطة نشاط دقيقة حالياً';
           }
-          navidurRenderHeatmapDecisionBadge({
-            heatmap_confidence: 'low',
-            direction_text: '',
-            fallback_direction_text: 'لا يوجد اتجاه رمي مؤكد',
-            reason_codes: [],
-            fallback_reason_text: 'النشاط غير واضح حالياً'
-          });
           navidurRefreshCastDirectionMapAndUi();
           const durRefFail = dtoForMap && dtoForMap.dur ? dtoForMap.dur : null;
           console.error('NAVIDUR_UNIFIED_SOURCE_STRICT', {
