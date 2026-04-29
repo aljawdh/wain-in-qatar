@@ -1853,8 +1853,6 @@
     let nvHeatToggleBound = false;
     let nvHeatZoomListenerBound = false;
     let latestNavidurHotspotBest = null;
-    let latestNavidurHeatDecision = null;
-    let latestNavidurCastTargetDecision = null;
     let navidurWaterLandOverridesDoc = { points: {} };
     let navidurCastGeo = { lat: null, lon: null, error: false, sessionStarted: false };
     let navidurCastWatchId = null;
@@ -3446,127 +3444,12 @@
       return out;
     }
 
-    /** Score used only for heatmap/hotspot spatial UI; prefers final_heat_score when available. */
+    /** Score used only for heatmap/hotspot spatial UI; prefers normalized_score, then raw_score, then score — no recomputation. */
     function navidurPointScoreForHeat(p) {
       if (p == null) return 0;
-      if (p.final_heat_score != null && !isNaN(Number(p.final_heat_score))) return Math.max(0, Math.min(100, Number(p.final_heat_score)));
       if (p.normalized_score != null && !isNaN(Number(p.normalized_score))) return Math.max(0, Math.min(100, Number(p.normalized_score)));
       if (p.raw_score != null && !isNaN(Number(p.raw_score))) return Math.max(0, Math.min(100, Number(p.raw_score)));
       return Math.max(0, Math.min(100, Number(p.score) || 0));
-    }
-
-    function navidurWaterConfidenceScore(kind) {
-      if (kind === 'water') return 100;
-      if (kind === 'land') return 0;
-      return 40;
-    }
-
-    function navidurCurrentDirectionBonus(pointCurrent, neighborCurrents) {
-      const c = Number(pointCurrent);
-      if (!isFinite(c)) return 55;
-      let base = 55;
-      if (c >= 0.45 && c <= 1.3) base = 78;
-      else if (c >= 0.3 && c <= 1.6) base = 66;
-      else if (c < 0.2 || c > 2.2) base = 42;
-      const neigh = Array.isArray(neighborCurrents) ? neighborCurrents.filter(function (n) { return isFinite(Number(n)); }) : [];
-      if (!neigh.length) return base;
-      const avg = neigh.reduce(function (s, n) { return s + Number(n); }, 0) / neigh.length;
-      const delta = Math.abs(avg - c);
-      if (delta <= 0.12) base += 10;
-      else if (delta >= 0.35) base -= 10;
-      return Math.max(0, Math.min(100, base));
-    }
-
-    function navidurCastingAccessibility(point, gps) {
-      if (!point) return 60;
-      if (!gps || gps.lat == null || gps.lon == null || !isFinite(gps.lat) || !isFinite(gps.lon)) return 60;
-      const dM = haversineKm(Number(gps.lat), Number(gps.lon), Number(point.lat), Number(point.lon)) * 1000;
-      if (!isFinite(dM)) return 60;
-      if (dM <= 80) return 96;
-      if (dM <= 140) return 88;
-      if (dM <= 220) return 72;
-      if (dM <= 320) return 52;
-      if (dM <= 450) return 34;
-      return 20;
-    }
-
-    function navidurBuildHeatDecisionLayer(points, station) {
-      const list = Array.isArray(points) ? points : [];
-      const gps = { lat: navidurCastGeo.lat, lon: navidurCastGeo.lon };
-      const NEI_M = 420;
-      const scored = [];
-      let rejected_land_points = 0;
-      let unknown_points = 0;
-      let points_above_50 = 0;
-      let points_above_65 = 0;
-      for (let i = 0; i < list.length; i += 1) {
-        const p = Object.assign({}, list[i]);
-        const kind = p._nv_water_kind != null ? p._nv_water_kind : navidurClassifyPointWaterKind(p);
-        if (kind === 'land') {
-          rejected_land_points += 1;
-          continue;
-        }
-        if (kind === 'unknown') unknown_points += 1;
-        const marine_score = Math.max(0, Math.min(100, Number(p.score) || 0));
-        const neighScores = [];
-        const neighCurrent = [];
-        for (let j = 0; j < list.length; j += 1) {
-          if (i === j) continue;
-          const q = list[j];
-          const qKind = q && (q._nv_water_kind != null ? q._nv_water_kind : navidurClassifyPointWaterKind(q));
-          if (qKind === 'land') continue;
-          const dM = haversineKm(Number(p.lat), Number(p.lon), Number(q.lat), Number(q.lon)) * 1000;
-          if (!isFinite(dM) || dM <= 0 || dM > NEI_M) continue;
-          neighScores.push(Number(q.score) || 0);
-          if (q.current != null) neighCurrent.push(Number(q.current));
-        }
-        const neighCount = neighScores.length;
-        const neighAvg = neighCount ? (neighScores.reduce(function (s, x) { return s + x; }, 0) / neighCount) : 0;
-        const cluster_support = Math.max(0, Math.min(100, (neighAvg * 0.72) + (Math.min(neighCount, 6) / 6) * 28));
-        const water_confidence = navidurWaterConfidenceScore(kind);
-        const current_direction_bonus = navidurCurrentDirectionBonus(p.current, neighCurrent);
-        const casting_accessibility = navidurCastingAccessibility(p, gps);
-        let final_heat_score =
-          (marine_score * 0.40) +
-          (cluster_support * 0.25) +
-          (water_confidence * 0.15) +
-          (current_direction_bonus * 0.10) +
-          (casting_accessibility * 0.10);
-        let isolated_high = false;
-        if (marine_score >= 75 && cluster_support < 45) {
-          isolated_high = true;
-          final_heat_score *= 0.72;
-        }
-        final_heat_score = Math.max(0, Math.min(100, final_heat_score));
-        const heat_reliability = Math.max(0, Math.min(100, (cluster_support * 0.45) + (water_confidence * 0.35) + ((isolated_high ? 25 : 75) * 0.20)));
-        p.marine_score = Math.round(marine_score * 10) / 10;
-        p.cluster_support = Math.round(cluster_support * 10) / 10;
-        p.water_confidence = Math.round(water_confidence * 10) / 10;
-        p.current_direction_bonus = Math.round(current_direction_bonus * 10) / 10;
-        p.casting_accessibility = Math.round(casting_accessibility * 10) / 10;
-        p.final_heat_score = Math.round(final_heat_score * 10) / 10;
-        p.heat_reliability = Math.round(heat_reliability * 10) / 10;
-        p.isolated_high = isolated_high;
-        if (p.final_heat_score >= 50) points_above_50 += 1;
-        if (p.final_heat_score >= 65) points_above_65 += 1;
-        scored.push(p);
-      }
-      const water_points = scored.length;
-      const points_for_heatmap = scored.filter(function (p) { return p.final_heat_score >= 50 && !p.isolated_high; });
-      let reason_if_no_hotspot = '';
-      if (water_points < 3) reason_if_no_hotspot = 'نقاط مائية غير كافية';
-      else if (!points_for_heatmap.length) reason_if_no_hotspot = 'النشاط منتشر وغير حاسم';
-      return {
-        scored_points: scored,
-        points_for_heatmap: points_for_heatmap,
-        total_points: list.length,
-        water_points: water_points,
-        unknown_points: unknown_points,
-        rejected_land_points: rejected_land_points,
-        points_above_50: points_above_50,
-        points_above_65: points_above_65,
-        reason_if_no_hotspot: reason_if_no_hotspot
-      };
     }
 
     function navidurHeatmapPointEligibleForHeat(p) {
@@ -3591,9 +3474,8 @@
     /**
      * Heatmap triplets: water-safe, score thresholds, optional cluster focus — display only (no engine/DTO change).
      */
-    function buildNavidurHeatmapPrecisionTriplets(decisionLayer, hsResult) {
-      const dl = decisionLayer && typeof decisionLayer === 'object' ? decisionLayer : {};
-      const list = Array.isArray(dl.points_for_heatmap) ? dl.points_for_heatmap : [];
+    function buildNavidurHeatmapPrecisionTriplets(points, hsResult) {
+      const list = Array.isArray(points) ? points : [];
       const hs = hsResult && typeof hsResult === 'object' ? hsResult : {};
       const best = hs.best || null;
       const cluster_focused = !!(best && best.center_lat != null && best.center_lon != null);
@@ -3609,11 +3491,20 @@
           reason_if_no_cluster = 'no_best_cluster';
         }
       }
-      const total_points = dl.total_points != null ? dl.total_points : list.length;
-      const water_points = dl.water_points != null ? dl.water_points : list.length;
-      const points_above_50 = dl.points_above_50 != null ? dl.points_above_50 : list.length;
-      const points_above_65 = dl.points_above_65 != null ? dl.points_above_65 : 0;
-      const points_above_75 = list.filter(function (p) { return navidurPointScoreForHeat(p) >= 75; }).length;
+      const total_points = list.length;
+      let water_points = 0;
+      let points_above_50 = 0;
+      let points_above_65 = 0;
+      let points_above_75 = 0;
+      for (let i = 0; i < list.length; i += 1) {
+        const p = list[i];
+        if (!navidurHeatmapPointEligibleForHeat(p)) continue;
+        water_points += 1;
+        const s = navidurPointScoreForHeat(p);
+        if (s >= 50) points_above_50 += 1;
+        if (s >= 65) points_above_65 += 1;
+        if (s >= 75) points_above_75 += 1;
+      }
       const triplets = [];
       const INTENSITY_CAP = cluster_focused ? 0.46 : 0.24;
       const NO_CLUSTER_SCALE = 0.19;
@@ -3641,8 +3532,6 @@
       const debug = {
         total_points: total_points,
         water_points: water_points,
-        unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
-        rejected_land_points: dl.rejected_land_points != null ? dl.rejected_land_points : 0,
         points_above_50: points_above_50,
         points_above_65: points_above_65,
         points_above_75: points_above_75,
@@ -3653,16 +3542,18 @@
       return { triplets: triplets, debug: debug };
     }
 
-    function clusterHighActivityHotspot(decisionLayer, station) {
-      const dl = decisionLayer && typeof decisionLayer === 'object' ? decisionLayer : {};
-      const list = Array.isArray(dl.scored_points) ? dl.scored_points : [];
-      const candidateIdx = [];
+    function clusterHighActivityHotspot(points, station) {
+      const HIGH_MIN = 72;
+      const LINK_M = 480;
+      const list = Array.isArray(points) ? points : [];
+      const highIdx = [];
       for (let i = 0; i < list.length; i += 1) {
-        if (Number(list[i].final_heat_score) >= 65) candidateIdx.push(i);
+        const s = navidurPointScoreForHeat(list[i]);
+        if (s >= HIGH_MIN) highIdx.push(i);
       }
-      const LINK_M = 520;
-      const MIN_CLUSTER = 3;
-      const parent = candidateIdx.map(function (_, k) { return k; });
+      const minCluster = highIdx.length >= 4 ? 3 : 2;
+      const parent = highIdx.map(function (_, k) { return k; });
+
       function find(k) {
         while (parent[k] !== k) {
           parent[k] = parent[parent[parent[k]]];
@@ -3677,75 +3568,55 @@
         if (ra < rb) parent[rb] = ra;
         else parent[ra] = rb;
       }
-      for (let a = 0; a < candidateIdx.length; a += 1) {
-        for (let b = a + 1; b < candidateIdx.length; b += 1) {
-          const ia = candidateIdx[a];
-          const ib = candidateIdx[b];
+
+      for (let a = 0; a < highIdx.length; a += 1) {
+        for (let b = a + 1; b < highIdx.length; b += 1) {
+          const ia = highIdx[a];
+          const ib = highIdx[b];
           const p1 = list[ia];
           const p2 = list[ib];
           const dM = haversineKm(Number(p1.lat), Number(p1.lon), Number(p2.lat), Number(p2.lon)) * 1000;
-          if (isFinite(dM) && dM <= LINK_M) union(a, b);
+          if (dM <= LINK_M) union(a, b);
         }
       }
+
       const groups = {};
-      for (let k = 0; k < candidateIdx.length; k += 1) {
+      for (let k = 0; k < highIdx.length; k += 1) {
         const r = find(k);
         if (!groups[r]) groups[r] = [];
-        groups[r].push(candidateIdx[k]);
+        groups[r].push(highIdx[k]);
       }
+
       let clusters = Object.keys(groups).map(function (key) {
         const idxs = groups[key];
-        if (idxs.length < MIN_CLUSTER) return null;
-        let sum = 0; let maxS = 0; let clat = 0; let clon = 0;
-        let waterSum = 0; let unknownCount = 0;
+        let sum = 0;
+        let maxS = 0;
+        let clat = 0;
+        let clon = 0;
         idxs.forEach(function (ii) {
-          const p = list[ii];
-          const s = Number(p.final_heat_score) || 0;
+          const s = navidurPointScoreForHeat(list[ii]);
           sum += s;
           if (s > maxS) maxS = s;
-          clat += Number(p.lat);
-          clon += Number(p.lon);
-          waterSum += Number(p.water_confidence) || 0;
-          if (navidurClassifyPointWaterKind(p) === 'unknown') unknownCount += 1;
+          clat += Number(list[ii].lat);
+          clon += Number(list[ii].lon);
         });
         const cnt = idxs.length;
-        const center_lat = clat / cnt;
-        const center_lon = clon / cnt;
-        let radius_m = 0;
-        idxs.forEach(function (ii) {
-          const p = list[ii];
-          const dM = haversineKm(Number(p.lat), Number(p.lon), center_lat, center_lon) * 1000;
-          if (isFinite(dM) && dM > radius_m) radius_m = dM;
-        });
-        const avg_score = cnt ? (sum / cnt) : 0;
-        if (avg_score < 60) return null;
-        const water_ratio = cnt ? ((cnt - unknownCount) / cnt) : 0;
-        const confidence = Math.max(0, Math.min(100, (avg_score * 0.55) + ((waterSum / cnt) * 0.30) + (water_ratio * 100 * 0.15)));
         return {
           point_indices: idxs,
           point_count: cnt,
-          avg_score: avg_score,
+          avg_score: cnt ? sum / cnt : 0,
           max_score: maxS,
-          center_lat: center_lat,
-          center_lon: center_lon,
-          radius_m: radius_m,
-          confidence: confidence,
-          water_confidence: cnt ? (waterSum / cnt) : 0,
-          reason: 'تجمع نقاط مائية + نشاط غير منفرد'
+          center_lat: cnt ? clat / cnt : null,
+          center_lon: cnt ? clon / cnt : null
         };
-      }).filter(Boolean);
-      const gpsOk = navidurCastGeo.lat != null && navidurCastGeo.lon != null && isFinite(navidurCastGeo.lat) && isFinite(navidurCastGeo.lon);
+      }).filter(function (c) { return c.point_count >= minCluster; });
+
       clusters.sort(function (a, b) {
         if (b.avg_score !== a.avg_score) return b.avg_score - a.avg_score;
-        if (b.point_count !== a.point_count) return b.point_count - a.point_count;
-        if (b.water_confidence !== a.water_confidence) return b.water_confidence - a.water_confidence;
-        if (gpsOk) {
-          const da = haversineKm(navidurCastGeo.lat, navidurCastGeo.lon, a.center_lat, a.center_lon);
-          const db = haversineKm(navidurCastGeo.lat, navidurCastGeo.lon, b.center_lat, b.center_lon);
-          return da - db;
-        }
-        return 0;
+        if (b.max_score !== a.max_score) return b.max_score - a.max_score;
+        return b.point_count - a.point_count;
       });
+
       const best = clusters.length ? clusters[0] : null;
       let direction_from_station = null;
       let distance_from_station_m = null;
@@ -3754,64 +3625,14 @@
         direction_from_station = windDirText8(br);
         distance_from_station_m = haversineKm(Number(station.lat), Number(station.lng), best.center_lat, best.center_lon) * 1000;
       }
-      let heatmap_confidence = 'low';
-      const unknown_ratio = dl.water_points > 0 ? (dl.unknown_points / dl.water_points) : 1;
-      if (best && dl.water_points >= 8 && best.point_count >= 3 && best.avg_score >= 70 && unknown_ratio < 0.30) {
-        heatmap_confidence = 'high';
-      } else if (best && best.point_count >= 3) {
-        heatmap_confidence = 'medium';
-      }
-      let reachable_cast_target = null;
-      if (best) {
-        const gpsEnabled = gpsOk;
-        const clusterPoints = best.point_indices.map(function (ii) { return list[ii]; }).filter(Boolean);
-        let chosen = null;
-        let target_lat = best.center_lat;
-        let target_lng = best.center_lon;
-        if (gpsEnabled) {
-          clusterPoints.sort(function (a, b) {
-            const sa = (Number(a.final_heat_score) || 0) + (Number(a.casting_accessibility) || 60) * 0.25;
-            const sb = (Number(b.final_heat_score) || 0) + (Number(b.casting_accessibility) || 60) * 0.25;
-            return sb - sa;
-          });
-          chosen = clusterPoints.length ? clusterPoints[0] : null;
-          if (chosen) {
-            target_lat = Number(chosen.lat);
-            target_lng = Number(chosen.lon);
-          }
-        }
-        if (isFinite(target_lat) && isFinite(target_lng)) {
-          let distance_m = null;
-          let bearing_deg = null;
-          let direction_text = null;
-          if (gpsEnabled) {
-            distance_m = haversineKm(navidurCastGeo.lat, navidurCastGeo.lon, target_lat, target_lng) * 1000;
-            bearing_deg = bearingDegFromTo(navidurCastGeo.lat, navidurCastGeo.lon, target_lat, target_lng);
-            direction_text = windDirText8(bearing_deg);
-          }
-          const castability_score = chosen ? (Number(chosen.casting_accessibility) || 60) : 60;
-          let reason = gpsEnabled ? 'أفضل نشاط داخل التجمع' : 'center_best_cluster_no_gps';
-          if (gpsEnabled && distance_m > 350) reason = 'أفضل نشاط موجود، لكن موقع الرمي بعيد أو غير مؤكد';
-          reachable_cast_target = {
-            lat: target_lat,
-            lng: target_lng,
-            distance_m: distance_m,
-            bearing_deg: bearing_deg,
-            direction_text: direction_text,
-            castability_score: castability_score,
-            reason: reason
-          };
-        }
-      }
+
       return {
         clusters: clusters,
         best: best,
-        minCluster: MIN_CLUSTER,
-        highIdx: candidateIdx,
+        minCluster: minCluster,
+        highIdx: highIdx,
         direction_from_station: direction_from_station,
-        distance_from_station_m: distance_from_station_m,
-        heatmap_confidence: heatmap_confidence,
-        reachable_cast_target: reachable_cast_target
+        distance_from_station_m: distance_from_station_m
       };
     }
 
@@ -3927,19 +3748,18 @@
     }
 
     /** Heatmap sits under the analysis radius circle; sample points and hotspot marker stay on top. */
-    function addAnalysisHeatmapLayer(decisionLayer, clusterHotspotResult) {
+    function addAnalysisHeatmapLayer(points, clusterHotspotResult) {
       const heatToggle = document.getElementById('toggleAnalysisHeatmap');
       const heatWanted = !heatToggle || heatToggle.checked;
-      const dl = decisionLayer && typeof decisionLayer === 'object' ? decisionLayer : {};
-      const list = Array.isArray(dl.points_for_heatmap) ? dl.points_for_heatmap : [];
+      const list = Array.isArray(points) ? points : [];
       if (!stationMap || !list.length) {
         analysisHeatTriplets = null;
         navidurHeatmapClusterFocusedFlag = false;
-        const emptyBuilt = buildNavidurHeatmapPrecisionTriplets(dl, clusterHotspotResult);
+        const emptyBuilt = buildNavidurHeatmapPrecisionTriplets([], clusterHotspotResult);
         console.debug('NAVIDUR_HEATMAP_PRECISION', emptyBuilt.debug);
         return { triplets: [], heat_ok: false, heat_error: null };
       }
-      const built = buildNavidurHeatmapPrecisionTriplets(dl, clusterHotspotResult);
+      const built = buildNavidurHeatmapPrecisionTriplets(list, clusterHotspotResult);
       analysisHeatTriplets = built.triplets;
       navidurHeatmapClusterFocusedFlag = built.debug.cluster_focused === true;
       console.debug('NAVIDUR_HEATMAP_PRECISION', built.debug);
@@ -4122,18 +3942,9 @@
       const lineEl = document.getElementById('castDirectionLine');
       const statusEl = document.getElementById('castDirectionStatus');
       let hbest = latestNavidurHotspotBest;
-      const castDecision = latestNavidurCastTargetDecision;
-      if (castDecision && castDecision.lat != null && castDecision.lng != null) {
-        hbest = {
-          center_lat: Number(castDecision.lat),
-          center_lon: Number(castDecision.lng),
-          avg_score: castDecision.castability_score != null ? Number(castDecision.castability_score) : null
-        };
-      }
       const dtoH = currentSharedAnalysisDto && currentSharedAnalysisDto.hotspot;
       const castCenter = dtoH && dtoH.center ? dtoH.center : null;
       if (
-        !castDecision &&
         castCenter &&
         castCenter.lat != null &&
         (castCenter.lng != null || castCenter.lon != null) &&
@@ -4156,22 +3967,20 @@
       const ulon = navidurCastGeo.lon;
 
       const debugPayload = {
-        gps_enabled: !!(ulat != null && ulon != null && isFinite(ulat) && isFinite(ulon)),
         user_lat: ulat,
         user_lng: ulon,
-        target_lat: isFinite(hlat) ? hlat : null,
-        target_lng: isFinite(hlon) ? hlon : null,
-        distance_m: null,
+        hotspot_lat: isFinite(hlat) ? hlat : null,
+        hotspot_lng: isFinite(hlon) ? hlon : null,
         bearing_deg: null,
         direction_text: null,
-        castability_score: castDecision && castDecision.castability_score != null ? castDecision.castability_score : avgScore,
-        reason: castDecision && castDecision.reason ? castDecision.reason : ''
+        distance_m: null,
+        avg_score: avgScore
       };
 
       if (!hbest || !isFinite(hlat) || !isFinite(hlon)) {
         navidurClearCastMapOverlays();
         if (lineEl) lineEl.textContent = 'لا يوجد اتجاه رمي واضح الآن';
-        console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
+        console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
         return;
       }
 
@@ -4184,7 +3993,7 @@
           if (lineEl) lineEl.textContent = 'فعّل موقعي لعرض اتجاه الرمي.';
           if (statusEl && !navidurCastGeo.error) statusEl.textContent = '';
         }
-        console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
+        console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
         return;
       }
 
@@ -4260,7 +4069,7 @@
         } catch (_e) { /* ignore */ }
       }
 
-      console.debug('NAVIDUR_CAST_TARGET_DECISION', debugPayload);
+      console.debug('NAVIDUR_CAST_DIRECTION', debugPayload);
     }
 
     function navidurBindCastDirectionControls() {
@@ -4284,11 +4093,10 @@
       }
     }
 
-    function updateHotspotClusterUi(result, station, points, heatMeta, waterUi, precomputedHs, decisionLayer) {
+    function updateHotspotClusterUi(result, station, points, heatMeta, waterUi, precomputedHs) {
       waterUi = waterUi || {};
       const summaryEl = document.getElementById('hotspotSummaryText');
       const list = Array.isArray(points) ? points : [];
-      const dl = decisionLayer && typeof decisionLayer === 'object' ? decisionLayer : {};
       let reason_if_no_hotspot = '';
       const heatmap_points_count = heatMeta && heatMeta.triplets ? heatMeta.triplets.length : 0;
 
@@ -4301,49 +4109,38 @@
           analysisHotspotMarker = null;
         }
         if (summaryEl) summaryEl.textContent = 'نقاط مائية غير كافية لتكوين هوتسبوت واضح';
-        latestNavidurCastTargetDecision = null;
         navidurRefreshCastDirectionMapAndUi();
-        console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
-          total_points: dl.total_points != null ? dl.total_points : list.length,
-          water_points: dl.water_points != null ? dl.water_points : 0,
-          unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
-          rejected_land_points: dl.rejected_land_points != null ? dl.rejected_land_points : 0,
-          points_above_50: dl.points_above_50 != null ? dl.points_above_50 : 0,
-          points_above_65: dl.points_above_65 != null ? dl.points_above_65 : 0,
+        console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
+          heatmap_points_count: 0,
           clusters_count: 0,
           best_cluster: null,
-          heatmap_confidence: 'low',
-          reachable_cast_target: null,
-          reason_if_no_hotspot: 'نقاط مائية غير كافية'
+          avg_score: null,
+          max_score: null,
+          direction_from_station: null,
+          distance_from_station_m: null,
+          reason_if_no_hotspot: 'insufficient_aquatic_points_after_land_filter'
         });
         return;
       }
 
       if (!list.length) {
         latestNavidurHotspotBest = null;
-        latestNavidurCastTargetDecision = null;
         reason_if_no_hotspot = 'لا توجد نقاط تحليل';
         if (summaryEl) summaryEl.textContent = 'لا يوجد هوتسبوت واضح؛ النشاط متشتت أو ضعيف.';
-        console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
-          total_points: dl.total_points != null ? dl.total_points : 0,
-          water_points: dl.water_points != null ? dl.water_points : 0,
-          unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
-          rejected_land_points: dl.rejected_land_points != null ? dl.rejected_land_points : 0,
-          points_above_50: dl.points_above_50 != null ? dl.points_above_50 : 0,
-          points_above_65: dl.points_above_65 != null ? dl.points_above_65 : 0,
+        console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
+          heatmap_points_count: 0,
           clusters_count: 0,
           best_cluster: null,
-          heatmap_confidence: 'low',
-          reachable_cast_target: null,
+          avg_score: null,
+          max_score: null,
+          direction_from_station: null,
+          distance_from_station_m: null,
           reason_if_no_hotspot: reason_if_no_hotspot
         });
         navidurRefreshCastDirectionMapAndUi();
         return;
       }
 
-      if (dl.reason_if_no_hotspot) {
-        reason_if_no_hotspot = reason_if_no_hotspot || dl.reason_if_no_hotspot;
-      }
       if (heatMeta && !heatMeta.heat_ok && heatMeta.heat_error) {
         reason_if_no_hotspot = reason_if_no_hotspot || 'تعذر عرض الحرارة: ' + heatMeta.heat_error;
       }
@@ -4357,10 +4154,7 @@
           center_lon: best.center_lon,
           point_count: best.point_count,
           avg_score: best.avg_score,
-          max_score: best.max_score,
-          radius_m: best.radius_m,
-          confidence: best.confidence,
-          reason: best.reason
+          max_score: best.max_score
         }
         : null;
 
@@ -4374,15 +4168,14 @@
 
       let summaryText = 'النشاط منتشر وغير حاسم';
       if (best && hs.direction_from_station != null && hs.distance_from_station_m != null) {
-        const confAr = hs.heatmap_confidence === 'high' ? 'ثقة عالية' : hs.heatmap_confidence === 'medium' ? 'ثقة متوسطة' : 'ثقة منخفضة';
         summaryText =
-          'أفضل منطقة نشاط: ' +
+          'أفضل نشاط مرصود: ' +
           hs.direction_from_station +
           ' المحطة — ' +
           Math.round(hs.distance_from_station_m) +
           'م — قوة ' +
           Math.round(best.avg_score) +
-          '% — ' + confAr;
+          '%';
         if (stationMap) {
           analysisHotspotMarker = L.circleMarker([best.center_lat, best.center_lon], {
             radius: 11,
@@ -4398,47 +4191,35 @@
               '<br>أعلى نقطة: ' +
               best.max_score +
               '<br>عدد النقاط: ' +
-              best.point_count +
-              '<br>الثقة: ' +
-              Math.round(best.confidence || 0) + '%'
+              best.point_count
           );
           analysisHotspotMarker.addTo(stationMap);
         }
       } else if (hs.clusters.length === 0 && hs.highIdx.length > 0) {
         summaryText = 'النشاط منتشر وغير حاسم';
       }
-      if (!best && reason_if_no_hotspot === 'نقاط مائية غير كافية') {
-        summaryText = 'نقاط مائية غير كافية';
-      }
 
       if (summaryEl) summaryEl.textContent = summaryText;
 
       if (best && best.center_lat != null && best.center_lon != null) {
-        const castTarget = hs.reachable_cast_target || { lat: best.center_lat, lng: best.center_lon, castability_score: best.avg_score, reason: 'center_fallback' };
-        latestNavidurCastTargetDecision = castTarget;
         latestNavidurHotspotBest = {
-          center_lat: castTarget.lat,
-          center_lon: castTarget.lng,
-          avg_score: best.avg_score,
-          reason: castTarget.reason || ''
+          center_lat: best.center_lat,
+          center_lon: best.center_lon,
+          avg_score: best.avg_score
         };
       } else {
         latestNavidurHotspotBest = null;
-        latestNavidurCastTargetDecision = null;
       }
       navidurRefreshCastDirectionMapAndUi();
 
-      console.debug('NAVIDUR_HEATMAP_DECISION_LAYER', {
-        total_points: dl.total_points != null ? dl.total_points : list.length,
-        water_points: dl.water_points != null ? dl.water_points : list.length,
-        unknown_points: dl.unknown_points != null ? dl.unknown_points : 0,
-        rejected_land_points: dl.rejected_land_points != null ? dl.rejected_land_points : 0,
-        points_above_50: dl.points_above_50 != null ? dl.points_above_50 : 0,
-        points_above_65: dl.points_above_65 != null ? dl.points_above_65 : 0,
+      console.debug('NAVIDUR_HEATMAP_HOTSPOT', {
+        heatmap_points_count: heatmap_points_count,
         clusters_count: clusters_count,
         best_cluster: best_cluster,
-        heatmap_confidence: hs.heatmap_confidence || 'low',
-        reachable_cast_target: hs.reachable_cast_target || null,
+        avg_score: best ? best.avg_score : null,
+        max_score: best ? best.max_score : null,
+        direction_from_station: hs.direction_from_station,
+        distance_from_station_m: hs.distance_from_station_m,
         reason_if_no_hotspot: best ? (reason_if_no_hotspot || '') : (reason_if_no_hotspot || summaryText)
       });
     }
@@ -4926,18 +4707,16 @@
         });
       }
 
-      const decisionLayer = navidurBuildHeatDecisionLayer(aquaticPoints, station);
-      latestNavidurHeatDecision = decisionLayer;
-      const insufficientAquatic = aquaticPoints.length < 3 || decisionLayer.water_points < 3;
-      const mapBestIdx = navidurDisplayGridFindBestIdx(decisionLayer.scored_points, result.best_spot);
+      const insufficientAquatic = aquaticPoints.length < 3;
+      const mapBestIdx = navidurDisplayGridFindBestIdx(aquaticPoints, result.best_spot);
 
       console.debug('NAVIDUR_GRID_DENSITY', {
         total_points: pointsAll.length,
         inner_ring_points: dens.inner_ring_points,
         outer_ring_points: dens.outer_ring_points,
         analysis_radius: radiusDegrees,
-        points_used_for_heatmap: insufficientAquatic ? 0 : decisionLayer.points_for_heatmap.length,
-        points_used_for_hotspot: insufficientAquatic ? 0 : decisionLayer.points_for_heatmap.length
+        points_used_for_heatmap: insufficientAquatic ? 0 : aquaticPoints.length,
+        points_used_for_hotspot: insufficientAquatic ? 0 : aquaticPoints.length
       });
 
       console.debug('NAVIDUR_WATER_POINT_FILTER', {
@@ -4947,15 +4726,15 @@
         unknown_points_count: unknownPointsCount,
         reason: waterFilterReason,
         used_fields: usedWaterFields,
-        heatmap_points_used: insufficientAquatic ? 0 : decisionLayer.points_for_heatmap.length,
-        hotspot_points_used: insufficientAquatic ? 0 : decisionLayer.points_for_heatmap.length
+        heatmap_points_used: insufficientAquatic ? 0 : aquaticPoints.length,
+        hotspot_points_used: insufficientAquatic ? 0 : aquaticPoints.length
       });
 
       const sampleToggleEl = document.getElementById('toggleShowSamplePoints');
       const showSamplePoints = !!(sampleToggleEl && sampleToggleEl.checked);
-      if (showSamplePoints && decisionLayer.scored_points.length) {
-        const displayVisuals = computeMapPointDisplayVisuals(decisionLayer.scored_points);
-        decisionLayer.scored_points.forEach(function (p, idx) {
+      if (showSamplePoints && aquaticPoints.length) {
+        const displayVisuals = computeMapPointDisplayVisuals(aquaticPoints);
+        aquaticPoints.forEach(function (p, idx) {
           const isBest = mapBestIdx === idx;
           const disp = displayVisuals[idx] || { finalVisual: getScoreVisual(p.score || 0), rawVisual: getScoreVisual(p.score || 0), is_outlier: false };
           const visual = disp.finalVisual;
@@ -4967,7 +4746,7 @@
             weight: isBest ? 3 : 1.5
           });
           gridMarker.bindPopup(
-            'Score: ' + p.score + '<br>Final Heat: ' + p.final_heat_score + '<br>Zone: ' + p.zone +
+            'Score: ' + p.score + '<br>Zone: ' + p.zone +
               (disp.is_outlier ? '<br><small>عرض ملسّن (لون فقط)</small>' : '') +
               (isBest ? '<br><strong>BEST SPOT</strong>' : '')
           );
@@ -4976,10 +4755,10 @@
       }
 
       let hsClusterResult = null;
-      if (!insufficientAquatic && decisionLayer.points_for_heatmap.length) {
-        hsClusterResult = clusterHighActivityHotspot(decisionLayer, station);
+      if (!insufficientAquatic && aquaticPoints.length) {
+        hsClusterResult = clusterHighActivityHotspot(aquaticPoints, station);
       }
-      const heatMeta = insufficientAquatic ? addAnalysisHeatmapLayer(decisionLayer, null) : addAnalysisHeatmapLayer(decisionLayer, hsClusterResult);
+      const heatMeta = insufficientAquatic ? addAnalysisHeatmapLayer([], null) : addAnalysisHeatmapLayer(aquaticPoints, hsClusterResult);
 
       if (analysisCircle) {
         analysisCircle.remove();
@@ -4992,7 +4771,7 @@
         fillOpacity: 0.08
       }).addTo(stationMap);
 
-      updateHotspotClusterUi(result, station, decisionLayer.points_for_heatmap, heatMeta, { insufficientAquatic: insufficientAquatic }, hsClusterResult, decisionLayer);
+      updateHotspotClusterUi(result, station, aquaticPoints, heatMeta, { insufficientAquatic: insufficientAquatic }, hsClusterResult);
 
       const heatToggleEl = document.getElementById('toggleAnalysisHeatmap');
       console.debug('NAVIDUR_SAMPLE_POINTS_VISIBILITY', {
@@ -5529,11 +5308,11 @@
           }
           const mm = document.getElementById('mapMetaText');
           if (mm && selectedStation) {
-            mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر توليد خريطة نشاط دقيقة حالياً';
+            mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر توليد خريطة النشاط حالياً';
           }
           const summaryEl = document.getElementById('hotspotSummaryText');
           if (summaryEl) {
-            summaryEl.textContent = 'تعذر توليد خريطة نشاط دقيقة حالياً';
+            summaryEl.textContent = 'تعذر توليد خريطة النشاط حالياً';
           }
           navidurRefreshCastDirectionMapAndUi();
           const durRefFail = dtoForMap && dtoForMap.dur ? dtoForMap.dur : null;
@@ -5585,7 +5364,7 @@
         console.error('NAVIDUR_ANALYSIS_MAP_EXCEPTION', _hotspotErr);
         const mm = document.getElementById('mapMetaText');
         if (mm && selectedStation) {
-          mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر توليد خريطة نشاط دقيقة حالياً';
+          mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر توليد خريطة النشاط حالياً';
         }
       } finally {
         setAnalysisLoading(false);
