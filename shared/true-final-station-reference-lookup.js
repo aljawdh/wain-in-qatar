@@ -125,10 +125,6 @@ function annualRowsList(doc) {
   return Array.isArray(doc && doc.annual_flat_rows) ? doc.annual_flat_rows : [];
 }
 
-function hasAnnualRows(doc) {
-  return annualRowsList(doc).length > 0;
-}
-
 function matchAnnualRowsForStation(doc, stationNameAr) {
   var rows = annualRowsList(doc);
   var wantExact = nfcString(stationNameAr);
@@ -168,15 +164,9 @@ function chooseAnnualCurrentRow(rows, asM, asD) {
   return null;
 }
 
-function debugLookupMode(mode, stationName, matchedCount, currentDur, status) {
+function logNavidurTrueFinalForceAnnual(payload) {
   try {
-    console.debug('NAVIDUR_TRUE_FINAL_LOOKUP_MODE', {
-      lookup_mode: mode,
-      station_name: stationName,
-      matched_rows_count: matchedCount,
-      current_dur: currentDur || null,
-      status: status
-    });
+    console.log('NAVIDUR_TRUE_FINAL_FORCE_ANNUAL', payload);
   } catch (_e) {}
 }
 
@@ -222,10 +212,7 @@ function buildTrueFinalStationNameNormSet(doc) {
  * @returns {object} ok snapshot or { ok: false, code, message }
  */
 function getTrueFinalDurState(doc, params) {
-  console.log('TRUE_FINAL_INPUT_KEYS', Object.keys(doc || {}));
   var stationNameAr = normalizeString(params && params.station_name_ar);
-  var normalizedStationName = normalizeArabicName(stationNameAr);
-  console.log('NORMALIZED_STATION', normalizedStationName);
   var asOfIso = normalizeString(params && params.asOfIso);
   if (!stationNameAr || !asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) {
     return { ok: false, code: 'BAD_INPUT', message: 'station_name_ar and asOfIso (calendar day) required' };
@@ -233,164 +220,110 @@ function getTrueFinalDurState(doc, params) {
 
   var asDate = new Date(asOfIso + 'T12:00:00.000Z');
   if (Number.isNaN(asDate.getTime())) {
-    debugLookupMode('legacy_single_window', stationNameAr, 0, null, 'BAD_DATE');
     return { ok: false, code: 'BAD_DATE', message: 'invalid asOfIso' };
   }
   var asM = asDate.getUTCMonth() + 1;
   var asD = asDate.getUTCDate();
 
-  if (hasAnnualRows(doc)) {
-    var stationAnnualRows = matchAnnualRowsForStation(doc, stationNameAr);
-    console.log('ANNUAL_ROWS_COUNT', annualRowsList(doc).length);
-    console.log('MATCHED_ROWS_FOR_STATION', stationNameAr, stationAnnualRows.length);
-    if (!stationAnnualRows.length) {
-      debugLookupMode('annual_flat', stationNameAr, 0, null, 'STATION_NOT_FOUND');
-      return {
-        ok: false,
-        code: 'STATION_NOT_FOUND',
-        message: 'no matching row in annual_flat_rows for station_name_ar',
-        attempted_station_name_ar: stationNameAr,
-        normalized_lookup_key: normalizeArabicName(stationNameAr)
-      };
-    }
-    var matchedAnnual = chooseAnnualCurrentRow(stationAnnualRows, asM, asD);
-    if (!matchedAnnual) {
-      debugLookupMode('annual_flat', stationNameAr, stationAnnualRows.length, null, 'NO_DUR_WINDOW_FOR_DATE');
-      return {
-        ok: false,
-        code: 'NO_DUR_WINDOW_FOR_DATE',
-        message: 'station found in annual_flat_rows but no matching dur window for as_of date'
-      };
-    }
-    var tlA = syntheticTimelineMs(matchedAnnual.start, matchedAnnual.end, asM, asD);
-    if (!tlA) {
-      debugLookupMode('annual_flat', stationNameAr, stationAnnualRows.length, null, 'TIMELINE_FAILED');
-      return { ok: false, code: 'TIMELINE_FAILED', message: 'could not build synthetic day timeline' };
-    }
-
-    var totalDaysInclusiveA = Math.floor((tlA.endMs - tlA.startMs) / 86400000) + 1;
-    var dayInDurA = Math.floor((tlA.asMs - tlA.startMs) / 86400000) + 1;
-    var daysRemA = totalDaysInclusiveA - dayInDurA;
-    if (dayInDurA < 1) {
-      debugLookupMode('annual_flat', stationNameAr, stationAnnualRows.length, null, 'DAY_METRICS_INVALID');
-      return { ok: false, code: 'DAY_METRICS_INVALID', message: 'day_in_dur < 1' };
-    }
-    if (daysRemA < 0) daysRemA = 0;
-
-    var curRow = matchedAnnual.row;
-    var nextIdx = (matchedAnnual.idx + 1) % stationAnnualRows.length;
-    var nextRow = stationAnnualRows[nextIdx] || null;
-    var currentDurName = normalizeString(curRow.dur_name_ar);
-    var nextDurName = normalizeString(nextRow && nextRow.dur_name_ar);
-    var currentStartDdMm = toDdMmString(matchedAnnual.start);
-    var currentEndDdMm = toDdMmString(matchedAnnual.end);
-
-    debugLookupMode('annual_flat', stationNameAr, stationAnnualRows.length, currentDurName, 'OK');
-    return {
-      ok: true,
-      station_name_ar: normalizeString(curRow.station_name_ar) || stationNameAr,
-      as_of_mmdd: getMonthDayKey(asDate),
-      current_dur: currentDurName,
-      current_dur_name_ar: currentDurName,
-      current_dur_day: dayInDurA,
-      day_in_dur: dayInDurA,
-      remaining_days: daysRemA,
-      days_remaining_in_dur: daysRemA,
-      next_dur: nextDurName,
-      next_dur_name_ar: nextDurName,
-      current_dur_start_md: currentStartDdMm,
-      current_dur_end_md: currentEndDdMm,
-      period_start_mmdd: rowDdMmToMmddString(currentStartDdMm),
-      period_end_mmdd: rowDdMmToMmddString(currentEndDdMm),
-      timing_mode: 'month_day_only',
-      source: 'true_final_station_reference',
-      lookup_mode: 'annual_flat',
-      _fishing_start: new Date(tlA.startMs),
-      _fishing_end: new Date(tlA.endMs),
-      _fishing_as_of: new Date(tlA.asMs)
-    };
-  }
-  console.log('ANNUAL_ROWS_COUNT', annualRowsList(doc).length);
-  console.log('MATCHED_ROWS_FOR_STATION', stationNameAr, 0);
-
-  var row = findStationRow(doc, stationNameAr);
-  if (!row) {
-    debugLookupMode('legacy_single_window', stationNameAr, 0, null, 'STATION_NOT_FOUND');
+  var annualList = annualRowsList(doc);
+  if (!annualList.length) {
+    logNavidurTrueFinalForceAnnual({
+      has_annual: false,
+      annual_rows_count: 0,
+      matched_rows_count: 0,
+      station_name: stationNameAr,
+      lookup_mode: null
+    });
     return {
       ok: false,
-      code: 'STATION_NOT_FOUND',
-      message:
-        'no matching row in true_final_station_reference.json (compare station name to station_name_ar; tried exact NFC and Arabic-normalized match)',
+      code: 'TRUE_FINAL_ANNUAL_NOT_AVAILABLE',
+      message: 'annual_flat_rows missing or empty in true_final_station_reference'
+    };
+  }
+
+  var stationAnnualRows = matchAnnualRowsForStation(doc, stationNameAr);
+  logNavidurTrueFinalForceAnnual({
+    has_annual: true,
+    annual_rows_count: annualList.length,
+    matched_rows_count: stationAnnualRows.length,
+    station_name: stationNameAr,
+    lookup_mode: 'annual_flat_forced'
+  });
+
+  if (!stationAnnualRows.length) {
+    return {
+      ok: false,
+      code: 'STATION_NOT_FOUND_IN_ANNUAL',
+      message: 'no matching row in annual_flat_rows for station_name_ar',
       attempted_station_name_ar: stationNameAr,
-      normalized_lookup_key: normalizeArabicName(stationNameAr)
+      normalized_lookup_key: normalizeArabicName(stationNameAr),
+      lookup_mode: 'annual_flat_forced'
     };
   }
 
-  var pStart = parseDayMonthDdMm(row.current_dur_start_md);
-  var pEnd = parseDayMonthDdMm(row.current_dur_end_md);
-  if (!pStart || !pEnd) {
-    debugLookupMode('legacy_single_window', stationNameAr, 1, null, 'INVALID_WINDOW');
-    return { ok: false, code: 'INVALID_WINDOW', message: 'current_dur_start_md / current_dur_end_md not parseable' };
-  }
-
-  var aKey = asM * 100 + asD;
-  var sKey = pStart.m * 100 + pStart.d;
-  var eKey = pEnd.m * 100 + pEnd.d;
-
-  if (!isAsOfInWindowKeys(sKey, eKey, aKey)) {
-    debugLookupMode('legacy_single_window', stationNameAr, 1, null, 'AS_OF_OUTSIDE_SHEET_WINDOW');
+  var matchedAnnual = chooseAnnualCurrentRow(stationAnnualRows, asM, asD);
+  if (!matchedAnnual) {
     return {
       ok: false,
-      code: 'AS_OF_OUTSIDE_SHEET_WINDOW',
-      message: 'as_of month-day is not in [current_dur_start, current_dur_end] (DD-MM, seasonal)'
+      code: 'NO_DUR_WINDOW_FOR_DATE',
+      message: 'station found in annual_flat_rows but no matching dur window for as_of date',
+      lookup_mode: 'annual_flat_forced'
     };
   }
 
-  var tl = syntheticTimelineMs(pStart, pEnd, asM, asD);
-  if (!tl) {
-    debugLookupMode('legacy_single_window', stationNameAr, 1, null, 'TIMELINE_FAILED');
-    return { ok: false, code: 'TIMELINE_FAILED', message: 'could not build synthetic day timeline' };
+  var tlA = syntheticTimelineMs(matchedAnnual.start, matchedAnnual.end, asM, asD);
+  if (!tlA) {
+    return {
+      ok: false,
+      code: 'TIMELINE_FAILED',
+      message: 'could not build synthetic day timeline',
+      lookup_mode: 'annual_flat_forced'
+    };
   }
 
-  var totalDaysInclusive = Math.floor((tl.endMs - tl.startMs) / 86400000) + 1;
-  var dayInDur = Math.floor((tl.asMs - tl.startMs) / 86400000) + 1;
-  var daysRem = totalDaysInclusive - dayInDur;
-  if (dayInDur < 1) {
-    debugLookupMode('legacy_single_window', stationNameAr, 1, null, 'DAY_METRICS_INVALID');
-    return { ok: false, code: 'DAY_METRICS_INVALID', message: 'day_in_dur < 1' };
+  var totalDaysInclusiveA = Math.floor((tlA.endMs - tlA.startMs) / 86400000) + 1;
+  var dayInDurA = Math.floor((tlA.asMs - tlA.startMs) / 86400000) + 1;
+  var daysRemA = totalDaysInclusiveA - dayInDurA;
+  if (dayInDurA < 1) {
+    return {
+      ok: false,
+      code: 'DAY_METRICS_INVALID',
+      message: 'day_in_dur < 1',
+      lookup_mode: 'annual_flat_forced'
+    };
   }
-  if (daysRem < 0) daysRem = 0;
+  if (daysRemA < 0) daysRemA = 0;
 
-  var periodStartMmdd = rowDdMmToMmddString(row.current_dur_start_md);
-  var periodEndMmdd = rowDdMmToMmddString(row.current_dur_end_md);
-  var asOfMmddOnly = getMonthDayKey(asDate);
-  var currentDurLegacy = row.current_dur_name_ar;
-  var nextDurLegacy = normalizeString(row.next_dur_name_ar);
-
-  debugLookupMode('legacy_single_window', stationNameAr, 1, currentDurLegacy, 'OK');
+  var curRow = matchedAnnual.row;
+  var nextIdx = (matchedAnnual.idx + 1) % stationAnnualRows.length;
+  var nextRow = stationAnnualRows[nextIdx] || null;
+  var currentDurName = normalizeString(curRow.dur_name_ar);
+  var nextDurName = normalizeString(nextRow && nextRow.dur_name_ar);
+  var currentStartDdMm = toDdMmString(matchedAnnual.start);
+  var currentEndDdMm = toDdMmString(matchedAnnual.end);
 
   return {
     ok: true,
-    station_name_ar: row.station_name_ar,
-    as_of_mmdd: asOfMmddOnly,
-    current_dur: currentDurLegacy,
-    current_dur_name_ar: currentDurLegacy,
-    current_dur_day: dayInDur,
-    current_dur_start_md: normalizeString(row.current_dur_start_md),
-    current_dur_end_md: normalizeString(row.current_dur_end_md),
-    period_start_mmdd: periodStartMmdd,
-    period_end_mmdd: periodEndMmdd,
-    day_in_dur: dayInDur,
-    remaining_days: daysRem,
-    days_remaining_in_dur: daysRem,
-    next_dur: nextDurLegacy,
-    next_dur_name_ar: nextDurLegacy,
+    station_name_ar: normalizeString(curRow.station_name_ar) || stationNameAr,
+    as_of_mmdd: getMonthDayKey(asDate),
+    current_dur: currentDurName,
+    current_dur_name_ar: currentDurName,
+    current_dur_day: dayInDurA,
+    day_in_dur: dayInDurA,
+    remaining_days: daysRemA,
+    days_remaining_in_dur: daysRemA,
+    next_dur: nextDurName,
+    next_dur_name_ar: nextDurName,
+    current_dur_start_md: currentStartDdMm,
+    current_dur_end_md: currentEndDdMm,
+    period_start_mmdd: rowDdMmToMmddString(currentStartDdMm),
+    period_end_mmdd: rowDdMmToMmddString(currentEndDdMm),
     timing_mode: 'month_day_only',
     source: 'true_final_station_reference',
-    lookup_mode: 'legacy_single_window',
-    _fishing_start: new Date(tl.startMs),
-    _fishing_end: new Date(tl.endMs),
-    _fishing_as_of: new Date(tl.asMs)
+    lookup_mode: 'annual_flat_forced',
+    _fishing_start: new Date(tlA.startMs),
+    _fishing_end: new Date(tlA.endMs),
+    _fishing_as_of: new Date(tlA.asMs)
   };
 }
 
