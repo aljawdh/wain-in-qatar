@@ -10,74 +10,6 @@ const {
 } = require('./_lib/navidur-analysis-runtime');
 const fishingEngineHandler = require('./fishing-engine');
 
-function buildDurSnapshotForEvaluatedPoints(dur) {
-  if (!dur || typeof dur !== 'object') return null;
-  return {
-    period_id: dur.period_id != null ? dur.period_id : null,
-    period_name: dur.period_name != null ? dur.period_name : null,
-    day_in_period: dur.day_in_period != null ? dur.day_in_period : null,
-    calibration_reference_station_id:
-      dur.calibration_reference_station_id != null ? dur.calibration_reference_station_id : null
-  };
-}
-
-function buildTideSnapshotForEvaluatedPoints(tide) {
-  if (!tide || typeof tide !== 'object') return null;
-  return {
-    state: tide.state != null ? tide.state : null,
-    current_speed_ms: tide.current_speed_ms != null ? tide.current_speed_ms : null
-  };
-}
-
-/** Unified map point shape; score unchanged from computeHotspotForAnalysisContext. */
-function normalizeEvaluatedPointsForUnifiedDto(rows, station, dto) {
-  var list = Array.isArray(rows) ? rows : [];
-  var refResolved = dto.reference_station_id != null ? dto.reference_station_id : station.reference_station_id;
-  var sid = station.id != null ? station.id : null;
-  var durSnap = buildDurSnapshotForEvaluatedPoints(dto.dur);
-  var tideSnap = buildTideSnapshotForEvaluatedPoints(dto.tide);
-  var out = [];
-  for (var i = 0; i < list.length; i++) {
-    var p = list[i];
-    if (!p || typeof p !== 'object') continue;
-    var lngVal = p.lng != null ? p.lng : p.lon;
-    out.push({
-      lat: p.lat,
-      lng: lngVal,
-      lon: lngVal,
-      score: p.score,
-      water_status: p.water_status != null ? p.water_status : 'unknown',
-      source_station_id: p.source_station_id != null ? p.source_station_id : sid,
-      reference_station_id: p.reference_station_id != null ? p.reference_station_id : refResolved,
-      dur: durSnap,
-      tide: tideSnap
-    });
-  }
-  return out;
-}
-
-/** Same numeric environment the DTO already exposes (no re-run of analyzeLiveStation). */
-function liveEnvironmentFromAnalysisDto(dto) {
-  var env = dto && dto.environment ? dto.environment : {};
-  var t = dto && dto.tide ? dto.tide : {};
-  return {
-    temp_c: env.temp_c,
-    wind_speed_kmh: env.wind_speed_kmh,
-    wave_height_m: env.wave_height_m,
-    wind_direction_deg: env.wind_direction_deg,
-    current_speed_ms: t.current_speed_ms
-  };
-}
-
-function traitBundleFromAnalysisDto(dto) {
-  var d = dto && dto.dur ? dto.dur : {};
-  var f = dto && dto.fishing ? dto.fishing : {};
-  return {
-    unified_expected_traits: Array.isArray(d.unified_expected_traits) ? d.unified_expected_traits : [],
-    fishing_confidence_score: f.confidence_score != null ? f.confidence_score : null
-  };
-}
-
 module.exports = async function handler(req, res) {
   setNoCache(res);
 
@@ -124,8 +56,6 @@ module.exports = async function handler(req, res) {
       field_validation: fieldValidation
     });
 
-    dto.confidence = dto.fishing && dto.fishing.confidence_score != null ? dto.fishing.confidence_score : null;
-
     var spatialErr = null;
     dto.evaluated_points = [];
     dto.hotspot = null;
@@ -135,8 +65,17 @@ module.exports = async function handler(req, res) {
       if (typeof fishingEngineHandler.computeHotspotForAnalysisContext !== 'function') {
         spatialErr = 'computeHotspotForAnalysisContext_missing';
       } else {
-        var liveEnvironment = liveEnvironmentFromAnalysisDto(dto);
-        var traitBundle = traitBundleFromAnalysisDto(dto);
+        var liveEnvironment = {
+          temp_c: liveInputs.temp_c,
+          wind_speed_kmh: liveInputs.wind_speed_kmh,
+          wave_height_m: liveInputs.wave_height_m,
+          current_speed_ms: liveInputs.current_speed_ms,
+          wind_direction_deg: liveInputs.wind_direction_deg
+        };
+        var traitBundle = {
+          unified_expected_traits: (dto.dur && dto.dur.unified_expected_traits) || [],
+          fishing_confidence_score: dto.fishing && dto.fishing.confidence_score
+        };
         var pack = await fishingEngineHandler.computeHotspotForAnalysisContext({
           station: station,
           liveEnvironment: liveEnvironment,
@@ -145,7 +84,12 @@ module.exports = async function handler(req, res) {
           traitBundle: traitBundle
         });
         if (pack && Array.isArray(pack.evaluated_points) && pack.evaluated_points.length && pack.hotspot) {
-          dto.evaluated_points = normalizeEvaluatedPointsForUnifiedDto(pack.evaluated_points, station, dto);
+          var refResolved = dto.reference_station_id != null ? dto.reference_station_id : station.reference_station_id;
+          for (var i = 0; i < pack.evaluated_points.length; i++) {
+            pack.evaluated_points[i].reference_station_id =
+              refResolved != null ? refResolved : pack.evaluated_points[i].reference_station_id;
+          }
+          dto.evaluated_points = pack.evaluated_points;
           dto.hotspot = pack.hotspot;
         } else {
           spatialErr = 'spatial_pack_invalid';

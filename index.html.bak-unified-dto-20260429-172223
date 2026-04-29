@@ -5318,11 +5318,11 @@
           const durRefFail = dtoForMap && dtoForMap.dur ? dtoForMap.dur : null;
           console.error('NAVIDUR_UNIFIED_SOURCE_STRICT', {
             using_analysis_only: !!dtoForMap,
+            fallback_used: false,
             hotspot_source: 'none',
             heatmap_source: 'none',
             evaluated_points_count: 0,
             hotspot_score: null,
-            confidence: dtoForMap != null ? dtoForMap.confidence : null,
             reference_station_used: durRefFail
               ? durRefFail.calibration_reference_station_id || durRefFail.dur_source_station_id || null
               : null,
@@ -5347,11 +5347,11 @@
           }
           console.debug('NAVIDUR_UNIFIED_SOURCE_STRICT', {
             using_analysis_only: true,
+            fallback_used: false,
             hotspot_source: 'analysis',
             heatmap_source: 'analysis',
             evaluated_points_count: dtoForMap.evaluated_points.length,
             hotspot_score: dtoForMap.hotspot.max_score != null ? dtoForMap.hotspot.max_score : null,
-            confidence: dtoForMap.confidence != null ? dtoForMap.confidence : null,
             reference_station_used: durRef
               ? durRef.calibration_reference_station_id || durRef.dur_source_station_id || null
               : null,
