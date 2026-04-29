@@ -14,7 +14,13 @@
   }
 
   async function fetchHotspotByCoords(lat, lon) {
-    return Promise.reject(new Error('navidur_hotspot_disabled_use_analysis_api'));
+    var safeLat = toNumber(lat);
+    var safeLon = toNumber(lon);
+    if (safeLat == null || safeLon == null) throw new Error('station_coords_missing');
+    var url = '/api?route=fishing-engine&lat=' + encodeURIComponent(safeLat) + '&lon=' + encodeURIComponent(safeLon) + '&debug=true';
+    var response = await fetch(url, { method: 'GET' });
+    if (!response.ok) throw new Error('live_analysis_http_' + response.status);
+    return response.json();
   }
 
   async function fetchSharedAnalysis(payload) {
@@ -28,7 +34,10 @@
   }
 
   async function getHotspotForStation(station) {
-    return Promise.reject(new Error('navidur_hotspot_disabled_use_analysis_api'));
+    if (!station || typeof station !== 'object') throw new Error('station_required');
+    var lat = station.lat;
+    var lon = station.lon != null ? station.lon : station.lng;
+    return fetchHotspotByCoords(lat, lon);
   }
 
   function buildLiveInputsFromLastDto(dto) {

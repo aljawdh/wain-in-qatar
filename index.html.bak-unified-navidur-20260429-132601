@@ -3941,25 +3941,7 @@
     function navidurRefreshCastDirectionMapAndUi() {
       const lineEl = document.getElementById('castDirectionLine');
       const statusEl = document.getElementById('castDirectionStatus');
-      let hbest = latestNavidurHotspotBest;
-      const dtoH = currentSharedAnalysisDto && currentSharedAnalysisDto.hotspot;
-      const castCenter = dtoH && dtoH.center ? dtoH.center : null;
-      if (
-        castCenter &&
-        castCenter.lat != null &&
-        (castCenter.lng != null || castCenter.lon != null) &&
-        isFinite(Number(castCenter.lat)) &&
-        isFinite(Number(castCenter.lng != null ? castCenter.lng : castCenter.lon))
-      ) {
-        const clng = castCenter.lng != null ? castCenter.lng : castCenter.lon;
-        const bs = dtoH.best_spot || {};
-        const avgFromHs = dtoH.avg_score != null ? dtoH.avg_score : null;
-        hbest = {
-          center_lat: Number(castCenter.lat),
-          center_lon: Number(clng),
-          avg_score: bs.score != null ? Number(bs.score) : (avgFromHs != null ? Number(avgFromHs) : null)
-        };
-      }
+      const hbest = latestNavidurHotspotBest;
       const hlat = hbest && hbest.center_lat != null ? Number(hbest.center_lat) : null;
       const hlon = hbest && hbest.center_lon != null ? Number(hbest.center_lon) : null;
       const avgScore = hbest != null && hbest.avg_score != null ? Number(hbest.avg_score) : null;
@@ -4628,42 +4610,6 @@
       };
     }
 
-    function navidurStrictContextConsistent(dto, station) {
-      if (!dto || !station || !Array.isArray(dto.evaluated_points)) return false;
-      const sid = station.id != null ? String(station.id) : '';
-      const rid = dto.reference_station_id != null ? String(dto.reference_station_id) : '';
-      for (let i = 0; i < dto.evaluated_points.length; i++) {
-        const p = dto.evaluated_points[i];
-        if (!p) return false;
-        if (sid && p.source_station_id != null && String(p.source_station_id) !== sid) return false;
-        if (rid && p.reference_station_id != null && String(p.reference_station_id) !== rid) return false;
-      }
-      return true;
-    }
-
-    function navidurBuildMapGridPayloadFromAnalysisDto(dto) {
-      if (!dto || !dto.hotspot || !Array.isArray(dto.evaluated_points) || !dto.evaluated_points.length) return null;
-      const hs = dto.hotspot;
-      const c = hs.center || {};
-      const clat = Number(c.lat);
-      const clng = c.lng != null ? Number(c.lng) : Number(c.lon);
-      if (!isFinite(clat) || !isFinite(clng)) return null;
-      const pts = dto.evaluated_points.map(function (p) {
-        const lon = p.lon != null ? Number(p.lon) : (p.lng != null ? Number(p.lng) : NaN);
-        const lng = p.lng != null ? Number(p.lng) : lon;
-        return Object.assign({}, p, { lat: Number(p.lat), lon: lon, lng: lng });
-      });
-      const bestScore = hs.max_score != null ? Number(hs.max_score) : null;
-      let bestZone = 'NORMAL';
-      if (bestScore != null && bestScore >= 75) bestZone = 'HOTSPOT';
-      else if (bestScore != null && bestScore < 50) bestZone = 'BAD';
-      return {
-        evaluated_points: pts,
-        best_spot: { lat: clat, lon: clng, score: bestScore, zone: bestZone },
-        search_area: { radius: 0.02, points_evaluated: pts.length }
-      };
-    }
-
     function renderHotspotPanel(result) {
       const meta = document.getElementById('mapMetaText');
       if (!meta || !selectedStation) return;
@@ -4780,6 +4726,13 @@
         heatmap_enabled: !heatToggleEl || heatToggleEl.checked,
         hotspot_enabled: !!latestNavidurHotspotBest
       });
+    }
+
+    async function fetchHotspotForStation(station) {
+      if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getHotspotForStation !== 'function') {
+        throw new Error('shared_live_engine_unavailable');
+      }
+      return window.NavidurLiveAnalysis.getHotspotForStation(station);
     }
 
     function initStationMap() {
@@ -5269,7 +5222,7 @@
       updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
       renderAll();
       if (currentSharedAnalysisDto) {
-        renderHotspotPanel(currentSharedAnalysisDto.hotspot || currentSharedAnalysisDto);
+        renderHotspotPanel(currentSharedAnalysisDto);
       }
 
       // TASK 1: fire server compute in background (non-blocking, zero regression)
@@ -5281,90 +5234,20 @@
       focusStationOnMap(selectedStation);
 
       try {
-        const dtoForMap = currentSharedAnalysisDto;
-        const mapPayload = dtoForMap ? navidurBuildMapGridPayloadFromAnalysisDto(dtoForMap) : null;
-        if (
-          !dtoForMap ||
-          !Array.isArray(dtoForMap.evaluated_points) ||
-          !dtoForMap.hotspot ||
-          !mapPayload
-        ) {
-          latestHotspotResult = null;
-          console.error('NAVIDUR_ANALYSIS_INCOMPLETE', dtoForMap, {
-            analysis_error: dtoForMap && dtoForMap.analysis_error
-          });
-          latestNavidurHotspotBest = null;
-          teardownAnalysisHeatExtras();
-          if (evaluatedLayer) {
-            try {
-              evaluatedLayer.clearLayers();
-            } catch (_elErr) { /* ignore */ }
-          }
-          if (analysisCircle && stationMap) {
-            try {
-              analysisCircle.remove();
-            } catch (_acErr) { /* ignore */ }
-            analysisCircle = null;
-          }
-          const mm = document.getElementById('mapMetaText');
-          if (mm && selectedStation) {
-            mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر توليد خريطة النشاط حالياً';
-          }
-          const summaryEl = document.getElementById('hotspotSummaryText');
-          if (summaryEl) {
-            summaryEl.textContent = 'تعذر توليد خريطة النشاط حالياً';
-          }
-          navidurRefreshCastDirectionMapAndUi();
-          const durRefFail = dtoForMap && dtoForMap.dur ? dtoForMap.dur : null;
-          console.error('NAVIDUR_UNIFIED_SOURCE_STRICT', {
-            using_analysis_only: !!dtoForMap,
-            fallback_used: false,
-            hotspot_source: 'none',
-            heatmap_source: 'none',
-            evaluated_points_count: 0,
-            hotspot_score: null,
-            reference_station_used: durRefFail
-              ? durRefFail.calibration_reference_station_id || durRefFail.dur_source_station_id || null
-              : null,
-            context_consistent: false,
-            analysis_error: dtoForMap && dtoForMap.analysis_error
-          });
-        } else {
-          latestHotspotResult = mapPayload;
-          await fetchNavidurWaterLandOverrides();
-          renderGridOnMap(latestHotspotResult, selectedStation);
-          if (!currentSharedAnalysisDto) {
-            renderHotspotPanel(latestHotspotResult);
-            renderHero(getForecastDateByIndex(selectedForecastDay));
-          }
-          const durRef = dtoForMap && dtoForMap.dur ? dtoForMap.dur : null;
-          const ctxOk = navidurStrictContextConsistent(dtoForMap, selectedStation);
-          if (!ctxOk) {
-            console.error('NAVIDUR_STRICT_CONTEXT_MISMATCH', {
-              station_id: selectedStation ? selectedStation.id : null,
-              reference_station_id: dtoForMap.reference_station_id
-            });
-          }
-          console.debug('NAVIDUR_UNIFIED_SOURCE_STRICT', {
-            using_analysis_only: true,
-            fallback_used: false,
-            hotspot_source: 'analysis',
-            heatmap_source: 'analysis',
-            evaluated_points_count: dtoForMap.evaluated_points.length,
-            hotspot_score: dtoForMap.hotspot.max_score != null ? dtoForMap.hotspot.max_score : null,
-            reference_station_used: durRef
-              ? durRef.calibration_reference_station_id || durRef.dur_source_station_id || null
-              : null,
-            context_consistent: ctxOk
-          });
-          trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), region: selectionTracking.region || (selectedStation ? selectedStation.region : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
+        const hotspot = await fetchHotspotForStation(selectedStation);
+        latestHotspotResult = hotspot;
+        await fetchNavidurWaterLandOverrides();
+        renderGridOnMap(hotspot, selectedStation);
+        if (!currentSharedAnalysisDto) {
+          renderHotspotPanel(hotspot);
+          renderHero(getForecastDateByIndex(selectedForecastDay));
         }
+        trackOnce('analysis_complete', { event_type: 'analysis_complete', source: source, country: selectionTracking.country || (selectedStation ? selectedStation.country : null), region: selectionTracking.region || (selectedStation ? selectedStation.region : null), station_id: selectedStation ? selectedStation.id : null, station: selectedStation ? selectedStation.name : null, session_id: getSessionId(), timestamp: new Date().toISOString() });
       } catch (_hotspotErr) {
         latestHotspotResult = null;
-        console.error('NAVIDUR_ANALYSIS_MAP_EXCEPTION', _hotspotErr);
         const mm = document.getElementById('mapMetaText');
         if (mm && selectedStation) {
-          mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر توليد خريطة النشاط حالياً';
+          mm.textContent = 'المحطة: ' + selectedStation.name + ' — تعذر رسم نطاق التحليل';
         }
       } finally {
         setAnalysisLoading(false);

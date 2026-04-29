@@ -478,133 +478,6 @@ async function runGridSearch(centerLat, centerLon) {
   });
 }
 
-/**
- * Grid search for /api?route=analysis. Uses station coordinates; enriches points with
- * NAVIDUR analysis context (unchanged calcHotspotScore / runGridSearch).
- * @param {{ station: object, liveEnvironment: object, tideState: *, currentDur: object|null, traitBundle: object|null }} context
- * @returns {{ evaluated_points: Array, hotspot: object }}
- */
-async function computeHotspotForAnalysisContext(context) {
-  const ctx = context && typeof context === 'object' ? context : {};
-  const station = ctx.station && typeof ctx.station === 'object' ? ctx.station : {};
-  const latRaw = station.lat != null ? station.lat : null;
-  const lonRaw = station.lon != null ? station.lon : station.lng;
-  const coords = resolveCoords(latRaw, lonRaw);
-  const liveEnv = ctx.liveEnvironment && typeof ctx.liveEnvironment === 'object' ? ctx.liveEnvironment : {};
-  const tideState = ctx.tideState;
-  const currentDur = ctx.currentDur && typeof ctx.currentDur === 'object' ? ctx.currentDur : null;
-  const traitBundle = ctx.traitBundle && typeof ctx.traitBundle === 'object' ? ctx.traitBundle : null;
-
-  const sourceStationId = station.id != null ? station.id : null;
-  const refId = station.reference_station_id != null ? station.reference_station_id : null;
-
-  const durForPoints = currentDur
-    ? {
-        period_id: currentDur.period_id,
-        period_name: currentDur.period_name,
-        day_in_period: currentDur.day_in_period,
-        calibration_reference_station_id: currentDur.calibration_reference_station_id
-      }
-    : null;
-
-  try {
-    const points = await runGridSearch(coords.lat, coords.lon);
-    const best = points.reduce((a, b) => (b.score > a.score ? b : a), points[0]);
-    const scores = points.map((p) => p.score);
-    const max_score = Math.max.apply(null, scores);
-    const avg_rounded =
-      scores.length > 0 ? Math.round((scores.reduce((s, x) => s + x, 0) / scores.length) * 10) / 10 : null;
-
-    const evaluated_points = points.map((p) => ({
-      lat: p.lat,
-      lng: p.lon,
-      lon: p.lon,
-      score: p.score,
-      zone: p.zone,
-      current: p.data && p.data.current,
-      water_status: 'unknown',
-      source_station_id: sourceStationId,
-      reference_station_id: refId,
-      dur: durForPoints,
-      tide: tideState != null ? { state: tideState } : null,
-      environment_snapshot: {
-        temp_c: liveEnv.temp_c,
-        wind_speed_kmh: liveEnv.wind_speed_kmh,
-        wave_height_m: liveEnv.wave_height_m,
-        current_speed_ms: liveEnv.current_speed_ms,
-        wind_direction_deg: liveEnv.wind_direction_deg
-      },
-      trait_bundle_ref: traitBundle
-        ? { unified_expected_traits: traitBundle.unified_expected_traits || [] }
-        : null
-    }));
-
-    const hotspot = {
-      center: { lat: best.lat, lng: best.lon },
-      avg_score: avg_rounded,
-      max_score,
-      cluster_size: evaluated_points.length
-    };
-
-    return { evaluated_points, hotspot };
-  } catch (_err) {
-    const analysis = calcHotspotScore(
-      FALLBACK_SNAPSHOT.temp,
-      FALLBACK_SNAPSHOT.current,
-      FALLBACK_SNAPSHOT.wave,
-      FALLBACK_SNAPSHOT.depth
-    );
-    const fallbackPoint = {
-      lat: coords.lat,
-      lon: coords.lon,
-      score: analysis.score,
-      zone: analysis.zone,
-      recommendation: analysis.recommendation,
-      data: {
-        temp: FALLBACK_SNAPSHOT.temp,
-        depth: FALLBACK_SNAPSHOT.depth,
-        current: FALLBACK_SNAPSHOT.current,
-        wave: FALLBACK_SNAPSHOT.wave
-      },
-      sources: { noaa: false, copernicus: false }
-    };
-    const points = [fallbackPoint];
-    const best = fallbackPoint;
-    const evaluated_points = points.map((p) => ({
-      lat: p.lat,
-      lng: p.lon,
-      lon: p.lon,
-      score: p.score,
-      zone: p.zone,
-      current: p.data && p.data.current,
-      water_status: 'unknown',
-      source_station_id: sourceStationId,
-      reference_station_id: refId,
-      dur: durForPoints,
-      tide: tideState != null ? { state: tideState } : null,
-      environment_snapshot: {
-        temp_c: liveEnv.temp_c,
-        wind_speed_kmh: liveEnv.wind_speed_kmh,
-        wave_height_m: liveEnv.wave_height_m,
-        current_speed_ms: liveEnv.current_speed_ms,
-        wind_direction_deg: liveEnv.wind_direction_deg
-      },
-      trait_bundle_ref: traitBundle
-        ? { unified_expected_traits: traitBundle.unified_expected_traits || [] }
-        : null
-    }));
-
-    const hotspot = {
-      center: { lat: best.lat, lng: best.lon },
-      avg_score: best.score,
-      max_score: best.score,
-      cluster_size: 1
-    };
-
-    return { evaluated_points, hotspot };
-  }
-}
-
 // ─── Server-side tidal compute helpers (mirrors client getTidalCoefficient / getWaterStateFromCoefficient) ───
 
 function serverGetTideState(prev, cur, next) {
@@ -674,7 +547,7 @@ async function handleComputeDecision(req, res) {
 
 // ─── Main handler ───
 
-async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Route: /api/compute-decision (rewrites send ?_navidur_route=compute_decision)
   if (req.query && req.query._navidur_route === 'compute_decision') {
     return handleComputeDecision(req, res);
@@ -688,8 +561,6 @@ async function handler(req, res) {
     res.setHeader('Allow', 'POST, GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
-  console.warn('NAVIDUR_DEPRECATED_ENGINE_USED');
 
   const { lat, lon, debug } = readLatLon(req);
   const coords = resolveCoords(lat, lon);
@@ -723,7 +594,4 @@ async function handler(req, res) {
     };
     return res.status(200).json(buildHotspotPayload(fallbackPoint, debug, [fallbackPoint], searchMeta));
   }
-}
-
-handler.computeHotspotForAnalysisContext = computeHotspotForAnalysisContext;
-module.exports = handler;
+};

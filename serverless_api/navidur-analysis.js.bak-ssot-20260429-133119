@@ -56,55 +56,16 @@ module.exports = async function handler(req, res) {
       field_validation: fieldValidation
     });
 
-    var spatialErr = null;
-    dto.evaluated_points = [];
-    dto.hotspot = null;
-    delete dto.analysis_error;
-
     try {
-      if (typeof fishingEngineHandler.computeHotspotForAnalysisContext !== 'function') {
-        spatialErr = 'computeHotspotForAnalysisContext_missing';
-      } else {
-        var liveEnvironment = {
-          temp_c: liveInputs.temp_c,
-          wind_speed_kmh: liveInputs.wind_speed_kmh,
-          wave_height_m: liveInputs.wave_height_m,
-          current_speed_ms: liveInputs.current_speed_ms,
-          wind_direction_deg: liveInputs.wind_direction_deg
-        };
-        var traitBundle = {
-          unified_expected_traits: (dto.dur && dto.dur.unified_expected_traits) || [],
-          fishing_confidence_score: dto.fishing && dto.fishing.confidence_score
-        };
-        var pack = await fishingEngineHandler.computeHotspotForAnalysisContext({
-          station: station,
-          liveEnvironment: liveEnvironment,
-          tideState: dto.tide && dto.tide.state,
-          currentDur: dto.dur,
-          traitBundle: traitBundle
-        });
-        if (pack && Array.isArray(pack.evaluated_points) && pack.evaluated_points.length && pack.hotspot) {
-          var refResolved = dto.reference_station_id != null ? dto.reference_station_id : station.reference_station_id;
-          for (var i = 0; i < pack.evaluated_points.length; i++) {
-            pack.evaluated_points[i].reference_station_id =
-              refResolved != null ? refResolved : pack.evaluated_points[i].reference_station_id;
-          }
-          dto.evaluated_points = pack.evaluated_points;
-          dto.hotspot = pack.hotspot;
-        } else {
-          spatialErr = 'spatial_pack_invalid';
+      if (typeof fishingEngineHandler.computeHotspotForAnalysisContext === 'function') {
+        var _hp = await fishingEngineHandler.computeHotspotForAnalysisContext(station.lat, station.lon);
+        if (_hp && _hp.hotspot && Array.isArray(_hp.evaluated_points)) {
+          dto.evaluated_points = _hp.evaluated_points;
+          dto.hotspot = _hp.hotspot;
         }
       }
-    } catch (e) {
-      spatialErr = String(e && e.message ? e.message : e);
-    }
-
-    if (!dto.hotspot || !dto.evaluated_points.length) {
-      dto.evaluated_points = [];
-      dto.hotspot = null;
-      dto.analysis_error = spatialErr || 'spatial_incomplete';
-    } else {
-      delete dto.analysis_error;
+    } catch (_spatialErr) {
+      /* map layers fall back client-side to fishing-engine if fields missing */
     }
 
     return res.status(200).json(dto);

@@ -8,7 +8,6 @@ const {
   fetchWeatherAndMarineInputs,
   loadReferenceData
 } = require('./_lib/navidur-analysis-runtime');
-const fishingEngineHandler = require('./fishing-engine');
 
 module.exports = async function handler(req, res) {
   setNoCache(res);
@@ -55,57 +54,6 @@ module.exports = async function handler(req, res) {
       debug_log: !!(body && (body.debug_log === true || body.debug === true || body.debug_analysis === true)),
       field_validation: fieldValidation
     });
-
-    var spatialErr = null;
-    dto.evaluated_points = [];
-    dto.hotspot = null;
-    delete dto.analysis_error;
-
-    try {
-      if (typeof fishingEngineHandler.computeHotspotForAnalysisContext !== 'function') {
-        spatialErr = 'computeHotspotForAnalysisContext_missing';
-      } else {
-        var liveEnvironment = {
-          temp_c: liveInputs.temp_c,
-          wind_speed_kmh: liveInputs.wind_speed_kmh,
-          wave_height_m: liveInputs.wave_height_m,
-          current_speed_ms: liveInputs.current_speed_ms,
-          wind_direction_deg: liveInputs.wind_direction_deg
-        };
-        var traitBundle = {
-          unified_expected_traits: (dto.dur && dto.dur.unified_expected_traits) || [],
-          fishing_confidence_score: dto.fishing && dto.fishing.confidence_score
-        };
-        var pack = await fishingEngineHandler.computeHotspotForAnalysisContext({
-          station: station,
-          liveEnvironment: liveEnvironment,
-          tideState: dto.tide && dto.tide.state,
-          currentDur: dto.dur,
-          traitBundle: traitBundle
-        });
-        if (pack && Array.isArray(pack.evaluated_points) && pack.evaluated_points.length && pack.hotspot) {
-          var refResolved = dto.reference_station_id != null ? dto.reference_station_id : station.reference_station_id;
-          for (var i = 0; i < pack.evaluated_points.length; i++) {
-            pack.evaluated_points[i].reference_station_id =
-              refResolved != null ? refResolved : pack.evaluated_points[i].reference_station_id;
-          }
-          dto.evaluated_points = pack.evaluated_points;
-          dto.hotspot = pack.hotspot;
-        } else {
-          spatialErr = 'spatial_pack_invalid';
-        }
-      }
-    } catch (e) {
-      spatialErr = String(e && e.message ? e.message : e);
-    }
-
-    if (!dto.hotspot || !dto.evaluated_points.length) {
-      dto.evaluated_points = [];
-      dto.hotspot = null;
-      dto.analysis_error = spatialErr || 'spatial_incomplete';
-    } else {
-      delete dto.analysis_error;
-    }
 
     return res.status(200).json(dto);
   } catch (error) {
