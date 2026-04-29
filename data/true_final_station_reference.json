@@ -521,5 +521,4134 @@
       "current_dur_end_md": "26-04",
       "seasonal_model": "NAVIDUR_SEASONAL_V1"
     }
-  ]
+  ],
+  "annual_flat_rows": [
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "النثرة",
+      "start_md": "11-08",
+      "end_md": "23-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الطرف",
+      "start_md": "24-08",
+      "end_md": "05-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الجبهة",
+      "start_md": "06-09",
+      "end_md": "19-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الزبرة",
+      "start_md": "20-09",
+      "end_md": "02-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الصرفة",
+      "start_md": "03-10",
+      "end_md": "15-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "العواء",
+      "start_md": "16-10",
+      "end_md": "28-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "السماك",
+      "start_md": "29-10",
+      "end_md": "10-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الغفر",
+      "start_md": "11-11",
+      "end_md": "23-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الزبانا",
+      "start_md": "24-11",
+      "end_md": "06-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الإكليل",
+      "start_md": "07-12",
+      "end_md": "19-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "القلب",
+      "start_md": "20-12",
+      "end_md": "01-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الشولة",
+      "start_md": "02-01",
+      "end_md": "14-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "النعايم",
+      "start_md": "15-01",
+      "end_md": "27-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "البلدة",
+      "start_md": "28-01",
+      "end_md": "09-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "10-02",
+      "end_md": "22-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "23-02",
+      "end_md": "07-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "08-03",
+      "end_md": "20-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "21-03",
+      "end_md": "02-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "المقدم",
+      "start_md": "03-04",
+      "end_md": "15-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "المؤخر",
+      "start_md": "16-04",
+      "end_md": "28-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الرشاء",
+      "start_md": "29-04",
+      "end_md": "11-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الشرطين",
+      "start_md": "12-05",
+      "end_md": "24-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "البطين",
+      "start_md": "25-05",
+      "end_md": "06-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الثريا",
+      "start_md": "07-06",
+      "end_md": "19-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الدبران",
+      "start_md": "20-06",
+      "end_md": "02-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الهقعة",
+      "start_md": "03-07",
+      "end_md": "15-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الهنعة",
+      "start_md": "16-07",
+      "end_md": "28-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أبوظبي",
+      "dur_name_ar": "الذراع",
+      "start_md": "29-07",
+      "end_md": "10-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "النثرة",
+      "start_md": "09-08",
+      "end_md": "21-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الطرف",
+      "start_md": "22-08",
+      "end_md": "03-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الجبهة",
+      "start_md": "04-09",
+      "end_md": "17-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الزبرة",
+      "start_md": "18-09",
+      "end_md": "30-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الصرفة",
+      "start_md": "01-10",
+      "end_md": "13-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "العواء",
+      "start_md": "14-10",
+      "end_md": "26-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "السماك",
+      "start_md": "27-10",
+      "end_md": "08-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الغفر",
+      "start_md": "09-11",
+      "end_md": "21-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الزبانا",
+      "start_md": "22-11",
+      "end_md": "04-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الإكليل",
+      "start_md": "05-12",
+      "end_md": "17-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "القلب",
+      "start_md": "18-12",
+      "end_md": "30-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الشولة",
+      "start_md": "31-12",
+      "end_md": "12-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "النعايم",
+      "start_md": "13-01",
+      "end_md": "25-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "البلدة",
+      "start_md": "26-01",
+      "end_md": "07-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "08-02",
+      "end_md": "20-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "21-02",
+      "end_md": "05-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "06-03",
+      "end_md": "18-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "19-03",
+      "end_md": "31-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "المقدم",
+      "start_md": "01-04",
+      "end_md": "13-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "المؤخر",
+      "start_md": "14-04",
+      "end_md": "26-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الرشاء",
+      "start_md": "27-04",
+      "end_md": "09-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الشرطين",
+      "start_md": "10-05",
+      "end_md": "22-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "البطين",
+      "start_md": "23-05",
+      "end_md": "04-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الثريا",
+      "start_md": "05-06",
+      "end_md": "17-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الدبران",
+      "start_md": "18-06",
+      "end_md": "30-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الهقعة",
+      "start_md": "01-07",
+      "end_md": "13-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الهنعة",
+      "start_md": "14-07",
+      "end_md": "26-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "دبي",
+      "dur_name_ar": "الذراع",
+      "start_md": "27-07",
+      "end_md": "08-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "النثرة",
+      "start_md": "10-08",
+      "end_md": "22-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الطرف",
+      "start_md": "23-08",
+      "end_md": "04-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الجبهة",
+      "start_md": "05-09",
+      "end_md": "18-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الزبرة",
+      "start_md": "19-09",
+      "end_md": "01-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الصرفة",
+      "start_md": "02-10",
+      "end_md": "14-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "العواء",
+      "start_md": "15-10",
+      "end_md": "27-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "السماك",
+      "start_md": "28-10",
+      "end_md": "09-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الغفر",
+      "start_md": "10-11",
+      "end_md": "22-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الزبانا",
+      "start_md": "23-11",
+      "end_md": "05-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الإكليل",
+      "start_md": "06-12",
+      "end_md": "18-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "القلب",
+      "start_md": "19-12",
+      "end_md": "31-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الشولة",
+      "start_md": "01-01",
+      "end_md": "13-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "النعايم",
+      "start_md": "14-01",
+      "end_md": "26-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "البلدة",
+      "start_md": "27-01",
+      "end_md": "08-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "09-02",
+      "end_md": "21-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "22-02",
+      "end_md": "06-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "07-03",
+      "end_md": "19-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "20-03",
+      "end_md": "01-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "المقدم",
+      "start_md": "02-04",
+      "end_md": "14-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "المؤخر",
+      "start_md": "15-04",
+      "end_md": "27-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الرشاء",
+      "start_md": "28-04",
+      "end_md": "10-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الشرطين",
+      "start_md": "11-05",
+      "end_md": "23-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "البطين",
+      "start_md": "24-05",
+      "end_md": "05-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الثريا",
+      "start_md": "06-06",
+      "end_md": "18-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الدبران",
+      "start_md": "19-06",
+      "end_md": "01-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الهقعة",
+      "start_md": "02-07",
+      "end_md": "14-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الهنعة",
+      "start_md": "15-07",
+      "end_md": "27-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أم باب",
+      "dur_name_ar": "الذراع",
+      "start_md": "28-07",
+      "end_md": "09-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "النثرة",
+      "start_md": "08-08",
+      "end_md": "20-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الطرف",
+      "start_md": "21-08",
+      "end_md": "02-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الجبهة",
+      "start_md": "03-09",
+      "end_md": "16-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الزبرة",
+      "start_md": "17-09",
+      "end_md": "29-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الصرفة",
+      "start_md": "30-09",
+      "end_md": "12-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "العواء",
+      "start_md": "13-10",
+      "end_md": "25-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "السماك",
+      "start_md": "26-10",
+      "end_md": "07-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الغفر",
+      "start_md": "08-11",
+      "end_md": "20-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الزبانا",
+      "start_md": "21-11",
+      "end_md": "03-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الإكليل",
+      "start_md": "04-12",
+      "end_md": "16-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "القلب",
+      "start_md": "17-12",
+      "end_md": "29-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الشولة",
+      "start_md": "30-12",
+      "end_md": "11-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "النعايم",
+      "start_md": "12-01",
+      "end_md": "24-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "البلدة",
+      "start_md": "25-01",
+      "end_md": "06-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "07-02",
+      "end_md": "19-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "20-02",
+      "end_md": "04-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "05-03",
+      "end_md": "17-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "18-03",
+      "end_md": "30-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "المقدم",
+      "start_md": "31-03",
+      "end_md": "12-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "المؤخر",
+      "start_md": "13-04",
+      "end_md": "25-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الرشاء",
+      "start_md": "26-04",
+      "end_md": "08-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الشرطين",
+      "start_md": "09-05",
+      "end_md": "21-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "البطين",
+      "start_md": "22-05",
+      "end_md": "03-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الثريا",
+      "start_md": "04-06",
+      "end_md": "16-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الدبران",
+      "start_md": "17-06",
+      "end_md": "29-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الهقعة",
+      "start_md": "30-06",
+      "end_md": "12-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الهنعة",
+      "start_md": "13-07",
+      "end_md": "25-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "العقير",
+      "dur_name_ar": "الذراع",
+      "start_md": "26-07",
+      "end_md": "07-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "النثرة",
+      "start_md": "06-08",
+      "end_md": "18-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الطرف",
+      "start_md": "19-08",
+      "end_md": "31-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الجبهة",
+      "start_md": "01-09",
+      "end_md": "14-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الزبرة",
+      "start_md": "15-09",
+      "end_md": "27-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الصرفة",
+      "start_md": "28-09",
+      "end_md": "10-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "العواء",
+      "start_md": "11-10",
+      "end_md": "23-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "السماك",
+      "start_md": "24-10",
+      "end_md": "05-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الغفر",
+      "start_md": "06-11",
+      "end_md": "18-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الزبانا",
+      "start_md": "19-11",
+      "end_md": "01-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الإكليل",
+      "start_md": "02-12",
+      "end_md": "14-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "القلب",
+      "start_md": "15-12",
+      "end_md": "27-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الشولة",
+      "start_md": "28-12",
+      "end_md": "09-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "النعايم",
+      "start_md": "10-01",
+      "end_md": "22-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "البلدة",
+      "start_md": "23-01",
+      "end_md": "04-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "05-02",
+      "end_md": "17-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "18-02",
+      "end_md": "02-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "03-03",
+      "end_md": "15-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "16-03",
+      "end_md": "28-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "المقدم",
+      "start_md": "29-03",
+      "end_md": "10-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "المؤخر",
+      "start_md": "11-04",
+      "end_md": "23-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الرشاء",
+      "start_md": "24-04",
+      "end_md": "06-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الشرطين",
+      "start_md": "07-05",
+      "end_md": "19-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "البطين",
+      "start_md": "20-05",
+      "end_md": "01-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الثريا",
+      "start_md": "02-06",
+      "end_md": "14-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الدبران",
+      "start_md": "15-06",
+      "end_md": "27-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الهقعة",
+      "start_md": "28-06",
+      "end_md": "10-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الهنعة",
+      "start_md": "11-07",
+      "end_md": "23-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الجبيل",
+      "dur_name_ar": "الذراع",
+      "start_md": "24-07",
+      "end_md": "05-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الجبهة",
+      "start_md": "25-08",
+      "end_md": "07-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الزبرة",
+      "start_md": "08-09",
+      "end_md": "20-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الصرفة",
+      "start_md": "21-09",
+      "end_md": "03-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "العواء",
+      "start_md": "04-10",
+      "end_md": "16-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "السماك",
+      "start_md": "17-10",
+      "end_md": "29-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الغفر",
+      "start_md": "30-10",
+      "end_md": "11-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الزبانا",
+      "start_md": "12-11",
+      "end_md": "24-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الإكليل",
+      "start_md": "25-11",
+      "end_md": "07-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "القلب",
+      "start_md": "08-12",
+      "end_md": "20-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الشولة",
+      "start_md": "21-12",
+      "end_md": "02-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "النعايم",
+      "start_md": "03-01",
+      "end_md": "15-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "البلدة",
+      "start_md": "16-01",
+      "end_md": "28-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "29-01",
+      "end_md": "10-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "11-02",
+      "end_md": "23-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "24-02",
+      "end_md": "08-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "09-03",
+      "end_md": "21-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "المقدم",
+      "start_md": "22-03",
+      "end_md": "03-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "المؤخر",
+      "start_md": "04-04",
+      "end_md": "16-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الرشاء",
+      "start_md": "17-04",
+      "end_md": "29-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الشرطين",
+      "start_md": "30-04",
+      "end_md": "12-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "البطين",
+      "start_md": "13-05",
+      "end_md": "25-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الثريا",
+      "start_md": "26-05",
+      "end_md": "07-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الدبران",
+      "start_md": "08-06",
+      "end_md": "20-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الهقعة",
+      "start_md": "21-06",
+      "end_md": "03-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الهنعة",
+      "start_md": "04-07",
+      "end_md": "16-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الذراع",
+      "start_md": "17-07",
+      "end_md": "29-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "النثرة",
+      "start_md": "30-07",
+      "end_md": "11-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الكويت",
+      "dur_name_ar": "الطرف",
+      "start_md": "12-08",
+      "end_md": "24-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الذراع",
+      "start_md": "01-08",
+      "end_md": "13-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "النثرة",
+      "start_md": "14-08",
+      "end_md": "26-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الطرف",
+      "start_md": "27-08",
+      "end_md": "08-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الجبهة",
+      "start_md": "09-09",
+      "end_md": "22-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الزبرة",
+      "start_md": "23-09",
+      "end_md": "05-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الصرفة",
+      "start_md": "06-10",
+      "end_md": "18-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "العواء",
+      "start_md": "19-10",
+      "end_md": "31-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "السماك",
+      "start_md": "01-11",
+      "end_md": "13-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الغفر",
+      "start_md": "14-11",
+      "end_md": "26-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الزبانا",
+      "start_md": "27-11",
+      "end_md": "09-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الإكليل",
+      "start_md": "10-12",
+      "end_md": "22-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "القلب",
+      "start_md": "23-12",
+      "end_md": "04-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الشولة",
+      "start_md": "05-01",
+      "end_md": "17-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "النعايم",
+      "start_md": "18-01",
+      "end_md": "30-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "البلدة",
+      "start_md": "31-01",
+      "end_md": "12-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "13-02",
+      "end_md": "25-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "26-02",
+      "end_md": "10-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "11-03",
+      "end_md": "23-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "24-03",
+      "end_md": "05-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "المقدم",
+      "start_md": "06-04",
+      "end_md": "18-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "المؤخر",
+      "start_md": "19-04",
+      "end_md": "01-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الرشاء",
+      "start_md": "02-05",
+      "end_md": "14-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الشرطين",
+      "start_md": "15-05",
+      "end_md": "27-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "البطين",
+      "start_md": "28-05",
+      "end_md": "09-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الثريا",
+      "start_md": "10-06",
+      "end_md": "22-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الدبران",
+      "start_md": "23-06",
+      "end_md": "05-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الهقعة",
+      "start_md": "06-07",
+      "end_md": "18-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسقط",
+      "dur_name_ar": "الهنعة",
+      "start_md": "19-07",
+      "end_md": "31-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "النثرة",
+      "start_md": "07-08",
+      "end_md": "19-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الطرف",
+      "start_md": "20-08",
+      "end_md": "01-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الجبهة",
+      "start_md": "02-09",
+      "end_md": "15-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الزبرة",
+      "start_md": "16-09",
+      "end_md": "28-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الصرفة",
+      "start_md": "29-09",
+      "end_md": "11-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "العواء",
+      "start_md": "12-10",
+      "end_md": "24-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "السماك",
+      "start_md": "25-10",
+      "end_md": "06-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الغفر",
+      "start_md": "07-11",
+      "end_md": "19-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الزبانا",
+      "start_md": "20-11",
+      "end_md": "02-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الإكليل",
+      "start_md": "03-12",
+      "end_md": "15-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "القلب",
+      "start_md": "16-12",
+      "end_md": "28-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الشولة",
+      "start_md": "29-12",
+      "end_md": "10-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "النعايم",
+      "start_md": "11-01",
+      "end_md": "23-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "البلدة",
+      "start_md": "24-01",
+      "end_md": "05-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "06-02",
+      "end_md": "18-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "19-02",
+      "end_md": "03-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "04-03",
+      "end_md": "16-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "17-03",
+      "end_md": "29-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "المقدم",
+      "start_md": "30-03",
+      "end_md": "11-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "المؤخر",
+      "start_md": "12-04",
+      "end_md": "24-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الرشاء",
+      "start_md": "25-04",
+      "end_md": "07-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الشرطين",
+      "start_md": "08-05",
+      "end_md": "20-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "البطين",
+      "start_md": "21-05",
+      "end_md": "02-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الثريا",
+      "start_md": "03-06",
+      "end_md": "15-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الدبران",
+      "start_md": "16-06",
+      "end_md": "28-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الهقعة",
+      "start_md": "29-06",
+      "end_md": "11-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الهنعة",
+      "start_md": "12-07",
+      "end_md": "24-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "مسندم",
+      "dur_name_ar": "الذراع",
+      "start_md": "25-07",
+      "end_md": "06-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الدبران",
+      "start_md": "11-07",
+      "end_md": "23-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الهقعة",
+      "start_md": "24-07",
+      "end_md": "05-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الهنعة",
+      "start_md": "06-08",
+      "end_md": "18-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الذراع",
+      "start_md": "19-08",
+      "end_md": "31-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "النثرة",
+      "start_md": "01-09",
+      "end_md": "13-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الطرف",
+      "start_md": "14-09",
+      "end_md": "26-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الجبهة",
+      "start_md": "27-09",
+      "end_md": "10-10",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الزبرة",
+      "start_md": "11-10",
+      "end_md": "23-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الصرفة",
+      "start_md": "24-10",
+      "end_md": "05-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "العواء",
+      "start_md": "06-11",
+      "end_md": "18-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "السماك",
+      "start_md": "19-11",
+      "end_md": "01-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الغفر",
+      "start_md": "02-12",
+      "end_md": "14-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الزبانا",
+      "start_md": "15-12",
+      "end_md": "27-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الإكليل",
+      "start_md": "28-12",
+      "end_md": "09-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "القلب",
+      "start_md": "10-01",
+      "end_md": "22-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الشولة",
+      "start_md": "23-01",
+      "end_md": "04-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "النعايم",
+      "start_md": "05-02",
+      "end_md": "17-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "البلدة",
+      "start_md": "18-02",
+      "end_md": "02-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "03-03",
+      "end_md": "15-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "16-03",
+      "end_md": "28-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "29-03",
+      "end_md": "10-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "11-04",
+      "end_md": "23-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "المقدم",
+      "start_md": "24-04",
+      "end_md": "06-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "المؤخر",
+      "start_md": "07-05",
+      "end_md": "19-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الرشاء",
+      "start_md": "20-05",
+      "end_md": "01-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الشرطين",
+      "start_md": "02-06",
+      "end_md": "14-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "البطين",
+      "start_md": "15-06",
+      "end_md": "27-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "المكلا",
+      "dur_name_ar": "الثريا",
+      "start_md": "28-06",
+      "end_md": "10-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الهقعة",
+      "start_md": "18-07",
+      "end_md": "30-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الهنعة",
+      "start_md": "31-07",
+      "end_md": "12-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الذراع",
+      "start_md": "13-08",
+      "end_md": "25-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "النثرة",
+      "start_md": "26-08",
+      "end_md": "07-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الطرف",
+      "start_md": "08-09",
+      "end_md": "20-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الجبهة",
+      "start_md": "21-09",
+      "end_md": "04-10",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الزبرة",
+      "start_md": "05-10",
+      "end_md": "17-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الصرفة",
+      "start_md": "18-10",
+      "end_md": "30-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "العواء",
+      "start_md": "31-10",
+      "end_md": "12-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "السماك",
+      "start_md": "13-11",
+      "end_md": "25-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الغفر",
+      "start_md": "26-11",
+      "end_md": "08-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الزبانا",
+      "start_md": "09-12",
+      "end_md": "21-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الإكليل",
+      "start_md": "22-12",
+      "end_md": "03-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "القلب",
+      "start_md": "04-01",
+      "end_md": "16-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الشولة",
+      "start_md": "17-01",
+      "end_md": "29-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "النعايم",
+      "start_md": "30-01",
+      "end_md": "11-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "البلدة",
+      "start_md": "12-02",
+      "end_md": "24-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "25-02",
+      "end_md": "09-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "10-03",
+      "end_md": "22-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "23-03",
+      "end_md": "04-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "05-04",
+      "end_md": "17-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "المقدم",
+      "start_md": "18-04",
+      "end_md": "30-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "المؤخر",
+      "start_md": "01-05",
+      "end_md": "13-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الرشاء",
+      "start_md": "14-05",
+      "end_md": "26-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الشرطين",
+      "start_md": "27-05",
+      "end_md": "08-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "البطين",
+      "start_md": "09-06",
+      "end_md": "21-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الثريا",
+      "start_md": "22-06",
+      "end_md": "04-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "صلالة",
+      "dur_name_ar": "الدبران",
+      "start_md": "05-07",
+      "end_md": "17-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الهنعة",
+      "start_md": "27-07",
+      "end_md": "08-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الذراع",
+      "start_md": "09-08",
+      "end_md": "21-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "النثرة",
+      "start_md": "22-08",
+      "end_md": "03-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الطرف",
+      "start_md": "04-09",
+      "end_md": "16-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الجبهة",
+      "start_md": "17-09",
+      "end_md": "30-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الزبرة",
+      "start_md": "01-10",
+      "end_md": "13-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الصرفة",
+      "start_md": "14-10",
+      "end_md": "26-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "العواء",
+      "start_md": "27-10",
+      "end_md": "08-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "السماك",
+      "start_md": "09-11",
+      "end_md": "21-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الغفر",
+      "start_md": "22-11",
+      "end_md": "04-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الزبانا",
+      "start_md": "05-12",
+      "end_md": "17-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الإكليل",
+      "start_md": "18-12",
+      "end_md": "30-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "القلب",
+      "start_md": "31-12",
+      "end_md": "12-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الشولة",
+      "start_md": "13-01",
+      "end_md": "25-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "النعايم",
+      "start_md": "26-01",
+      "end_md": "07-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "البلدة",
+      "start_md": "08-02",
+      "end_md": "20-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "21-02",
+      "end_md": "05-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "06-03",
+      "end_md": "18-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "19-03",
+      "end_md": "31-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "01-04",
+      "end_md": "13-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "المقدم",
+      "start_md": "14-04",
+      "end_md": "26-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "المؤخر",
+      "start_md": "27-04",
+      "end_md": "09-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الرشاء",
+      "start_md": "10-05",
+      "end_md": "22-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الشرطين",
+      "start_md": "23-05",
+      "end_md": "04-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "البطين",
+      "start_md": "05-06",
+      "end_md": "17-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الثريا",
+      "start_md": "18-06",
+      "end_md": "30-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الدبران",
+      "start_md": "01-07",
+      "end_md": "13-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الدقم",
+      "dur_name_ar": "الهقعة",
+      "start_md": "14-07",
+      "end_md": "26-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الهقعة",
+      "start_md": "22-07",
+      "end_md": "03-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الهنعة",
+      "start_md": "04-08",
+      "end_md": "16-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الذراع",
+      "start_md": "17-08",
+      "end_md": "29-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "النثرة",
+      "start_md": "30-08",
+      "end_md": "11-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الطرف",
+      "start_md": "12-09",
+      "end_md": "24-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الجبهة",
+      "start_md": "25-09",
+      "end_md": "08-10",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الزبرة",
+      "start_md": "09-10",
+      "end_md": "21-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الصرفة",
+      "start_md": "22-10",
+      "end_md": "03-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "العواء",
+      "start_md": "04-11",
+      "end_md": "16-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "السماك",
+      "start_md": "17-11",
+      "end_md": "29-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الغفر",
+      "start_md": "30-11",
+      "end_md": "12-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الزبانا",
+      "start_md": "13-12",
+      "end_md": "25-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الإكليل",
+      "start_md": "26-12",
+      "end_md": "07-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "القلب",
+      "start_md": "08-01",
+      "end_md": "20-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الشولة",
+      "start_md": "21-01",
+      "end_md": "02-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "النعايم",
+      "start_md": "03-02",
+      "end_md": "15-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "البلدة",
+      "start_md": "16-02",
+      "end_md": "28-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "01-03",
+      "end_md": "13-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "14-03",
+      "end_md": "26-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "27-03",
+      "end_md": "08-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "09-04",
+      "end_md": "21-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "المقدم",
+      "start_md": "22-04",
+      "end_md": "04-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "المؤخر",
+      "start_md": "05-05",
+      "end_md": "17-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الرشاء",
+      "start_md": "18-05",
+      "end_md": "30-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الشرطين",
+      "start_md": "31-05",
+      "end_md": "12-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "البطين",
+      "start_md": "13-06",
+      "end_md": "25-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الثريا",
+      "start_md": "26-06",
+      "end_md": "08-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الحديدة",
+      "dur_name_ar": "الدبران",
+      "start_md": "09-07",
+      "end_md": "21-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الهقعة",
+      "start_md": "18-07",
+      "end_md": "30-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الهنعة",
+      "start_md": "31-07",
+      "end_md": "12-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الذراع",
+      "start_md": "13-08",
+      "end_md": "25-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "النثرة",
+      "start_md": "26-08",
+      "end_md": "07-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الطرف",
+      "start_md": "08-09",
+      "end_md": "20-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الجبهة",
+      "start_md": "21-09",
+      "end_md": "04-10",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الزبرة",
+      "start_md": "05-10",
+      "end_md": "17-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الصرفة",
+      "start_md": "18-10",
+      "end_md": "30-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "العواء",
+      "start_md": "31-10",
+      "end_md": "12-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "السماك",
+      "start_md": "13-11",
+      "end_md": "25-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الغفر",
+      "start_md": "26-11",
+      "end_md": "08-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الزبانا",
+      "start_md": "09-12",
+      "end_md": "21-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الإكليل",
+      "start_md": "22-12",
+      "end_md": "03-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "القلب",
+      "start_md": "04-01",
+      "end_md": "16-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الشولة",
+      "start_md": "17-01",
+      "end_md": "29-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "النعايم",
+      "start_md": "30-01",
+      "end_md": "11-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "البلدة",
+      "start_md": "12-02",
+      "end_md": "24-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "25-02",
+      "end_md": "09-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "10-03",
+      "end_md": "22-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "23-03",
+      "end_md": "04-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "05-04",
+      "end_md": "17-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "المقدم",
+      "start_md": "18-04",
+      "end_md": "30-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "المؤخر",
+      "start_md": "01-05",
+      "end_md": "13-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الرشاء",
+      "start_md": "14-05",
+      "end_md": "26-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الشرطين",
+      "start_md": "27-05",
+      "end_md": "08-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "البطين",
+      "start_md": "09-06",
+      "end_md": "21-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الثريا",
+      "start_md": "22-06",
+      "end_md": "04-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جازان",
+      "dur_name_ar": "الدبران",
+      "start_md": "05-07",
+      "end_md": "17-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الهنعة",
+      "start_md": "27-07",
+      "end_md": "08-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الذراع",
+      "start_md": "09-08",
+      "end_md": "21-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "النثرة",
+      "start_md": "22-08",
+      "end_md": "03-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الطرف",
+      "start_md": "04-09",
+      "end_md": "16-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الجبهة",
+      "start_md": "17-09",
+      "end_md": "30-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الزبرة",
+      "start_md": "01-10",
+      "end_md": "13-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الصرفة",
+      "start_md": "14-10",
+      "end_md": "26-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "العواء",
+      "start_md": "27-10",
+      "end_md": "08-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "السماك",
+      "start_md": "09-11",
+      "end_md": "21-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الغفر",
+      "start_md": "22-11",
+      "end_md": "04-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الزبانا",
+      "start_md": "05-12",
+      "end_md": "17-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الإكليل",
+      "start_md": "18-12",
+      "end_md": "30-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "القلب",
+      "start_md": "31-12",
+      "end_md": "12-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الشولة",
+      "start_md": "13-01",
+      "end_md": "25-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "النعايم",
+      "start_md": "26-01",
+      "end_md": "07-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "البلدة",
+      "start_md": "08-02",
+      "end_md": "20-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "21-02",
+      "end_md": "05-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "06-03",
+      "end_md": "18-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "19-03",
+      "end_md": "31-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "01-04",
+      "end_md": "13-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "المقدم",
+      "start_md": "14-04",
+      "end_md": "26-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "المؤخر",
+      "start_md": "27-04",
+      "end_md": "09-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الرشاء",
+      "start_md": "10-05",
+      "end_md": "22-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الشرطين",
+      "start_md": "23-05",
+      "end_md": "04-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "البطين",
+      "start_md": "05-06",
+      "end_md": "17-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الثريا",
+      "start_md": "18-06",
+      "end_md": "30-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الدبران",
+      "start_md": "01-07",
+      "end_md": "13-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "القنفذة",
+      "dur_name_ar": "الهقعة",
+      "start_md": "14-07",
+      "end_md": "26-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الذراع",
+      "start_md": "04-08",
+      "end_md": "16-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "النثرة",
+      "start_md": "17-08",
+      "end_md": "29-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الطرف",
+      "start_md": "30-08",
+      "end_md": "11-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الجبهة",
+      "start_md": "12-09",
+      "end_md": "25-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الزبرة",
+      "start_md": "26-09",
+      "end_md": "08-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الصرفة",
+      "start_md": "09-10",
+      "end_md": "21-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "العواء",
+      "start_md": "22-10",
+      "end_md": "03-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "السماك",
+      "start_md": "04-11",
+      "end_md": "16-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الغفر",
+      "start_md": "17-11",
+      "end_md": "29-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الزبانا",
+      "start_md": "30-11",
+      "end_md": "12-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الإكليل",
+      "start_md": "13-12",
+      "end_md": "25-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "القلب",
+      "start_md": "26-12",
+      "end_md": "07-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الشولة",
+      "start_md": "08-01",
+      "end_md": "20-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "النعايم",
+      "start_md": "21-01",
+      "end_md": "02-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "البلدة",
+      "start_md": "03-02",
+      "end_md": "15-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "16-02",
+      "end_md": "28-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "01-03",
+      "end_md": "13-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "14-03",
+      "end_md": "26-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "27-03",
+      "end_md": "08-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "المقدم",
+      "start_md": "09-04",
+      "end_md": "21-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "المؤخر",
+      "start_md": "22-04",
+      "end_md": "04-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الرشاء",
+      "start_md": "05-05",
+      "end_md": "17-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الشرطين",
+      "start_md": "18-05",
+      "end_md": "30-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "البطين",
+      "start_md": "31-05",
+      "end_md": "12-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الثريا",
+      "start_md": "13-06",
+      "end_md": "25-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الدبران",
+      "start_md": "26-06",
+      "end_md": "08-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الهقعة",
+      "start_md": "09-07",
+      "end_md": "21-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "جدة",
+      "dur_name_ar": "الهنعة",
+      "start_md": "22-07",
+      "end_md": "03-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "النثرة",
+      "start_md": "12-08",
+      "end_md": "24-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الطرف",
+      "start_md": "25-08",
+      "end_md": "06-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الجبهة",
+      "start_md": "07-09",
+      "end_md": "20-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الزبرة",
+      "start_md": "21-09",
+      "end_md": "03-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الصرفة",
+      "start_md": "04-10",
+      "end_md": "16-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "العواء",
+      "start_md": "17-10",
+      "end_md": "29-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "السماك",
+      "start_md": "30-10",
+      "end_md": "11-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الغفر",
+      "start_md": "12-11",
+      "end_md": "24-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الزبانا",
+      "start_md": "25-11",
+      "end_md": "07-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الإكليل",
+      "start_md": "08-12",
+      "end_md": "20-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "القلب",
+      "start_md": "21-12",
+      "end_md": "02-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الشولة",
+      "start_md": "03-01",
+      "end_md": "15-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "النعايم",
+      "start_md": "16-01",
+      "end_md": "28-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "البلدة",
+      "start_md": "29-01",
+      "end_md": "10-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "11-02",
+      "end_md": "23-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "24-02",
+      "end_md": "08-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "09-03",
+      "end_md": "21-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "22-03",
+      "end_md": "03-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "المقدم",
+      "start_md": "04-04",
+      "end_md": "16-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "المؤخر",
+      "start_md": "17-04",
+      "end_md": "29-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الرشاء",
+      "start_md": "30-04",
+      "end_md": "12-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الشرطين",
+      "start_md": "13-05",
+      "end_md": "25-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "البطين",
+      "start_md": "26-05",
+      "end_md": "07-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الثريا",
+      "start_md": "08-06",
+      "end_md": "20-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الدبران",
+      "start_md": "21-06",
+      "end_md": "03-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الهقعة",
+      "start_md": "04-07",
+      "end_md": "16-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الهنعة",
+      "start_md": "17-07",
+      "end_md": "29-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "ينبع",
+      "dur_name_ar": "الذراع",
+      "start_md": "30-07",
+      "end_md": "11-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "النثرة",
+      "start_md": "07-08",
+      "end_md": "19-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الطرف",
+      "start_md": "20-08",
+      "end_md": "01-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الجبهة",
+      "start_md": "02-09",
+      "end_md": "15-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الزبرة",
+      "start_md": "16-09",
+      "end_md": "28-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الصرفة",
+      "start_md": "29-09",
+      "end_md": "11-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "العواء",
+      "start_md": "12-10",
+      "end_md": "24-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "السماك",
+      "start_md": "25-10",
+      "end_md": "06-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الغفر",
+      "start_md": "07-11",
+      "end_md": "19-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الزبانا",
+      "start_md": "20-11",
+      "end_md": "02-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الإكليل",
+      "start_md": "03-12",
+      "end_md": "15-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "القلب",
+      "start_md": "16-12",
+      "end_md": "28-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الشولة",
+      "start_md": "29-12",
+      "end_md": "10-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "النعايم",
+      "start_md": "11-01",
+      "end_md": "23-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "البلدة",
+      "start_md": "24-01",
+      "end_md": "05-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "06-02",
+      "end_md": "18-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "19-02",
+      "end_md": "03-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "04-03",
+      "end_md": "16-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "17-03",
+      "end_md": "29-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "المقدم",
+      "start_md": "30-03",
+      "end_md": "11-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "المؤخر",
+      "start_md": "12-04",
+      "end_md": "24-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الرشاء",
+      "start_md": "25-04",
+      "end_md": "07-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الشرطين",
+      "start_md": "08-05",
+      "end_md": "20-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "البطين",
+      "start_md": "21-05",
+      "end_md": "02-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الثريا",
+      "start_md": "03-06",
+      "end_md": "15-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الدبران",
+      "start_md": "16-06",
+      "end_md": "28-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الهقعة",
+      "start_md": "29-06",
+      "end_md": "11-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الهنعة",
+      "start_md": "12-07",
+      "end_md": "24-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الوجه",
+      "dur_name_ar": "الذراع",
+      "start_md": "25-07",
+      "end_md": "06-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الجبهة",
+      "start_md": "25-08",
+      "end_md": "07-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الزبرة",
+      "start_md": "08-09",
+      "end_md": "20-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الصرفة",
+      "start_md": "21-09",
+      "end_md": "03-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "العواء",
+      "start_md": "04-10",
+      "end_md": "16-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "السماك",
+      "start_md": "17-10",
+      "end_md": "29-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الغفر",
+      "start_md": "30-10",
+      "end_md": "11-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الزبانا",
+      "start_md": "12-11",
+      "end_md": "24-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الإكليل",
+      "start_md": "25-11",
+      "end_md": "07-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "القلب",
+      "start_md": "08-12",
+      "end_md": "20-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الشولة",
+      "start_md": "21-12",
+      "end_md": "02-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "النعايم",
+      "start_md": "03-01",
+      "end_md": "15-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "البلدة",
+      "start_md": "16-01",
+      "end_md": "28-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "29-01",
+      "end_md": "10-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "11-02",
+      "end_md": "23-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "24-02",
+      "end_md": "08-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "09-03",
+      "end_md": "21-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "المقدم",
+      "start_md": "22-03",
+      "end_md": "03-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "المؤخر",
+      "start_md": "04-04",
+      "end_md": "16-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الرشاء",
+      "start_md": "17-04",
+      "end_md": "29-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الشرطين",
+      "start_md": "30-04",
+      "end_md": "12-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "البطين",
+      "start_md": "13-05",
+      "end_md": "25-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الثريا",
+      "start_md": "26-05",
+      "end_md": "07-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الدبران",
+      "start_md": "08-06",
+      "end_md": "20-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الهقعة",
+      "start_md": "21-06",
+      "end_md": "03-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الهنعة",
+      "start_md": "04-07",
+      "end_md": "16-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الذراع",
+      "start_md": "17-07",
+      "end_md": "29-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "النثرة",
+      "start_md": "30-07",
+      "end_md": "11-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "حقل",
+      "dur_name_ar": "الطرف",
+      "start_md": "12-08",
+      "end_md": "24-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الجبهة",
+      "start_md": "20-08",
+      "end_md": "02-09",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الزبرة",
+      "start_md": "03-09",
+      "end_md": "15-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الصرفة",
+      "start_md": "16-09",
+      "end_md": "28-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "العواء",
+      "start_md": "29-09",
+      "end_md": "11-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "السماك",
+      "start_md": "12-10",
+      "end_md": "24-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الغفر",
+      "start_md": "25-10",
+      "end_md": "06-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الزبانا",
+      "start_md": "07-11",
+      "end_md": "19-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الإكليل",
+      "start_md": "20-11",
+      "end_md": "02-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "القلب",
+      "start_md": "03-12",
+      "end_md": "15-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الشولة",
+      "start_md": "16-12",
+      "end_md": "28-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "النعايم",
+      "start_md": "29-12",
+      "end_md": "10-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "البلدة",
+      "start_md": "11-01",
+      "end_md": "23-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "24-01",
+      "end_md": "05-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "06-02",
+      "end_md": "18-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "19-02",
+      "end_md": "03-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "04-03",
+      "end_md": "16-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "المقدم",
+      "start_md": "17-03",
+      "end_md": "29-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "المؤخر",
+      "start_md": "30-03",
+      "end_md": "11-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الرشاء",
+      "start_md": "12-04",
+      "end_md": "24-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الشرطين",
+      "start_md": "25-04",
+      "end_md": "07-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "البطين",
+      "start_md": "08-05",
+      "end_md": "20-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الثريا",
+      "start_md": "21-05",
+      "end_md": "02-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الدبران",
+      "start_md": "03-06",
+      "end_md": "15-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الهقعة",
+      "start_md": "16-06",
+      "end_md": "28-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الهنعة",
+      "start_md": "29-06",
+      "end_md": "11-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الذراع",
+      "start_md": "12-07",
+      "end_md": "24-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "النثرة",
+      "start_md": "25-07",
+      "end_md": "06-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "الإسكندرية",
+      "dur_name_ar": "الطرف",
+      "start_md": "07-08",
+      "end_md": "19-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الصرفة",
+      "start_md": "05-09",
+      "end_md": "17-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "العواء",
+      "start_md": "18-09",
+      "end_md": "30-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "السماك",
+      "start_md": "01-10",
+      "end_md": "13-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الغفر",
+      "start_md": "14-10",
+      "end_md": "26-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الزبانا",
+      "start_md": "27-10",
+      "end_md": "08-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الإكليل",
+      "start_md": "09-11",
+      "end_md": "21-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "القلب",
+      "start_md": "22-11",
+      "end_md": "04-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الشولة",
+      "start_md": "05-12",
+      "end_md": "17-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "النعايم",
+      "start_md": "18-12",
+      "end_md": "30-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "البلدة",
+      "start_md": "31-12",
+      "end_md": "12-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "13-01",
+      "end_md": "25-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "26-01",
+      "end_md": "07-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "08-02",
+      "end_md": "20-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "21-02",
+      "end_md": "05-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "المقدم",
+      "start_md": "06-03",
+      "end_md": "18-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "المؤخر",
+      "start_md": "19-03",
+      "end_md": "31-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الرشاء",
+      "start_md": "01-04",
+      "end_md": "13-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الشرطين",
+      "start_md": "14-04",
+      "end_md": "26-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "البطين",
+      "start_md": "27-04",
+      "end_md": "09-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الثريا",
+      "start_md": "10-05",
+      "end_md": "22-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الدبران",
+      "start_md": "23-05",
+      "end_md": "04-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الهقعة",
+      "start_md": "05-06",
+      "end_md": "17-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الهنعة",
+      "start_md": "18-06",
+      "end_md": "30-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الذراع",
+      "start_md": "01-07",
+      "end_md": "13-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "النثرة",
+      "start_md": "14-07",
+      "end_md": "26-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الطرف",
+      "start_md": "27-07",
+      "end_md": "08-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الجبهة",
+      "start_md": "09-08",
+      "end_md": "22-08",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "بيروت",
+      "dur_name_ar": "الزبرة",
+      "start_md": "23-08",
+      "end_md": "04-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "السماك",
+      "start_md": "18-09",
+      "end_md": "30-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الغفر",
+      "start_md": "01-10",
+      "end_md": "13-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الزبانا",
+      "start_md": "14-10",
+      "end_md": "26-10",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الإكليل",
+      "start_md": "27-10",
+      "end_md": "08-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "القلب",
+      "start_md": "09-11",
+      "end_md": "21-11",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الشولة",
+      "start_md": "22-11",
+      "end_md": "04-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "النعايم",
+      "start_md": "05-12",
+      "end_md": "17-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "البلدة",
+      "start_md": "18-12",
+      "end_md": "30-12",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "سعد الذابح",
+      "start_md": "31-12",
+      "end_md": "12-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "سعد بلع",
+      "start_md": "13-01",
+      "end_md": "25-01",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "سعد السعود",
+      "start_md": "26-01",
+      "end_md": "07-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "سعد الأخبية",
+      "start_md": "08-02",
+      "end_md": "20-02",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "المقدم",
+      "start_md": "21-02",
+      "end_md": "05-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "المؤخر",
+      "start_md": "06-03",
+      "end_md": "18-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الرشاء",
+      "start_md": "19-03",
+      "end_md": "31-03",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الشرطين",
+      "start_md": "01-04",
+      "end_md": "13-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "البطين",
+      "start_md": "14-04",
+      "end_md": "26-04",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الثريا",
+      "start_md": "27-04",
+      "end_md": "09-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الدبران",
+      "start_md": "10-05",
+      "end_md": "22-05",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الهقعة",
+      "start_md": "23-05",
+      "end_md": "04-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الهنعة",
+      "start_md": "05-06",
+      "end_md": "17-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الذراع",
+      "start_md": "18-06",
+      "end_md": "30-06",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "النثرة",
+      "start_md": "01-07",
+      "end_md": "13-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الطرف",
+      "start_md": "14-07",
+      "end_md": "26-07",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الجبهة",
+      "start_md": "27-07",
+      "end_md": "09-08",
+      "length_days": 14
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الزبرة",
+      "start_md": "10-08",
+      "end_md": "22-08",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "الصرفة",
+      "start_md": "23-08",
+      "end_md": "04-09",
+      "length_days": 13
+    },
+    {
+      "station_name_ar": "أنطاليا",
+      "dur_name_ar": "العواء",
+      "start_md": "05-09",
+      "end_md": "17-09",
+      "length_days": 13
+    }
+  ],
+  "annual_flat_rows_schema": {
+    "fields": [
+      "station_name_ar",
+      "dur_name_ar",
+      "start_md",
+      "end_md",
+      "length_days"
+    ],
+    "start_end_format": "DD-MM"
+  },
+  "annual_flat_rows_generated_at": "2026-04-29T17:10:47.744Z"
 }
