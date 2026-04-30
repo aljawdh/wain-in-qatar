@@ -5029,6 +5029,7 @@
     );
     set('tfCurrentDur', d.current_dur_name_ar);
     set('tfCurrentDurDay', d.current_dur_day_sheet != null ? d.current_dur_day_sheet : '');
+    set('tfCurrentDurLengthDays', d.length_days != null && d.length_days !== '' ? String(d.length_days) : '');
     set('tfCurrentDurStart', d.current_dur_start_md);
     set('tfCurrentDurEnd', d.current_dur_end_md);
     set('tfNextDur', d.next_dur_name_ar);
@@ -5036,6 +5037,238 @@
 
   function clearTrueFinalFormFields() {
     setTrueFinalFormFieldsFromRow(null);
+  }
+
+  function tfrNormalizeArabicName(value) {
+    var t = nfcStringAdmin(value);
+    if (!t) return '';
+    t = t.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
+    t = t.replace(/[\u0622\u0623\u0625\u0671]/g, '\u0627');
+    t = t.replace(/\u0624/g, '\u0648');
+    t = t.replace(/\u0626/g, '\u064A');
+    return t.replace(/\s+/g, ' ').trim();
+  }
+
+  function tfrParseMonthDayFlexible(s) {
+    var ddmm = tfrParseDayMonthDdMm(s);
+    if (ddmm) return ddmm;
+    var t = String(s == null ? '' : s).trim();
+    var m = t.match(/^(\d{1,2})-(\d{1,2})$/);
+    if (!m) return null;
+    var mo = Number(m[1]);
+    var day = Number(m[2]);
+    if (!day || !mo || mo > 12 || day > 31) return null;
+    return { d: day, m: mo };
+  }
+
+  function tfrAnnualRowsList(doc) {
+    return Array.isArray(doc && doc.annual_flat_rows) ? doc.annual_flat_rows : [];
+  }
+
+  function tfrMatchAnnualRowsForStation(doc, stationNameAr) {
+    var rows = tfrAnnualRowsList(doc);
+    var wantExact = nfcStringAdmin(stationNameAr);
+    var wantNorm = tfrNormalizeArabicName(stationNameAr);
+    var out = [];
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      if (!row) continue;
+      if (wantExact && nfcStringAdmin(row.station_name_ar) === wantExact) {
+        out.push(row);
+        continue;
+      }
+      if (wantNorm && tfrNormalizeArabicName(row.station_name_ar) === wantNorm) {
+        out.push(row);
+      }
+    }
+    return out;
+  }
+
+  function tfrChooseAnnualCurrentRow(rows, asM, asD) {
+    var aKey = asM * 100 + asD;
+    for (var i = 0; i < rows.length; i += 1) {
+      var row = rows[i];
+      if (!row) continue;
+      var pStart = tfrParseMonthDayFlexible(row.start_md);
+      var pEnd = tfrParseMonthDayFlexible(row.end_md);
+      if (!pStart || !pEnd) continue;
+      var sKey = pStart.m * 100 + pStart.d;
+      var eKey = pEnd.m * 100 + pEnd.d;
+      if (tfrIsAsOfInWindowKeys(sKey, eKey, aKey)) {
+        return { row: row, idx: i, start: pStart, end: pEnd };
+      }
+    }
+    return null;
+  }
+
+  function trueFinalAnnualSnapshotFromAnnualRows(stationRows, asOfIso) {
+    if (!stationRows || !stationRows.length || !asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(String(asOfIso).trim())) {
+      return { ok: false };
+    }
+    var asDate = new Date(String(asOfIso).trim() + 'T12:00:00.000Z');
+    if (Number.isNaN(asDate.getTime())) {
+      return { ok: false };
+    }
+    var asM = asDate.getUTCMonth() + 1;
+    var asD = asDate.getUTCDate();
+    var matched = tfrChooseAnnualCurrentRow(stationRows, asM, asD);
+    if (!matched) {
+      return { ok: false, code: 'NO_WINDOW' };
+    }
+    var tl = tfrSyntheticTimelineMs(matched.start, matched.end, asM, asD);
+    if (!tl) {
+      return { ok: false };
+    }
+    var totalDaysInclusive = Math.floor((tl.endMs - tl.startMs) / 86400000) + 1;
+    var dayInDur = Math.floor((tl.asMs - tl.startMs) / 86400000) + 1;
+    var daysRem = totalDaysInclusive - dayInDur;
+    if (dayInDur < 1) {
+      return { ok: false };
+    }
+    if (daysRem < 0) daysRem = 0;
+    var curRow = matched.row;
+    var nextIdx = (matched.idx + 1) % stationRows.length;
+    var nextRow = stationRows[nextIdx] || null;
+    return {
+      ok: true,
+      station_name_ar: curRow.station_name_ar,
+      current_dur_name_ar: curRow.dur_name_ar,
+      next_dur_name_ar: nextRow ? String(nextRow.dur_name_ar != null ? nextRow.dur_name_ar : '').trim() : '',
+      day_in_dur: dayInDur,
+      days_remaining_in_dur: daysRem,
+      current_dur_start_md: String(curRow.start_md != null ? curRow.start_md : '').trim(),
+      current_dur_end_md: String(curRow.end_md != null ? curRow.end_md : '').trim(),
+      length_days: curRow.length_days
+    };
+  }
+
+  function buildUniqueStationNamesFromAnnualDoc(doc) {
+    var rows = tfrAnnualRowsList(doc);
+    var map = new Map();
+    for (var i = 0; i < rows.length; i += 1) {
+      var r = rows[i];
+      if (!r || r.station_name_ar == null) continue;
+      var disp = String(r.station_name_ar).trim();
+      if (!disp) continue;
+      var k = nfcStringAdmin(disp);
+      if (!map.has(k)) map.set(k, disp);
+    }
+    return Array.from(map.values()).sort(function (a, b) {
+      return a.localeCompare(b, 'ar');
+    });
+  }
+
+  function tfLocalRefIsoToDdMm(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(String(iso).trim())) return '';
+    var d = new Date(String(iso).trim() + 'T12:00:00.000Z');
+    if (Number.isNaN(d.getTime())) return '';
+    return String(d.getUTCDate()).padStart(2, '0') + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+  }
+
+  function populateTrueFinalLocalRefStationSelect(doc) {
+    var sel = getEl('tfLocalRefStationSelect');
+    if (!sel) return;
+    var keep = sel.value;
+    sel.innerHTML = '';
+    var ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = '\u2014 \u0627\u062e\u062a\u0631 \u0645\u062d\u0637\u0629 \u2014';
+    sel.appendChild(ph);
+    var names = buildUniqueStationNamesFromAnnualDoc(doc || {});
+    names.forEach(function (name) {
+      var opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    if (keep) {
+      var ok = false;
+      for (var i = 0; i < sel.options.length; i += 1) {
+        if (nfcStringAdmin(sel.options[i].value) === nfcStringAdmin(keep)) {
+          sel.selectedIndex = i;
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) sel.selectedIndex = 0;
+    }
+  }
+
+  function applyTrueFinalLocalRefForStationName(doc, stationNameAr) {
+    var statusEl = getEl('stTrueFinalRefStatus');
+    var annual = tfrAnnualRowsList(doc);
+    var uniqueNames = buildUniqueStationNamesFromAnnualDoc(doc);
+    var matched = stationNameAr ? tfrMatchAnnualRowsForStation(doc, stationNameAr) : [];
+    console.debug('NAVIDUR_TRUE_FINAL_LOCAL_REFERENCE', {
+      has_annual_flat_rows: annual.length > 0,
+      rows_count: annual.length,
+      station_count: uniqueNames.length,
+      selected_station: stationNameAr || null,
+      matched_rows_count: matched.length
+    });
+    if (!annual.length) {
+      clearTrueFinalFormFields();
+      if (statusEl) {
+        statusEl.textContent = '\u0644\u0627 \u062a\u0648\u062c\u062f \u0628\u064a\u0627\u0646\u0627\u062a annual_flat_rows \u0641\u064a \u0627\u0644\u0645\u0631\u062c\u0639 \u0627\u0644\u0646\u0647\u0627\u0626\u064a';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    if (!stationNameAr || !matched.length) {
+      clearTrueFinalFormFields();
+      if (statusEl) {
+        statusEl.textContent =
+          '\u0644\u0627 \u062a\u0648\u062c\u062f \u0646\u0648\u0627\u0641\u0630 \u0633\u0646\u0648\u064a\u0629 \u0644\u0647\u0630\u0627 \u0627\u0644\u0627\u0633\u0645 \u0641\u064a annual_flat_rows.';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    var asOfIso = getCanonicalNavidurAsOfIso();
+    var snap = trueFinalAnnualSnapshotFromAnnualRows(matched, asOfIso);
+    if (!snap || !snap.ok) {
+      clearTrueFinalFormFields();
+      var setE = function (id, v) {
+        var el = getEl(id);
+        if (el) el.value = v != null && v !== '' ? String(v) : '';
+      };
+      setE('tfStationCity', stationNameAr);
+      if (statusEl) {
+        statusEl.textContent =
+          '\u0644\u0627 \u0646\u0627\u0641\u0630\u0629 \u062f\u0631 \u062a\u0637\u0627\u0628\u0642 \u062a\u0627\u0631\u064a\u062e \u0627\u0644\u064a\u0648\u0645 \u0627\u0644\u0645\u0631\u062c\u0639\u064a (' +
+          asOfIso +
+          ') \u0644\u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0637\u0629.';
+        statusEl.style.color = '#ff9b9b';
+      }
+      return;
+    }
+    var sheetRow = findTrueFinalRowByStationNameAr(doc, stationNameAr);
+    var set = function (id, v) {
+      var el = getEl(id);
+      if (el) el.value = v != null && v !== '' ? String(v) : '';
+    };
+    set('tfStationCity', snap.station_name_ar || stationNameAr);
+    set('tfReferenceDate', tfLocalRefIsoToDdMm(asOfIso));
+    set('tfRemainingDays', snap.days_remaining_in_dur != null ? String(snap.days_remaining_in_dur) : '');
+    set('tfCurrentDur', snap.current_dur_name_ar);
+    set('tfCurrentDurDay', snap.day_in_dur != null ? String(snap.day_in_dur) : '');
+    set('tfCurrentDurLengthDays', snap.length_days != null && snap.length_days !== '' ? String(snap.length_days) : '');
+    set('tfCurrentDurStart', snap.current_dur_start_md);
+    set('tfCurrentDurEnd', snap.current_dur_end_md);
+    set('tfNextDur', snap.next_dur_name_ar);
+    if (statusEl) {
+      var extra = '';
+      if (sheetRow && sheetRow.reference_date_md) {
+        extra =
+          ' \u2014 \u0635\u0641 \u0625\u0636\u0627\u0641\u064a \u0645\u0646 doc.stations: \u064a\u0648\u0645 \u0627\u0644\u0645\u0631\u062c\u0639 (\u0627\u0644\u0645\u0635\u0646\u0641) ' +
+          sheetRow.reference_date_md;
+      }
+      statusEl.textContent =
+        '\u0639\u0631\u0636 \u0645\u0646 annual_flat_rows \u0644\u0640 ' +
+        asOfIso +
+        '.' +
+        extra;
+      statusEl.style.color = '#9ad9ff';
+    }
   }
 
   function findTrueFinalRowForStation(doc, st) {
@@ -5059,31 +5292,84 @@
   function refreshTrueFinalReferencePanel(st) {
     var statusEl = getEl('stTrueFinalRefStatus');
     if (getEl('tfCurrentDur') == null) return;
-    if (!st || !String(st.id || '').trim()) {
-      clearTrueFinalFormFields();
-      if (statusEl) statusEl.textContent = 'اختر محطة من الجدول.';
-      if (statusEl) statusEl.style.color = '#9ad9ff';
-      return;
-    }
     if (statusEl) {
-      statusEl.textContent = 'جاري التحميل...';
+      statusEl.textContent = '\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0645\u064a\u0644...';
       statusEl.style.color = '#9ad9ff';
     }
     loadTrueFinalStationReferenceDoc()
       .then(function (doc) {
-        var row = findTrueFinalRowForStation(doc, st);
-        if (!row) {
+        populateTrueFinalLocalRefStationSelect(doc);
+        var annual = tfrAnnualRowsList(doc);
+        if (!annual.length) {
           clearTrueFinalFormFields();
+          if (getEl('tfLocalRefStationSelect')) getEl('tfLocalRefStationSelect').selectedIndex = 0;
           if (statusEl) {
-            statusEl.textContent = 'لا صف في المرجع يطابق هذه المحطة (المعرف أو الاسم العربي).';
+            statusEl.textContent =
+              '\u0644\u0627 \u062a\u0648\u062c\u062f \u0628\u064a\u0627\u0646\u0627\u062a annual_flat_rows \u0641\u064a \u0627\u0644\u0645\u0631\u062c\u0639 \u0627\u0644\u0646\u0647\u0627\u0626\u064a';
             statusEl.style.color = '#ff9b9b';
           }
+          console.debug('NAVIDUR_TRUE_FINAL_LOCAL_REFERENCE', {
+            has_annual_flat_rows: false,
+            rows_count: 0,
+            station_count: 0,
+            selected_station: null,
+            matched_rows_count: 0
+          });
           return;
         }
-        setTrueFinalFormFieldsFromRow(row);
-        if (statusEl) {
-          statusEl.textContent = '';
-          statusEl.style.color = '#9ad9ff';
+
+        var sel = getEl('tfLocalRefStationSelect');
+        var pickName = '';
+        if (st && String(st.id || '').trim()) {
+          var tgt = resolveTrueFinalAnnualPreviewTarget(st);
+          pickName = tgt.resolved_reference_station || tgt.selected_station || '';
+        }
+
+        if (pickName && sel) {
+          var foundIdx = -1;
+          for (var oi = 0; oi < sel.options.length; oi += 1) {
+            var ov = sel.options[oi].value;
+            if (!ov) continue;
+            if (nfcStringAdmin(ov) === nfcStringAdmin(pickName)) {
+              foundIdx = oi;
+              break;
+            }
+            if (tfrNormalizeArabicName(ov) === tfrNormalizeArabicName(pickName)) {
+              foundIdx = oi;
+              break;
+            }
+          }
+          if (foundIdx >= 0) {
+            sel.selectedIndex = foundIdx;
+            applyTrueFinalLocalRefForStationName(doc, sel.options[foundIdx].value);
+            return;
+          }
+          clearTrueFinalFormFields();
+          if (sel) sel.selectedIndex = 0;
+          if (statusEl) {
+            statusEl.textContent =
+              '\u0644\u0627 \u064a\u0648\u062c\u062f \u0627\u0633\u0645 \u0645\u0631\u062c\u0639 \u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0637\u0629 \u0641\u064a annual_flat_rows (\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0631\u0628\u0637 \u0623\u0648 \u0627\u062e\u062a\u0631 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629).';
+            statusEl.style.color = '#ff9b9b';
+          }
+          console.debug('NAVIDUR_TRUE_FINAL_LOCAL_REFERENCE', {
+            has_annual_flat_rows: true,
+            rows_count: annual.length,
+            station_count: buildUniqueStationNamesFromAnnualDoc(doc).length,
+            selected_station: pickName,
+            matched_rows_count: 0
+          });
+          return;
+        }
+
+        if (sel && sel.value) {
+          applyTrueFinalLocalRefForStationName(doc, sel.value);
+        } else {
+          clearTrueFinalFormFields();
+          if (statusEl) {
+            statusEl.textContent =
+              '\u0627\u062e\u062a\u0631 \u0645\u062d\u0637\u0629 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u0623\u0639\u0644\u0627\u0647 \u0644\u0639\u0631\u0636 \u0627\u0644\u062f\u0631 \u0627\u0644\u062d\u0627\u0644\u064a\u060c \u0623\u0648 \u0627\u0641\u062a\u062d \u0645\u062d\u0637\u0629 \u0645\u0646 \u0627\u0644\u062c\u062f\u0648\u0644 \u0644\u0645\u0632\u0627\u0645\u0646\u0629 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631.';
+            statusEl.style.color = '#9ad9ff';
+          }
         }
       })
       .catch(function (e) {
@@ -8322,6 +8608,58 @@
     if (saveTrueFinalBtn) {
       saveTrueFinalBtn.addEventListener('click', function () {
         saveTrueFinalReferenceEdits();
+      });
+    }
+
+    var tfLocalRefSel = getEl('tfLocalRefStationSelect');
+    if (tfLocalRefSel) {
+      tfLocalRefSel.addEventListener('change', function () {
+        var v = tfLocalRefSel.value ? String(tfLocalRefSel.value).trim() : '';
+        if (!v) {
+          clearTrueFinalFormFields();
+          var st0 = getEl('stTrueFinalRefStatus');
+          if (st0) {
+            st0.textContent =
+              '\u0627\u062e\u062a\u0631 \u0645\u062d\u0637\u0629 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u0644\u0639\u0631\u0636 \u0627\u0644\u062f\u0631 \u0627\u0644\u062d\u0627\u0644\u064a.';
+            st0.style.color = '#9ad9ff';
+          }
+          return;
+        }
+        loadTrueFinalStationReferenceDoc()
+          .then(function (doc) {
+            applyTrueFinalLocalRefForStationName(doc, v);
+          })
+          .catch(function (e) {
+            var stE = getEl('stTrueFinalRefStatus');
+            if (stE) {
+              stE.textContent = clientErrorForHttp(e);
+              stE.style.color = '#ff9b9b';
+            }
+          });
+      });
+    }
+
+    var tfLocalDetails = getEl('workbookMappingDetails');
+    if (tfLocalDetails) {
+      tfLocalDetails.addEventListener('toggle', function () {
+        if (!tfLocalDetails.open) return;
+        loadTrueFinalStationReferenceDoc()
+          .then(function (doc) {
+            var keep = tfLocalRefSel && tfLocalRefSel.value ? tfLocalRefSel.value : '';
+            populateTrueFinalLocalRefStationSelect(doc);
+            if (keep && tfLocalRefSel) {
+              for (var ti = 0; ti < tfLocalRefSel.options.length; ti += 1) {
+                if (nfcStringAdmin(tfLocalRefSel.options[ti].value) === nfcStringAdmin(keep)) {
+                  tfLocalRefSel.selectedIndex = ti;
+                  break;
+                }
+              }
+            }
+            if (tfLocalRefSel && tfLocalRefSel.value) {
+              applyTrueFinalLocalRefForStationName(doc, tfLocalRefSel.value);
+            }
+          })
+          .catch(function () {});
       });
     }
 

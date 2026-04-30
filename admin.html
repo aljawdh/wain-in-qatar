@@ -1080,12 +1080,18 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <summary style="cursor:pointer;font-size:.88rem;color:#c4e0ff;background:rgba(92,225,255,.08);border:1px solid rgba(92,225,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-book-atlas" style="margin-left:6px"></i> المرجع المحلي النهائي للدرور</summary>
               <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">المصدر الوحيد: <strong>data/true_final_station_reference.json</strong> (الخادم: KV عند التفعيل، وإلا الملف المحلي). يُطابَق الصف بمعرّف المحطة أو باسمها العربي كما في المرجع. التوقيت يعتمد <strong>اليوم والشهر</strong> فقط.</p>
               <p id="stTrueFinalRefStatus" style="margin:6px 0 10px;font-size:.82rem;color:#9ad9ff;min-height:1.2em"></p>
+              <div class="admin-field" style="max-width:520px;margin-bottom:10px">
+                <label>محطة المرجع (من annual_flat_rows)</label>
+                <select id="tfLocalRefStationSelect"><option value="">— اختر محطة —</option></select>
+              </div>
+              <p class="section-subtitle" style="font-size:.76rem;color:#8ea4ba;margin:-4px 0 10px;line-height:1.45">القائمة تُبنى من أسماء المحطات الفريدة في <code>annual_flat_rows</code>. حساب «الدر الحالي» يستخدم تاريخ اليوم المرجعي (UTC) كما في تحليل المحطة.</p>
               <div class="admin-form-grid" style="margin-top:10px">
                 <div class="admin-field"><label>اسم المحطة (المرجع)</label><input id="tfStationCity" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>يوم المرجع (يوم-شهر)</label><input id="tfReferenceDate" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>الأيام المتبقية (المصنف)</label><input id="tfRemainingDays" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>الدر الحالي</label><input id="tfCurrentDur" type="text" autocomplete="off" placeholder="—"></div>
                 <div class="admin-field"><label>اليوم داخل الدر</label><input id="tfCurrentDurDay" type="number" min="1" max="99" step="1" placeholder="—"></div>
+                <div class="admin-field"><label>طول الدر (يوم)</label><input id="tfCurrentDurLengthDays" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>بداية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurStart" type="text" inputmode="numeric" placeholder="DD-MM مثل 16-04"></div>
                 <div class="admin-field"><label>نهاية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurEnd" type="text" inputmode="numeric" placeholder="DD-MM"></div>
                 <div class="admin-field full"><label>الدر التالي</label><input id="tfNextDur" type="text" autocomplete="off" placeholder="—"></div>
