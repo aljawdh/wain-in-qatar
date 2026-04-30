@@ -81,6 +81,13 @@
   var DUR_FILE_STATUS_FROM_REF_MSG = 'مُستمد من المرجع: data/true_final_station_reference.json';
   var STATION_ANALYTICS_NO_DATA_MSG = 'لا توجد بيانات تحليل لهذه المحطة';
   var STATION_SEASONAL_REF_MSG = 'لا يوجد مرجع موسمي لهذه المحطة';
+  var DUR_NAMES = [
+    'المقدم', 'المؤخر', 'الرشاء', 'الشرطين', 'البطين', 'الثريا',
+    'الدبران', 'الهقعة', 'الهنعة', 'الذراع', 'النثرة', 'الطرف',
+    'الجبهة', 'الزبرة', 'الصرفة', 'العواء', 'السماك', 'الغفر',
+    'الزبانا', 'الإكليل', 'القلب', 'الشولة', 'النعائم', 'البلدة',
+    'سعد الذابح', 'سعد بلع', 'سعد السعود', 'الأخبية'
+  ];
 
   var COASTAL_REGIONS = {
     'قطر': ['الدوحة', 'الخور', 'الوكرة', 'دخان', 'الشمال', 'الرويس', 'أم باب', 'مسيعيد'],
@@ -112,6 +119,29 @@
     if (!raw) return '';
     var t = raw.trim();
     return COUNTRY_NAME_ALIASES[t] || t;
+  }
+
+  function durNameByNumberFallback(durNumber) {
+    var n = Number(durNumber);
+    if (!Number.isFinite(n) || n < 1 || n > DUR_NAMES.length) return '';
+    return DUR_NAMES[n - 1] || '';
+  }
+
+  function sanitizeDurName(value) {
+    var t = safeInput(value, 120);
+    if (!t) return '';
+    if (/^\?+$/.test(t)) return '';
+    return t;
+  }
+
+  function resolveDurNameUi(row) {
+    var item = row || {};
+    return sanitizeDurName(item.dur_name) ||
+      sanitizeDurName(item.name_ar) ||
+      sanitizeDurName(item.name) ||
+      sanitizeDurName(item.name_en) ||
+      durNameByNumberFallback(item.dur_number) ||
+      ('Dur ' + (item.dur_number || ''));
   }
 
   function calculateSuhailStart(lat) {
@@ -2179,6 +2209,7 @@
       var res = await apiFetch('/api?route=admin&path=durur', { method: 'GET' });
       if (!res.ok) throw new Error('durur_load_failed');
       var data = await res.json();
+      try { console.debug('DUR_LIST_RAW', Array.isArray(data && data.items) ? data.items : []); } catch (_e) {}
       dururCache = Array.isArray(data.items) ? data.items.map(normalizeDurRecordForUi) : [];
       globalDururManagementCache = dururCache.slice();
       var analysisDur = getEl('analysisDurFilter');
@@ -2325,7 +2356,13 @@
       var res = await apiFetch('/api?route=admin&path=durur-reference', { method: 'GET' });
       if (!res.ok) throw new Error('durur_reference_load_failed');
       var data = await res.json();
-      dururReferenceCache = Array.isArray(data.items) ? data.items : [];
+      try { console.debug('DUR_LIST_RAW', Array.isArray(data && data.items) ? data.items : []); } catch (_e) {}
+      dururReferenceCache = Array.isArray(data.items) ? data.items.map(function (item) {
+        var row = item || {};
+        return Object.assign({}, row, {
+          name_ar: resolveDurNameUi(row)
+        });
+      }) : [];
       renderDururReferenceTable();
     } catch (e) {
       console.error('[durur-reference] load failed', e);
@@ -3468,7 +3505,7 @@
   function normalizeDurRecordForUi(item) {
     var row = item || {};
     return Object.assign({}, row, {
-      name: row.name || row.name_ar || row.name_en || ('Dur ' + (row.dur_number || '')),
+      name: resolveDurNameUi(row),
       days_count: row.days_count != null ? row.days_count : row.default_days_count,
       gregorian_start_month: row.gregorian_start_month != null ? row.gregorian_start_month : (row.gregorian_window_hint && row.gregorian_window_hint.start_month),
       gregorian_start_day: row.gregorian_start_day != null ? row.gregorian_start_day : (row.gregorian_window_hint && row.gregorian_window_hint.start_day),
