@@ -105,8 +105,7 @@ async function writeToSeedFile(key, value) {
   await fs.rename(tmp, full);
 }
 
-// On Vercel without KV configured, throw a clear error so callers surface a
-// meaningful 500 / 503 instead of silently returning stale or ephemeral data.
+// Writes that require durable storage still need KV on Vercel (filesystem is not persistent).
 function assertPersistentStoreAvailable() {
   if (process.env.VERCEL && !getKv()) {
     throw new Error(
@@ -136,10 +135,7 @@ async function readJsonFile(key, fallback) {
     return JSON.parse(JSON.stringify(seeded));
   }
 
-  // No KV configured.
-  assertPersistentStoreAvailable(); // throws on Vercel — keeps ephemeral storage out of the write path
-
-  // Local development: read/write directly from data/
+  // No KV: always read bundled data/*.json (Git / deployment artifact). Never fail here.
   return readSeedFile(key, fallback);
 }
 
