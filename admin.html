@@ -1029,21 +1029,29 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
               <summary>عرض البيانات الخام للتشخيص</summary>
               <pre id="astroDurStatusRaw" class="astro-raw-pre">—</pre>
             </details>
-            <div class="admin-form-grid" style="margin-top:14px">
-              <div class="admin-field"><label>خط العرض (latitude_band_key)</label><input id="astroPreviewBandInput" type="text" placeholder="gulf_mid_south"></div>
-              <div class="admin-field"><label>سنة دورة المصنف (مساعد — اختياري)</label><input id="astroPreviewYearInput" type="number" min="2020" max="2100" value="2026"></div>
-              <div class="admin-field full">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                  <input type="checkbox" id="astroPreviewRestrictWorkbookCycle">
-                  <span>تقييد البحث بتلك السنة فقط (عرض دورة واحدة؛ يترك المعاينة عبر الدورات عند الإيقاف)</span>
-                </label>
+            <h4 style="margin:16px 0 8px;font-size:1rem;color:#cfeaff;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <i class="fa-solid fa-calendar-week"></i> معاينة نوافذ الدرور السنوية
+            </h4>
+            <p class="section-subtitle" style="margin-top:0">البيانات من المرجع النهائي فقط: <code>annual_flat_rows</code> داخل <code>true_final_station_reference</code> (ملف أو KV).</p>
+            <div id="astroPreviewLegacyFields" style="display:none" aria-hidden="true">
+              <div class="admin-form-grid" style="margin-top:8px">
+                <div class="admin-field"><label>خط العرض (latitude_band_key)</label><input id="astroPreviewBandInput" type="text" placeholder="gulf_mid_south" disabled tabindex="-1"></div>
+                <div class="admin-field"><label>سنة دورة المصنف (مساعد — اختياري)</label><input id="astroPreviewYearInput" type="number" min="2020" max="2100" value="2026" disabled tabindex="-1"></div>
+                <div class="admin-field full">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:not-allowed;opacity:.55">
+                    <input type="checkbox" id="astroPreviewRestrictWorkbookCycle" disabled tabindex="-1">
+                    <span>تقييد البحث بتلك السنة فقط (معطّل — لم يعد يُستخدم)</span>
+                  </label>
+                </div>
+                <div class="admin-field"><label>تاريخ المعاينة (غرينتش، اختياري)</label><input id="astroPreviewDateInput" type="date" disabled tabindex="-1"></div>
               </div>
-              <div class="admin-field"><label>محطة (اختياري)</label><select id="astroPreviewStationSelect"><option value="">—</option></select></div>
-              <div class="admin-field"><label>تاريخ المعاينة (غرينتش، اختياري)</label><input id="astroPreviewDateInput" type="date"></div>
+            </div>
+            <div class="admin-form-grid" style="margin-top:10px">
+              <div class="admin-field" style="grid-column:1/-1;max-width:520px"><label>المحطة</label><select id="astroPreviewStationSelect"><option value="">—</option></select></div>
               <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="astroPreviewBtn">معاينة النوافذ</button></div>
             </div>
             <div id="astroPreviewRoot" class="astro-preview-root" style="margin-top:12px">
-              <p class="astro-placeholder">اختر محطة أو حزاماً ثم «معاينة النوافذ».</p>
+              <p class="astro-placeholder">اختر محطة ثم اضغط «معاينة النوافذ».</p>
             </div>
             <details class="astro-raw-debug">
               <summary>عرض البيانات الخام للتشخيص</summary>

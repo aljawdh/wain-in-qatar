@@ -6767,7 +6767,7 @@
       if (!s || !s.id) return;
       var opt = document.createElement('option');
       opt.value = s.id;
-      opt.textContent = (s.name || s.id) + ' (' + (s.latitude_band_key || '\u2014') + ')';
+      opt.textContent = (s.name || s.id) + (s.id ? ' — ' + s.id : '');
       sel.appendChild(opt);
     });
     if (keep) sel.value = keep;
@@ -6781,25 +6781,6 @@
     if (v == null || v === '') return '—';
     var n = Number(v);
     return Number.isFinite(n) ? String(n) : escapeHtml(v);
-  }
-
-  function astroWorkbookModeAr(code) {
-    var m = {
-      exact_name: 'تطابق الاسم',
-      manual: 'يدوي',
-      nearest_city: 'أقرب مدينة',
-      same_region: 'منطقة / تجميعة'
-    };
-    return m[code] || escapeHtml(code || '—');
-  }
-
-  function astroAssignmentAr(code) {
-    var m = {
-      auto_assigned: 'معيّن آليًا',
-      manual_confirmed: 'معتمد يدويًا',
-      needs_review: 'يحتاج مراجعة'
-    };
-    return m[code] || escapeHtml(code || '—');
   }
 
   function renderAstroMonitoringCards(payload) {
@@ -6886,7 +6867,7 @@
     var bands = Array.isArray(anchors.bands_tracked_from_star_events) ? anchors.bands_tracked_from_star_events : [];
     var anchorsHtml =
       '<div class="astro-card">' +
-      '<h5 class="astro-card-title">مراسي حزام العرض (مرجع قديم)</h5>' +
+      '<h5 class="astro-card-title">مراسي الحزم (مراقبة الدليل — لا تُستخدم لمعاينة النوافذ السنوية)</h5>' +
       '<p style="margin:0 0 8px;font-size:.78rem;color:#8ea4ba">عدد الحزم المعروضة: ' +
       astroFmtNum(bands.length) +
       '. المعروف من السجل: ' +
@@ -6895,156 +6876,6 @@
       '</div>';
 
     return summaryHtml + metaHtml + techHtml + seqHtml + starHtml + anchorsHtml;
-  }
-
-  function renderWorkbookPreviewCards(apiJson, stationRow) {
-    var j = apiJson || {};
-    var st = stationRow || {};
-    var srcTag =
-      !j.source || j.source === 'workbook_import'
-        ? 'دليل المدن (للمقارنة — ليس التوقيت التشغيلي)'
-        : escapeHtml(String(j.source));
-    var src =
-      '<div class="astro-card">' +
-      '<span class="astro-badge">' +
-      srcTag +
-      '</span> <span style="font-size:.78rem;color:#8ea4ba">للمسؤولين فقط؛ لا تُستبدل المرجع النهائي لكل محطة</span>' +
-      '</div>';
-
-    if (j.state === 'unmapped') {
-      return (
-        src +
-        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
-        escapeHtml(j.message_ar || 'المحطة غير مربوطة بمفتاح مدينة في الدليل.') +
-        '</p></div>'
-      );
-    }
-    if (j.state === 'missing_year_source' || j.state === 'no_windows_for_city') {
-      return (
-        src +
-        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">' +
-        escapeHtml(j.message_ar || 'لا توجد نوافذ لهذه المدينة في بيانات الدليل المستوردة.') +
-        '</p><div class="astro-kv-row"><span class="astro-kv-k">مفتاح المدينة في الدليل</span><span class="astro-kv-v">' +
-        escapeHtml(j.workbook_city_name || '—') +
-        '</span></div></div>'
-      );
-    }
-
-    if (j.state === 'date_outside_workbook_windows' || j.state === 'no_windows_for_workbook_cycle' || j.state === 'bad_iso_date') {
-      return (
-        src +
-        '<div class="astro-card">' +
-        '<h5 class="astro-card-title">معاينة من الدليل (للمقارنة فقط)</h5>' +
-        '<div class="astro-kv-row"><span class="astro-kv-k">مفتاح المدينة في الدليل</span><span class="astro-kv-v">' +
-        escapeHtml(j.workbook_city_name || '—') +
-        '</span></div>' +
-        '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ الاستعلام</span><span class="astro-kv-v">' +
-        escapeHtml(j.gregorian_preview_date || j.iso_date || '—') +
-        '</span></div>' +
-        '<div class="astro-kv-row"><span class="astro-kv-k">سنة الدورة في الدليل</span><span class="astro-kv-v">' +
-        astroFmtNum(j.workbook_cycle_year) +
-        '</span></div>' +
-        '<p style="margin:10px 0 0;color:#ffb3b3">' +
-        escapeHtml(j.message_ar || '—') +
-        '</p></div>'
-      );
-    }
-
-    var cur = j.current_dur || {};
-    var nx = j.next_dur || {};
-    var wbCity = escapeHtml(j.workbook_city_name || '—');
-    var modeAr = astroWorkbookModeAr(st.workbook_match_mode);
-    var statAr = astroAssignmentAr(st.workbook_assignment_status);
-
-    var gregDate = escapeHtml(j.gregorian_preview_date || j.iso_date || '—');
-    var gYear = j.gregorian_year_of_preview_date != null ? astroFmtNum(j.gregorian_year_of_preview_date) : '—';
-    var cycleY = j.workbook_cycle_year != null ? astroFmtNum(j.workbook_cycle_year) : astroFmtNum(j.year);
-    var diffNote =
-      j.cycle_year_differs_from_gregorian_year === true
-        ? '<div class="astro-kv-row"><span class="astro-kv-k">ملاحظة</span><span class="astro-kv-v">سنة التاريخ (' +
-          gYear +
-          ') تختلف عن سنة الدورة في الدليل (' +
-          cycleY +
-          ')</span></div>'
-        : '';
-
-    var durHtml =
-      '<div class="astro-card">' +
-      '<h5 class="astro-card-title">معاينة من الدليل (للمقارنة — ليس التوقيت التشغيلي)</h5>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">مفتاح المدينة في الدليل</span><span class="astro-kv-v">' + wbCity + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">وضع المطابقة في الدليل</span><span class="astro-kv-v">' + modeAr + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">حالة الربط</span><span class="astro-kv-v">' + statAr + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">تاريخ الاستعلام</span><span class="astro-kv-v">' + gregDate + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">سنة الدورة في الدليل</span><span class="astro-kv-v">' + cycleY + '</span></div>' +
-      diffNote +
-      '<div class="astro-kv-row"><span class="astro-kv-k">وضع البحث في الدليل</span><span class="astro-kv-v">' +
-      escapeHtml(j.lookup_mode === 'restricted_workbook_cycle_year' ? 'مقيّد بدورة محددة' : 'بحث بالتاريخ عبر دورات الدليل') +
-      '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">مصدر السطور</span><span class="astro-kv-v">دليل المدن المستورد (غير المرجع النهائي)</span></div>' +
-      '</div>';
-
-    var curHtml =
-      '<div class="astro-card">' +
-      '<h5 class="astro-card-title">الدرة الحالية</h5>' +
-      '<div class="astro-grid">' +
-      '<div class="astro-stat"><span class="astro-stat-label">اسم الدرة</span><span class="astro-stat-value">' + escapeHtml(cur.dur_name_ar || '—') + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">بداية الدر</span><span class="astro-stat-value">' + escapeHtml(cur.dur_start || '—') + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">نهاية الدر</span><span class="astro-stat-value">' + escapeHtml(cur.dur_end || '—') + '</span></div>' +
-      '<div class="astro-stat"><span class="astro-stat-label">اليوم داخل الدر</span><span class="astro-stat-value">' + astroFmtNum(cur.day_in_dur) + '</span></div>' +
-      '</div></div>';
-
-    var nextHtml =
-      '<div class="astro-card">' +
-      '<h5 class="astro-card-title">الدرة التالية</h5>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">الاسم</span><span class="astro-kv-v">' + escapeHtml(nx.dur_name_ar || '—') + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">البداية</span><span class="astro-kv-v">' + escapeHtml(nx.dur_start || '—') + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">النهاية</span><span class="astro-kv-v">' + escapeHtml(nx.dur_end || '—') + '</span></div>' +
-      '</div>';
-
-    if (!cur || !cur.dur_name_ar) {
-      return (
-        src +
-        durHtml +
-        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">لا يوجد در يطابق هذا التاريخ ضمن استجابة المعاينة.</p></div>'
-      );
-    }
-
-    return src + durHtml + curHtml + nextHtml;
-  }
-
-  function renderBandPreviewCards(apiJson) {
-    var j = apiJson || {};
-    var band = escapeHtml(j.latitude_band_key || '—');
-    var wins = Array.isArray(j.windows_preview) ? j.windows_preview : [];
-    var der = j.derived_current_state || {};
-    var rows = wins
-      .slice(0, 12)
-      .map(function (w) {
-        return (
-          '<div class="astro-kv-row"><span class="astro-kv-k">' +
-          escapeHtml(w.dur_name_ar || w.dur_id || '—') +
-          '</span><span class="astro-kv-v">' +
-          escapeHtml((w.start_date || '') + ' ← ' + (w.end_date || '')) +
-          '</span></div>'
-        );
-      })
-      .join('');
-    var more = wins.length > 12 ? '<p style="margin:8px 0 0;font-size:.76rem;color:#8ea4ba">عرض 12 من أصل ' + wins.length + '</p>' : '';
-
-    return (
-      '<div class="astro-card">' +
-      '<h5 class="astro-card-title">معاينة حزام العرض (طريقة قديمة)</h5>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">حزام العرض</span><span class="astro-kv-v">' + band + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">السنة</span><span class="astro-kv-v">' + astroFmtNum(j.year) + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">اليوم</span><span class="astro-kv-v">' + escapeHtml(j.iso_date || '—') + '</span></div>' +
-      '<div class="astro-kv-row"><span class="astro-kv-k">ناقص / غير جاهز</span><span class="astro-kv-v">' + astroYnAr(!!der.incomplete) + '</span></div>' +
-      '</div>' +
-      '<div class="astro-card">' +
-      '<h5 class="astro-card-title">قائمة النوافذ (مختصرة)</h5>' +
-      (rows || '<p class="astro-placeholder">لا توجد نوافذ متولدة لهذا الحزام.</p>') +
-      more +
-      '</div>'
-    );
   }
 
   async function refreshAstroDurStatus() {
@@ -7075,6 +6906,73 @@
     }
   }
 
+  function resolveTrueFinalAnnualPreviewTarget(selectedSt) {
+    var out = {
+      selected_station: '',
+      resolved_reference_station: '',
+      reference_station_id: ''
+    };
+    if (!selectedSt || !selectedSt.id) return out;
+    out.selected_station = String(selectedSt.name || selectedSt.id || '').trim();
+    var refId = String(selectedSt.reference_station_id || '').trim();
+    out.reference_station_id = refId;
+    if (refId) {
+      var refSt = stationsCache.find(function (s) {
+        return s && String(s.id).trim() === refId;
+      });
+      if (refSt && String(refSt.name || '').trim()) {
+        out.resolved_reference_station = String(refSt.name).trim();
+      } else {
+        var manualAr = String(selectedSt.reference_station_name_ar || '').trim();
+        out.resolved_reference_station = manualAr;
+      }
+    } else {
+      out.resolved_reference_station = out.selected_station;
+    }
+    return out;
+  }
+
+  function renderTrueFinalAnnualWindowsPreview(selectedLabel, resolvedRef, windows) {
+    var head =
+      '<thead><tr><th>اسم الدر</th><th>بداية (يوم-شهر)</th><th>نهاية (يوم-شهر)</th><th>الأيام</th></tr></thead>';
+    var bodyRows = windows
+      .map(function (w) {
+        return (
+          '<tr><td>' +
+          escapeHtml(w.dur_name_ar != null ? String(w.dur_name_ar) : '\u2014') +
+          '</td><td>' +
+          escapeHtml(w.start_md != null ? String(w.start_md) : '\u2014') +
+          '</td><td>' +
+          escapeHtml(w.end_md != null ? String(w.end_md) : '\u2014') +
+          '</td><td>' +
+          astroFmtNum(w.length_days) +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    return (
+      '<div class="astro-card">' +
+      '<h5 class="astro-card-title"><span class="astro-badge">annual_flat_rows</span> معاينة نوافذ الدرور السنوية</h5>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">المحطة</span><span class="astro-kv-v">' +
+      escapeHtml(selectedLabel || '\u2014') +
+      '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">المرجع المستخدم</span><span class="astro-kv-v">' +
+      escapeHtml(resolvedRef || '\u2014') +
+      '</span></div>' +
+      '<div class="astro-kv-row"><span class="astro-kv-k">عدد النوافذ</span><span class="astro-kv-v">' +
+      String(windows.length) +
+      '</span></div>' +
+      '<div style="margin-top:12px;overflow:auto;max-height:420px">' +
+      '<table class="admin-table">' +
+      head +
+      '<tbody>' +
+      (bodyRows ||
+        '<tr><td colspan="4" style="color:#8ea4ba;padding:10px">\u2014</td></tr>') +
+      '</tbody></table></div>' +
+      '</div>'
+    );
+  }
+
   async function runAstroPreview() {
     var root = getEl('astroPreviewRoot');
     var raw = getEl('astroDurPreviewRaw');
@@ -7086,50 +6984,94 @@
       root.innerHTML = '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تتطلب صلاحية إدارة.</p></div>';
       return;
     }
-    root.innerHTML = '<p class="astro-placeholder">جاري التحميل...</p>';
-    var bandEl = getEl('astroPreviewBandInput');
-    var yearEl = getEl('astroPreviewYearInput');
-    var dateEl = getEl('astroPreviewDateInput');
     var stEl = getEl('astroPreviewStationSelect');
-    var st = stEl && stEl.value ? stEl.value.trim() : '';
-    var band = bandEl && bandEl.value ? bandEl.value.trim() : '';
-    var year = yearEl && yearEl.value ? yearEl.value : '';
-    var isoDate = dateEl && dateEl.value ? String(dateEl.value).trim() : '';
+    var st = stEl && stEl.value ? String(stEl.value).trim() : '';
+    if (!st) {
+      root.innerHTML =
+        '<p class="astro-placeholder">اختر محطة ثم اضغط «معاينة النوافذ».</p>';
+      if (raw) raw.textContent = '';
+      return;
+    }
+    root.innerHTML = '<p class="astro-placeholder">جاري التحميل...</p>';
+
+    var selectedSt =
+      stationsCache.find(function (s) {
+        return s && String(s.id) === String(st);
+      }) || {};
+    var tgt = resolveTrueFinalAnnualPreviewTarget(selectedSt);
+
+    if (tgt.reference_station_id && !tgt.resolved_reference_station) {
+      root.innerHTML =
+        '<div class="astro-card"><p style="margin:0;color:#ffb3b3">تعذّر تحديد اسم محطة المرجع — تحقق من أنّ <code>reference_station_id</code> يشير إلى محطة موجودة في قائمة المحطات المحمّلة.</p></div>';
+      if (raw) raw.textContent = '';
+      console.debug('NAVIDUR_TRUE_FINAL_WINDOW_PREVIEW', {
+        selected_station: tgt.selected_station,
+        resolved_reference_station: null,
+        windows_count: 0,
+        source: 'true_final_annual_flat'
+      });
+      return;
+    }
 
     try {
-      if (st) {
-        var qWb = 'path=workbook-preview&station_id=' + encodeURIComponent(st);
-        if (isoDate) qWb += '&date=' + encodeURIComponent(isoDate);
-        var restrictEl = getEl('astroPreviewRestrictWorkbookCycle');
-        if (restrictEl && restrictEl.checked && year) {
-          qWb += '&workbook_cycle_year=' + encodeURIComponent(year);
-        }
-        var resWb = await apiFetch(ASTRO_DUR_ENDPOINT + '&' + qWb, { method: 'GET' });
-        if (!resWb.ok) throw new Error('http_' + resWb.status);
-        var jWb = await resWb.json();
-        var stRow =
-          stationsCache.find(function (s) {
-            return s && String(s.id) === String(st);
-          }) || {};
-        root.innerHTML = renderWorkbookPreviewCards(jWb, stRow);
-        if (raw) raw.textContent = JSON.stringify(jWb, null, 2);
+      var doc = await loadTrueFinalStationReferenceDoc();
+      if (!doc || typeof doc !== 'object') {
+        throw new Error('true_final_doc_missing');
+      }
+      var allAnnual = Array.isArray(doc.annual_flat_rows) ? doc.annual_flat_rows : null;
+      if (!allAnnual || !allAnnual.length) {
+        root.innerHTML =
+          '<div class="astro-card"><p style="margin:0;color:#ffb3b3">لا توجد نوافذ سنوية لهذه المحطة في المرجع الجديد</p></div>';
+        if (raw) raw.textContent = '';
+        console.debug('NAVIDUR_TRUE_FINAL_WINDOW_PREVIEW', {
+          selected_station: tgt.selected_station,
+          resolved_reference_station: tgt.resolved_reference_station,
+          windows_count: 0,
+          source: 'true_final_annual_flat'
+        });
         return;
       }
-
-      var q = 'path=preview';
-      if (band) q += '&band=' + encodeURIComponent(band);
-      if (year) q += '&year=' + encodeURIComponent(year);
-      if (isoDate) q += '&date=' + encodeURIComponent(isoDate);
-      var res = await apiFetch(ASTRO_DUR_ENDPOINT + '&' + q, { method: 'GET' });
-      if (!res.ok) throw new Error('http_' + res.status);
-      var j = await res.json();
-      root.innerHTML = renderBandPreviewCards(j);
-      if (raw) raw.textContent = JSON.stringify(j, null, 2);
+      var want = nfcStringAdmin(tgt.resolved_reference_station);
+      var windows = allAnnual.filter(function (r) {
+        return r && nfcStringAdmin(r.station_name_ar) === want;
+      });
+      if (!windows.length) {
+        root.innerHTML =
+          '<div class="astro-card"><p style="margin:0;color:#ffb3b3">لا توجد نوافذ سنوية لهذه المحطة في المرجع الجديد</p></div>';
+        if (raw) raw.textContent = JSON.stringify(
+          { resolved_reference_station: tgt.resolved_reference_station, windows: [] },
+          null,
+          2
+        );
+        console.debug('NAVIDUR_TRUE_FINAL_WINDOW_PREVIEW', {
+          selected_station: tgt.selected_station,
+          resolved_reference_station: tgt.resolved_reference_station,
+          windows_count: 0,
+          source: 'true_final_annual_flat'
+        });
+        return;
+      }
+      root.innerHTML = renderTrueFinalAnnualWindowsPreview(
+        tgt.selected_station,
+        tgt.resolved_reference_station,
+        windows
+      );
+      if (raw) raw.textContent = JSON.stringify(windows, null, 2);
+      console.debug('NAVIDUR_TRUE_FINAL_WINDOW_PREVIEW', {
+        selected_station: tgt.selected_station,
+        resolved_reference_station: tgt.resolved_reference_station,
+        windows_count: windows.length,
+        source: 'true_final_annual_flat'
+      });
     } catch (e) {
-      var astroErr1 = clientErrorForHttp(e);
+      var astroErr1 = e && e.message ? String(e.message) : '';
+      var shown =
+        astroErr1 && astroErr1 !== 'true_final_doc_missing'
+          ? clientErrorForHttp(e)
+          : 'تعذّر تحميل المرجع النهائي. تحقق من الاتصال ومن توفر الملف أو مسار الإدارة.';
       root.innerHTML =
         '<div class="astro-card"><p style="margin:0;color:#ffb3b3">خطأ: ' +
-        escapeHtml(astroErr1) +
+        escapeHtml(shown) +
         '</p></div>';
       if (raw) raw.textContent = '';
     }
