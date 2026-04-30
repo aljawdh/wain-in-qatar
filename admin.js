@@ -3793,6 +3793,18 @@
   function buildGlobalDururEditorHtml(item) {
     var phases = Array.isArray(item.phases) ? item.phases : [];
     var options = getDururManagementOptionSource();
+    var phaseDisplayLabel = function (phase, index) {
+      var p = phase || {};
+      var start = Number(p.start_day);
+      var end = Number(p.end_day);
+      var totalDays = Number(item && (item.default_days_count != null ? item.default_days_count : item.days_count));
+      if (Number.isFinite(start) && Number.isFinite(end) && Number.isFinite(totalDays) && totalDays > 0) {
+        if (start === 1) return 'بداية الدر';
+        if (end === totalDays) return 'نهاية الدر';
+        if (start > 1 && end < totalDays) return 'وسط الدر';
+      }
+      return 'مرحلة ' + String((index || 0) + 1);
+    };
     return ''
       + '<div style="padding:12px;background:rgba(92,225,255,.05);border:1px solid rgba(92,225,255,.18);border-radius:10px">'
       + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px"><strong style="color:#dff8ff">المرجع العام للدرة</strong><span style="font-size:.75rem;color:#8fb4c8">المعرف التقني: ' + escapeHtml(item.id || '') + '</span></div>'
@@ -3845,7 +3857,7 @@
       + '<div style="margin-top:12px;padding:10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02)"><strong style="color:#dff8ff">التخصيصات الخاصة</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">معرف التخصيص</label><input id="globalOverrideId" type="text" placeholder="يُنشأ تلقائياً عند الإضافة" style="width:100%"></div>'
       + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">معرف المحطة (فارغ = عام)</label><input id="globalOverrideStationId" type="text" value="' + escapeHtml(selectedDururStationId || '') + '" style="width:100%"></div>'
-      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">المرحلة</label><select id="globalOverridePhaseId" style="width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px"><option value="">المرجع العام للدرة</option>' + phases.map(function (phase) { return '<option value="' + escapeHtml(phase.phase_id || '') + '">' + escapeHtml(phase.phase_id || '') + '</option>'; }).join('') + '</select></div>'
+      + '  <div><label style="display:block;margin-bottom:4px;color:#9fc1d7">المرحلة</label><select id="globalOverridePhaseId" style="width:100%;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px"><option value="">المرجع العام للدرة</option>' + phases.map(function (phase, idx) { return '<option value="' + escapeHtml(phase.phase_id || '') + '">' + escapeHtml(phaseDisplayLabel(phase, idx)) + '</option>'; }).join('') + '</select></div>'
       + buildStructuredSelectField('globalOverrideSeasonKey', 'الموسم', [], options.seasons, false, 4)
       + '</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px">'
       + buildStructuredSelectField('globalOverrideGeneralTraits', 'السمات العامة', [], options.generalTraits, false, 5)
