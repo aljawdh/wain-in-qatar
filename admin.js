@@ -7528,7 +7528,10 @@
             var tr = document.createElement('tr');
             var t = s.analysis_timestamp || s.created_at || '—';
             var pred = (s.species_predicted || []).join('، ') || '—';
-            var act = (s.actual_species || []).join('، ') || '—';
+            var actualList = Array.isArray(s.actual_species) && s.actual_species.length
+              ? s.actual_species
+              : (Array.isArray(s.caught_fish) && s.caught_fish.length ? s.caught_fish : (s.selected_fish ? [s.selected_fish] : []));
+            var act = actualList.join('، ') || '—';
             var ex = !!(s && s.excluded_from_accuracy);
             tr.style.opacity = ex ? '0.55' : '1';
             var badge = ex
@@ -7687,7 +7690,20 @@
     var d = getEl('fieldSessionDetailContent');
     var m = getEl('fieldSessionDetailModal');
     if (!d || !m) return;
-    var snap = 'حرارة: ' + (s.temperature != null ? s.temperature : '—') + ' | ريح: ' + (s.wind_speed != null ? s.wind_speed : '—') + ' | اتجاه: ' + (s.wind_direction != null ? s.wind_direction : '—');
+    var ws = (s && s.weather_snapshot && typeof s.weather_snapshot === 'object') ? s.weather_snapshot : null;
+    var temp = ws && ws.temp_c != null ? ws.temp_c : s.temperature;
+    var wind = ws && ws.wind_speed_kmh != null ? ws.wind_speed_kmh : s.wind_speed;
+    var windDir = ws && ws.wind_direction_deg != null ? ws.wind_direction_deg : s.wind_direction;
+    var wave = ws && ws.wave_height_m != null ? ws.wave_height_m : null;
+    var hum = ws && ws.humidity_pct != null ? ws.humidity_pct : null;
+    var actualList = Array.isArray(s.actual_species) && s.actual_species.length
+      ? s.actual_species
+      : (Array.isArray(s.caught_fish) && s.caught_fish.length ? s.caught_fish : (s.selected_fish ? [s.selected_fish] : []));
+    var snap = 'حرارة: ' + (temp != null ? temp : '—') +
+      ' | ريح: ' + (wind != null ? wind : '—') +
+      ' | اتجاه: ' + (windDir != null ? windDir : '—') +
+      ' | موج: ' + (wave != null ? wave : '—') +
+      ' | رطوبة: ' + (hum != null ? hum : '—');
     var photo = s.photo_url
       ? ('<div style="margin-top:8px"><img src="' + escapeHtml(s.photo_url) + '" alt="" style="max-width:100%;max-height:200px;border-radius:8px"></div>')
       : '<div style="color:#8ea4ba;font-size:.8rem">لا صورة</div>';
@@ -7698,8 +7714,9 @@
       '<div><strong>حالة الماء:</strong> ' + escapeHtml(s.water_state || '—') + '</div>' +
       '<div><strong>حالة المد:</strong> ' + escapeHtml(s.tide_state || '—') + '</div>' +
       '<div><strong>لقطة طقس (من السجل):</strong> ' + escapeHtml(snap) + '</div>' +
+      '<div><strong>الاختيار:</strong> ' + escapeHtml(s.selected_fish || '—') + '</div>' +
       '<div style="margin-top:8px"><strong>الموصى بها:</strong> ' + escapeHtml((s.species_predicted || []).join('، ') || '—') + '</div>' +
-      '<div><strong>الصاد فعلياً:</strong> ' + escapeHtml((s.actual_species || []).join('، ') || '—') + '</div>' +
+      '<div><strong>الصاد فعلياً:</strong> ' + escapeHtml(actualList.join('، ') || '—') + '</div>' +
       '<div><strong>نجاح:</strong> ' + (s.catch_success ? 'نعم' : 'لا') + '</div>' +
       '<div style="margin-top:8px"><strong>ملاحظات المشغل:</strong> ' + escapeHtml(s.user_note || s.water_observation || '—') + '</div>' +
       (s.review_notes ? ('<div><strong>ملاحظات مراجعة:</strong> ' + escapeHtml(s.review_notes) + '</div>') : '') +

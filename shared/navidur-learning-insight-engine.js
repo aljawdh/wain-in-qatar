@@ -59,6 +59,15 @@ function enrichSessionFromLog(log, stationMap, reviewMap) {
   var st = stationMap[log.station_id] || {};
   var rid = log.id;
   var rev = (reviewMap && reviewMap[rid]) || {};
+  var selectedFish = normalizeString(log.selected_fish || '');
+  var caughtFishList = toArray(log.caught_fish);
+  var actualSpeciesList = toArray(log.actual_species);
+  var normalizedActual = actualSpeciesList.length
+    ? actualSpeciesList
+    : (caughtFishList.length ? caughtFishList : (selectedFish ? [selectedFish] : []));
+  var weatherSnap = log.weather_snapshot && typeof log.weather_snapshot === 'object'
+    ? log.weather_snapshot
+    : null;
   return {
     catch_id: rid,
     session_id: log.session_id || null,
@@ -72,12 +81,16 @@ function enrichSessionFromLog(log, stationMap, reviewMap) {
     created_at: log.created_at,
     dur_name: log.dur_name || null,
     water_state: waterStateFromPredicted(log.water_state_predicted),
+    current_state: log.current_state || null,
     tide_state: log.tide_state || tideStateFromTides(log.tide_previous, log.tide_current, log.tide_next),
-    temperature: log.temperature,
-    wind_speed: log.wind_speed,
-    wind_direction: log.wind_direction,
+    temperature: weatherSnap && weatherSnap.temp_c != null ? weatherSnap.temp_c : log.temperature,
+    wind_speed: weatherSnap && weatherSnap.wind_speed_kmh != null ? weatherSnap.wind_speed_kmh : log.wind_speed,
+    wind_direction: weatherSnap && weatherSnap.wind_direction_deg != null ? weatherSnap.wind_direction_deg : log.wind_direction,
+    weather_snapshot: weatherSnap || null,
     species_predicted: toArray(log.species_predicted),
-    actual_species: toArray(log.actual_species),
+    selected_fish: selectedFish || null,
+    caught_fish: caughtFishList,
+    actual_species: normalizedActual,
     catch_success: !!log.catch_success,
     user_note: log.user_note || null,
     water_observation: log.water_observation || null,

@@ -1030,6 +1030,9 @@
       <div id="speciesSection" class="catch-fields" style="display:none;margin-bottom:10px">
         <div>
           <div class="field-label">أنواع السمك</div>
+          <select id="caughtFishSelect" class="select-field" onchange="onCaughtFishSelectChange(this.value)" style="margin-bottom:8px">
+            <option value="">اختر السمكة...</option>
+          </select>
           <div class="species-tools">
             <button class="btn-action btn-action-ok" type="button" id="addFishBtn" onclick="openFishSpeciesModal('create')">➕ إضافة سمكة جديدة</button>
             <select id="speciesManageSelect" class="select-field"></select>
@@ -1477,6 +1480,7 @@ let appState = {
   activeTrip: null,
   activeSession: null,
   catchResult: null,
+  selectedFish: null,
   selectedSpecies: new Set(),
   isOnline: navigator.onLine,
   pendingCount: 0
@@ -1562,6 +1566,16 @@ function _makeNullSnapshot(station) {
     tidal_coefficient_predicted: null,
     activity_score_predicted: null,
     fishing_mode_predicted: null,
+    dur_name: null,
+    tide_state: null,
+    current_state: null,
+    weather_snapshot: {
+      temp_c: null,
+      wind_speed_kmh: null,
+      wind_direction_deg: null,
+      wave_height_m: null,
+      humidity_pct: null
+    },
     species_predicted: [],
     compute_source: 'none'
   };
@@ -2638,6 +2652,22 @@ async function fetchAnalysis(station) {
     const speciesPredicted = Array.isArray(dto && dto.fishing && dto.fishing.species_activity)
       ? dto.fishing.species_activity.slice()
       : [];
+    const fishRecommendations = Array.isArray(dto && dto.fishing && dto.fishing.fish_recommendations)
+      ? dto.fishing.fish_recommendations.map(function (item) {
+        if (!item) return '';
+        if (typeof item === 'string') return item;
+        return String(item.name_ar || item.name || '').trim();
+      }).filter(Boolean)
+      : [];
+    const tideStateLabel = dto && dto.tide ? String(dto.tide.state || '').trim() : '';
+    const durName = dto && dto.dur ? String(dto.dur.period_name || '').trim() : '';
+    const weatherSnapshot = {
+      temp_c: dto && dto.environment ? dto.environment.temp_c : null,
+      wind_speed_kmh: dto && dto.environment ? dto.environment.wind_speed_kmh : null,
+      wind_direction_deg: dto && dto.environment ? dto.environment.wind_direction_deg : null,
+      wave_height_m: dto && dto.environment ? dto.environment.wave_height_m : null,
+      humidity_pct: dto && dto.environment ? dto.environment.humidity_pct : null
+    };
 
     currentFieldPrediction = {
       prediction_snapshot_id: 'fsnap_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -2651,6 +2681,8 @@ async function fetchAnalysis(station) {
       wind_speed_kmh: dto && dto.environment ? dto.environment.wind_speed_kmh : null,
       wind_direction: dto && dto.environment ? dto.environment.wind_direction_deg : null,
       temperature: dto && dto.environment ? dto.environment.temp_c : null,
+      wave_height_m: dto && dto.environment ? dto.environment.wave_height_m : null,
+      humidity_pct: dto && dto.environment ? dto.environment.humidity_pct : null,
       water_state_predicted: waterState,
       tide_direction_ar: (tideDirectionAr === 'سقي' || tideDirectionAr === 'ثبر' || tideDirectionAr === 'خامل') ? tideDirectionAr : null,
       tide_height_m: tideHeightM,
@@ -2658,7 +2690,11 @@ async function fetchAnalysis(station) {
       tidal_coefficient_predicted: dto && dto.fishing ? dto.fishing.confidence_score : null,
       activity_score_predicted: dto && dto.fishing ? dto.fishing.confidence_score : null,
       fishing_mode_predicted: fishingMode,
-      species_predicted: speciesPredicted,
+      dur_name: durName || null,
+      tide_state: tideStateLabel || null,
+      current_state: waterState || null,
+      weather_snapshot: weatherSnapshot,
+      species_predicted: speciesPredicted.length ? speciesPredicted : fishRecommendations,
       compute_source: 'shared_engine'
     };
 
@@ -3131,10 +3167,12 @@ async function endSession(silent) {
 // ══════════════════════════════════════════════════════════
 function setCatchResult(caught) {
   appState.catchResult = caught;
+  appState.selectedFish = null;
   appState.selectedSpecies = new Set();
   document.getElementById('btnCatchYes').classList.toggle('selected', caught === true);
   document.getElementById('btnCatchNo').classList.toggle('selected', caught === false);
   document.getElementById('speciesSection').style.display = caught ? 'flex' : 'none';
+  syncSelectedSpeciesUi();
   document.getElementById('catchStatus').textContent = '';
 }
 
@@ -3152,8 +3190,10 @@ function canManageFishSpecies() {
 function syncSelectedSpeciesUi() {
   document.querySelectorAll('.species-chip').forEach(function (el) {
     const name = el.dataset.name;
-    el.classList.toggle('selected', appState.selectedSpecies.has(name));
+    el.classList.toggle('selected', appState.selectedFish === name);
   });
+  var fishSel = document.getElementById('caughtFishSelect');
+  if (fishSel) fishSel.value = appState.selectedFish || '';
 }
 
 function renderFishManageControls() {
@@ -3181,8 +3221,17 @@ function renderFishManageControls() {
 
 function buildSpeciesGrid() {
   const grid = document.getElementById('speciesGrid');
+  const fishSelect = document.getElementById('caughtFishSelect');
   if (!grid) return;
   const activeFish = getActiveFishSpecies();
+  if (fishSelect) {
+    var curr = appState.selectedFish || '';
+    fishSelect.innerHTML = '<option value="">اختر السمكة...</option>' +
+      activeFish.map(function (fish) {
+        return '<option value="' + fish.name + '">' + fish.name + '</option>';
+      }).join('');
+    fishSelect.value = activeFish.some(function (fish) { return fish.name === curr; }) ? curr : '';
+  }
   if (!activeFish.length) {
     grid.innerHTML = '<div class="species-empty">لا توجد أنواع مفعلة حاليًا.</div>';
     renderFishManageControls();
@@ -3201,13 +3250,22 @@ function buildSpeciesGrid() {
 }
 
 function toggleSpecies(el, name) {
-  if (appState.selectedSpecies.has(name)) {
-    appState.selectedSpecies.delete(name);
+  if (appState.selectedFish === name) {
+    appState.selectedFish = null;
+    appState.selectedSpecies = new Set();
     el.classList.remove('selected');
   } else {
-    appState.selectedSpecies.add(name);
+    appState.selectedFish = name;
+    appState.selectedSpecies = new Set([name]);
     el.classList.add('selected');
   }
+  syncSelectedSpeciesUi();
+}
+
+function onCaughtFishSelectChange(name) {
+  appState.selectedFish = name || null;
+  appState.selectedSpecies = appState.selectedFish ? new Set([appState.selectedFish]) : new Set();
+  syncSelectedSpeciesUi();
 }
 
 function openFishSpeciesModal(mode, fishId) {
@@ -3323,15 +3381,17 @@ async function submitFishSpeciesModal() {
 
     if (mode === 'archive' && appState.selectedSpecies.has(out.fish.name)) {
       appState.selectedSpecies.delete(out.fish.name);
+      appState.selectedFish = null;
     }
     if (mode === 'create') {
-      appState.selectedSpecies.add(out.fish.name);
+      appState.selectedSpecies = new Set([out.fish.name]);
+      appState.selectedFish = out.fish.name;
     }
     if (mode === 'edit') {
       const previous = fishSpeciesUiState.previousName || ((inputEl && inputEl.defaultValue) ? inputEl.defaultValue.trim() : '');
-      if (previous && previous !== out.fish.name && appState.selectedSpecies.has(previous)) {
-        appState.selectedSpecies.delete(previous);
-        appState.selectedSpecies.add(out.fish.name);
+      if (previous && previous !== out.fish.name && appState.selectedFish === previous) {
+        appState.selectedSpecies = new Set([out.fish.name]);
+        appState.selectedFish = out.fish.name;
       }
     }
 
@@ -3375,23 +3435,55 @@ async function saveCatch() {
   const session = appState.activeSession;
   const now = nowIso();
 
-  const species = Array.from(appState.selectedSpecies);
+  const species = appState.selectedFish ? [appState.selectedFish] : [];
   const qty = parseInt(document.getElementById('catchQty').value, 10);
   const locType = document.getElementById('locationType').value;
   const waterObs = document.getElementById('waterObservation').value;
   const method = document.getElementById('fishingMethod').value;
   const note = document.getElementById('userNote').value.trim();
 
+  if (appState.catchResult === true && !appState.selectedFish) {
+    document.getElementById('catchStatus').textContent = '⚠️ اختر سمكة أولاً';
+    return;
+  }
+  if (!appState.selectedFish && !note) {
+    document.getElementById('catchStatus').textContent = '⚠️ عند عدم اختيار السمكة أضف ملاحظة عامة';
+    return;
+  }
+  if (!currentFieldPrediction || !currentFieldPrediction.dur_name || !currentFieldPrediction.tide_state || !currentFieldPrediction.weather_snapshot) {
+    if (appState.isOnline) {
+      try { await fetchAnalysis(station); } catch (_) {}
+    }
+  }
+
   // Use frozen prediction or null-safe fallback
   const pred = currentFieldPrediction || _makeNullSnapshot(station);
   const localId = uid('loc');
+  const weatherSnapshot = pred.weather_snapshot || {
+    temp_c: pred.temperature != null ? pred.temperature : null,
+    wind_speed_kmh: pred.wind_speed_kmh != null ? pred.wind_speed_kmh : null,
+    wind_direction_deg: pred.wind_direction != null ? pred.wind_direction : null,
+    wave_height_m: null,
+    humidity_pct: null
+  };
+  const selectedFishValue = appState.selectedFish || null;
+  const caughtFish = appState.catchResult ? species : [];
 
   const payload = {
     local_id: localId,
     // Server required fields
     station_id: station.id,
+    station_name: station.name || null,
     analysis_timestamp: pred.analysis_timestamp || now,
+    dur_name: pred.dur_name || null,
+    tide_state: pred.tide_state || null,
+    current_state: pred.current_state || pred.water_state_predicted || null,
+    weather_snapshot: weatherSnapshot,
+    selected_fish: selectedFishValue,
+    caught_fish: caughtFish,
     catch_success: appState.catchResult,
+    operator_notes: note || null,
+    photo_url: null,
     source: 'field_app',
     // Identity
     operator_id: user.id,
@@ -3421,6 +3513,7 @@ async function saveCatch() {
     species_predicted: pred.species_predicted || [],
     compute_source: pred.compute_source || 'none'
   };
+  console.debug('NAVIDUR_FIELD_SESSION_PAYLOAD', payload);
 
   // Save to IndexedDB first (offline-safe)
   await FieldDB.addPending(payload);
@@ -3445,6 +3538,7 @@ async function saveCatch() {
 
 function resetCatchForm() {
   appState.catchResult = null;
+  appState.selectedFish = null;
   appState.selectedSpecies = new Set();
   document.getElementById('btnCatchYes').classList.remove('selected');
   document.getElementById('btnCatchNo').classList.remove('selected');
@@ -3456,6 +3550,8 @@ function resetCatchForm() {
   document.getElementById('userNote').value = '';
   // reset species chips
   document.querySelectorAll('.species-chip').forEach(c => c.classList.remove('selected'));
+  var fishSel = document.getElementById('caughtFishSelect');
+  if (fishSel) fishSel.value = '';
 }
 
 // ══════════════════════════════════════════════════════════

@@ -71,6 +71,23 @@ async function handleLogCatch(req, res) {
     const syncedAt         = isFieldApp ? (cleanString(body.synced_at || '', 60) || null) : null;
     const durNameField     = isFieldApp ? (cleanString(body.dur_name || '', 120) || null) : null;
     const tideStateLabel   = isFieldApp ? (cleanString(body.tide_state || '', 20) || null) : null;
+    const currentState     = isFieldApp ? (cleanString(body.current_state || '', 40) || null) : null;
+    const selectedFish     = isFieldApp ? (cleanString(body.selected_fish || '', 120) || null) : null;
+    const caughtFish       = Array.isArray(body.caught_fish)
+      ? body.caught_fish.map((s) => cleanString(String(s), 60)).filter(Boolean).slice(0, 20)
+      : [];
+    const stationNameField = isFieldApp ? (cleanString(body.station_name || '', 120) || null) : null;
+    const operatorNotes    = isFieldApp ? (cleanString(body.operator_notes || '', 500) || null) : null;
+    const photoUrlField    = isFieldApp ? (cleanString(body.photo_url || '', 500) || null) : null;
+    const weatherSnapshot  = isFieldApp && body.weather_snapshot && typeof body.weather_snapshot === 'object'
+      ? {
+        temp_c: toNumber(body.weather_snapshot.temp_c),
+        wind_speed_kmh: toNumber(body.weather_snapshot.wind_speed_kmh),
+        wind_direction_deg: toNumber(body.weather_snapshot.wind_direction_deg),
+        wave_height_m: toNumber(body.weather_snapshot.wave_height_m),
+        humidity_pct: toNumber(body.weather_snapshot.humidity_pct)
+      }
+      : null;
 
     // ── Deduplication fingerprint (Task 6) ─────────────────────────────────
     // For field_app: include trip_id + session_id so field records can't falsely
@@ -119,19 +136,35 @@ async function handleLogCatch(req, res) {
       // Field app extras (null for public_ui)
       operator_id: operatorId,
       operator_username: operatorUsername,
+      station_name: stationNameField,
       trip_id: tripId,
       session_id: sessionId,
       location_type: locationType,
       water_observation: waterObservation,
       user_note: userNote,
+      operator_notes: operatorNotes,
       recorded_at_local: recordedAtLocalRaw,
       synced_at: syncedAt,
       dur_name: durNameField,
-      tide_state: tideStateLabel
+      tide_state: tideStateLabel,
+      current_state: currentState,
+      selected_fish: selectedFish,
+      caught_fish: caughtFish,
+      weather_snapshot: weatherSnapshot,
+      photo_url: photoUrlField
     };
 
     // ── Append-safe write (Task 1) ─────────────────────────────────────────
     await appendCatchLog(record);
+    if (isFieldApp) {
+      console.debug('NAVIDUR_FIELD_SESSION_SAVED', {
+        station_id: stationId,
+        selected_fish: selectedFish,
+        dur_name: durNameField,
+        has_weather_snapshot: !!weatherSnapshot,
+        saved: true
+      });
+    }
 
     return res.status(200).json({ ok: true, id: record.id });
   } catch (err) {
