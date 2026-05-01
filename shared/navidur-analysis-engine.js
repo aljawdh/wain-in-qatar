@@ -8,6 +8,7 @@
   'use strict';
 
   var getTrueFinalDurState;
+  var buildManualAnchorDurState;
   var normalizeArabicNameForDur;
   var buildTrueFinalStationNameNormSet;
   var nfcStringForDur;
@@ -15,6 +16,10 @@
     if (typeof require === 'function') {
       var tfLookupModule = require('./true-final-station-reference-lookup');
       getTrueFinalDurState = tfLookupModule.getTrueFinalDurState;
+      buildManualAnchorDurState =
+        typeof tfLookupModule.buildManualAnchorDurState === 'function'
+          ? tfLookupModule.buildManualAnchorDurState
+          : null;
       normalizeArabicNameForDur =
         typeof tfLookupModule.normalizeArabicName === 'function'
           ? tfLookupModule.normalizeArabicName
@@ -36,6 +41,7 @@
     }
   } catch (_tfErr) {
     getTrueFinalDurState = null;
+    buildManualAnchorDurState = null;
     normalizeArabicNameForDur = function (v) {
       return String(v == null ? '' : v).trim();
     };
@@ -1242,11 +1248,40 @@
       });
     }
 
-    var tf;
-    try {
-      tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: durNameForTrueFinal, asOfIso: asOfIso });
-    } catch (tfEx) {
-      tf = { ok: false, code: 'EXCEPTION', message: String((tfEx && tfEx.message) || tfEx) };
+    var tf = null;
+    var manualStore = referenceData.manual_anchor;
+    var stKeyForManual = normalizeString(station.id);
+    var manualOverride =
+      manualStore && manualStore.overrides && typeof manualStore.overrides === 'object'
+        ? manualStore.overrides[stKeyForManual]
+        : null;
+    if (
+      manualOverride &&
+      manualOverride.manual_override === true &&
+      normalizeString(manualOverride.current_dur_name_ar) &&
+      buildManualAnchorDurState
+    ) {
+      tf = buildManualAnchorDurState(manualOverride, asOfIso);
+      if (tf && tf.ok) {
+        try {
+          if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+            console.debug('NAVIDUR_MANUAL_ANCHOR_ACTIVE', {
+              station: stKeyForManual,
+              current_dur: normalizeString(manualOverride.current_dur_name_ar),
+              source: 'manual_override'
+            });
+          }
+        } catch (_manLog) { /* ignore */ }
+      } else {
+        tf = null;
+      }
+    }
+    if (!tf || !tf.ok) {
+      try {
+        tf = getTrueFinalDurState(trueFinalDoc, { station_name_ar: durNameForTrueFinal, asOfIso: asOfIso });
+      } catch (tfEx) {
+        tf = { ok: false, code: 'EXCEPTION', message: String((tfEx && tfEx.message) || tfEx) };
+      }
     }
     if (!tf || !tf.ok) {
       var tfMsg = tf && tf.message ? String(tf.message) : 'true_final_lookup_failed';

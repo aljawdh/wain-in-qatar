@@ -1055,6 +1055,103 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
+  if (root === 'manual-anchor') {
+    if (id) {
+      return res.status(404).json({ error: 'admin_route_not_found' });
+    }
+    const defaultMan = { version: 1, overrides: {} };
+    if (req.method === 'GET') {
+      const doc = await readJsonFile('manual_anchor', defaultMan);
+      return res.status(200).json({ ok: true, document: doc });
+    }
+    if (!getKv()) {
+      return res.status(503).json({
+        ok: false,
+        error: 'kv_required',
+        message: 'manual_anchor requires KV (navidur_store_manual_anchor). Set KV_REST_API_URL and KV_REST_API_TOKEN.'
+      });
+    }
+    if (req.method === 'PUT') {
+      const body = parseBody(req);
+      const stationId = cleanString(body.station_id, 80);
+      const stationNameAr = cleanString(body.station_name_ar, 200);
+      const cur = cleanString(body.current_dur_name_ar, 120);
+      const nx = cleanString(body.next_dur_name_ar, 120);
+      const startMd = cleanString(body.start_md, 20);
+      const endMd = cleanString(body.end_md, 20);
+      if (!stationId) {
+        return res.status(400).json({ error: 'station_id_required' });
+      }
+      if (!cur) {
+        return res.status(400).json({ error: 'current_dur_name_ar_required' });
+      }
+      if (!isValidDdMmTrueFinal(startMd) || !isValidDdMmTrueFinal(endMd)) {
+        return res.status(400).json({ error: 'invalid_dd_mm' });
+      }
+      const allow = buildManualDurNameAllowSet();
+      const canonCur = canonicalManualDurName(cur, allow);
+      if (!canonCur) {
+        return res.status(400).json({ error: 'invalid_current_dur_name_ar' });
+      }
+      const canonNext = nx ? canonicalManualDurName(nx, allow) : canonCur;
+      if (nx && !canonNext) {
+        return res.status(400).json({ error: 'invalid_next_dur_name_ar' });
+      }
+      let dayIdx = null;
+      if (body.day_index != null && String(body.day_index).trim() !== '') {
+        const d0 = Number(body.day_index);
+        if (!Number.isFinite(d0) || d0 < 1) {
+          return res.status(400).json({ error: 'invalid_day_index' });
+        }
+        dayIdx = Math.round(d0);
+      }
+      const doc = await readJsonFile('manual_anchor', defaultMan);
+      const o = doc.overrides && typeof doc.overrides === 'object' ? { ...doc.overrides } : {};
+      o[stationId] = {
+        station_id: stationId,
+        station_name_ar: stationNameAr || stationId,
+        manual_override: true,
+        current_dur_name_ar: canonCur,
+        next_dur_name_ar: canonNext || canonCur,
+        start_md: startMd,
+        end_md: endMd,
+        day_index: dayIdx,
+        updated_at: nowIso()
+      };
+      doc.version = 1;
+      doc.overrides = o;
+      await writeJsonFile('manual_anchor', doc);
+      await writeAudit('manual_anchor_upserted', actor, { station_id: stationId, kv_key: kvStoreKey('manual_anchor') });
+      return res.status(200).json({ ok: true, record: o[stationId], document: doc });
+    }
+    if (req.method === 'DELETE') {
+      if (!getKv()) {
+        return res.status(503).json({
+          ok: false,
+          error: 'kv_required',
+          message: 'manual_anchor requires KV (navidur_store_manual_anchor). Set KV_REST_API_URL and KV_REST_API_TOKEN.'
+        });
+      }
+      const q = req.query || {};
+      const stationId = cleanString(q.station_id, 80);
+      if (!stationId) {
+        return res.status(400).json({ error: 'station_id_required' });
+      }
+      const doc = await readJsonFile('manual_anchor', defaultMan);
+      const o = doc.overrides && typeof doc.overrides === 'object' ? { ...doc.overrides } : {};
+      if (!o[stationId]) {
+        return res.status(404).json({ error: 'manual_anchor_not_found' });
+      }
+      delete o[stationId];
+      doc.overrides = o;
+      await writeJsonFile('manual_anchor', doc);
+      await writeAudit('manual_anchor_deleted', actor, { station_id: stationId, kv_key: kvStoreKey('manual_anchor') });
+      return res.status(200).json({ ok: true, document: doc });
+    }
+    res.setHeader('Allow', 'GET, PUT, DELETE');
+    return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
   if (root === 'stations') {
     if (!id) {
       if (req.method === 'GET') {

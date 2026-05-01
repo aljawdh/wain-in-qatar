@@ -327,8 +327,87 @@ function getTrueFinalDurState(doc, params) {
   };
 }
 
+/**
+ * KV manual anchor override — same timing envelope shape as getTrueFinalDurState success.
+ * @param {object} manual — { current_dur_name_ar, next_dur_name_ar?, start_md, end_md, day_index?, station_name_ar? }
+ * @param {string} asOfIso — YYYY-MM-DD
+ */
+function buildManualAnchorDurState(manual, asOfIso) {
+  var cur = normalizeString(manual && manual.current_dur_name_ar);
+  if (!cur) {
+    return { ok: false, code: 'BAD_MANUAL_INPUT', message: 'current_dur_name_ar required' };
+  }
+  var pStart = parseDayMonthDdMm(manual && manual.start_md);
+  var pEnd = parseDayMonthDdMm(manual && manual.end_md);
+  if (!pStart || !pEnd) {
+    return { ok: false, code: 'BAD_MANUAL_WINDOW', message: 'invalid start_md/end_md (use DD-MM)' };
+  }
+  if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(String(asOfIso).trim())) {
+    return { ok: false, code: 'BAD_INPUT', message: 'asOfIso required' };
+  }
+  var asDate = new Date(String(asOfIso).trim() + 'T12:00:00.000Z');
+  if (Number.isNaN(asDate.getTime())) {
+    return { ok: false, code: 'BAD_DATE', message: 'invalid asOfIso' };
+  }
+  var asM = asDate.getUTCMonth() + 1;
+  var asD = asDate.getUTCDate();
+  var aKey = asM * 100 + asD;
+  var sKey = pStart.m * 100 + pStart.d;
+  var eKey = pEnd.m * 100 + pEnd.d;
+  if (!isAsOfInWindowKeys(sKey, eKey, aKey)) {
+    return {
+      ok: false,
+      code: 'MANUAL_ANCHOR_AS_OF_OUTSIDE_WINDOW',
+      message: 'as_of outside manual start_md/end_md window'
+    };
+  }
+  var tl = syntheticTimelineMs(pStart, pEnd, asM, asD);
+  if (!tl) {
+    return { ok: false, code: 'TIMELINE_FAILED', message: 'could not build synthetic day timeline' };
+  }
+  var totalDaysInclusive = Math.floor((tl.endMs - tl.startMs) / 86400000) + 1;
+  var dayInFromTimeline = Math.floor((tl.asMs - tl.startMs) / 86400000) + 1;
+  var dayIdxRaw = manual && manual.day_index != null ? Number(manual.day_index) : NaN;
+  var dayInDur = Number.isFinite(dayIdxRaw) && dayIdxRaw >= 1
+    ? Math.min(Math.max(1, Math.round(dayIdxRaw)), totalDaysInclusive)
+    : dayInFromTimeline;
+  var daysRem = totalDaysInclusive - dayInDur;
+  if (dayInDur < 1) {
+    return { ok: false, code: 'DAY_METRICS_INVALID', message: 'day_in_dur < 1' };
+  }
+  if (daysRem < 0) daysRem = 0;
+  var nx = normalizeString(manual && manual.next_dur_name_ar);
+  if (!nx) nx = cur;
+  var startDd = toDdMmString(pStart);
+  var endDd = toDdMmString(pEnd);
+  return {
+    ok: true,
+    station_name_ar: normalizeString(manual && manual.station_name_ar),
+    as_of_mmdd: getMonthDayKey(asDate),
+    current_dur: cur,
+    current_dur_name_ar: cur,
+    current_dur_day: dayInDur,
+    day_in_dur: dayInDur,
+    remaining_days: daysRem,
+    days_remaining_in_dur: daysRem,
+    next_dur: nx,
+    next_dur_name_ar: nx,
+    current_dur_start_md: startDd,
+    current_dur_end_md: endDd,
+    period_start_mmdd: rowDdMmToMmddString(startDd),
+    period_end_mmdd: rowDdMmToMmddString(endDd),
+    timing_mode: 'month_day_only',
+    source: 'manual_anchor',
+    lookup_mode: 'manual_override',
+    _fishing_start: new Date(tl.startMs),
+    _fishing_end: new Date(tl.endMs),
+    _fishing_as_of: new Date(tl.asMs)
+  };
+}
+
 module.exports = {
   getTrueFinalDurState: getTrueFinalDurState,
+  buildManualAnchorDurState: buildManualAnchorDurState,
   getMonthDayKey: getMonthDayKey,
   findStationRow: findStationRow,
   parseDayMonthDdMm: parseDayMonthDdMm,

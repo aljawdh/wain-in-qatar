@@ -1101,15 +1101,19 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
             </details>
             <details class="adv-options" style="margin:14px 0" id="stStationLocalDurDetails">
               <summary style="cursor:pointer;font-size:.88rem;color:#c4e8ff;background:rgba(120,200,255,.08);border:1px solid rgba(120,200,255,.22);border-radius:10px;padding:9px 14px;user-select:none"><i class="fa-solid fa-anchor" style="margin-left:6px"></i> الدر المحلي (مرساة سهيل يدوية)</summary>
-              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">عرض القراءة من <strong>data/true_final_station_reference.json</strong> للمحطة المطابقة. حقل <strong>مرساة سهيل اليدوية</strong> و<strong>معنى المرساة</strong> أدناه يعكسان حقلي النموذج في «المحطات».</p>
+              <p style="margin:10px 0 8px;font-size:.82rem;color:#9fc1d7;line-height:1.45">قراءة من <strong>data/true_final_station_reference.json</strong> مع إمكانية <strong>تجاوز التحليل</strong> عبر KV (<code>navidur_store_manual_anchor</code>) دون تعديل المرجع النهائي. حقلا <strong>مرساة سهيل اليدوية</strong> و<strong>معنى المرساة</strong> يعكسان نموذج «المحطات».</p>
               <div class="admin-form-grid" style="margin-top:10px">
                 <div class="admin-field"><label>تاريخ المرساة اليدوية</label><input id="stStationLocalAnchorDateRo" type="text" readonly></div>
                 <div class="admin-field full"><label>معنى المرساة</label><input id="stStationLocalAnchorMeaningRo" type="text" readonly></div>
-                <div class="admin-field"><label>الدر الحالي (محلي)</label><input id="stStationLocalDurName" type="text" readonly></div>
-                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stStationLocalDurDay" type="text" readonly></div>
-                <div class="admin-field"><label>بداية الدر</label><input id="stStationLocalDurStart" type="text" readonly></div>
-                <div class="admin-field"><label>نهاية الدر</label><input id="stStationLocalDurEnd" type="text" readonly></div>
-                <div class="admin-field"><label>الدر التالي</label><input id="stStationLocalNextDur" type="text" readonly></div>
+                <div class="admin-field full"><label>الدر الحالي (محلي)</label><select id="stLocalManualCurrentDur"></select></div>
+                <div class="admin-field full"><label>الدر التالي</label><select id="stLocalManualNextDur"></select></div>
+                <div class="admin-field"><label>بداية الدر (DD-MM)</label><input id="stLocalManualStartMd" type="text" inputmode="numeric" placeholder="مثل 01-05"></div>
+                <div class="admin-field"><label>نهاية الدر (DD-MM)</label><input id="stLocalManualEndMd" type="text" inputmode="numeric" placeholder="DD-MM"></div>
+                <div class="admin-field"><label>اليوم داخل الدر</label><input id="stLocalManualDayIndex" type="number" min="1" max="99" step="1" placeholder="اختياري — يُحسب من النافذة إن وُجد"></div>
+                <div class="admin-field full" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+                  <button type="button" class="settings-btn" id="stManualAnchorActivateBtn">تفعيل المرساة اليدوية</button>
+                  <button type="button" class="settings-btn secondary" id="stManualAnchorClearBtn">إلغاء المرساة اليدوية</button>
+                </div>
                 <div class="admin-field full"><span id="stStationLocalDurMsg" style="font-size:.82rem;color:#b8d4e8;line-height:1.45"></span></div>
               </div>
             </details>

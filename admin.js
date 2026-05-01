@@ -5061,6 +5061,27 @@
     });
   }
 
+  function initLocalManualDurSelects() {
+    var names = DUR_NAMES;
+    ['stLocalManualCurrentDur', 'stLocalManualNextDur'].forEach(function (id) {
+      var sel = getEl(id);
+      if (!sel || String(sel.tagName || '').toUpperCase() !== 'SELECT') return;
+      var keep = sel.value;
+      sel.innerHTML = '';
+      var ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = '\u2014';
+      sel.appendChild(ph);
+      names.forEach(function (n) {
+        var o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+      if (keep) setTrueFinalDurSelectValue(id, keep);
+    });
+  }
+
   function setTrueFinalFormFieldsFromRow(row) {
     var d = row || {};
     var set = function (id, v) {
@@ -5836,14 +5857,72 @@
     }
   }
 
+  function seedLocalManualFormFromTrueFinalRow(row) {
+    if (!row) {
+      setTrueFinalDurSelectValue('stLocalManualCurrentDur', '');
+      setTrueFinalDurSelectValue('stLocalManualNextDur', '');
+      setStationLocalField('stLocalManualStartMd', '');
+      setStationLocalField('stLocalManualEndMd', '');
+      setStationLocalField('stLocalManualDayIndex', '');
+      return;
+    }
+    setTrueFinalDurSelectValue('stLocalManualCurrentDur', row.current_dur_name_ar);
+    setTrueFinalDurSelectValue('stLocalManualNextDur', row.next_dur_name_ar);
+    setStationLocalField('stLocalManualStartMd', row.current_dur_start_md);
+    setStationLocalField('stLocalManualEndMd', row.current_dur_end_md);
+    setStationLocalField(
+      'stLocalManualDayIndex',
+      row.current_dur_day_sheet != null ? String(row.current_dur_day_sheet) : ''
+    );
+  }
+
+  function fillLocalManualFormFromKvOverride(o) {
+    if (!o) return;
+    setTrueFinalDurSelectValue('stLocalManualCurrentDur', o.current_dur_name_ar);
+    setTrueFinalDurSelectValue('stLocalManualNextDur', o.next_dur_name_ar || o.current_dur_name_ar);
+    setStationLocalField('stLocalManualStartMd', o.start_md);
+    setStationLocalField('stLocalManualEndMd', o.end_md);
+    setStationLocalField('stLocalManualDayIndex', o.day_index != null && o.day_index !== '' ? String(o.day_index) : '');
+  }
+
+  function applyStationLocalAnchorRoFromStAndRow(st, row) {
+    if (row) {
+      if (st && st.manual_suhail_anchor_date) {
+        setStationLocalField('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date);
+      } else {
+        setStationLocalField('stStationLocalAnchorDateRo', row.reference_date_md != null ? String(row.reference_date_md).trim() : '');
+      }
+      var sar = st && st.suhail_anchor_resolution;
+      if (sar && sar.dur_name_ar != null) {
+        var dPart = sar.day_in_dur != null && sar.day_in_dur !== '' ? ' / اليوم ' + String(sar.day_in_dur) : '';
+        setStationLocalField('stStationLocalAnchorMeaningRo', String(sar.dur_name_ar) + dPart);
+      } else {
+        var dn = row.dur_at_astronomical_entry != null ? String(row.dur_at_astronomical_entry).trim() : '';
+        var di = row.dur_day_at_astronomical_entry != null ? String(row.dur_day_at_astronomical_entry) : '';
+        if (dn) {
+          setStationLocalField('stStationLocalAnchorMeaningRo', (di ? 'عند دخول سهيل: ' : '') + dn + (di ? ' — اليوم ' + di : ''));
+        } else {
+          setStationLocalField('stStationLocalAnchorMeaningRo', '');
+        }
+      }
+    } else {
+      setStationLocalField('stStationLocalAnchorDateRo', st && st.manual_suhail_anchor_date ? st.manual_suhail_anchor_date : '');
+      var sar2 = st && st.suhail_anchor_resolution;
+      if (sar2 && sar2.dur_name_ar != null) {
+        setStationLocalField(
+          'stStationLocalAnchorMeaningRo',
+          sar2.dur_name_ar + ' / اليوم ' + String(sar2.day_in_dur != null ? sar2.day_in_dur : '')
+        );
+      } else {
+        setStationLocalField('stStationLocalAnchorMeaningRo', '');
+      }
+    }
+  }
+
   function clearStationLocalDurPanel() {
     setStationLocalField('stStationLocalAnchorDateRo', '');
     setStationLocalField('stStationLocalAnchorMeaningRo', '');
-    setStationLocalField('stStationLocalDurName', '');
-    setStationLocalField('stStationLocalDurDay', '');
-    setStationLocalField('stStationLocalDurStart', '');
-    setStationLocalField('stStationLocalDurEnd', '');
-    setStationLocalField('stStationLocalNextDur', '');
+    seedLocalManualFormFromTrueFinalRow(null);
     var msg = getEl('stStationLocalDurMsg');
     if (msg) {
       msg.textContent = '';
@@ -5851,29 +5930,8 @@
   }
 
   function applyTrueFinalRowToLocalDurPanel(st, row) {
-    setStationLocalField('stStationLocalDurName', row.current_dur_name_ar);
-    setStationLocalField('stStationLocalDurDay', row.current_dur_day_sheet != null ? String(row.current_dur_day_sheet) : '');
-    setStationLocalField('stStationLocalDurStart', row.current_dur_start_md);
-    setStationLocalField('stStationLocalDurEnd', row.current_dur_end_md);
-    setStationLocalField('stStationLocalNextDur', row.next_dur_name_ar);
-    if (st && st.manual_suhail_anchor_date) {
-      setStationLocalField('stStationLocalAnchorDateRo', st.manual_suhail_anchor_date);
-    } else {
-      setStationLocalField('stStationLocalAnchorDateRo', row.reference_date_md != null ? String(row.reference_date_md).trim() : '');
-    }
-    var sar = st && st.suhail_anchor_resolution;
-    if (sar && sar.dur_name_ar != null) {
-      var dPart = sar.day_in_dur != null && sar.day_in_dur !== '' ? ' / اليوم ' + String(sar.day_in_dur) : '';
-      setStationLocalField('stStationLocalAnchorMeaningRo', String(sar.dur_name_ar) + dPart);
-    } else {
-      var dn = row.dur_at_astronomical_entry != null ? String(row.dur_at_astronomical_entry).trim() : '';
-      var di = row.dur_day_at_astronomical_entry != null ? String(row.dur_day_at_astronomical_entry) : '';
-      if (dn) {
-        setStationLocalField('stStationLocalAnchorMeaningRo', (di ? 'عند دخول سهيل: ' : '') + dn + (di ? ' — اليوم ' + di : ''));
-      } else {
-        setStationLocalField('stStationLocalAnchorMeaningRo', '');
-      }
-    }
+    seedLocalManualFormFromTrueFinalRow(row);
+    applyStationLocalAnchorRoFromStAndRow(st, row);
     var line = getEl('stStationLocalDurMsg');
     if (line) {
       line.textContent = 'مُستمدّ من المرجع النهائي للمحطة (data/true_final_station_reference.json).';
@@ -5882,18 +5940,8 @@
   }
 
   function applyNoTrueFinalRowForLocalPanel(st) {
-    setStationLocalField('stStationLocalDurName', '');
-    setStationLocalField('stStationLocalDurDay', '');
-    setStationLocalField('stStationLocalDurStart', '');
-    setStationLocalField('stStationLocalDurEnd', '');
-    setStationLocalField('stStationLocalNextDur', '');
-    setStationLocalField('stStationLocalAnchorDateRo', st && st.manual_suhail_anchor_date ? st.manual_suhail_anchor_date : '');
-    var sar = st && st.suhail_anchor_resolution;
-    if (sar && sar.dur_name_ar != null) {
-      setStationLocalField('stStationLocalAnchorMeaningRo', sar.dur_name_ar + ' / اليوم ' + String(sar.day_in_dur != null ? sar.day_in_dur : ''));
-    } else {
-      setStationLocalField('stStationLocalAnchorMeaningRo', '');
-    }
+    seedLocalManualFormFromTrueFinalRow(null);
+    applyStationLocalAnchorRoFromStAndRow(st, null);
     var line = getEl('stStationLocalDurMsg');
     if (line) {
       line.textContent = 'لا يوجد مرجع محلي لهذه المحطة';
@@ -5902,6 +5950,7 @@
   }
 
   function refreshStationLocalDurReadout(st, asOfIso) {
+    void asOfIso;
     if (!getEl('stStationLocalDurDetails')) {
       console.warn('Missing element:', 'stStationLocalDurDetails');
       return;
@@ -5918,12 +5967,41 @@
     }
     return loadTrueFinalStationReferenceDoc()
       .then(function (doc) {
-        var row = findTrueFinalRowForStation(doc, st);
-        if (!row) {
-          applyNoTrueFinalRowForLocalPanel(st);
-          return;
-        }
-        applyTrueFinalRowToLocalDurPanel(st, row);
+        var manPromise = isAdminMode()
+          ? apiFetch('/api?route=admin&path=manual-anchor', { method: 'GET' })
+              .then(function (r) {
+                return r.json();
+              })
+              .catch(function () {
+                return { ok: false };
+              })
+          : Promise.resolve(null);
+        return manPromise.then(function (manJson) {
+          var override =
+            manJson &&
+            manJson.ok &&
+            manJson.document &&
+            manJson.document.overrides &&
+            manJson.document.overrides[String(st.id)];
+          if (override && override.manual_override) {
+            fillLocalManualFormFromKvOverride(override);
+            var rowK = findTrueFinalRowForStation(doc, st);
+            applyStationLocalAnchorRoFromStAndRow(st, rowK || null);
+            var lineKv = getEl('stStationLocalDurMsg');
+            if (lineKv) {
+              lineKv.textContent =
+                'مرساة يدوية مفعّلة في KV (navidur_store_manual_anchor) — تتجاوز المرجع النهائي في مسار التحليل.';
+              lineKv.style.color = '#9ee6b3';
+            }
+            return;
+          }
+          var row = findTrueFinalRowForStation(doc, st);
+          if (!row) {
+            applyNoTrueFinalRowForLocalPanel(st);
+            return;
+          }
+          applyTrueFinalRowToLocalDurPanel(st, row);
+        });
       })
       .catch(function (e) {
         clearStationLocalDurPanel();
@@ -5931,6 +6009,124 @@
           line.textContent = clientErrorForHttp(e);
           line.style.color = '#ff9b9b';
         }
+      });
+  }
+
+  function saveManualAnchorKv() {
+    if (!isAdminMode()) {
+      alert('\u064a\u062a\u0637\u0644\u0628 \u062a\u0633\u062c\u064a\u0644 \u062f\u062e\u0648\u0644 \u0625\u062f\u0627\u0631\u064a.');
+      return;
+    }
+    var stId = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
+    if (!stId) {
+      alert('\u0627\u062e\u062a\u0631 \u0645\u062d\u0637\u0629 \u0623\u0648\u0644\u064b\u0627 (\u0645\u0639\u0631\u0641 \u0627\u0644\u0645\u062d\u0637\u0629).');
+      return;
+    }
+    var curEl = getEl('stLocalManualCurrentDur');
+    var cur = curEl && curEl.value ? String(curEl.value).trim() : '';
+    if (!cur) {
+      alert('\u0627\u062e\u062a\u0631 \u0627\u0644\u062f\u0631 \u0627\u0644\u062d\u0627\u0644\u064a (\u0645\u062d\u0644\u064a).');
+      return;
+    }
+    var startMd = getEl('stLocalManualStartMd') ? String(getEl('stLocalManualStartMd').value || '').trim() : '';
+    var endMd = getEl('stLocalManualEndMd') ? String(getEl('stLocalManualEndMd').value || '').trim() : '';
+    if (!isValidDdMmField(startMd) || !isValidDdMmField(endMd)) {
+      alert('\u0628\u062f\u0627\u064a\u0629/\u0646\u0647\u0627\u064a\u0629 \u0627\u0644\u062f\u0631: \u0627\u0644\u0635\u064a\u063a\u0629 DD-MM (\u0645\u062b\u0644 01-05).');
+      return;
+    }
+    var st = stationsCache.find(function (s) {
+      return s && String(s.id) === stId;
+    });
+    var nextEl = getEl('stLocalManualNextDur');
+    var nx = nextEl && nextEl.value ? String(nextEl.value).trim() : '';
+    var dayEl = getEl('stLocalManualDayIndex');
+    var dayRaw = dayEl ? String(dayEl.value || '').trim() : '';
+    var nameAr =
+      (st && (st.name_ar || st.name)) ||
+      (getEl('stName') && getEl('stName').value ? String(getEl('stName').value).trim() : '') ||
+      stId;
+    var payload = {
+      station_id: stId,
+      station_name_ar: nameAr,
+      current_dur_name_ar: cur,
+      next_dur_name_ar: nx || cur,
+      start_md: startMd,
+      end_md: endMd
+    };
+    if (dayRaw !== '') {
+      var d0 = Number(dayRaw);
+      if (!Number.isFinite(d0) || d0 < 1) {
+        alert('\u0627\u0644\u064a\u0648\u0645 \u062f\u0627\u062e\u0644 \u0627\u0644\u062f\u0631: \u0631\u0642\u0645 \u2265 1 \u0623\u0648 \u0627\u062a\u0631\u0643\u0647 \u0641\u0627\u0631\u063a\u064b\u0627.');
+        return;
+      }
+      payload.day_index = Math.round(d0);
+    }
+    apiFetch('/api?route=admin&path=manual-anchor', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) {
+        return res.json().then(function (j) {
+          return { res: res, j: j };
+        });
+      })
+      .then(function (x) {
+        if (!x.res.ok) {
+          var e = (x.j && x.j.error) ? String(x.j.error) : 'save_failed';
+          if (x.j && x.j.message) e += ': ' + String(x.j.message);
+          throw new Error(e);
+        }
+        alert(
+          '\u062a\u0645 \u062a\u0641\u0639\u064a\u0644 \u0627\u0644\u0645\u0631\u0633\u0627\u0629 \u0627\u0644\u064a\u062f\u0648\u064a\u0629. \u0645\u0633\u0627\u0631 \u0627\u0644\u062a\u062d\u0644\u064a\u0644 \u064a\u0633\u062a\u062e\u062f\u0645 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0645\u062d\u0641\u0648\u0638\u0629 \u0644\u0644\u0645\u062d\u0637\u0629.'
+        );
+        var stM = getStationForLocalDurReadout(st || { id: stId, name: nameAr });
+        return refreshStationLocalDurReadout(stM, getCanonicalNavidurAsOfIso());
+      })
+      .catch(function (err) {
+        alert(clientErrorForHttp(err));
+      });
+  }
+
+  function clearManualAnchorKv() {
+    if (!isAdminMode()) {
+      alert('\u064a\u062a\u0637\u0644\u0628 \u062a\u0633\u062c\u064a\u0644 \u062f\u062e\u0648\u0644 \u0625\u062f\u0627\u0631\u064a.');
+      return;
+    }
+    var stId = getEl('stId') && getEl('stId').value ? String(getEl('stId').value).trim() : '';
+    if (!stId) {
+      alert('\u0627\u062e\u062a\u0631 \u0645\u062d\u0637\u0629 \u0623\u0648\u0644\u064b\u0627.');
+      return;
+    }
+    if (!window.confirm('\u0625\u0644\u063a\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0627\u0629 \u0627\u0644\u064a\u062f\u0648\u064a\u0629 \u0644\u0644\u0645\u062d\u0637\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629\u061f')) {
+      return;
+    }
+    var st = stationsCache.find(function (s) {
+      return s && String(s.id) === stId;
+    });
+    apiFetch('/api?route=admin&path=manual-anchor&station_id=' + encodeURIComponent(stId), { method: 'DELETE' })
+      .then(function (res) {
+        return res.json().then(function (j) {
+          return { res: res, j: j };
+        });
+      })
+      .then(function (x) {
+        if (x.res.status === 404) {
+          alert('\u0644\u0627 \u062a\u0648\u062c\u062f \u0645\u0631\u0633\u0627\u0629 \u064a\u062f\u0648\u064a\u0629 \u0645\u062d\u0641\u0648\u0638\u0629 \u0644\u0647\u0630\u0647 \u0627\u0644\u0645\u062d\u0637\u0629.');
+          var stM0 = getStationForLocalDurReadout(st || { id: stId });
+          return refreshStationLocalDurReadout(stM0, getCanonicalNavidurAsOfIso());
+        }
+        if (!x.res.ok) {
+          var e = (x.j && x.j.error) ? String(x.j.error) : 'delete_failed';
+          if (x.j && x.j.message) e += ': ' + String(x.j.message);
+          throw new Error(e);
+        }
+        alert('\u062a\u0645 \u0625\u0644\u063a\u0627\u0621 \u0627\u0644\u0645\u0631\u0633\u0627\u0629 \u0627\u0644\u064a\u062f\u0648\u064a\u0629. \u0627\u0644\u062a\u062d\u0644\u064a\u0644 \u064a\u0639\u0648\u062f \u0644\u0644\u0645\u0631\u062c\u0639 \u0627\u0644\u0646\u0647\u0627\u0626\u064a.');
+        var stM = getStationForLocalDurReadout(st || { id: stId });
+        return refreshStationLocalDurReadout(stM, getCanonicalNavidurAsOfIso());
+      })
+      .catch(function (err) {
+        alert(clientErrorForHttp(err));
       });
   }
 
@@ -8649,6 +8845,20 @@
     }
 
     initTrueFinalManualDurSelects();
+    initLocalManualDurSelects();
+
+    var stManualAnchorActivateBtn = getEl('stManualAnchorActivateBtn');
+    if (stManualAnchorActivateBtn) {
+      stManualAnchorActivateBtn.addEventListener('click', function () {
+        saveManualAnchorKv();
+      });
+    }
+    var stManualAnchorClearBtn = getEl('stManualAnchorClearBtn');
+    if (stManualAnchorClearBtn) {
+      stManualAnchorClearBtn.addEventListener('click', function () {
+        clearManualAnchorKv();
+      });
+    }
 
     var saveTrueFinalBtn = getEl('stTrueFinalSaveBtn');
     if (saveTrueFinalBtn) {

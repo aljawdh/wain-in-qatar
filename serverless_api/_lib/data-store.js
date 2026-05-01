@@ -35,6 +35,7 @@ const FILES = {
   star_events: 'star_events.json',
   dur_generation_audit: 'dur_generation_audit.json',
   true_final_station_reference: 'true_final_station_reference.json',
+  manual_anchor: 'manual_anchor.json',
   gulf_fish_database: 'gulf_fish_database.json',
   live_weather_cache: 'live_weather_cache.json',
   navidur_learning_adjustments: 'navidur_learning_adjustments.json',

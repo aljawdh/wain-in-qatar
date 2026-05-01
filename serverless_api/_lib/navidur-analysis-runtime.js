@@ -613,6 +613,7 @@ async function loadReferenceData() {
     readJsonFile('station_dur_overrides', []),
     readJsonFile('durur_overrides', []),
     readJsonFile('true_final_station_reference', { version: 0, stations: [] }),
+    readJsonFile('manual_anchor', { version: 1, overrides: {} }),
     readJsonFile('gulf_fish_database', { version: 0, species: [] }),
     readJsonFile('navidur_learning_adjustments', { version: 1, adjustments: [] }),
     readJsonFile('navidur_learning_settings', { version: 1, learning_layer_enabled: false }),
@@ -630,10 +631,11 @@ async function loadReferenceData() {
     overrides: Array.isArray(rows[7]) ? rows[7] : [],
     durur_overrides: Array.isArray(rows[8]) ? rows[8] : [],
     true_final_station_reference: rows[9] && typeof rows[9] === 'object' ? rows[9] : { version: 0, stations: [] },
-    gulf_fish_database: rows[10] && typeof rows[10] === 'object' ? rows[10] : { version: 0, species: [] },
-    learning_adjustments: rows[11] && typeof rows[11] === 'object' ? rows[11] : { version: 1, adjustments: [] },
-    learning_settings: rows[12] && typeof rows[12] === 'object' ? rows[12] : { version: 1, learning_layer_enabled: false },
-    field_session_reviews: rows[13] && typeof rows[13] === 'object' ? rows[13] : { version: 1, reviews: [] }
+    manual_anchor: rows[10] && typeof rows[10] === 'object' ? rows[10] : { version: 1, overrides: {} },
+    gulf_fish_database: rows[11] && typeof rows[11] === 'object' ? rows[11] : { version: 0, species: [] },
+    learning_adjustments: rows[12] && typeof rows[12] === 'object' ? rows[12] : { version: 1, adjustments: [] },
+    learning_settings: rows[13] && typeof rows[13] === 'object' ? rows[13] : { version: 1, learning_layer_enabled: false },
+    field_session_reviews: rows[14] && typeof rows[14] === 'object' ? rows[14] : { version: 1, reviews: [] }
   };
 }
 
