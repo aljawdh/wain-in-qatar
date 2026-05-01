@@ -1089,13 +1089,14 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <div class="admin-field"><label>اسم المحطة (المرجع)</label><input id="tfStationCity" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>يوم المرجع (يوم-شهر)</label><input id="tfReferenceDate" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>الأيام المتبقية (المصنف)</label><input id="tfRemainingDays" type="text" readonly placeholder="—"></div>
-                <div class="admin-field"><label>الدر الحالي</label><input id="tfCurrentDur" type="text" autocomplete="off" placeholder="—"></div>
+                <div class="admin-field"><label>الدر الحالي</label><select id="tfCurrentDur"></select></div>
                 <div class="admin-field"><label>اليوم داخل الدر</label><input id="tfCurrentDurDay" type="number" min="1" max="99" step="1" placeholder="—"></div>
                 <div class="admin-field"><label>طول الدر (يوم)</label><input id="tfCurrentDurLengthDays" type="text" readonly placeholder="—"></div>
                 <div class="admin-field"><label>بداية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurStart" type="text" inputmode="numeric" placeholder="DD-MM مثل 16-04"></div>
                 <div class="admin-field"><label>نهاية الدر الحالي (يوم-شهر)</label><input id="tfCurrentDurEnd" type="text" inputmode="numeric" placeholder="DD-MM"></div>
-                <div class="admin-field full"><label>الدر التالي</label><input id="tfNextDur" type="text" autocomplete="off" placeholder="—"></div>
+                <div class="admin-field full"><label>الدر التالي</label><select id="tfNextDur"></select></div>
                 <div class="admin-field full"><label>&nbsp;</label><button type="button" class="settings-btn" id="stTrueFinalSaveBtn">حفظ التعديل</button></div>
+                <p class="section-subtitle" style="font-size:.74rem;color:#8ea4ba;margin:6px 0 0;grid-column:1/-1">الحفظ يحدّث <code>annual_flat_rows</code> في KV فقط (<code>navidur_store_true_final_station_reference</code>) ويتطلّب ضبط KV على الخادم.</p>
               </div>
             </details>
             <details class="adv-options" style="margin:14px 0" id="stStationLocalDurDetails">

@@ -83,10 +83,10 @@
   var STATION_SEASONAL_REF_MSG = 'لا يوجد مرجع موسمي لهذه المحطة';
   var DUR_NAMES = [
     'المقدم', 'المؤخر', 'الرشاء', 'الشرطين', 'البطين', 'الثريا',
-    'الدبران', 'الهقعة', 'الهنعة', 'الذراع', 'النثرة', 'الطرف',
+    'الدبران', 'الهقعة', 'الهنعة', 'الذراع', 'النثرة', 'الطرفة',
     'الجبهة', 'الزبرة', 'الصرفة', 'العواء', 'السماك', 'الغفر',
-    'الزبانا', 'الإكليل', 'القلب', 'الشولة', 'النعائم', 'البلدة',
-    'سعد الذابح', 'سعد بلع', 'سعد السعود', 'الأخبية'
+    'الزبانا', 'الإكليل', 'القلب', 'الشولة', 'النعايم', 'البلدة',
+    'سعد الذابح', 'سعد بلع', 'سعد السعود', 'سعد الأخبية'
   ];
 
   var COASTAL_REGIONS = {
@@ -5015,6 +5015,52 @@
     return m || 'خطأ غير معروف';
   }
 
+  function setTrueFinalDurSelectValue(id, val) {
+    var el = getEl(id);
+    if (!el || String(el.tagName || '').toUpperCase() !== 'SELECT') return;
+    var v = val != null && val !== '' ? String(val).trim() : '';
+    if (!v) {
+      el.value = '';
+      return;
+    }
+    var found = false;
+    for (var i = 0; i < el.options.length; i += 1) {
+      if (nfcStringAdmin(el.options[i].value) === nfcStringAdmin(v)) {
+        el.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      var o = document.createElement('option');
+      o.value = v;
+      o.textContent = v + ' (\u063a\u064a\u0631 \u0641\u064a \u0627\u0644\u0642\u0627\u0626\u0645\u0629)';
+      el.appendChild(o);
+      el.value = v;
+    }
+  }
+
+  function initTrueFinalManualDurSelects() {
+    var names = DUR_NAMES;
+    ['tfCurrentDur', 'tfNextDur'].forEach(function (id) {
+      var sel = getEl(id);
+      if (!sel || String(sel.tagName || '').toUpperCase() !== 'SELECT') return;
+      var keep = sel.value;
+      sel.innerHTML = '';
+      var ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = '\u2014';
+      sel.appendChild(ph);
+      names.forEach(function (n) {
+        var o = document.createElement('option');
+        o.value = n;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+      if (keep) setTrueFinalDurSelectValue(id, keep);
+    });
+  }
+
   function setTrueFinalFormFieldsFromRow(row) {
     var d = row || {};
     var set = function (id, v) {
@@ -5027,12 +5073,12 @@
       'tfRemainingDays',
       d.remaining_days_sheet != null && d.remaining_days_sheet !== '' ? String(d.remaining_days_sheet) : ''
     );
-    set('tfCurrentDur', d.current_dur_name_ar);
+    setTrueFinalDurSelectValue('tfCurrentDur', d.current_dur_name_ar);
     set('tfCurrentDurDay', d.current_dur_day_sheet != null ? d.current_dur_day_sheet : '');
     set('tfCurrentDurLengthDays', d.length_days != null && d.length_days !== '' ? String(d.length_days) : '');
     set('tfCurrentDurStart', d.current_dur_start_md);
     set('tfCurrentDurEnd', d.current_dur_end_md);
-    set('tfNextDur', d.next_dur_name_ar);
+    setTrueFinalDurSelectValue('tfNextDur', d.next_dur_name_ar);
   }
 
   function clearTrueFinalFormFields() {
@@ -5249,12 +5295,12 @@
     set('tfStationCity', snap.station_name_ar || stationNameAr);
     set('tfReferenceDate', tfLocalRefIsoToDdMm(asOfIso));
     set('tfRemainingDays', snap.days_remaining_in_dur != null ? String(snap.days_remaining_in_dur) : '');
-    set('tfCurrentDur', snap.current_dur_name_ar);
+    setTrueFinalDurSelectValue('tfCurrentDur', snap.current_dur_name_ar);
     set('tfCurrentDurDay', snap.day_in_dur != null ? String(snap.day_in_dur) : '');
     set('tfCurrentDurLengthDays', snap.length_days != null && snap.length_days !== '' ? String(snap.length_days) : '');
     set('tfCurrentDurStart', snap.current_dur_start_md);
     set('tfCurrentDurEnd', snap.current_dur_end_md);
-    set('tfNextDur', snap.next_dur_name_ar);
+    setTrueFinalDurSelectValue('tfNextDur', snap.next_dur_name_ar);
     if (statusEl) {
       var extra = '';
       if (sheetRow && sheetRow.reference_date_md) {
@@ -5383,100 +5429,98 @@
 
   function saveTrueFinalReferenceEdits() {
     if (!isAdminMode()) return;
-    var stId = getEl('stId') && getEl('stId').value.trim();
-    var nameAr = getEl('stName') && getEl('stName').value.trim();
     var statusEl = getEl('stTrueFinalRefStatus');
-    if (!stId) {
+    var refStationSel = getEl('tfLocalRefStationSelect');
+    var stationNameAr = refStationSel && refStationSel.value ? String(refStationSel.value).trim() : '';
+    if (!stationNameAr) {
       if (statusEl) {
-        statusEl.textContent = 'احفظ معرّف المحطة أولاً.';
+        statusEl.textContent = '\u0627\u062e\u062a\u0631 \u0645\u062d\u0637\u0629 \u0627\u0644\u0645\u0631\u062c\u0639 \u0645\u0646 \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u0623\u0648\u0644\u0627\u064b.';
         statusEl.style.color = '#ff9b9b';
       }
       return;
     }
-    if (!nameAr) {
-      if (statusEl) {
-        statusEl.textContent = 'أدخل اسماً عربيّاً يطابق عمود «اسم المحطة» في المرجع.';
-        statusEl.style.color = '#ff9b9b';
-      }
-      return;
-    }
-    var cur = getEl('tfCurrentDur') ? getEl('tfCurrentDur').value.trim() : '';
-    var next = getEl('tfNextDur') ? getEl('tfNextDur').value.trim() : '';
-    var dayStr = getEl('tfCurrentDurDay') ? getEl('tfCurrentDurDay').value : '';
-    var startMd = getEl('tfCurrentDurStart') ? getEl('tfCurrentDurStart').value.trim() : '';
-    var endMd = getEl('tfCurrentDurEnd') ? getEl('tfCurrentDurEnd').value.trim() : '';
+    var cur = getEl('tfCurrentDur') ? String(getEl('tfCurrentDur').value || '').trim() : '';
+    var next = getEl('tfNextDur') ? String(getEl('tfNextDur').value || '').trim() : '';
     if (!cur || !next) {
       if (statusEl) {
-        statusEl.textContent = 'أدخل الدر الحالي والدر التالي.';
-        statusEl.style.color = '#ff9b9b';
-      }
-      return;
-    }
-    if (!isValidDdMmField(startMd) || !isValidDdMmField(endMd)) {
-      if (statusEl) {
-        statusEl.textContent = 'تنسيق بداية/نهاية الدر: يوم-شهر (مثال 16-04).';
-        statusEl.style.color = '#ff9b9b';
-      }
-      return;
-    }
-    var dayN = Number(dayStr);
-    if (!Number.isFinite(dayN) || dayN < 1) {
-      if (statusEl) {
-        statusEl.textContent = 'أدخل رقماً صحيحاً ليوم الدر (≥ 1).';
+        statusEl.textContent =
+          '\u0627\u062e\u062a\u0631 \u0627\u0644\u062f\u0631 \u0627\u0644\u062d\u0627\u0644\u064a \u0648\u0627\u0644\u062f\u0631 \u0627\u0644\u062a\u0627\u0644\u064a \u0645\u0646 \u0627\u0644\u0642\u0648\u0627\u0626\u0645.';
         statusEl.style.color = '#ff9b9b';
       }
       return;
     }
     if (statusEl) {
-      statusEl.textContent = 'جاري الحفظ...';
+      statusEl.textContent = '\u062c\u0627\u0631\u064a \u0627\u0644\u062d\u0641\u0638...';
       statusEl.style.color = '#9ad9ff';
     }
+    var asOfIso = getCanonicalNavidurAsOfIso();
     var body = JSON.stringify({
-      station_id: stId,
-      station_name_ar: nameAr,
-      patch: {
-        current_dur_name_ar: cur,
-        current_dur_day_sheet: dayN,
-        current_dur_start_md: startMd,
-        current_dur_end_md: endMd,
-        next_dur_name_ar: next
-      }
+      station_name_ar: stationNameAr,
+      as_of_iso: asOfIso,
+      current_dur_name_ar: cur,
+      next_dur_name_ar: next
     });
     apiFetch('/api?route=admin&path=true-final-reference', {
-      method: 'PUT',
+      method: 'PATCH',
       body: body,
       headers: { 'Content-Type': 'application/json' }
     })
       .then(function (res) {
-        if (res.status === 410) {
-          return Promise.reject(new Error('http_410'));
-        }
         return res.json().then(function (j) {
           if (!res.ok) {
-            return Promise.reject(new Error((j && j.error) || 'http_' + res.status));
+            var msg = (j && j.error) || 'http_' + res.status;
+            if (res.status === 503 && j && j.message) msg = String(j.message);
+            return Promise.reject(new Error(msg));
           }
           return j;
         });
       })
-      .then(function () {
+      .then(function (j) {
+        console.debug('NAVIDUR_TRUE_FINAL_MANUAL_DUR_UPDATE', {
+          station_name: stationNameAr,
+          current_dur_before: j.current_dur_before,
+          current_dur_after: j.current_dur_after,
+          next_dur_before: j.next_dur_before,
+          next_dur_after: j.next_dur_after,
+          updated_key: 'navidur_store_true_final_station_reference'
+        });
         clearTrueFinalReferenceCache();
         if (statusEl) {
-          statusEl.textContent = 'تم حفظ التعديل في المرجع المحلي';
-          statusEl.style.color = '#9ad9ff';
-        }
-        var st = stationsCache.find(function (s) {
-          return s && String(s.id) === String(stId);
-        });
-        if (st) {
-          void refreshTrueFinalReferencePanel(st);
-          void refreshDururFilePanelFromTrueFinal(st);
-          void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
-        }
-        window.setTimeout(function () {
-          if (statusEl && statusEl.textContent === 'تم حفظ التعديل في المرجع المحلي') {
-            statusEl.textContent = '';
+          if (j.unchanged) {
+            statusEl.textContent =
+              '\u0644\u0645 \u064a\u062a\u063a\u064a\u0631 \u0627\u0644\u062f\u0631 \u0639\u0646 \u0627\u0644\u0642\u064a\u0645 \u0627\u0644\u0645\u062e\u0632\u0648\u0646\u0629 \u0641\u064a KV.';
+            statusEl.style.color = '#9fc1d7';
+          } else {
+            statusEl.textContent = '\u062a\u0645 \u062a\u062d\u062f\u064a\u062b \u0645\u0631\u062c\u0639 \u0627\u0644\u062f\u0631\u0648\u0631 \u0644\u0644\u0645\u062d\u0637\u0629 \u0648\u0627\u0639\u062a\u0645\u0627\u062f\u0647';
+            statusEl.style.color = '#9ad9ff';
           }
-        }, 4500);
+        }
+        return loadTrueFinalStationReferenceDoc().then(function (doc) {
+          populateTrueFinalLocalRefStationSelect(doc);
+          if (refStationSel) {
+            var found = false;
+            for (var oi = 0; oi < refStationSel.options.length; oi += 1) {
+              if (nfcStringAdmin(refStationSel.options[oi].value) === nfcStringAdmin(stationNameAr)) {
+                refStationSel.selectedIndex = oi;
+                found = true;
+                break;
+              }
+            }
+            if (found) {
+              applyTrueFinalLocalRefForStationName(doc, refStationSel.options[refStationSel.selectedIndex].value);
+            }
+          }
+          var stId = getEl('stId') && getEl('stId').value.trim();
+          var st = stId
+            ? stationsCache.find(function (s) {
+                return s && String(s.id) === String(stId);
+              })
+            : null;
+          if (st) {
+            void refreshDururFilePanelFromTrueFinal(st);
+            void refreshStationLocalDurReadout(st, getCanonicalNavidurAsOfIso());
+          }
+        });
       })
       .catch(function (e) {
         if (statusEl) {
@@ -8603,6 +8647,8 @@
         if (e.key === 'Enter') { e.preventDefault(); confirmNewRegion(); }
       });
     }
+
+    initTrueFinalManualDurSelects();
 
     var saveTrueFinalBtn = getEl('stTrueFinalSaveBtn');
     if (saveTrueFinalBtn) {

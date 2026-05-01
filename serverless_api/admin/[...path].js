@@ -10,6 +10,103 @@ const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require(
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
 const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
 const { utcTodayIso } = require('../_lib/station-local-dur-resolver');
+const tfLookup = require('../../shared/true-final-station-reference-lookup');
+
+/** Canonical 28 DUR names (admin manual edit + annual_flat_rows patch) — order fixed for UI. */
+const TRUE_FINAL_MANUAL_DUR_NAME_LIST = [
+  'المقدم', 'المؤخر', 'الرشاء', 'الشرطين', 'البطين', 'الثريا',
+  'الدبران', 'الهقعة', 'الهنعة', 'الذراع', 'النثرة', 'الطرفة',
+  'الجبهة', 'الزبرة', 'الصرفة', 'العواء', 'السماك', 'الغفر',
+  'الزبانا', 'الإكليل', 'القلب', 'الشولة', 'النعايم', 'البلدة',
+  'سعد الذابح', 'سعد بلع', 'سعد السعود', 'سعد الأخبية'
+];
+
+function buildManualDurNameAllowSet() {
+  return new Set(TRUE_FINAL_MANUAL_DUR_NAME_LIST.map((n) => nfcStringAr(n)));
+}
+
+function canonicalManualDurName(input, allowSet) {
+  const n = nfcStringAr(cleanString(input, 120));
+  if (!n || !allowSet.has(n)) return null;
+  for (let i = 0; i < TRUE_FINAL_MANUAL_DUR_NAME_LIST.length; i += 1) {
+    const x = TRUE_FINAL_MANUAL_DUR_NAME_LIST[i];
+    if (nfcStringAr(x) === n) return x;
+  }
+  return null;
+}
+
+function parseMonthDayFlexibleAdmin(s) {
+  const p = tfLookup.parseDayMonthDdMm(s);
+  if (p) return p;
+  const t = String(s == null ? '' : s).trim();
+  const m = t.match(/^(\d{1,2})-(\d{1,2})$/);
+  if (!m) return null;
+  const mo = Number(m[1]);
+  const day = Number(m[2]);
+  if (!day || !mo || mo > 12 || day > 31) return null;
+  return { d: day, m: mo };
+}
+
+function isAsOfInWindowKeysAdmin(sKey, eKey, aKey) {
+  if (sKey == null || eKey == null || aKey == null) return false;
+  if (sKey <= eKey) {
+    return aKey >= sKey && aKey <= eKey;
+  }
+  return aKey >= sKey || aKey <= eKey;
+}
+
+function stationNameMatchesAnnualRow(rowName, wantName) {
+  const wantExact = nfcStringAr(wantName);
+  const wantNorm = tfLookup.normalizeArabicName(wantName);
+  if (nfcStringAr(rowName) === wantExact) return true;
+  if (wantNorm && tfLookup.normalizeArabicName(rowName) === wantNorm) return true;
+  return false;
+}
+
+function findAnnualFlatCurrentNextGlobalIndices(doc, stationNameAr, asOfIso) {
+  const annual = Array.isArray(doc.annual_flat_rows) ? doc.annual_flat_rows : [];
+  const matched = [];
+  for (let i = 0; i < annual.length; i += 1) {
+    const row = annual[i];
+    if (!row) continue;
+    if (stationNameMatchesAnnualRow(row.station_name_ar, stationNameAr)) {
+      matched.push({ globalIdx: i, row });
+    }
+  }
+  if (!matched.length) {
+    return { error: 'station_not_in_annual' };
+  }
+  const asDate = new Date(String(asOfIso).trim() + 'T12:00:00.000Z');
+  if (Number.isNaN(asDate.getTime())) {
+    return { error: 'bad_as_of' };
+  }
+  const asM = asDate.getUTCMonth() + 1;
+  const asD = asDate.getUTCDate();
+  const aKey = asM * 100 + asD;
+  let localIdx = -1;
+  for (let k = 0; k < matched.length; k += 1) {
+    const row = matched[k].row;
+    const pStart = parseMonthDayFlexibleAdmin(row.start_md);
+    const pEnd = parseMonthDayFlexibleAdmin(row.end_md);
+    if (!pStart || !pEnd) continue;
+    const sKey = pStart.m * 100 + pStart.d;
+    const eKey = pEnd.m * 100 + pEnd.d;
+    if (isAsOfInWindowKeysAdmin(sKey, eKey, aKey)) {
+      localIdx = k;
+      break;
+    }
+  }
+  if (localIdx < 0) {
+    return { error: 'no_window_for_date', matched_len: matched.length };
+  }
+  const nextLocal = (localIdx + 1) % matched.length;
+  return {
+    currentGlobalIdx: matched[localIdx].globalIdx,
+    nextGlobalIdx: matched[nextLocal].globalIdx,
+    localIdx,
+    nextLocalIdx: nextLocal
+  };
+}
 
 async function writeAudit(action, actor, details) {
   const audit = await readJsonFile('audit', []);
@@ -621,7 +718,6 @@ module.exports = async function handler(req, res) {
     }
     const { normalizeRequestedStation, loadReferenceData } = require('../_lib/navidur-analysis-runtime');
     const { resolveReferenceStationForDurInheritance } = require('../../shared/navidur-analysis-engine');
-    const tfLookup = require('../../shared/true-final-station-reference-lookup');
     const refData = await loadReferenceData();
     const list = Array.isArray(refData.stations) ? refData.stations : [];
     const stationFromStore = list.find((s) => s && String(s.id).trim() === stationId) || null;
@@ -802,6 +898,109 @@ module.exports = async function handler(req, res) {
       const doc = await readJsonFile('true_final_station_reference', defaultDoc);
       return res.status(200).json({ ok: true, document: doc });
     }
+    if (req.method === 'PATCH') {
+      if (!getKv()) {
+        return res.status(503).json({
+          ok: false,
+          error: 'kv_required_for_annual_flat_manual_patch',
+          message:
+            'Updating annual_flat_rows requires KV (navidur_store_true_final_station_reference). Configure KV_REST_API_URL and KV_REST_API_TOKEN.'
+        });
+      }
+      const body = parseBody(req);
+      const stationNameAr = cleanString(body.station_name_ar, 200);
+      let asOfIso = cleanString(body.as_of_iso, 20);
+      const rawCur = body.current_dur_name_ar;
+      const rawNext = body.next_dur_name_ar;
+      if (!stationNameAr) {
+        return res.status(400).json({ error: 'station_name_ar_required' });
+      }
+      if (!asOfIso || !/^\d{4}-\d{2}-\d{2}$/.test(asOfIso)) {
+        asOfIso = utcTodayIso();
+      }
+      const allow = buildManualDurNameAllowSet();
+      const canonCur = canonicalManualDurName(rawCur, allow);
+      const canonNext = canonicalManualDurName(rawNext, allow);
+      if (!canonCur) {
+        return res.status(400).json({ error: 'invalid_current_dur_name_ar' });
+      }
+      if (!canonNext) {
+        return res.status(400).json({ error: 'invalid_next_dur_name_ar' });
+      }
+      const doc = await readJsonFile('true_final_station_reference', defaultDoc);
+      const annual = Array.isArray(doc.annual_flat_rows) ? doc.annual_flat_rows : [];
+      if (!annual.length) {
+        return res.status(400).json({ error: 'annual_flat_rows_missing' });
+      }
+      const loc = findAnnualFlatCurrentNextGlobalIndices(doc, stationNameAr, asOfIso);
+      if (loc.error) {
+        const code =
+          loc.error === 'station_not_in_annual'
+            ? 404
+            : loc.error === 'no_window_for_date'
+              ? 400
+              : 400;
+        return res.status(code).json({ ok: false, error: loc.error, detail: loc });
+      }
+      const curG = loc.currentGlobalIdx;
+      const nextG = loc.nextGlobalIdx;
+      if (curG === nextG && nfcStringAr(canonCur) !== nfcStringAr(canonNext)) {
+        return res.status(400).json({
+          ok: false,
+          error: 'current_next_same_annual_row',
+          message: 'النافذة الحالية والتالية تشيران لنفس الصف في annual_flat_rows — يجب أن يتطابق اسم الدر في الحقلين.'
+        });
+      }
+      const curRow = doc.annual_flat_rows[curG];
+      const nextRow = doc.annual_flat_rows[nextG];
+      if (!curRow || !nextRow) {
+        return res.status(500).json({ error: 'annual_flat_index_corrupt' });
+      }
+      const beforeCurrent = String(curRow.dur_name_ar != null ? curRow.dur_name_ar : '').trim();
+      const beforeNext = String(nextRow.dur_name_ar != null ? nextRow.dur_name_ar : '').trim();
+      let changed = false;
+      if (nfcStringAr(beforeCurrent) !== nfcStringAr(canonCur)) {
+        doc.annual_flat_rows[curG] = { ...curRow, dur_name_ar: canonCur };
+        changed = true;
+      }
+      if (nfcStringAr(beforeNext) !== nfcStringAr(canonNext)) {
+        doc.annual_flat_rows[nextG] = { ...nextRow, dur_name_ar: canonNext };
+        changed = true;
+      }
+      if (!changed) {
+        return res.status(200).json({
+          ok: true,
+          unchanged: true,
+          station_name_ar: stationNameAr,
+          current_dur_before: beforeCurrent,
+          current_dur_after: beforeCurrent,
+          next_dur_before: beforeNext,
+          next_dur_after: beforeNext,
+          indices: { current: curG, next: nextG }
+        });
+      }
+      doc._manual_annual_flat_edited_at = nowIso();
+      await writeJsonFile('true_final_station_reference', doc);
+      await writeAudit('true_final_annual_flat_dur_patched', actor, {
+        station_name_ar: stationNameAr,
+        current_global_index: curG,
+        next_global_index: nextG,
+        current_dur_before: beforeCurrent,
+        current_dur_after: canonCur,
+        next_dur_before: beforeNext,
+        next_dur_after: canonNext,
+        kv_key: kvStoreKey('true_final_station_reference')
+      });
+      return res.status(200).json({
+        ok: true,
+        station_name_ar: stationNameAr,
+        current_dur_before: beforeCurrent,
+        current_dur_after: String(doc.annual_flat_rows[curG].dur_name_ar != null ? doc.annual_flat_rows[curG].dur_name_ar : ''),
+        next_dur_before: beforeNext,
+        next_dur_after: String(doc.annual_flat_rows[nextG].dur_name_ar != null ? doc.annual_flat_rows[nextG].dur_name_ar : ''),
+        indices: { current: curG, next: nextG }
+      });
+    }
     if (req.method === 'PUT') {
       const body = parseBody(req);
       const stationId = cleanString(body.station_id, 80);
@@ -852,7 +1051,7 @@ module.exports = async function handler(req, res) {
       });
       return res.status(200).json({ ok: true, row: list[idx], document: doc });
     }
-    res.setHeader('Allow', 'GET, PUT');
+    res.setHeader('Allow', 'GET, PUT, PATCH');
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
