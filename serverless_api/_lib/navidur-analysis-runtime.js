@@ -216,10 +216,48 @@ function normalizeRequestedStation(body, stations) {
  * @param {object} cur — `current` object from forecast API
  * @returns {string}
  */
-function mapOpenMeteoCurrentToArabicSky(cur) {
+function parseIsoMs(iso) {
+  if (!iso) return null;
+  var ms = Date.parse(String(iso));
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function inferLocalHourByLongitude(instantMs, station) {
+  if (!Number.isFinite(instantMs)) return null;
+  var lo = toNumber(station && station.lon);
+  if (lo == null) return null;
+  var offsetHours = Math.round(lo / 15);
+  var shifted = new Date(instantMs + (offsetHours * 3600000));
+  return shifted.getUTCHours();
+}
+
+function resolveIsDaytimeLabelContext(context) {
+  var ctx = context && typeof context === 'object' ? context : {};
+  var instantMs = parseIsoMs(ctx.analysis_time_iso);
+  var sunriseMs = parseIsoMs(ctx.sunrise_iso);
+  var sunsetMs = parseIsoMs(ctx.sunset_iso);
+  if (Number.isFinite(instantMs) && Number.isFinite(sunriseMs) && Number.isFinite(sunsetMs)) {
+    return instantMs >= sunriseMs && instantMs < sunsetMs;
+  }
+  var fromPayload = ctx.is_day;
+  if (fromPayload === 1 || fromPayload === true) return true;
+  if (fromPayload === 0 || fromPayload === false) return false;
+  var localHour = inferLocalHourByLongitude(instantMs, ctx.station || null);
+  if (localHour == null && Number.isFinite(instantMs)) localHour = new Date(instantMs).getUTCHours();
+  if (localHour == null) return true;
+  return localHour >= 6 && localHour < 18;
+}
+
+function mapOpenMeteoCurrentToArabicSky(cur, context) {
   var c = cur && typeof cur === 'object' ? cur : {};
   var code = toNumber(c.weather_code);
-  var isDay = c.is_day === 1 || c.is_day === true;
+  var isDay = resolveIsDaytimeLabelContext({
+    analysis_time_iso: context && context.analysis_time_iso,
+    sunrise_iso: context && context.sunrise_iso,
+    sunset_iso: context && context.sunset_iso,
+    is_day: c.is_day,
+    station: context && context.station
+  });
   var cloud = toNumber(c.cloud_cover);
   var precip = toNumber(c.precipitation);
   var rain = toNumber(c.rain);
@@ -249,13 +287,9 @@ function mapOpenMeteoCurrentToArabicSky(cur) {
 
   if (code === 51 || code === 53 || code === 55 || code === 56 || code === 57) return 'رذاذ';
 
-  if (code === 61) return 'أمطار خفيفة';
-  if (code === 63 || code === 66 || code === 67) return 'أمطار';
-  if (code === 65) return 'أمطار غزيرة';
+  if (code === 61 || code === 63 || code === 65 || code === 66 || code === 67) return 'ممطر';
 
-  if (code === 80) return 'أمطار خفيفة';
-  if (code === 81) return 'أمطار';
-  if (code === 82) return 'أمطار غزيرة';
+  if (code === 80 || code === 81 || code === 82) return 'ممطر';
 
   if (code === 71 || code === 73 || code === 75 || code === 77 || code === 85 || code === 86) return 'غائم';
 
@@ -414,6 +448,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       'hourly',
       'temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,is_day,weather_code,cloud_cover,precipitation,rain,visibility'
     );
+    weatherUrl.searchParams.set('daily', 'sunrise,sunset');
     weatherUrl.searchParams.set('wind_speed_unit', 'kmh');
     weatherUrl.searchParams.set('timezone', 'GMT');
     if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
@@ -441,6 +476,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     var weatherPayload = await responses[0].json();
     var marinePayload = await responses[1].json();
     var weatherHourly = weatherPayload && weatherPayload.hourly ? weatherPayload.hourly : {};
+    var weatherDaily = weatherPayload && weatherPayload.daily ? weatherPayload.daily : {};
     var marineHourly = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
     var weatherTimeArray = Array.isArray(weatherHourly.time) ? weatherHourly.time : [];
     var marineTimeArray = Array.isArray(marineHourly.time) ? marineHourly.time : [];
@@ -496,6 +532,14 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
         return hh >= 6 && hh <= 18 ? 1 : 0;
       })()
     };
+    var sunriseIso = (function () {
+      var arr = Array.isArray(weatherDaily.sunrise) ? weatherDaily.sunrise : [];
+      return arr.length ? String(arr[0]) : '';
+    })();
+    var sunsetIso = (function () {
+      var arr = Array.isArray(weatherDaily.sunset) ? weatherDaily.sunset : [];
+      return arr.length ? String(arr[0]) : '';
+    })();
     var marineCurrent = {
       sea_surface_temperature: pickHourlyValueByInstant(marineTimeArray, marineHourly.sea_surface_temperature, instantMs),
       wave_height: pickHourlyValueByInstant(marineTimeArray, marineHourly.wave_height, instantMs),
@@ -522,10 +566,39 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     }
     out.ok = true;
     out.live_inputs = li;
-    out.weather_status_ar = mapOpenMeteoCurrentToArabicSky(weatherCurrent);
+    out.weather_status_ar = mapOpenMeteoCurrentToArabicSky(weatherCurrent, {
+      analysis_time_iso: asOfInstantIso || (asOfDate ? (String(asOfDate) + 'T12:00:00Z') : ''),
+      sunrise_iso: sunriseIso,
+      sunset_iso: sunsetIso,
+      station: station
+    });
     if (out.weather_status_ar === WEATHER_UNAVAILABLE_AR && toNumber(weatherCurrent.weather_code) != null) {
-      out.weather_status_ar = mapOpenMeteoCurrentToArabicSky({ weather_code: toNumber(weatherCurrent.weather_code) });
+      out.weather_status_ar = mapOpenMeteoCurrentToArabicSky(
+        { weather_code: toNumber(weatherCurrent.weather_code), is_day: weatherCurrent.is_day },
+        {
+          analysis_time_iso: asOfInstantIso || (asOfDate ? (String(asOfDate) + 'T12:00:00Z') : ''),
+          sunrise_iso: sunriseIso,
+          sunset_iso: sunsetIso,
+          station: station
+        }
+      );
     }
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_WEATHER_LABEL_CONTEXT', {
+          analysis_time: asOfInstantIso || (asOfDate ? (String(asOfDate) + 'T12:00:00Z') : null),
+          is_daytime: resolveIsDaytimeLabelContext({
+            analysis_time_iso: asOfInstantIso || (asOfDate ? (String(asOfDate) + 'T12:00:00Z') : ''),
+            sunrise_iso: sunriseIso,
+            sunset_iso: sunsetIso,
+            is_day: weatherCurrent.is_day,
+            station: station
+          }),
+          weather_code: toNumber(weatherCurrent.weather_code),
+          label_ar: out.weather_status_ar
+        });
+      }
+    } catch (_dbgWeatherErr) { /* ignore */ }
     out.forecast_source = 'open_meteo_hourly';
     return out;
   } catch (_e) {
@@ -555,10 +628,18 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       if (cachedAr) {
         out.weather_status_ar = cachedAr;
       } else {
-        out.weather_status_ar = mapOpenMeteoCurrentToArabicSky({
+      out.weather_status_ar = mapOpenMeteoCurrentToArabicSky(
+        {
           weather_code: ent.live_inputs && ent.live_inputs.weather_code,
-          is_day: 1
-        });
+          is_day: null
+        },
+        {
+          analysis_time_iso: asOfInstantIso || (asOfDate ? (String(asOfDate) + 'T12:00:00Z') : ''),
+          sunrise_iso: '',
+          sunset_iso: '',
+          station: station
+        }
+      );
         if (out.weather_status_ar === WEATHER_UNAVAILABLE_AR) {
           out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
         }
