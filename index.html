@@ -3181,6 +3181,76 @@
       return o;
     }
 
+    function getPublicWindLabel(windSpeedKmh) {
+      const n = Number(windSpeedKmh);
+      if (!Number.isFinite(n)) return 'رياح معتدلة';
+      if (n >= 30) return 'رياح نشطة';
+      if (n >= 15) return 'رياح معتدلة';
+      return 'رياح هادئة';
+    }
+
+    function getPublicSeaLabel(waveHeightM) {
+      const n = Number(waveHeightM);
+      if (!Number.isFinite(n)) return 'بحر متذبذب';
+      if (n >= 1.5) return 'بحر مضطرب';
+      if (n >= 0.7) return 'بحر متذبذب';
+      return 'بحر هادئ';
+    }
+
+    function getPublicRecommendationLabel(confidenceScore) {
+      const n = Number(confidenceScore);
+      if (!Number.isFinite(n)) {
+        return 'فرص متوسطة، ويُنصح بالتحقق من حركة الماء قبل النزول.';
+      }
+      if (n >= 70) return 'فرص جيدة للصيد، خاصة مع اختيار التوقيت المناسب.';
+      if (n >= 50) return 'فرص متوسطة، ويُنصح بالتحقق من حركة الماء قبل النزول.';
+      return 'الصيد غير مفضل حالياً، ويُفضل الانتظار.';
+    }
+
+    function normalizeRecommendedFishPublic(recommendedFish) {
+      if (!Array.isArray(recommendedFish)) return [];
+      return recommendedFish
+        .map(function (item) {
+          if (typeof item === 'string') return item.trim();
+          if (item && typeof item === 'object') {
+            return String(item.fish_name_ar || item.name_ar || item.name || '').trim();
+          }
+          return '';
+        })
+        .filter(Boolean);
+    }
+
+    function generateDurPublicSummary(context) {
+      const ctx = context && typeof context === 'object' ? context : {};
+      const durName = String(ctx.dur_name || 'الدر الحالي').trim();
+      const windLabel = getPublicWindLabel(ctx.wind_speed_kmh);
+      const seaLabel = getPublicSeaLabel(ctx.wave_height_m);
+      const recommendationLabel = getPublicRecommendationLabel(ctx.confidence_score != null ? ctx.confidence_score : ctx.fdi);
+      const tideState = String(ctx.tide_state || '').trim();
+      const fishTop = normalizeRecommendedFishPublic(ctx.recommended_fish).slice(0, 3);
+      const fishLine = fishTop.length
+        ? fishTop.slice(0, Math.min(3, Math.max(2, fishTop.length))).join('، ')
+        : 'لا توجد توصية سمكية مؤكدة حالياً.';
+      const seaLine = tideState
+        ? (seaLabel + (tideState ? ' — ' + tideState : ''))
+        : seaLabel;
+
+      console.debug('NAVIDUR_DUR_PUBLIC_SUMMARY', {
+        dur_name: durName,
+        wind_label: windLabel,
+        sea_label: seaLabel,
+        recommendation_label: recommendationLabel,
+        fish_count: fishTop.length
+      });
+
+      return [
+        durName + ': مرحلة انتقالية تتغير فيها حالة البحر والرياح.',
+        'الحالة العامة: ' + windLabel + '. ' + seaLine + '.',
+        'التوصية: ' + recommendationLabel,
+        'الأسماك: ' + fishLine
+      ];
+    }
+
     function updatePublicHeaderBar() {
       const wrap = document.getElementById('nvPublicHeader');
       if (!wrap) return;
@@ -5471,26 +5541,26 @@
             .replace(/'/g, '&#39;');
         };
         const unknown = 'غير معروف';
-        const durNotes = durRef ? [durRef.description_ar, durRef.notes_ar].filter(function (item, index, arr) {
-          return item && arr.indexOf(item) === index;
-        }) : [];
-        const seasonalEventNames = durRef
-          ? ((durRef.seasonal_event_names && durRef.seasonal_event_names.length ? durRef.seasonal_event_names : (durRef.seasonal_events || []).map(function (item) {
-              return item && (item.name_ar || item.name || item.id) || '';
-            })).filter(Boolean))
+        const fishingDto = currentSharedAnalysisDto && currentSharedAnalysisDto.fishing ? currentSharedAnalysisDto.fishing : {};
+        const fishFromRecommendations = Array.isArray(fishingDto.fish_recommendations)
+          ? fishingDto.fish_recommendations
           : [];
-        const renderRefList = function (label, values) {
-          return values && values.length ? '<div><strong>' + escapeHtml(label) + ':</strong> ' + values.map(escapeHtml).join('، ') + '</div>' : '';
-        };
-        const refHtml = durRef ? [
-          '<div><strong>الموسم (مرجع):</strong> ' + escapeHtml(durRef.season_ar || unknown) + '</div>',
-          '<div><strong>المعنى التراثي:</strong> ' + escapeHtml(durRef.heritage_meaning_ar || unknown) + '</div>',
-          durNotes.length ? '<div><strong>وصف / ملاحظات:</strong> ' + durNotes.map(escapeHtml).join(' | ') + '</div>' : '',
-          renderRefList('سمات الطقس (مرجع الدر)', durRef.weather_traits || []),
-          renderRefList('سمات البحر', durRef.marine_traits || []),
-          renderRefList('سمات السمك', durRef.fish_traits || []),
-          renderRefList('أحداث موسمية', seasonalEventNames)
-        ].filter(Boolean).join('') : '—';
+        const fishFromSpecies = Array.isArray(fishingDto.species_activity)
+          ? fishingDto.species_activity
+          : [];
+        const recommendedFish = fishFromRecommendations.length ? fishFromRecommendations : fishFromSpecies;
+        const publicSummaryLines = generateDurPublicSummary({
+          dur_name: d.period_name || d.current_dur || (durRef && durRef.name_ar) || 'الدر الحالي',
+          fdi: fishingDto.confidence_score,
+          confidence_score: fishingDto.confidence_score,
+          wind_speed_kmh: currentSharedAnalysisDto.environment.wind_speed_kmh,
+          wave_height_m: currentSharedAnalysisDto.environment.wave_height_m,
+          tide_state: tideDisplayRaw,
+          recommended_fish: recommendedFish
+        });
+        const refHtml = publicSummaryLines.map(function (line) {
+          return '<div>' + escapeHtml(line) + '</div>';
+        }).join('');
         const setText = function (id, val) { const el = document.getElementById(id); if (el) el.textContent = val; };
         setText('dateLine', formatDateArabic(new Date()) + ' • ' + (selectedStation && selectedStation.name));
         setText('moonIcon', '🌊');
@@ -5498,7 +5568,7 @@
         setText('durDayInPeriodVal', d.day_in_period != null ? String(d.day_in_period) : unknown);
         setText('durElapsedVal', d.day_in_period != null ? String(d.day_in_period) : unknown);
         setText('countdownDays', d.days_remaining != null ? (String(d.days_remaining) + ' يوم') : unknown);
-        setText('dorahDetail', 'التالي: ' + (d.next_period_name || unknown) + (durRef && durRef.season_ar ? ' — الموسم: ' + durRef.season_ar : ''));
+        setText('dorahDetail', 'التالي: ' + (d.next_period_name || unknown));
         const pr = d.period_start && d.period_end ? (d.period_start + ' → ' + d.period_end) : unknown;
         setText('durPeriodRangeVal', pr);
         setText('dorahCountdownLine', d.days_remaining != null ? ('تبقى ' + d.days_remaining + ' يوماً على نهاية هذا الدر') : '');
