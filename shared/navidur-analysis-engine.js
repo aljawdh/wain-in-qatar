@@ -959,6 +959,7 @@
     }
     var speciesActivity = [];
     var fishRecommendations = [];
+    var lockSpeciesActivity = false;
     if (gulfSpecies.length && getGulfFishRecommendations) {
       var rec = getGulfFishRecommendations({
         species: gulfSpecies,
@@ -980,8 +981,9 @@
       });
       fishRecommendations = toArray(rec.items);
       speciesActivity = toArray(rec.species_activity);
+      lockSpeciesActivity = !!(rec && rec.lock_species_activity);
     }
-    if (!speciesActivity.length) {
+    if (!speciesActivity.length && !lockSpeciesActivity) {
       speciesActivity = pickSpeciesActivity(referenceData, station, traitBundle, tideState, environment, currentDur, seasonalEvents);
     }
     var score = 30;

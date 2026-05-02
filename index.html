@@ -5526,6 +5526,10 @@
             speciesFallback = act;
           }
         }
+        if (!rec.length && !speciesFallback.length) {
+          root.innerHTML = '<div class="empty">لا توجد توصية سمكية مؤكدة حالياً.</div>';
+          return;
+        }
       }
 
       root.innerHTML = '';
