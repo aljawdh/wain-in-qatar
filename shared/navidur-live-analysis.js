@@ -245,19 +245,100 @@
     return now.toISOString();
   }
 
-  function applyPublicSkyConditionDisplay(rawLabel, weatherCode, isDaytime) {
-    var raw = String(rawLabel == null ? '' : rawLabel).trim();
-    var code = weatherCode != null && Number.isFinite(Number(weatherCode)) ? Number(weatherCode) : null;
-    if (isDaytime) {
-      if (code === 0) return raw.indexOf('مشمس') >= 0 || raw.indexOf('صافي') >= 0 ? raw : 'مشمس';
-      return raw;
+  /**
+   * WMO weather_code (Open-Meteo) → عربي دقيق. المصدر الوحيد للنص المعروض (طبقة العرض).
+   * @param {boolean} isDaytimeForClear — يُستخدم فقط للرمز 0 (نهار: مشمس | ليل: صافي)
+   */
+  function openMeteoWeatherCodeToArabicLabel(code, isDaytimeForClear) {
+    var c = Math.round(Number(code));
+    if (!Number.isFinite(c)) return null;
+    if (c === 0) return isDaytimeForClear ? 'مشمس' : 'صافي';
+    if (c === 1) return 'صحو غالباً';
+    if (c === 2) return 'غائم جزئياً';
+    if (c === 3) return 'غائم';
+    if (c === 45 || c === 48) return 'ضباب';
+    if (c === 51) return 'رذاذ خفيف';
+    if (c === 53) return 'رذاذ متوسط';
+    if (c === 55) return 'رذاذ غزير';
+    if (c === 61) return 'أمطار خفيفة';
+    if (c === 63) return 'أمطار متوسطة';
+    if (c === 65) return 'أمطار غزيرة';
+    if (c === 71 || c === 73 || c === 75) return 'ثلوج';
+    if (c === 80) return 'زخات مطر خفيفة';
+    if (c === 81) return 'زخات مطر متوسطة';
+    if (c === 82) return 'زخات مطر غزيرة';
+    if (c === 95) return 'عاصفة رعدية';
+    return null;
+  }
+
+  /** ليل إذا ساعة التحليل (محليًا) أو الساعة المحلية الحالية ضمن [18..23]∪[0..5] — لا «مشمس» عند الليل. */
+  function isDaytimeForClearCodeZeroFromMeta(skyMeta) {
+    var analysisTimeIso = resolveInstantIsoForSkyDisplay(skyMeta);
+    var tz = getBrowserTimeZone();
+    var hAnalysis = getLocalHourInZone(analysisTimeIso, tz);
+    if (hAnalysis == null || Number.isNaN(hAnalysis)) {
+      var ms = Date.parse(String(analysisTimeIso));
+      hAnalysis = Number.isNaN(ms) ? null : new Date(ms).getHours();
     }
-    if (code !== null) {
-      if (code === 0 || code === 1) return 'صافي';
-      return raw;
+    var localHour = new Date().getHours();
+    if (hAnalysis == null || Number.isNaN(hAnalysis)) hAnalysis = localHour;
+    var isNight = (hAnalysis >= 18 || hAnalysis < 6) || (localHour >= 18 || localHour < 6);
+    return !isNight;
+  }
+
+  function appendMarineWindNotesArabic(baseLabel, windKmh, waveM) {
+    var base = String(baseLabel == null ? '' : baseLabel).trim();
+    if (!base) return base;
+    var parts = [base];
+    var wv = toFiniteNumber(waveM);
+    var wk = toFiniteNumber(windKmh);
+    if (wv != null && wv >= 1.5) parts.push('البحر مضطرب');
+    if (wk != null && wk >= 30) parts.push('رياح نشطة');
+    return parts.join(' · ');
+  }
+
+  function buildAccurateSkyConditionLabel(n) {
+    var skyMeta = n.__display_sky && typeof n.__display_sky === 'object' ? n.__display_sky : {};
+    var analysisTimeIso = resolveInstantIsoForSkyDisplay(skyMeta);
+    var tz = getBrowserTimeZone();
+    var hAnalysis = getLocalHourInZone(analysisTimeIso, tz);
+    if (hAnalysis == null || Number.isNaN(hAnalysis)) {
+      var msA = Date.parse(String(analysisTimeIso));
+      hAnalysis = Number.isNaN(msA) ? new Date().getHours() : new Date(msA).getHours();
     }
-    if (raw === 'مشمس') return 'صافي';
-    return raw;
+    var isDaytimeGeneric = hAnalysis >= 6 && hAnalysis < 18;
+    var codeRaw = n.weather_code != null ? n.weather_code : skyMeta.weather_code;
+    var code = codeRaw != null ? Math.round(Number(codeRaw)) : NaN;
+    var isClearDay = isDaytimeForClearCodeZeroFromMeta(skyMeta);
+    var base;
+    if (!Number.isFinite(code)) {
+      base = 'حالة جوية غير واضحة';
+    } else if (code === 0) {
+      base = openMeteoWeatherCodeToArabicLabel(0, isClearDay);
+    } else {
+      base = openMeteoWeatherCodeToArabicLabel(code, true);
+    }
+    if (base == null) base = 'حالة جوية غير واضحة';
+    var withHints = appendMarineWindNotesArabic(base, n.wind_speed_kmh, n.wave_height_m);
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_WEATHER_ACCURACY', {
+          weather_code: Number.isFinite(code) ? code : null,
+          label_ar: withHints,
+          is_daytime: code === 0 ? isClearDay : isDaytimeGeneric,
+          wind_speed: n.wind_speed_kmh,
+          wave_height: n.wave_height_m,
+          source: 'open-meteo'
+        });
+      }
+    } catch (_accDbg) { /* ignore */ }
+    return withHints;
+  }
+
+  function getAccurateWeatherLabelForDto(dto) {
+    var n = normalizeDisplayEnv(dto);
+    if (!n) return ENV_UNAVAILABLE;
+    return buildAccurateSkyConditionLabel(n);
   }
 
   /**
@@ -339,24 +420,8 @@
       set('moonVal', ENV_UNAVAILABLE);
       return;
     }
-    var rawSky = n.weather_status_ar;
-    var skyMeta = n.__display_sky && typeof n.__display_sky === 'object' ? n.__display_sky : {};
-    var analysisTimeIso = resolveInstantIsoForSkyDisplay(skyMeta);
-    var tz = getBrowserTimeZone();
-    var isDaytime = isDaytimeLocalSixToSix(analysisTimeIso, tz);
-    var wsky = applyPublicSkyConditionDisplay(rawSky, skyMeta.weather_code != null ? skyMeta.weather_code : n.weather_code, isDaytime);
-    try {
-      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
-        console.debug('NAVIDUR_WEATHER_LABEL_RENDERED', {
-          displayed_label: wsky,
-          analysis_time: analysisTimeIso,
-          is_daytime: isDaytime,
-          source_field: wsky !== rawSky ? 'display_adjusted:weather_status_ar+weather_code+local_time' : 'raw:weather_status_ar'
-        });
-      }
-    } catch (_dbgR) { /* ignore */ }
-    if (!rawSky && !wsky) set('skyConditionVal', ENV_UNAVAILABLE);
-    else set('skyConditionVal', wsky || ENV_UNAVAILABLE);
+    var wsky = buildAccurateSkyConditionLabel(n);
+    set('skyConditionVal', wsky || ENV_UNAVAILABLE);
 
     if (n.temp == null) set('tempVal', ENV_UNAVAILABLE);
     else set('tempVal', n.temp.toFixed(1) + '°م');
@@ -500,6 +565,7 @@
     getConfidenceMeta: getConfidenceMeta,
     normalizeDisplayEnv: normalizeDisplayEnv,
     renderEnvironment: renderEnvironment,
-    buildWeatherByDayFromDto: buildWeatherByDayFromDto
+    buildWeatherByDayFromDto: buildWeatherByDayFromDto,
+    getAccurateWeatherLabelForDto: getAccurateWeatherLabelForDto
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -2973,39 +2973,12 @@
       });
     }
 
-    function navidurFixWeatherLabelForDisplay(label, analysisTime) {
-      const hour = analysisTime ? new Date(analysisTime).getHours() : new Date().getHours();
-      const localHour = new Date().getHours();
-      const isNight = (hour >= 18 || hour < 6) || (localHour >= 18 || localHour < 6);
-      if (isNight && String(label).trim() === 'مشمس') return 'صافي';
-      return label;
-    }
-
     function renderHero(date) {
       if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.renderEnvironment === 'function') {
         window.NavidurLiveAnalysis.renderEnvironment(
           window.NavidurLiveAnalysis.normalizeDisplayEnv(currentSharedAnalysisDto)
         );
       }
-      (function navidurApplyFinalSkyConditionLabel() {
-        const weatherElement = document.getElementById('skyConditionVal');
-        const dto = currentSharedAnalysisDto;
-        if (!weatherElement || !dto || !dto.environment) return;
-        const rawWeatherLabel = weatherElement.textContent;
-        const analysisTime = dto.environment.as_of || dto.analysis_timestamp;
-        const finalWeatherLabel = navidurFixWeatherLabelForDisplay(rawWeatherLabel, analysisTime);
-        const hourAnalysis = analysisTime ? new Date(analysisTime).getHours() : new Date().getHours();
-        const localHour = new Date().getHours();
-        const isNight = (hourAnalysis >= 18 || hourAnalysis < 6) || (localHour >= 18 || localHour < 6);
-        weatherElement.textContent = finalWeatherLabel;
-        console.debug('NAVIDUR_WEATHER_LABEL_FINAL_RENDER', {
-          raw_label: rawWeatherLabel,
-          final_label: finalWeatherLabel,
-          analysis_time: dto.environment.as_of || dto.analysis_timestamp,
-          local_hour: localHour,
-          is_night: isNight
-        });
-      })();
       const hasEnvDto = currentSharedAnalysisDto && currentSharedAnalysisDto.environment;
       const dar = getCurrentDar(date);
       const moon = getMoonPhase(date);
