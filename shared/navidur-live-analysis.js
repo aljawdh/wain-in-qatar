@@ -173,6 +173,93 @@
     return d[Math.round((((Number(deg) % 360) + 360) % 360) / 45) % 8];
   }
 
+  function getBrowserTimeZone() {
+    try {
+      if (typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      }
+    } catch (_e) { /* ignore */ }
+    return 'UTC';
+  }
+
+  function formatDateKeyInZone(date, tz) {
+    try {
+      var parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(date);
+      var map = {};
+      for (var i = 0; i < parts.length; i += 1) {
+        if (parts[i].type !== 'literal') map[parts[i].type] = parts[i].value;
+      }
+      if (map.year && map.month && map.day) return map.year + '-' + map.month + '-' + map.day;
+    } catch (_e) { /* ignore */ }
+    return new Date(date).toISOString().slice(0, 10);
+  }
+
+  function getLocalHourInZone(iso, tz) {
+    var ms = Date.parse(String(iso));
+    if (Number.isNaN(ms)) return null;
+    try {
+      var parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        hour: '2-digit',
+        hour12: false
+      }).formatToParts(new Date(ms));
+      for (var i = 0; i < parts.length; i += 1) {
+        if (parts[i].type === 'hour') return parseInt(parts[i].value, 10);
+      }
+    } catch (_e) { /* ignore */ }
+    return null;
+  }
+
+  function isDaytimeLocalSixToSix(iso, tz) {
+    var h = getLocalHourInZone(iso, tz);
+    if (h == null || Number.isNaN(h)) return true;
+    return h >= 6 && h < 18;
+  }
+
+  /**
+   * وقت مؤشر لعرض «صافي/مشمس» فقط: إذا كان يوم التحليل = اليوم المحلي للمستخدم نستخدم الساعة الحالية
+   * (لأن الطلب غالبًا يثبت الوقت عند 12:00Z فيخالف تجربة الليل).
+   */
+  function resolveInstantIsoForSkyDisplay(meta) {
+    var m = meta && typeof meta === 'object' ? meta : {};
+    var tz = getBrowserTimeZone();
+    var now = new Date();
+    var todayKey = formatDateKeyInZone(now, tz);
+    if (m.as_of_iso && String(m.as_of_iso).indexOf('T') > 0) return String(m.as_of_iso);
+    if (m.analysis_timestamp) return String(m.analysis_timestamp);
+    var dateKey = '';
+    if (m.analysis_date && /^\d{4}-\d{2}-\d{2}$/.test(String(m.analysis_date))) {
+      dateKey = String(m.analysis_date);
+    } else if (m.as_of_iso && /^\d{4}-\d{2}-\d{2}/.test(String(m.as_of_iso))) {
+      dateKey = String(m.as_of_iso).slice(0, 10);
+    } else if (m.as_of && /^\d{4}-\d{2}-\d{2}$/.test(String(m.as_of))) {
+      dateKey = String(m.as_of);
+    }
+    if (dateKey && dateKey === todayKey) return now.toISOString();
+    if (dateKey) return dateKey + 'T12:00:00.000Z';
+    return now.toISOString();
+  }
+
+  function applyPublicSkyConditionDisplay(rawLabel, weatherCode, isDaytime) {
+    var raw = String(rawLabel == null ? '' : rawLabel).trim();
+    var code = weatherCode != null && Number.isFinite(Number(weatherCode)) ? Number(weatherCode) : null;
+    if (isDaytime) {
+      if (code === 0) return raw.indexOf('مشمس') >= 0 || raw.indexOf('صافي') >= 0 ? raw : 'مشمس';
+      return raw;
+    }
+    if (code !== null) {
+      if (code === 0 || code === 1) return 'صافي';
+      return raw;
+    }
+    if (raw === 'مشمس') return 'صافي';
+    return raw;
+  }
+
   /**
    * Normalizes /api?route=analysis DTO environment + tide for display.
    * @returns {object|null}
@@ -189,6 +276,7 @@
     var hum = e.humidity_pct != null ? e.humidity_pct : e.relative_humidity_2m;
     return {
       weather_status_ar: e.weather_status_ar != null ? String(e.weather_status_ar).trim() : null,
+      weather_code: toFiniteNumber(e.weather_code),
       temp: toFiniteNumber(temp),
       wind_speed_kmh: toFiniteNumber(e.wind_speed_kmh),
       wind_direction_deg: toFiniteNumber(e.wind_direction_deg),
@@ -198,7 +286,14 @@
       ),
       wave_height_m: toFiniteNumber(e.wave_height_m),
       current_speed_ms: toFiniteNumber(t.current_speed_ms),
-      tide: tideMerged
+      tide: tideMerged,
+      __display_sky: {
+        weather_code: toFiniteNumber(e.weather_code),
+        analysis_timestamp: dto.analysis_timestamp != null ? String(dto.analysis_timestamp) : null,
+        as_of_iso: dto.as_of_iso != null ? String(dto.as_of_iso) : null,
+        analysis_date: dto.analysis_date != null ? String(dto.analysis_date) : null,
+        as_of: e.as_of != null ? String(e.as_of) : null
+      }
     };
   }
 
@@ -244,9 +339,24 @@
       set('moonVal', ENV_UNAVAILABLE);
       return;
     }
-    var wsky = n.weather_status_ar;
-    if (!wsky) set('skyConditionVal', ENV_UNAVAILABLE);
-    else set('skyConditionVal', wsky);
+    var rawSky = n.weather_status_ar;
+    var skyMeta = n.__display_sky && typeof n.__display_sky === 'object' ? n.__display_sky : {};
+    var analysisTimeIso = resolveInstantIsoForSkyDisplay(skyMeta);
+    var tz = getBrowserTimeZone();
+    var isDaytime = isDaytimeLocalSixToSix(analysisTimeIso, tz);
+    var wsky = applyPublicSkyConditionDisplay(rawSky, skyMeta.weather_code != null ? skyMeta.weather_code : n.weather_code, isDaytime);
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_WEATHER_LABEL_RENDERED', {
+          displayed_label: wsky,
+          analysis_time: analysisTimeIso,
+          is_daytime: isDaytime,
+          source_field: wsky !== rawSky ? 'display_adjusted:weather_status_ar+weather_code+local_time' : 'raw:weather_status_ar'
+        });
+      }
+    } catch (_dbgR) { /* ignore */ }
+    if (!rawSky && !wsky) set('skyConditionVal', ENV_UNAVAILABLE);
+    else set('skyConditionVal', wsky || ENV_UNAVAILABLE);
 
     if (n.temp == null) set('tempVal', ENV_UNAVAILABLE);
     else set('tempVal', n.temp.toFixed(1) + '°م');

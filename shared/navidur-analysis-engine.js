@@ -1086,6 +1086,7 @@
     }
     function buildEnvironmentOut() {
       var envTide = operationalTideForEnvironment();
+      var li = options.live_inputs && typeof options.live_inputs === 'object' ? options.live_inputs : {};
       return {
         temp_c: liveEnvironment.temp_c,
         wind_speed_kmh: liveEnvironment.wind_speed_kmh,
@@ -1095,6 +1096,7 @@
         from_weather_defaults: !!weatherMeta.from_defaults,
         no_marine_data_for_date: !!weatherMeta.no_marine_data_for_date,
         weather_status_ar: normalizeString(weatherMeta.weather_status_ar) || '',
+        weather_code: toNumber(li.weather_code),
         as_of: normalizeString(weatherMeta.as_of) || '',
         cache_key: normalizeString(weatherMeta.cache_key) || '',
         forecast_source: normalizeString(weatherMeta.forecast_source) || '',
