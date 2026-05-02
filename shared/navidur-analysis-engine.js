@@ -1093,7 +1093,11 @@
         wave_height_m: liveEnvironment.wave_height_m,
         live_weather_from_cache: !!weatherMeta.from_cache,
         from_weather_defaults: !!weatherMeta.from_defaults,
+        no_marine_data_for_date: !!weatherMeta.no_marine_data_for_date,
         weather_status_ar: normalizeString(weatherMeta.weather_status_ar) || '',
+        as_of: normalizeString(weatherMeta.as_of) || '',
+        cache_key: normalizeString(weatherMeta.cache_key) || '',
+        forecast_source: normalizeString(weatherMeta.forecast_source) || '',
         humidity_pct: weatherMeta.humidity_pct == null ? null : toNumber(weatherMeta.humidity_pct),
         tide: envTide
       };

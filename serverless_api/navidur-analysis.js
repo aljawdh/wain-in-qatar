@@ -10,6 +10,31 @@ const {
 } = require('./_lib/navidur-analysis-runtime');
 const fishingEngineHandler = require('./fishing-engine');
 
+function resolveAnalysisRequestDate(body) {
+  var b = body && typeof body === 'object' ? body : {};
+  var fromAnalysisDate = cleanString(b.analysis_date, 20);
+  var fromAsOf = cleanString(b.as_of_iso, 80);
+  var fromDateTime = cleanString(b.datetime, 80);
+  var dateOnly = '';
+  if (fromAnalysisDate && /^\d{4}-\d{2}-\d{2}$/.test(fromAnalysisDate)) {
+    dateOnly = fromAnalysisDate;
+  } else if (fromAsOf && /^\d{4}-\d{2}-\d{2}/.test(fromAsOf)) {
+    dateOnly = fromAsOf.slice(0, 10);
+  } else if (fromDateTime && /^\d{4}-\d{2}-\d{2}/.test(fromDateTime)) {
+    dateOnly = fromDateTime.slice(0, 10);
+  } else {
+    dateOnly = new Date().toISOString().slice(0, 10);
+  }
+  var dt = fromDateTime && /^\d{4}-\d{2}-\d{2}/.test(fromDateTime)
+    ? fromDateTime
+    : (dateOnly + 'T12:00:00Z');
+  return {
+    analysis_date: dateOnly,
+    as_of_iso: fromAsOf && /^\d{4}-\d{2}-\d{2}/.test(fromAsOf) ? fromAsOf : dt,
+    datetime: dt
+  };
+}
+
 function buildDurSnapshotForEvaluatedPoints(dur) {
   if (!dur || typeof dur !== 'object') return null;
   return {
@@ -89,6 +114,10 @@ module.exports = async function handler(req, res) {
 
   try {
     var body = req.method === 'POST' ? parseBody(req) : (req.query || {});
+    var resolvedDate = resolveAnalysisRequestDate(body);
+    body.analysis_date = resolvedDate.analysis_date;
+    body.as_of_iso = resolvedDate.as_of_iso;
+    body.datetime = resolvedDate.datetime;
     var referenceData = await loadReferenceData();
     var station = normalizeRequestedStation(body, referenceData.stations);
 
@@ -114,7 +143,7 @@ module.exports = async function handler(req, res) {
 
     var dto = analyzeLiveStation({
       station: station,
-      datetime: cleanString(body.datetime, 60) || new Date().toISOString(),
+      datetime: resolvedDate.datetime,
       reference_data: referenceData,
       overrides: body && body.overrides && typeof body.overrides === 'object' ? body.overrides : null,
       live_inputs: liveInputs,
@@ -125,6 +154,8 @@ module.exports = async function handler(req, res) {
     });
 
     dto.confidence = dto.fishing && dto.fishing.confidence_score != null ? dto.fishing.confidence_score : null;
+    dto.analysis_date = resolvedDate.analysis_date;
+    dto.as_of_iso = resolvedDate.as_of_iso;
 
     var spatialErr = null;
     dto.evaluated_points = [];
@@ -163,6 +194,19 @@ module.exports = async function handler(req, res) {
       delete dto.analysis_error;
     }
 
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_ANALYSIS_DATE_FLOW', {
+          selected_ui_date: cleanString(body.selected_ui_date, 20) || resolvedDate.analysis_date,
+          request_date_sent: resolvedDate.analysis_date,
+          server_analysis_date: resolvedDate.analysis_date,
+          weather_fetch_date: dto && dto.environment ? (dto.environment.as_of || resolvedDate.analysis_date) : resolvedDate.analysis_date,
+          cache_key: dto && dto.environment ? (dto.environment.cache_key || null) : null,
+          forecast_source: dto && dto.environment ? (dto.environment.forecast_source || null) : null,
+          values_changed: null
+        });
+      }
+    } catch (_dbgErr) { /* ignore */ }
     return res.status(200).json(dto);
   } catch (error) {
     return res.status(500).json({

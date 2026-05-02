@@ -1884,6 +1884,7 @@
     let selectedHourIndex = 0;
     let manualMode = null;
     let weatherByDay = [[], [], [], []];
+    let analysisDtoByDay = [];
     let weekDates = [];
     let stationStates = {};
     let currentStationLiveMeta = { source: 'official-wind-pending', sourceLabel: 'رادار NAVIDUR', weatherModelProfile: 'icon_seamless', isLive: false };
@@ -2470,6 +2471,114 @@
     function getForecastDateByIndex(index) {
       if (weekDates && weekDates[index]) return weekDates[index];
       return getForecastBaseDate(index);
+    }
+
+    function getAnalysisDateForDayIndex(dayIndex) {
+      return getAppIsoDay(getForecastDateByIndex(dayIndex));
+    }
+
+    function buildAnalysisRequestForDay(dayIndex) {
+      const selectedDate = getAnalysisDateForDayIndex(dayIndex);
+      const asOfIso = selectedDate + 'T12:00:00Z';
+      return {
+        selected_ui_date: selectedDate,
+        analysis_date: selectedDate,
+        as_of_iso: asOfIso,
+        datetime: asOfIso
+      };
+    }
+
+    function pickMarineComparableValues(dto) {
+      const env = dto && dto.environment ? dto.environment : {};
+      const tide = dto && dto.tide ? dto.tide : {};
+      return {
+        wave_height: env.wave_height_m != null ? Number(env.wave_height_m) : null,
+        wind_speed: env.wind_speed_kmh != null ? Number(env.wind_speed_kmh) : null,
+        current_speed: tide.current_speed_ms != null ? Number(tide.current_speed_ms) : null,
+        sea_surface_temperature: env.temp_c != null ? Number(env.temp_c) : null,
+        tide_state: tide.state != null ? String(tide.state) : null
+      };
+    }
+
+    function didMarineValuesChange(prevDto, nextDto) {
+      const prev = pickMarineComparableValues(prevDto);
+      const next = pickMarineComparableValues(nextDto);
+      return (
+        prev.wave_height !== next.wave_height ||
+        prev.wind_speed !== next.wind_speed ||
+        prev.current_speed !== next.current_speed ||
+        prev.sea_surface_temperature !== next.sea_surface_temperature ||
+        prev.tide_state !== next.tide_state
+      );
+    }
+
+    function buildWeekWeatherFromDailyDtos(station, targetWeekDates, dtoList) {
+      const days = Array.isArray(targetWeekDates) ? targetWeekDates : [];
+      const result = [];
+      for (let i = 0; i < days.length; i += 1) {
+        const dto = Array.isArray(dtoList) ? dtoList[i] : null;
+        const singleDay = [days[i]];
+        const built = buildStationWeatherFromAnalysis(station, singleDay, dto);
+        result.push((built.hoursByDay && built.hoursByDay[0]) || []);
+      }
+      return {
+        hoursByDay: result,
+        meta: Object.assign({}, currentStationLiveMeta || {}, {
+          source: 'navidur_analysis_dto_by_day',
+          stationId: station && station.id,
+          stationName: station && station.name
+        })
+      };
+    }
+
+    async function fetchAnalysisForDayIndex(dayIndex, requestToken) {
+      if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationAnalysis !== 'function') return null;
+      const reqDate = buildAnalysisRequestForDay(dayIndex);
+      const dto = await window.NavidurLiveAnalysis.getStationAnalysis(selectedStation, reqDate);
+      if (requestToken != null && requestToken !== currentSharedAnalysisRequest) return null;
+      if (dto && typeof dto === 'object') {
+        try { delete dto.field_validation; } catch (_e) { /* ignore */ }
+      }
+      const prevDto = dayIndex > 0 ? analysisDtoByDay[dayIndex - 1] : null;
+      const changed = didMarineValuesChange(prevDto, dto);
+      console.debug('NAVIDUR_ANALYSIS_DATE_FLOW', {
+        selected_ui_date: reqDate.selected_ui_date,
+        request_date_sent: reqDate.analysis_date,
+        server_analysis_date: dto && dto.analysis_date ? dto.analysis_date : reqDate.analysis_date,
+        weather_fetch_date: dto && dto.environment ? (dto.environment.as_of || reqDate.analysis_date) : reqDate.analysis_date,
+        cache_key: dto && dto.environment ? (dto.environment.cache_key || null) : null,
+        forecast_source: dto && dto.environment ? (dto.environment.forecast_source || null) : null,
+        values_changed: changed
+      });
+      return dto;
+    }
+
+    async function ensureAnalysisLoadedForSelectedDay(requestToken) {
+      if (analysisDtoByDay[selectedForecastDay]) return analysisDtoByDay[selectedForecastDay];
+      const dto = await fetchAnalysisForDayIndex(selectedForecastDay, requestToken);
+      if (dto) analysisDtoByDay[selectedForecastDay] = dto;
+      return dto;
+    }
+
+    async function onForecastDayChange(dayOffset, hourIndexOverride) {
+      selectedForecastDay = dayOffset;
+      selectedHourIndex = hourIndexOverride != null ? hourIndexOverride : getDefaultHourIndex(dayOffset);
+      manualMode = null;
+      currentSharedAnalysisRequest += 1;
+      const requestToken = currentSharedAnalysisRequest;
+      setAnalysisLoading(true);
+      try {
+        const dto = await ensureAnalysisLoadedForSelectedDay(requestToken);
+        if (requestToken !== currentSharedAnalysisRequest) return;
+        currentSharedAnalysisDto = dto;
+        const liveBundle = buildWeekWeatherFromDailyDtos(selectedStation, weekDates, analysisDtoByDay);
+        weatherByDay = liveBundle.hoursByDay;
+        currentStationLiveMeta = liveBundle.meta;
+        updateAllStationStates(getForecastDateByIndex(selectedForecastDay));
+        renderAll();
+      } finally {
+        if (requestToken === currentSharedAnalysisRequest) setAnalysisLoading(false);
+      }
     }
 
     function toUtcDay(date) {
@@ -5282,10 +5391,7 @@
         card.className = 'forecast-day' + (dayOffset === selectedForecastDay ? ' active' : '');
         card.innerHTML = '<div class="forecast-title">' + weekday + '</div><div class="forecast-status ' + dailyLabel.mode + '">' + dailyLabel.text + '</div>';
         card.addEventListener('click', function () {
-          selectedForecastDay = dayOffset;
-          selectedHourIndex = getDefaultHourIndex(dayOffset);
-          manualMode = null;
-          renderAll();
+          void onForecastDayChange(dayOffset);
         });
         root.appendChild(card);
       });
@@ -5307,9 +5413,7 @@
         card.className = 'hour' + (entry.dayIndex === selectedForecastDay && entry.hourIndex === selectedHourIndex ? ' active' : '');
         card.innerHTML = '<div class="hour-time">' + formatHourArabic(h.time) + '</div><span class="hour-arrow" style="transform:rotate(' + wd + 'deg)">↑</span><div class="hour-dir">' + windDirText8(wd) + '</div><div class="hour-val">' + (ws != null ? ws + ' كم/س' : 'لا بيانات') + '</div>';
         card.addEventListener('click', function () {
-          selectedForecastDay = entry.dayIndex;
-          selectedHourIndex = entry.hourIndex;
-          renderAll();
+          void onForecastDayChange(entry.dayIndex, entry.hourIndex);
         });
         line.appendChild(card);
       });
@@ -5521,8 +5625,9 @@
     function renderHero(date) {
       updatePublicHeaderBar();
       if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.renderEnvironment === 'function') {
+        const hideMarineReadingsForDate = !!(currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.environment.no_marine_data_for_date);
         window.NavidurLiveAnalysis.renderEnvironment(
-          window.NavidurLiveAnalysis.normalizeDisplayEnv(currentSharedAnalysisDto)
+          hideMarineReadingsForDate ? null : window.NavidurLiveAnalysis.normalizeDisplayEnv(currentSharedAnalysisDto)
         );
       }
       if (currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.dur) {
@@ -5574,6 +5679,10 @@
         setText('dorahCountdownLine', d.days_remaining != null ? ('تبقى ' + d.days_remaining + ' يوماً على نهاية هذا الدر') : '');
         (function setInfo() { const el = document.getElementById('dorahInfoBox'); if (el) el.innerHTML = refHtml; }());
         (function warnTide() {
+          if (currentSharedAnalysisDto && currentSharedAnalysisDto.environment && currentSharedAnalysisDto.environment.no_marine_data_for_date) {
+            setText('dorahWarning', 'لا تتوفر بيانات بحرية لهذا اليوم');
+            return;
+          }
           const fishingWater = getSharedFishingWaterLabelAr();
           const parts = [];
           if (fishingWater) parts.push('حالة الماء للصيد: ' + fishingWater);
@@ -5686,28 +5795,30 @@
       manualMode = null;
       rebuildDays();
       selectedForecastDay = 0;
+      analysisDtoByDay = [];
 
       try {
         if (window.NavidurLiveAnalysis && typeof window.NavidurLiveAnalysis.getStationAnalysis === 'function') {
-          const dto = await window.NavidurLiveAnalysis.getStationAnalysis(selectedStation, {
-            datetime: new Date().toISOString()
+          const dayTasks = weekDates.map(function (_date, dayIdx) {
+            return fetchAnalysisForDayIndex(dayIdx, requestToken).catch(function () { return null; });
           });
+          const dtoList = await Promise.all(dayTasks);
           if (requestToken === currentSharedAnalysisRequest) {
-            if (dto && typeof dto === 'object') {
-              try { delete dto.field_validation; } catch (_e) { /* ignore */ }
-            }
-            currentSharedAnalysisDto = dto;
+            analysisDtoByDay = dtoList;
+            currentSharedAnalysisDto = analysisDtoByDay[selectedForecastDay] || null;
           }
         } else {
+          analysisDtoByDay = [];
           currentSharedAnalysisDto = null;
         }
       } catch (_sharedErr) {
         if (requestToken === currentSharedAnalysisRequest) {
+          analysisDtoByDay = [];
           currentSharedAnalysisDto = null;
         }
       }
 
-      const liveBundle = buildStationWeatherFromAnalysis(selectedStation, weekDates, currentSharedAnalysisDto);
+      const liveBundle = buildWeekWeatherFromDailyDtos(selectedStation, weekDates, analysisDtoByDay);
       weatherByDay = liveBundle.hoursByDay;
       currentStationLiveMeta = liveBundle.meta;
 

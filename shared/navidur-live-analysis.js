@@ -52,19 +52,38 @@
     };
   }
 
-  function liveCacheKeyForStation(station) {
+  function normalizeAnalysisDateFromOptions(options) {
+    var opts = options || {};
+    var raw = '';
+    if (opts.analysis_date) raw = String(opts.analysis_date);
+    else if (opts.as_of_iso) raw = String(opts.as_of_iso);
+    else if (opts.datetime) raw = String(opts.datetime);
+    if (!raw) return new Date().toISOString().slice(0, 10);
+    var m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : new Date().toISOString().slice(0, 10);
+  }
+
+  function liveCacheKeyForStation(station, analysisDate) {
     var sid = station && station.id != null && String(station.id).trim() !== '' ? String(station.id).trim() : null;
-    return sid ? 'navidur_last_live_inputs:' + sid : null;
+    var d = analysisDate && /^\d{4}-\d{2}-\d{2}$/.test(String(analysisDate))
+      ? String(analysisDate)
+      : new Date().toISOString().slice(0, 10);
+    return sid ? 'navidur_last_live_inputs:' + sid + ':' + d : null;
   }
 
   async function getStationAnalysis(station, options) {
     if (!station || typeof station !== 'object') throw new Error('station_required');
     var opts = options || {};
-    var cacheKey = !opts.live_inputs ? liveCacheKeyForStation(station) : null;
+    var analysisDate = normalizeAnalysisDateFromOptions(opts);
+    var datetime = opts.datetime || (analysisDate + 'T12:00:00Z');
+    var asOfIso = opts.as_of_iso || datetime;
+    var cacheKey = !opts.live_inputs ? liveCacheKeyForStation(station, analysisDate) : null;
     var body = {
       station: station,
       station_id: station.id || null,
-      datetime: opts.datetime || new Date().toISOString(),
+      analysis_date: analysisDate,
+      as_of_iso: asOfIso,
+      datetime: datetime,
       overrides: opts.overrides || null,
       live_inputs: opts.live_inputs || null
     };

@@ -327,6 +327,21 @@ function weatherCacheKey(station) {
   return 'll:' + la.toFixed(4) + ',' + lo.toFixed(4);
 }
 
+function weatherCacheKeyByDate(station, asOfDate) {
+  var base = weatherCacheKey(station);
+  var d = cleanString(asOfDate, 20);
+  if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) d = 'unknown-date';
+  return base + '|d:' + d;
+}
+
+function pickHourlyValueByInstant(timeStrings, values, instantMs) {
+  if (!Array.isArray(timeStrings) || !Array.isArray(values)) return null;
+  if (!timeStrings.length || !values.length || timeStrings.length !== values.length) return null;
+  var idx = findMarineHourlyIndexForInstant(timeStrings, instantMs);
+  if (idx < 0 || idx >= values.length) return null;
+  return toNumber(values[idx]);
+}
+
 async function readWeatherCacheStore() {
   return readJsonFile('live_weather_cache', { version: 1, entries: {} });
 }
@@ -366,7 +381,11 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       values_sample: [],
       computed_state: '',
       trend: ''
-    }
+    },
+    no_data_for_date: false,
+    requested_date: cleanString(asOfDate, 20) || '',
+    cache_key: '',
+    forecast_source: 'open_meteo_hourly'
   };
   var la = toNumber(station && station.lat);
   var lo = toNumber(station && station.lon);
@@ -392,8 +411,8 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     weatherUrl.searchParams.set('latitude', String(la));
     weatherUrl.searchParams.set('longitude', String(lo));
     weatherUrl.searchParams.set(
-      'current',
-      'wind_speed_10m,wind_direction_10m,relative_humidity_2m,is_day,weather_code,cloud_cover,precipitation,rain,visibility'
+      'hourly',
+      'temperature_2m,wind_speed_10m,wind_direction_10m,relative_humidity_2m,is_day,weather_code,cloud_cover,precipitation,rain,visibility'
     );
     weatherUrl.searchParams.set('wind_speed_unit', 'kmh');
     weatherUrl.searchParams.set('timezone', 'GMT');
@@ -405,8 +424,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     var marineUrl = new URL('https://marine-api.open-meteo.com/v1/marine');
     marineUrl.searchParams.set('latitude', String(la));
     marineUrl.searchParams.set('longitude', String(lo));
-    marineUrl.searchParams.set('current', 'sea_surface_temperature,ocean_current_velocity,wave_height');
-    marineUrl.searchParams.set('hourly', 'sea_level_height_msl');
+    marineUrl.searchParams.set('hourly', 'sea_surface_temperature,ocean_current_velocity,wave_height,sea_level_height_msl');
     marineUrl.searchParams.set('timezone', 'GMT');
     if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
       marineUrl.searchParams.set('start_date', String(asOfDate));
@@ -422,11 +440,12 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     }
     var weatherPayload = await responses[0].json();
     var marinePayload = await responses[1].json();
-    var weatherCurrent = weatherPayload && weatherPayload.current ? weatherPayload.current : {};
-    var marineCurrent = marinePayload && marinePayload.current ? marinePayload.current : {};
-    var hourly = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
-    var tideArray = Array.isArray(hourly.sea_level_height_msl) ? hourly.sea_level_height_msl : [];
-    var timeArray = Array.isArray(hourly.time) ? hourly.time : [];
+    var weatherHourly = weatherPayload && weatherPayload.hourly ? weatherPayload.hourly : {};
+    var marineHourly = marinePayload && marinePayload.hourly ? marinePayload.hourly : {};
+    var weatherTimeArray = Array.isArray(weatherHourly.time) ? weatherHourly.time : [];
+    var marineTimeArray = Array.isArray(marineHourly.time) ? marineHourly.time : [];
+    var tideArray = Array.isArray(marineHourly.sea_level_height_msl) ? marineHourly.sea_level_height_msl : [];
+    var timeArray = marineTimeArray;
 
     var instantMs = Date.now();
     if (asOfInstantIso && String(asOfInstantIso).length >= 10) {
@@ -438,6 +457,50 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     out.tide_debug = Object.assign({}, out.tide_debug, tidePack.tide_debug, {
       has_hourly: tideArray.length > 0 && timeArray.length === tideArray.length
     });
+    var weatherIdx = findMarineHourlyIndexForInstant(weatherTimeArray, instantMs);
+    var marineIdx = findMarineHourlyIndexForInstant(marineTimeArray, instantMs);
+    var hasWeatherForDate = weatherIdx >= 0 && weatherIdx < weatherTimeArray.length;
+    var hasMarineForDate = marineIdx >= 0 && marineIdx < marineTimeArray.length;
+    if (!hasWeatherForDate || !hasMarineForDate) {
+      out.ok = true;
+      out.no_data_for_date = true;
+      out.live_inputs = {
+        temp_c: null,
+        wind_speed_kmh: null,
+        wind_direction_deg: null,
+        wave_height_m: null,
+        current_speed_ms: null,
+        relative_humidity_2m: null,
+        weather_code: null,
+        tide: { state: null, height_m: null, trend: null }
+      };
+      out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
+      out.forecast_source = 'open_meteo_out_of_range';
+      return out;
+    }
+    var weatherCurrent = {
+      temperature_2m: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.temperature_2m, instantMs),
+      wind_speed_10m: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.wind_speed_10m, instantMs),
+      wind_direction_10m: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.wind_direction_10m, instantMs),
+      relative_humidity_2m: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.relative_humidity_2m, instantMs),
+      weather_code: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.weather_code, instantMs),
+      cloud_cover: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.cloud_cover, instantMs),
+      precipitation: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.precipitation, instantMs),
+      rain: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.rain, instantMs),
+      visibility: pickHourlyValueByInstant(weatherTimeArray, weatherHourly.visibility, instantMs),
+      is_day: (function () {
+        var v = pickHourlyValueByInstant(weatherTimeArray, weatherHourly.is_day, instantMs);
+        if (v != null) return v;
+        var dt = new Date(instantMs);
+        var hh = dt.getUTCHours();
+        return hh >= 6 && hh <= 18 ? 1 : 0;
+      })()
+    };
+    var marineCurrent = {
+      sea_surface_temperature: pickHourlyValueByInstant(marineTimeArray, marineHourly.sea_surface_temperature, instantMs),
+      wave_height: pickHourlyValueByInstant(marineTimeArray, marineHourly.wave_height, instantMs),
+      ocean_current_velocity: pickHourlyValueByInstant(marineTimeArray, marineHourly.ocean_current_velocity, instantMs)
+    };
 
     var li = {
       temp_c: toNumber(marineCurrent.sea_surface_temperature),
@@ -463,9 +526,11 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     if (out.weather_status_ar === WEATHER_UNAVAILABLE_AR && toNumber(weatherCurrent.weather_code) != null) {
       out.weather_status_ar = mapOpenMeteoCurrentToArabicSky({ weather_code: toNumber(weatherCurrent.weather_code) });
     }
+    out.forecast_source = 'open_meteo_hourly';
     return out;
   } catch (_e) {
-    var key = weatherCacheKey(station);
+    var key = weatherCacheKeyByDate(station, asOfDate);
+    out.cache_key = key;
     var doc;
     try {
       doc = await readWeatherCacheStore();
@@ -477,6 +542,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       out.ok = true;
       out.from_cache = true;
       out.live_inputs = ent.live_inputs;
+      out.forecast_source = 'cache_by_station_date';
       var cTide = ent.live_inputs.tide && typeof ent.live_inputs.tide === 'object' ? ent.live_inputs.tide : {};
       out.tide_debug = {
         has_hourly: false,
@@ -500,18 +566,26 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       return out;
     }
     out.ok = true;
-    out.from_defaults = true;
-    out.live_inputs = Object.assign({}, DEFAULT_LIVE, {
+    out.no_data_for_date = true;
+    out.live_inputs = {
+      temp_c: null,
+      wind_speed_kmh: null,
+      wind_direction_deg: null,
+      wave_height_m: null,
+      current_speed_ms: null,
+      relative_humidity_2m: null,
+      weather_code: null,
       tide: { state: null, height_m: null, trend: null }
-    });
+    };
     out.tide_debug = {
       has_hourly: false,
       values_sample: [],
       computed_state: '',
       trend: '',
-      from_defaults: true
+      no_data_for_date: true
     };
     out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
+    out.forecast_source = 'no_marine_data_for_date';
     return out;
   }
 }
@@ -562,10 +636,17 @@ async function fetchWeatherAndMarineInputs(station, body) {
   }
   var asOf = '';
   var asOfInstant = '';
-  if (body && body.datetime) {
+  if (body && body.analysis_date && /^\d{4}-\d{2}-\d{2}$/.test(String(body.analysis_date))) {
+    asOf = String(body.analysis_date);
+  }
+  if (body && body.as_of_iso && /^\d{4}-\d{2}-\d{2}/.test(String(body.as_of_iso))) {
+    asOfInstant = String(body.as_of_iso);
+    if (!asOf) asOf = asOfInstant.slice(0, 10);
+  }
+  if (!asOfInstant && body && body.datetime) {
     var ds = String(body.datetime);
     if (ds.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(ds)) {
-      asOf = ds.slice(0, 10);
+      asOf = asOf || ds.slice(0, 10);
       asOfInstant = ds;
     }
   }
@@ -576,11 +657,17 @@ async function fetchWeatherAndMarineInputs(station, body) {
     asOf = asOfInstant.slice(0, 10);
   }
   var pack = await getWeatherData(station, asOf, asOfInstant);
-  var li = pack.live_inputs || Object.assign({}, DEFAULT_LIVE, {
+  var cacheKey = weatherCacheKeyByDate(station, asOf);
+  var li = pack.live_inputs || {
+    temp_c: null,
+    wind_speed_kmh: null,
+    wind_direction_deg: null,
+    wave_height_m: null,
+    current_speed_ms: null,
     tide: { state: null, height_m: null, trend: null }
-  });
-  if (pack.ok && !pack.from_cache && !pack.from_defaults) {
-    await saveWeatherCacheEntry(weatherCacheKey(station), li, pack.weather_status_ar);
+  };
+  if (pack.ok && !pack.from_cache && !pack.from_defaults && !pack.no_data_for_date) {
+    await saveWeatherCacheEntry(cacheKey, li, pack.weather_status_ar);
   }
   var hum = toNumber(li.relative_humidity_2m);
   return {
@@ -590,7 +677,11 @@ async function fetchWeatherAndMarineInputs(station, body) {
       from_defaults: !!pack.from_defaults,
       weather_status_ar: cleanString(pack.weather_status_ar, 200) || '',
       as_of: asOf || null,
-      humidity_pct: hum != null ? hum : null
+      humidity_pct: hum != null ? hum : null,
+      no_marine_data_for_date: !!pack.no_data_for_date,
+      cache_key: cacheKey,
+      forecast_source: pack.forecast_source || '',
+      weather_fetch_date: asOf || null
     },
     tide_debug: pack.tide_debug || {
       has_hourly: false,

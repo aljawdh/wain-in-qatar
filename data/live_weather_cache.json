@@ -63,6 +63,90 @@
       },
       "weather_status_ar": "غائم جزئياً",
       "saved_at": "2026-04-29T22:54:24.809Z"
+    },
+    "id:doha|d:2026-05-02": {
+      "live_inputs": {
+        "temp_c": 27.8,
+        "wind_speed_kmh": 6.3,
+        "wind_direction_deg": 110,
+        "wave_height_m": 0.18,
+        "current_speed_ms": 0.3,
+        "relative_humidity_2m": 44,
+        "weather_code": 0,
+        "tide": {
+          "state": "ثبر",
+          "height_m": 0.84,
+          "trend": "falling",
+          "previous": 0.88,
+          "current": 0.84,
+          "next": 0.72
+        }
+      },
+      "weather_status_ar": "مشمس",
+      "saved_at": "2026-05-02T18:55:45.993Z"
+    },
+    "id:doha|d:2026-05-03": {
+      "live_inputs": {
+        "temp_c": 28.5,
+        "wind_speed_kmh": 6.4,
+        "wind_direction_deg": 22,
+        "wave_height_m": 0.04,
+        "current_speed_ms": 0.3,
+        "relative_humidity_2m": 42,
+        "weather_code": 0,
+        "tide": {
+          "state": "ثبر",
+          "height_m": 0.95,
+          "trend": "falling",
+          "previous": 0.96,
+          "current": 0.95,
+          "next": 0.86
+        }
+      },
+      "weather_status_ar": "مشمس",
+      "saved_at": "2026-05-02T18:55:48.291Z"
+    },
+    "id:doha|d:2026-05-04": {
+      "live_inputs": {
+        "temp_c": 28.5,
+        "wind_speed_kmh": 6.9,
+        "wind_direction_deg": 355,
+        "wave_height_m": 0.38,
+        "current_speed_ms": 0.2,
+        "relative_humidity_2m": 19,
+        "weather_code": 0,
+        "tide": {
+          "state": "ثبر",
+          "height_m": 0.96,
+          "trend": "falling",
+          "previous": 0.92,
+          "current": 0.96,
+          "next": 0.9
+        }
+      },
+      "weather_status_ar": "مشمس",
+      "saved_at": "2026-05-02T18:55:49.531Z"
+    },
+    "id:doha|d:2026-05-05": {
+      "live_inputs": {
+        "temp_c": 28.9,
+        "wind_speed_kmh": 10.3,
+        "wind_direction_deg": 29,
+        "wave_height_m": 0.32,
+        "current_speed_ms": 0.3,
+        "relative_humidity_2m": 43,
+        "weather_code": 0,
+        "tide": {
+          "state": "سقي",
+          "height_m": 0.93,
+          "trend": "rising",
+          "previous": 0.81,
+          "current": 0.93,
+          "next": 0.92
+        }
+      },
+      "weather_status_ar": "مشمس",
+      "saved_at": "2026-05-02T18:55:50.706Z"
     }
   }
 }
