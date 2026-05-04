@@ -9,6 +9,7 @@
     { "path": "/api/run-snapshots", "schedule": "0 0 * * *" }
   ],
   "redirects": [
+    { "source": "/", "destination": "/public/index.html", "permanent": false },
     { "source": "/admin", "destination": "/admin.html", "permanent": false },
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
