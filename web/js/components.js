@@ -33,10 +33,31 @@
     return card('قرار اليوم', inner);
   }
 
+  function renderWindCompass(dto) {
+    var env = dto && dto.environment ? dto.environment : {};
+    var raw = env.wind_direction_deg;
+    var deg = H.toNumber(raw, null);
+    if (deg == null || !Number.isFinite(deg)) {
+      return '<div class="wind-compass" aria-hidden="true"><div class="compass-circle"><div class="compass-arrow-rotate compass-arrow-rotate--idle"><div class="compass-arrow"></div></div></div><div class="compass-label">—</div></div>';
+    }
+    deg = ((deg % 360) + 360) % 360;
+    var name = H.formatDirection(deg);
+    var labelText = name === '—' ? '—' : name + ' ' + Math.round(deg) + '°';
+    return '<div class="wind-compass" role="img" aria-label="اتجاه الرياح">'
+      + '<div class="compass-circle">'
+      + '<div class="compass-arrow-rotate" style="transform: rotate(' + deg + 'deg)">'
+      + '<div class="compass-arrow"></div>'
+      + '</div>'
+      + '</div>'
+      + '<div class="compass-label">' + labelText + '</div>'
+      + '</div>';
+  }
+
   root.NavidurComponents = {
     card: card,
     metricCard: metricCard,
     fishRow: fishRow,
-    decisionCard: decisionCard
+    decisionCard: decisionCard,
+    renderWindCompass: renderWindCompass
   };
 })(window);

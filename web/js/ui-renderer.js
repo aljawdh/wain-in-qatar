@@ -28,6 +28,7 @@
       + '<div class="dashboard-stack">'
       + C.card('الدور الحالي', '<div class="metric">' + (dur.period_name || '—') + '</div><p class="muted">اليوم داخل الدر: ' + (dur.day_in_period || '—') + ' · الدر التالي: ' + (dur.next_period_name || '—') + '</p>')
       + C.decisionCard(fish, dto && dto.decision ? dto.decision : null, true)
+      + C.renderWindCompass(dto)
       + '<div class="dashboard-quick">'
       + '<div class="dashboard-quick__item"><span class="dashboard-quick__label">ارتفاع الموج</span><span class="dashboard-quick__value">' + waveVal + ' <span class="muted">م</span></span></div>'
       + '<div class="dashboard-quick__item"><span class="dashboard-quick__label">سرعة الرياح</span><span class="dashboard-quick__value">' + windVal + ' <span class="muted">كم/س</span></span></div>'
