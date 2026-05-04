@@ -4088,9 +4088,105 @@
         depthMode: depth
       });
       void updateDururStationPreviewTraitCalibRow();
+      void refreshDururTraitLongTermPanel({
+        referenceStationNameAr: refNameAr,
+        referenceStationId: selectedDururTraitReferenceId,
+        durNameAr: durNameAr,
+        phaseId: phaseId,
+        depthMode: depth
+      });
     } catch (e) {
       hint.textContent = 'تعذر التحميل: ' + (e && e.message ? e.message : e);
       tables.innerHTML = '';
+      void refreshDururTraitLongTermPanel(null);
+    }
+  }
+
+  async function postTraitLearningSupervisor(scope, action, traitName) {
+    if (!scope || !scope.referenceStationId || !scope.durNameAr || !traitName) return;
+    var body = {
+      action: action,
+      reference_station_id: scope.referenceStationId,
+      reference_station_name_ar: scope.referenceStationNameAr || '',
+      dur_name_ar: scope.durNameAr,
+      phase_id: scope.phaseId || '',
+      depth_mode: scope.depthMode || 'coastal',
+      trait_name: traitName
+    };
+    try {
+      var res = await apiFetch('/api?route=admin&path=trait-learning-supervisor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var j = await res.json();
+      if (!res.ok || !j.ok) throw new Error((j && j.error) || 'supervisor_failed');
+      await refreshDururTraitReviewPanel();
+    } catch (e) {
+      window.alert('فشل إجراء المشرف: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function refreshDururTraitLongTermPanel(scope) {
+    var mount = getEl('dururTraitLongTermMount');
+    var hint = getEl('dururTraitLongTermHint');
+    if (!mount || !hint) return;
+    if (!scope || !scope.referenceStationId || !scope.durNameAr) {
+      mount.innerHTML = '';
+      hint.textContent = 'اختر محطة مرجعية ودراً ثم «تحديث قوائم المراجعة» لعرض دورات السمات الداخلية.';
+      return;
+    }
+    hint.textContent = 'جاري تحميل دورات السمات…';
+    mount.innerHTML = '';
+    try {
+      var q = 'reference_station_id=' + encodeURIComponent(scope.referenceStationId)
+        + '&dur_name_ar=' + encodeURIComponent(scope.durNameAr)
+        + '&phase_id=' + encodeURIComponent(scope.phaseId || '')
+        + '&depth_mode=' + encodeURIComponent(scope.depthMode || 'coastal');
+      var r = await apiFetch('/api?route=admin&path=trait-long-term-state&' + q, { method: 'GET' }).then(function (res) { return res.json(); });
+      if (!r.ok) throw new Error(r.error || 'load_failed');
+      var rows = Array.isArray(r.rows) ? r.rows : [];
+      hint.textContent = 'النطاق: ' + escapeHtml(scope.referenceStationNameAr || scope.referenceStationId) + ' · ' + escapeHtml(scope.durNameAr) + ' · مرحلة: ' + escapeHtml(scope.phaseId || '(الكل)') + ' · ' + (scope.depthMode === 'deep' ? 'غزير' : 'ساحلي') + ' — ' + String(rows.length) + ' سمة مسجّلة';
+      if (!rows.length) {
+        mount.innerHTML = '<div style="color:#9fc1d7;font-size:.76rem">لا توجد دورات مسجّلة لهذا النطاق بعد (يُحدَّث عند إرسال سجلات التحقق).</div>';
+        return;
+      }
+      var head = '<thead><tr style="text-align:right;font-size:.72rem;color:#9fc1d7">'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">السمة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">مطابقة / فشل / زائد</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">دورات إيجابية</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">آخر سنة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">ثقة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">الحالة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">إجراءات</th>'
+        + '</tr></thead>';
+      var bodyRows = rows.map(function (row) {
+        var st = String(row.status || '');
+        var canConfirm = st === 'stage_3_confirmed_candidate' || st === 'exclusion_candidate';
+        var confirmLabel = st === 'exclusion_candidate' ? 'تأكيد الاستبعاد' : 'اعتماد للمرجع';
+        var label = row.candidate_label ? ' <span style="color:#ffe7aa;font-size:.7rem">' + escapeHtml(row.candidate_label) + '</span>' : '';
+        var hold = row.supervisor_hold ? ' <span style="color:#9fc1d7;font-size:.7rem">(معلّق)</span>' : '';
+        var btns = ''
+          + '<button type="button" class="small-btn" data-trait-learning="confirm" data-trait-name="' + escapeHtml(row.trait_name) + '"' + (canConfirm ? '' : ' disabled') + ' style="margin-left:4px;font-size:.7rem">' + escapeHtml(confirmLabel) + '</button>'
+          + '<button type="button" class="small-btn" data-trait-learning="exclude" data-trait-name="' + escapeHtml(row.trait_name) + '" style="margin-left:4px;font-size:.7rem">استبعاد</button>'
+          + '<button type="button" class="small-btn" data-trait-learning="review" data-trait-name="' + escapeHtml(row.trait_name) + '" style="margin-left:4px;font-size:.7rem">إبقاء تحت المراجعة</button>';
+        return '<tr style="font-size:.74rem;color:#c5d5e0">'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top">' + escapeHtml(row.trait_name) + label + hold + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap">' + escapeHtml(String(row.matched_count != null ? row.matched_count : '0')) + ' / ' + escapeHtml(String(row.failed_count != null ? row.failed_count : '0')) + ' / ' + escapeHtml(String(row.extra_count != null ? row.extra_count : '0')) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.positive_events != null ? row.positive_events : '0')) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.last_seen_year != null ? row.last_seen_year : '—')) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(row.confidence != null ? String(row.confidence) : '—') + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.7rem">' + escapeHtml(st || '—') + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap">' + btns + '</td>'
+          + '</tr>';
+      }).join('');
+      mount.innerHTML = '<table style="width:100%;border-collapse:collapse">' + head + '<tbody>' + bodyRows + '</tbody></table>';
+      mount.querySelectorAll('button[data-trait-learning]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var act = btn.getAttribute('data-trait-learning');
+          var tn = btn.getAttribute('data-trait-name');
+          if (!act || !tn) return;
+          void postTraitLearningSupervisor(scope, act, tn);
+        });
+      });
+    } catch (e) {
+      hint.textContent = 'تعذر تحميل دورات السمات: ' + (e && e.message ? e.message : e);
     }
   }
 
@@ -4157,6 +4253,11 @@
       + '      </div>'
       + '      <div id="dururTraitReviewHint" style="font-size:.76rem;color:#9fc1d7;margin-top:8px;line-height:1.4"></div>'
       + '      <div id="dururTraitReviewTables" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>'
+      + '      <div id="dururTraitLongTermShell" style="margin-top:14px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.12)">'
+      + '        <div style="font-size:.86rem;color:#dff8ff;margin-bottom:6px"><strong>إشارات السمات طويلة المدى (KV — مراجعة المشرف)</strong></div>'
+      + '        <div id="dururTraitLongTermHint" style="font-size:.74rem;color:#9fc1d7;margin-bottom:8px;line-height:1.4"></div>'
+      + '        <div id="dururTraitLongTermMount" style="overflow:auto;max-height:420px"></div>'
+      + '      </div>'
       + '    </div>'
       + '  </div>'
       + '</div>';

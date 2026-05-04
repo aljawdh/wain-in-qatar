@@ -11,6 +11,8 @@ const {
 } = require('./_lib/navidur-analysis-runtime');
 const fishingEngineHandler = require('./fishing-engine');
 const navidurSnapshotValidation = require('../shared/navidur-snapshot-validation');
+const publicNavidurDto = require('./_lib/navidur-public-dto');
+const traitLongTerm = require('./_lib/navidur-trait-long-term');
 
 /** آخر لقطة traits بين طلبات التحليل (نفس عملية Node فقط — للتشخيص التسلسلي A/B/C). */
 var __navidurTraitsDiagPrev = null;
@@ -301,6 +303,11 @@ module.exports = async function handler(req, res) {
       trait_calibration: traitCalibDoc,
       request_depth_mode: cleanString(body.depth_mode, 20)
     });
+    try {
+      dto.internal_trait_signals = publicNavidurDto.buildInternalTraitSignalsFromDto(dto);
+    } catch (_sig) {
+      dto.internal_trait_signals = [];
+    }
 
     logNavidurTraitsValidation(dto, station, { analysis_date: resolvedDate.analysis_date });
 
@@ -311,10 +318,20 @@ module.exports = async function handler(req, res) {
         station: station,
         dto: dto,
         field_validation: fieldValidation,
-        notes: null
+        notes: null,
+        depth_mode: cleanString(body.depth_mode, 20) || 'coastal'
       });
       if (validationRec) {
         await appendDurValidationLog(validationRec);
+        try {
+          await traitLongTerm.bumpTraitCyclesFromValidationRecord(validationRec, {
+            reference_bucket_id: validationRec.station_id,
+            dur_name_ar: validationRec.dur_name,
+            phase_id: validationRec.phase_id || '',
+            depth_mode: validationRec.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
+            evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation)
+          });
+        } catch (_bumpErr) { /* ignore */ }
       }
     } catch (_valLogErr) { /* never fail analysis on validation append */ }
 
@@ -372,7 +389,7 @@ module.exports = async function handler(req, res) {
         });
       }
     } catch (_dbgErr) { /* ignore */ }
-    return res.status(200).json(dto);
+    return res.status(200).json(publicNavidurDto.sanitizePublicNavidurDto(dto));
   } catch (error) {
     return res.status(500).json({
       error: 'navidur_analysis_failed',

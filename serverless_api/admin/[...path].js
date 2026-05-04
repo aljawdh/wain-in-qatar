@@ -731,6 +731,104 @@ async function applyTraitCalibrationAction(actor, body) {
   return { ok: true, scope_key: key, entry: entry };
 }
 
+async function applyTraitLearningSupervisor(actor, body) {
+  const action = cleanString(body.action, 20);
+  const traitName = cleanString(body.trait_name, 120);
+  const refId = cleanString(body.reference_station_id, 80);
+  const durNameAr = cleanString(body.dur_name_ar, 120);
+  const phaseId = cleanString(body.phase_id, 120);
+  const depthMode = cleanString(body.depth_mode, 20) || 'coastal';
+  if (!traitName || !refId || !durNameAr) {
+    const err = new Error('trait_learning_scope_required');
+    err.code = 400;
+    throw err;
+  }
+  const key = traitCalibrationLib.buildTraitCalibrationScopeKey({
+    reference_station_id: refId,
+    dur_name_ar: durNameAr,
+    phase_id: phaseId,
+    depth_mode: depthMode
+  });
+  const cyclesDoc = await readJsonFile('trait_cycles', { version: 1, scopes: {} });
+  cyclesDoc.scopes = cyclesDoc.scopes && typeof cyclesDoc.scopes === 'object' ? cyclesDoc.scopes : {};
+  const scope = cyclesDoc.scopes[key];
+  const row = scope && scope.traits ? scope.traits[traitName] : null;
+  if (!row) {
+    const err = new Error('trait_cycle_not_found');
+    err.code = 400;
+    throw err;
+  }
+  const refNameAr = cleanString(body.reference_station_name_ar, 200);
+  if (action === 'confirm') {
+    if (String(row.status) === 'stage_3_confirmed_candidate') {
+      row.supervisor_hold = false;
+      await applyTraitCalibrationAction(actor, {
+        action: 'confirm',
+        reference_station_id: refId,
+        reference_station_name_ar: refNameAr,
+        dur_name_ar: durNameAr,
+        phase_id: phaseId,
+        depth_mode: depthMode,
+        trait_name: traitName,
+        evidence_count: 3,
+        source: 'extra',
+        first_seen_at: row.last_event_at,
+        last_seen_at: row.last_event_at
+      });
+      row.status = 'confirmed';
+    } else if (String(row.status) === 'exclusion_candidate') {
+      row.supervisor_hold = false;
+      await applyTraitCalibrationAction(actor, {
+        action: 'exclude',
+        reference_station_id: refId,
+        reference_station_name_ar: refNameAr,
+        dur_name_ar: durNameAr,
+        phase_id: phaseId,
+        depth_mode: depthMode,
+        trait_name: traitName,
+        evidence_count: Math.max(3, Number(row.failed_events) || 3),
+        source: 'failed',
+        first_seen_at: row.last_event_at,
+        last_seen_at: row.last_event_at
+      });
+      row.status = 'excluded';
+    } else {
+      const err = new Error('trait_not_ready_for_supervisor_confirm');
+      err.code = 400;
+      throw err;
+    }
+  } else if (action === 'exclude') {
+    row.supervisor_hold = false;
+    await applyTraitCalibrationAction(actor, {
+      action: 'exclude',
+      reference_station_id: refId,
+      reference_station_name_ar: refNameAr,
+      dur_name_ar: durNameAr,
+      phase_id: phaseId,
+      depth_mode: depthMode,
+      trait_name: traitName,
+      evidence_count: Math.max(1, Number(row.failed_events) || 1),
+      source: 'failed'
+    });
+    row.status = 'excluded';
+  } else if (action === 'review') {
+    row.supervisor_hold = true;
+    if (String(row.status) !== 'confirmed' && String(row.status) !== 'excluded') {
+      row.status = 'stage_1_review';
+    }
+  } else {
+    const err = new Error('invalid_action');
+    err.code = 400;
+    throw err;
+  }
+  scope.traits[traitName] = row;
+  scope.updated_at = new Date().toISOString();
+  cyclesDoc.scopes[key] = scope;
+  await writeJsonFile('trait_cycles', cyclesDoc);
+  await writeAudit('trait_learning_supervisor_' + action, actor, { scope_key: key, trait_name: traitName });
+  return { ok: true, scope_key: key, trait_name: traitName, status: row.status };
+}
+
 module.exports = async function handler(req, res) {
   setNoCache(res);
 
@@ -1802,6 +1900,63 @@ module.exports = async function handler(req, res) {
     try {
       const body = parseBody(req);
       const out = await applyTraitCalibrationAction(actor, body);
+      return res.status(200).json(out);
+    } catch (err) {
+      const code = err && err.code === 400 ? 400 : 500;
+      return res.status(code).json({ ok: false, error: String(err.message || err) });
+    }
+  }
+
+  if (root === 'trait-long-term-state') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const doc = await readJsonFile('trait_cycles', { version: 1, scopes: {} });
+    const q = req.query || {};
+    const refId = cleanString(q.reference_station_id, 80) || cleanString(q.station_id, 80);
+    const durName = cleanString(q.dur_name_ar, 120);
+    const phaseId = cleanString(q.phase_id, 120);
+    const depthMode = cleanString(q.depth_mode, 20) || 'coastal';
+    if (refId && durName) {
+      const sk = traitCalibrationLib.buildTraitCalibrationScopeKey({
+        reference_station_id: refId,
+        dur_name_ar: durName,
+        phase_id: phaseId,
+        depth_mode: depthMode
+      });
+      const scope = doc.scopes && doc.scopes[sk] ? doc.scopes[sk] : null;
+      const traits = scope && scope.traits ? scope.traits : {};
+      const rows = Object.keys(traits).map(function (name) {
+        const t = traits[name] || {};
+        return {
+          trait_name: name,
+          matched_count: t.matched_count,
+          failed_count: t.failed_count,
+          extra_count: t.extra_count,
+          cycle_number: t.cycle_number,
+          last_seen_year: t.last_seen_year,
+          confidence: t.confidence,
+          status: t.status,
+          positive_events: t.positive_events,
+          failed_events: t.failed_events,
+          supervisor_hold: !!t.supervisor_hold,
+          candidate_label: String(t.status) === 'stage_3_confirmed_candidate' ? 'مرشحة للاعتماد' : ''
+        };
+      });
+      return res.status(200).json({ ok: true, scope_key: sk, rows: rows });
+    }
+    return res.status(200).json({ ok: true, version: doc.version, scopes: doc.scopes || {} });
+  }
+
+  if (root === 'trait-learning-supervisor') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const body = parseBody(req);
+      const out = await applyTraitLearningSupervisor(actor, body);
       return res.status(200).json(out);
     } catch (err) {
       const code = err && err.code === 400 ? 400 : 500;

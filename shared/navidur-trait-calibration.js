@@ -68,7 +68,10 @@
   function applyCalibrationToUnified(unifiedTraits, scopeDoc) {
     var base = uniqueStrings(unifiedTraits);
     if (!scopeDoc || typeof scopeDoc !== 'object') return base;
-    var excluded = traitNamesFromCalibrationEntries(scopeDoc.excluded_traits);
+    var excludedEntries = (scopeDoc.excluded_traits || []).filter(function (x) {
+      return !x || !x.status || String(x.status || '').toLowerCase() === 'excluded';
+    });
+    var excluded = traitNamesFromCalibrationEntries(excludedEntries);
     var confirmed = (scopeDoc.confirmed_traits || []).filter(function (x) {
       return x && String(x.status || '').toLowerCase() === 'confirmed';
     });

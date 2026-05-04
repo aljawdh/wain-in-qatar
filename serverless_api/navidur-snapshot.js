@@ -7,6 +7,8 @@ const {
   nowIso
 } = require('./_lib/data-store');
 const { isAllowedOrigin, parseBody, setNoCache, cleanString, rateLimit } = require('./_lib/security');
+const publicNavidurDto = require('./_lib/navidur-public-dto');
+const traitLongTerm = require('./_lib/navidur-trait-long-term');
 const { analyzeLiveStation } = require('../shared/navidur-analysis-engine');
 const {
   normalizeRequestedStation,
@@ -54,6 +56,11 @@ async function captureSnapshotInternal(body, options) {
     tide_debug: weatherPack.tide_debug && typeof weatherPack.tide_debug === 'object' ? weatherPack.tide_debug : null,
     field_validation: fieldValidation
   });
+  try {
+    dto.internal_trait_signals = publicNavidurDto.buildInternalTraitSignalsFromDto(dto);
+  } catch (_its) {
+    dto.internal_trait_signals = [];
+  }
 
   var timestamp = nowIso();
   var snapshot = buildSnapshotRecord({
@@ -68,18 +75,28 @@ async function captureSnapshotInternal(body, options) {
     station: station,
     dto: dto,
     field_validation: fieldValidation,
-    notes: cleanString(body.notes, 800) || null
+    notes: cleanString(body.notes, 800) || null,
+    depth_mode: cleanString(body.depth_mode, 20) || 'coastal'
   });
 
   await appendStationSnapshot(snapshot);
   if (validation) {
     await appendDurValidationLog(validation);
+    try {
+      await traitLongTerm.bumpTraitCyclesFromValidationRecord(validation, {
+        reference_bucket_id: validation.station_id,
+        dur_name_ar: validation.dur_name,
+        phase_id: validation.phase_id || '',
+        depth_mode: validation.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
+        evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation)
+      });
+    } catch (_bumpSnap) { /* ignore */ }
   }
 
   return {
     snapshot: snapshot,
     validation: validation,
-    dto: dto
+    dto: publicNavidurDto.sanitizePublicNavidurDto(dto)
   };
 }
 

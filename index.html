@@ -2534,6 +2534,15 @@
 
     function navidurLogTraitsValidationFromDto(dto) {
       if (!dto || typeof dto !== 'object') return;
+      if (dto.public_navidur_summary && typeof dto.public_navidur_summary === 'object') {
+        try {
+          console.debug('NAVIDUR_TRAITS_VALIDATION_SKIPPED_PUBLIC_DTO', {
+            reason: 'public_navidur_summary',
+            station_id: dto.station_id != null ? dto.station_id : null
+          });
+        } catch (_s) { /* ignore */ }
+        return;
+      }
       try {
         const st = selectedStation && typeof selectedStation === 'object' ? selectedStation : {};
         const env = dto.environment && typeof dto.environment === 'object' ? dto.environment : {};
