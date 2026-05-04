@@ -9,6 +9,141 @@ const {
   loadReferenceData
 } = require('./_lib/navidur-analysis-runtime');
 const fishingEngineHandler = require('./fishing-engine');
+const navidurSnapshotValidation = require('../shared/navidur-snapshot-validation');
+
+/** آخر لقطة traits بين طلبات التحليل (نفس عملية Node فقط — للتشخيص التسلسلي A/B/C). */
+var __navidurTraitsDiagPrev = null;
+
+function uniqueTraitStringsForLog(list) {
+  var out = [];
+  var arr = Array.isArray(list) ? list : [];
+  for (var i = 0; i < arr.length; i++) {
+    var s = cleanString(arr[i], 120);
+    if (s && out.indexOf(s) < 0) out.push(s);
+  }
+  return out;
+}
+
+function buildPerTraitSourceLineage(predicted, observed) {
+  var union = [];
+  var j;
+  for (j = 0; j < predicted.length; j++) {
+    if (union.indexOf(predicted[j]) < 0) union.push(predicted[j]);
+  }
+  for (j = 0; j < observed.length; j++) {
+    if (union.indexOf(observed[j]) < 0) union.push(observed[j]);
+  }
+  return union.map(function (trait) {
+    var inP = predicted.indexOf(trait) >= 0;
+    var inO = observed.indexOf(trait) >= 0;
+    var source = inP && inO ? 'both' : inP ? 'predicted_only' : 'observed_only';
+    return { trait: trait, source: source };
+  });
+}
+
+/**
+ * predicted_traits = dur.unified_expected_traits (مرجع الدر/المرحلة + موسم + سمك مجمّع في المحرك).
+ * observed_traits = اشتقاق من بيئة التحليل الفعلية + المد (deriveObservedTraitsFromDto).
+ * matched / failed / extra = مقارنة predicted مقابل observed بنفس أسماء السمات العربية.
+ */
+function computeNavidurTraitsDiagnosis(predicted_traits, observed_traits, extra_traits) {
+  var prev = __navidurTraitsDiagPrev;
+  var diagnosis = 'OK_VARIATION';
+  if (prev) {
+    if (JSON.stringify(observed_traits) === JSON.stringify(prev.observed_traits)) {
+      diagnosis = 'OBSERVED_STATIC_BUG';
+    } else if (JSON.stringify(predicted_traits) === JSON.stringify(prev.predicted_traits)) {
+      diagnosis = 'PREDICTED_DUPLICATION';
+    } else if (JSON.stringify(extra_traits) === JSON.stringify(prev.extra_traits)) {
+      diagnosis = 'COMPARISON_OR_NORMALIZATION_BUG';
+    }
+  }
+  __navidurTraitsDiagPrev = {
+    observed_traits: observed_traits,
+    predicted_traits: predicted_traits,
+    extra_traits: extra_traits
+  };
+  return diagnosis;
+}
+
+function logNavidurTraitsValidation(dto, station, diagCtx) {
+  try {
+    if (typeof console === 'undefined' || !console || typeof console.debug !== 'function') return;
+    if (!dto) return;
+    var st = station && typeof station === 'object' ? station : {};
+    var ctx = diagCtx && typeof diagCtx === 'object' ? diagCtx : {};
+    var env = dto.environment && typeof dto.environment === 'object' ? dto.environment : {};
+    var tide = dto.tide && typeof dto.tide === 'object' ? dto.tide : {};
+    var dur = dto.dur && typeof dto.dur === 'object' ? dto.dur : {};
+    var predicted_traits = uniqueTraitStringsForLog(
+      Array.isArray(dur.unified_expected_traits) ? dur.unified_expected_traits : []
+    );
+    var observed_traits = uniqueTraitStringsForLog(
+      navidurSnapshotValidation.deriveObservedTraitsFromDto(dto) || []
+    );
+    var matched_traits = predicted_traits.filter(function (t) {
+      return observed_traits.indexOf(t) >= 0;
+    });
+    var failed_traits = predicted_traits.filter(function (t) {
+      return observed_traits.indexOf(t) < 0;
+    });
+    var extra_traits = observed_traits.filter(function (t) {
+      return predicted_traits.indexOf(t) < 0;
+    });
+    var waterTemp =
+      env.water_temp_c != null && !isNaN(Number(env.water_temp_c))
+        ? Number(env.water_temp_c)
+        : env.temp_c != null && !isNaN(Number(env.temp_c))
+          ? Number(env.temp_c)
+          : null;
+
+    console.debug('NAVIDUR_TRAITS_VALIDATION', {
+      predicted_traits: predicted_traits,
+      observed_traits: observed_traits,
+      matched_traits: matched_traits,
+      failed_traits: failed_traits,
+      extra_traits: extra_traits
+    });
+    console.debug('NAVIDUR_TRAIT_SOURCE_PER_ITEM', {
+      per_trait_source: buildPerTraitSourceLineage(predicted_traits, observed_traits)
+    });
+
+    console.debug('NAVIDUR_TRAITS_ROOT_CHECK', {
+      station: cleanString(st.name_ar, 200) || cleanString(st.name, 200) || null,
+      station_id: st.id != null ? st.id : (dto.station_id != null ? dto.station_id : null),
+      dur: cleanString(dur.period_name, 200) || null,
+      phase: dur.active_phase_id != null ? dur.active_phase_id : dur.phase_id != null ? dur.phase_id : null,
+      analysis_date: env.as_of != null && String(env.as_of).trim() !== '' ? cleanString(env.as_of, 80) : cleanString(ctx.analysis_date, 20) || null,
+      cache_key: env.cache_key != null ? cleanString(env.cache_key, 200) : null,
+      forecast_source: env.forecast_source != null ? cleanString(env.forecast_source, 120) : null,
+      wind_speed: env.wind_speed_kmh != null ? Number(env.wind_speed_kmh) : null,
+      wave_height: env.wave_height_m != null ? Number(env.wave_height_m) : null,
+      current_speed: tide.current_speed_ms != null ? Number(tide.current_speed_ms) : null,
+      temperature: waterTemp,
+      predicted_count: predicted_traits.length,
+      observed_count: observed_traits.length,
+      predicted_sample: predicted_traits.slice(0, 5),
+      observed_sample: observed_traits.slice(0, 5),
+      matched_traits: matched_traits,
+      failed_traits: failed_traits,
+      extra_traits: extra_traits
+    });
+
+    console.debug('NAVIDUR_OBSERVED_SOURCE', {
+      source: 'deriveObservedTraitsFromDto',
+      from_environment: {
+        wind: env.wind_speed_kmh != null ? Number(env.wind_speed_kmh) : null,
+        wave: env.wave_height_m != null ? Number(env.wave_height_m) : null,
+        current: tide.current_speed_ms != null ? Number(tide.current_speed_ms) : null,
+        temp: env.temp_c != null ? Number(env.temp_c) : null,
+        water_temp_c: env.water_temp_c != null ? Number(env.water_temp_c) : null
+      }
+    });
+
+    var diagnosis = computeNavidurTraitsDiagnosis(predicted_traits, observed_traits, extra_traits);
+    console.debug('NAVIDUR_TRAITS_DIAGNOSIS', { diagnosis: diagnosis });
+  } catch (_e) { /* ignore */ }
+}
 
 function resolveAnalysisRequestDate(body) {
   var b = body && typeof body === 'object' ? body : {};
@@ -128,6 +263,15 @@ module.exports = async function handler(req, res) {
     var weatherPack = await fetchWeatherAndMarineInputs(station, body);
     var liveInputs = weatherPack.live_inputs;
     var weatherMeta = weatherPack.weather_meta || {};
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_CACHE_CHECK', {
+          cache_key: weatherMeta.cache_key != null ? cleanString(weatherMeta.cache_key, 200) : null,
+          station_id: station.id != null ? station.id : null,
+          date: resolvedDate.analysis_date
+        });
+      }
+    } catch (_cacheLogErr) { /* ignore */ }
     var fieldValidation = body && body.field_validation && typeof body.field_validation === 'object'
       ? Object.assign({}, body.field_validation)
       : null;
@@ -152,6 +296,8 @@ module.exports = async function handler(req, res) {
       debug_log: !!(body && (body.debug_log === true || body.debug === true || body.debug_analysis === true)),
       field_validation: fieldValidation
     });
+
+    logNavidurTraitsValidation(dto, station, { analysis_date: resolvedDate.analysis_date });
 
     dto.confidence = dto.fishing && dto.fishing.confidence_score != null ? dto.fishing.confidence_score : null;
     dto.analysis_date = resolvedDate.analysis_date;

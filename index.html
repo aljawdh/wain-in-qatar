@@ -1308,6 +1308,7 @@
   <script src="/shared/station-map-ui.js"></script>
   <script>window.IS_ADMIN = false;</script>
   <script src="/shared/navidur-live-analysis.js"></script>
+  <script src="/shared/navidur-snapshot-validation.js"></script>
   <script src="/shared/navidur-daily-advice.js"></script>
   <script>
     const COUNTRY_TIMEZONES = {
@@ -2531,12 +2532,121 @@
       };
     }
 
+    function navidurLogTraitsValidationFromDto(dto) {
+      if (!dto || typeof dto !== 'object') return;
+      try {
+        const st = selectedStation && typeof selectedStation === 'object' ? selectedStation : {};
+        const env = dto.environment && typeof dto.environment === 'object' ? dto.environment : {};
+        const tide = dto.tide && typeof dto.tide === 'object' ? dto.tide : {};
+        const dur = dto.dur && typeof dto.dur === 'object' ? dto.dur : {};
+        const predicted_traits = [];
+        if (dto.dur && Array.isArray(dto.dur.unified_expected_traits)) {
+          dto.dur.unified_expected_traits.forEach(function (t) {
+            const s = String(t == null ? '' : t).trim();
+            if (s && predicted_traits.indexOf(s) < 0) predicted_traits.push(s);
+          });
+        }
+        let observedRaw = [];
+        if (window.NavidurSnapshotValidation && typeof window.NavidurSnapshotValidation.deriveObservedTraitsFromDto === 'function') {
+          observedRaw = window.NavidurSnapshotValidation.deriveObservedTraitsFromDto(dto) || [];
+        }
+        const observed_traits = [];
+        observedRaw.forEach(function (t) {
+          const s = String(t == null ? '' : t).trim();
+          if (s && observed_traits.indexOf(s) < 0) observed_traits.push(s);
+        });
+        const matched_traits = predicted_traits.filter(function (t) {
+          return observed_traits.indexOf(t) >= 0;
+        });
+        const failed_traits = predicted_traits.filter(function (t) {
+          return observed_traits.indexOf(t) < 0;
+        });
+        const extra_traits = observed_traits.filter(function (t) {
+          return predicted_traits.indexOf(t) < 0;
+        });
+        const union = predicted_traits.slice();
+        observed_traits.forEach(function (t) {
+          if (union.indexOf(t) < 0) union.push(t);
+        });
+        const per_trait_source = union.map(function (trait) {
+          const inP = predicted_traits.indexOf(trait) >= 0;
+          const inO = observed_traits.indexOf(trait) >= 0;
+          const source = inP && inO ? 'both' : inP ? 'predicted_only' : 'observed_only';
+          return { trait: trait, source: source };
+        });
+        const waterTemp =
+          env.water_temp_c != null && !isNaN(Number(env.water_temp_c))
+            ? Number(env.water_temp_c)
+            : env.temp_c != null && !isNaN(Number(env.temp_c))
+              ? Number(env.temp_c)
+              : null;
+        console.debug('NAVIDUR_TRAITS_VALIDATION', {
+          predicted_traits: predicted_traits,
+          observed_traits: observed_traits,
+          matched_traits: matched_traits,
+          failed_traits: failed_traits,
+          extra_traits: extra_traits
+        });
+        console.debug('NAVIDUR_TRAIT_SOURCE_PER_ITEM', {
+          per_trait_source: per_trait_source
+        });
+        console.debug('NAVIDUR_TRAITS_ROOT_CHECK', {
+          station: st.name_ar || st.name || null,
+          station_id: st.id != null ? st.id : (dto.station_id != null ? dto.station_id : null),
+          dur: dur.period_name || null,
+          phase: dur.active_phase_id != null ? dur.active_phase_id : (dur.phase_id != null ? dur.phase_id : null),
+          analysis_date: env.as_of != null && String(env.as_of).trim() !== '' ? String(env.as_of).trim() : (dto.analysis_date || null),
+          cache_key: env.cache_key != null ? env.cache_key : null,
+          forecast_source: env.forecast_source != null ? env.forecast_source : null,
+          wind_speed: env.wind_speed_kmh != null ? Number(env.wind_speed_kmh) : null,
+          wave_height: env.wave_height_m != null ? Number(env.wave_height_m) : null,
+          current_speed: tide.current_speed_ms != null ? Number(tide.current_speed_ms) : null,
+          temperature: waterTemp,
+          predicted_count: predicted_traits.length,
+          observed_count: observed_traits.length,
+          predicted_sample: predicted_traits.slice(0, 5),
+          observed_sample: observed_traits.slice(0, 5),
+          matched_traits: matched_traits,
+          failed_traits: failed_traits,
+          extra_traits: extra_traits
+        });
+        console.debug('NAVIDUR_OBSERVED_SOURCE', {
+          source: 'deriveObservedTraitsFromDto',
+          from_environment: {
+            wind: env.wind_speed_kmh != null ? Number(env.wind_speed_kmh) : null,
+            wave: env.wave_height_m != null ? Number(env.wave_height_m) : null,
+            current: tide.current_speed_ms != null ? Number(tide.current_speed_ms) : null,
+            temp: env.temp_c != null ? Number(env.temp_c) : null,
+            water_temp_c: env.water_temp_c != null ? Number(env.water_temp_c) : null
+          }
+        });
+        let diagnosis = 'OK_VARIATION';
+        const prev = window.__navidurTraitsDiagPrev;
+        if (prev) {
+          if (JSON.stringify(observed_traits) === JSON.stringify(prev.observed_traits)) {
+            diagnosis = 'OBSERVED_STATIC_BUG';
+          } else if (JSON.stringify(predicted_traits) === JSON.stringify(prev.predicted_traits)) {
+            diagnosis = 'PREDICTED_DUPLICATION';
+          } else if (JSON.stringify(extra_traits) === JSON.stringify(prev.extra_traits)) {
+            diagnosis = 'COMPARISON_OR_NORMALIZATION_BUG';
+          }
+        }
+        window.__navidurTraitsDiagPrev = {
+          observed_traits: observed_traits,
+          predicted_traits: predicted_traits,
+          extra_traits: extra_traits
+        };
+        console.debug('NAVIDUR_TRAITS_DIAGNOSIS', { diagnosis: diagnosis });
+      } catch (_e) { /* ignore */ }
+    }
+
     async function fetchAnalysisForDayIndex(dayIndex, requestToken) {
       if (!window.NavidurLiveAnalysis || typeof window.NavidurLiveAnalysis.getStationAnalysis !== 'function') return null;
       const reqDate = buildAnalysisRequestForDay(dayIndex);
       const dto = await window.NavidurLiveAnalysis.getStationAnalysis(selectedStation, reqDate);
       if (requestToken != null && requestToken !== currentSharedAnalysisRequest) return null;
       if (dto && typeof dto === 'object') {
+        navidurLogTraitsValidationFromDto(dto);
         try { delete dto.field_validation; } catch (_e) { /* ignore */ }
       }
       const prevDto = dayIndex > 0 ? analysisDtoByDay[dayIndex - 1] : null;

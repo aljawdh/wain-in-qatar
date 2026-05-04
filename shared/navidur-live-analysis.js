@@ -99,6 +99,16 @@
     };
     try {
       var dto = await attemptFetch(body);
+      try {
+        if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+          var envCk = dto && dto.environment && typeof dto.environment === 'object' ? dto.environment : {};
+          console.debug('NAVIDUR_CACHE_CHECK', {
+            cache_key: envCk.cache_key != null ? envCk.cache_key : null,
+            station_id: station && station.id != null ? station.id : null,
+            date: analysisDate
+          });
+        }
+      } catch (_cacheLogErr) { /* ignore */ }
       if (cacheKey && typeof localStorage !== 'undefined') {
         var li = buildLiveInputsFromLastDto(dto);
         if (li) {
