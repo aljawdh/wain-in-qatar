@@ -1,4 +1,5 @@
 (function () {
+  console.log("NAVIDUR_JS_LOADED");
   var State = window.NavidurState;
   var UI = window.NavidurUI;
   var Loc = window.NavidurLocation;
