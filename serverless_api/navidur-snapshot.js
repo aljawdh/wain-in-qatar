@@ -18,7 +18,8 @@ const {
 } = require('./_lib/navidur-analysis-runtime');
 const {
   buildSnapshotRecord,
-  buildValidationLogRecord
+  buildValidationLogRecord,
+  buildValidationResult
 } = require('../shared/navidur-snapshot-validation');
 
 async function captureSnapshotInternal(body, options) {
@@ -57,6 +58,14 @@ async function captureSnapshotInternal(body, options) {
     field_validation: fieldValidation
   });
   try {
+    var valLayerSnap = buildValidationResult(dto, fieldValidation, null);
+    dto.validation = valLayerSnap.validation;
+    dto.comparison_mode = valLayerSnap.comparison_mode;
+  } catch (_vls) {
+    dto.validation = { mode: 'reference', reason: null, observed_traits: [] };
+    dto.comparison_mode = 'reference';
+  }
+  try {
     dto.internal_trait_signals = publicNavidurDto.buildInternalTraitSignalsFromDto(dto);
   } catch (_its) {
     dto.internal_trait_signals = [];
@@ -82,18 +91,20 @@ async function captureSnapshotInternal(body, options) {
   await appendStationSnapshot(snapshot);
   if (validation) {
     await appendDurValidationLog(validation);
-    try {
-      await traitLongTerm.bumpTraitCyclesFromValidationRecord(validation, {
-        reference_bucket_id: validation.station_id,
-        dur_name_ar: validation.dur_name,
-        phase_id: validation.phase_id || '',
-        depth_mode: validation.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
-        evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
-        environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
-        analysis_date: dto.analysis_date || null,
-        reference_station_name_ar: validation.reference_station_name_ar || null
-      });
-    } catch (_bumpSnap) { /* ignore */ }
+    if (validation.comparison_mode !== 'no_reference') {
+      try {
+        await traitLongTerm.bumpTraitCyclesFromValidationRecord(validation, {
+          reference_bucket_id: validation.station_id,
+          dur_name_ar: validation.dur_name,
+          phase_id: validation.phase_id || '',
+          depth_mode: validation.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
+          evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
+          environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
+          analysis_date: dto.analysis_date || null,
+          reference_station_name_ar: validation.reference_station_name_ar || null
+        });
+      } catch (_bumpSnap) { /* ignore */ }
+    }
   }
 
   return {

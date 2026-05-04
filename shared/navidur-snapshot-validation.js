@@ -238,6 +238,45 @@
   function buildValidationResult(dto, fieldValidation, notes) {
     var expected = collectExpectedTraits(dto);
     var observed = deriveObservedTraitsFromDto(dto);
+    var expectedCount = expected.comparable.length;
+
+    if (!expectedCount) {
+      try {
+        if (typeof console !== 'undefined' && console.debug) {
+          console.debug('NAVIDUR_VALIDATION_MODE', {
+            mode: 'no_reference',
+            reason: 'empty_expected_traits',
+            observed_traits_count: observed.length
+          });
+        }
+      } catch (_dbg) { /* ignore */ }
+      var notePartsNr = [];
+      if (expected.unsupported.length) notePartsNr.push('unsupported_reference_traits: ' + expected.unsupported.join(', '));
+      if (fieldValidation && Array.isArray(fieldValidation.observed_traits) && fieldValidation.observed_traits.length) {
+        notePartsNr.push('field_observed_traits: ' + uniqueStrings(fieldValidation.observed_traits).join(', '));
+      }
+      if (normalizeString(notes)) notePartsNr.push(normalizeString(notes));
+      return {
+        comparison_mode: 'no_reference',
+        validation: {
+          mode: 'no_reference',
+          reason: 'empty_expected_traits',
+          observed_traits: observed.slice()
+        },
+        expected_traits: [],
+        observed_traits: observed,
+        matched_traits: [],
+        failed_traits: [],
+        extra_traits: [],
+        validation_score: null,
+        validation_status: 'no_reference',
+        notes: notePartsNr.join(' | ') || null,
+        field_observed_traits: fieldValidation && Array.isArray(fieldValidation.observed_traits)
+          ? uniqueStrings(fieldValidation.observed_traits)
+          : []
+      };
+    }
+
     var matched = expected.comparable.filter(function (trait) {
       return observed.indexOf(trait) >= 0;
     });
@@ -247,14 +286,12 @@
     var extra = observed.filter(function (trait) {
       return expected.comparable.indexOf(trait) < 0;
     });
-    var expectedCount = expected.comparable.length;
     var matchedCount = matched.length;
     var coverage = expectedCount ? (matchedCount / expectedCount) : 0;
     var penalty = extra.length ? (extra.length / Math.max(1, observed.length)) * 20 : 0;
     var score = expectedCount ? clamp(Math.round((coverage * 100) - penalty), 0, 100) : 0;
     var status = 'needs_review';
-    if (!expectedCount) status = 'needs_review';
-    else if (matchedCount === expectedCount && extra.length === 0) status = 'matched';
+    if (matchedCount === expectedCount && extra.length === 0) status = 'matched';
     else if (matchedCount === 0) status = 'failed';
     else status = 'partial';
 
@@ -266,6 +303,12 @@
     if (normalizeString(notes)) noteParts.push(normalizeString(notes));
 
     return {
+      comparison_mode: 'reference',
+      validation: {
+        mode: 'reference',
+        reason: null,
+        observed_traits: observed.slice()
+      },
       expected_traits: expected.comparable,
       observed_traits: observed,
       matched_traits: matched,
@@ -347,6 +390,8 @@
       phase_id: normalizeString(dto && dto.dur && dto.dur.active_phase_id),
       active_phase_id: normalizeString(dto && dto.dur && dto.dur.active_phase_id),
       depth_mode: normalizeString(input && input.depth_mode),
+      comparison_mode: comparison.comparison_mode || 'reference',
+      validation: comparison.validation && typeof comparison.validation === 'object' ? comparison.validation : null,
       expected_traits: comparison.expected_traits,
       observed_traits: comparison.observed_traits,
       matched_traits: comparison.matched_traits,

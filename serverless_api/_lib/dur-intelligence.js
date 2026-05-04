@@ -42,6 +42,7 @@ function normalizeValidationRecord(record) {
     reference_station_name_ar: normalizeString(item.reference_station_name_ar),
     operational_station_id: normalizeString(item.operational_station_id),
     operational_station_name_ar: normalizeString(item.operational_station_name_ar),
+    comparison_mode: normalizeString(item.comparison_mode) || 'reference',
     validation_score: toNumber(item.validation_score),
     validation_status: normalizeString(item.validation_status) || 'needs_review',
     matched_traits: uniqueStrings(item.matched_traits),
@@ -69,7 +70,7 @@ function collectTopTraits(records, key) {
 }
 
 function buildSummary(records, durId, phaseId, durName) {
-  const rows = toArray(records);
+  const rows = toArray(records).filter((item) => item.comparison_mode !== 'no_reference');
   const totalRuns = rows.length;
   const successCount = rows.filter((item) => item.validation_status === 'matched').length;
   const partialCount = rows.filter((item) => item.validation_status === 'partial').length;

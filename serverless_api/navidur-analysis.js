@@ -73,6 +73,20 @@ function logNavidurTraitsValidation(dto, station, diagCtx) {
   try {
     if (typeof console === 'undefined' || !console || typeof console.debug !== 'function') return;
     if (!dto) return;
+    if (dto.comparison_mode === 'no_reference' || (dto.validation && dto.validation.mode === 'no_reference')) {
+      var obsNr = uniqueTraitStringsForLog(
+        (dto.validation && dto.validation.observed_traits) || navidurSnapshotValidation.deriveObservedTraitsFromDto(dto) || []
+      );
+      console.debug('NAVIDUR_TRAITS_VALIDATION', {
+        comparison_mode: 'no_reference',
+        expected_traits: [],
+        observed_traits: obsNr,
+        matched_traits: [],
+        failed_traits: [],
+        extra_traits: []
+      });
+      return;
+    }
     var st = station && typeof station === 'object' ? station : {};
     var ctx = diagCtx && typeof diagCtx === 'object' ? diagCtx : {};
     var env = dto.environment && typeof dto.environment === 'object' ? dto.environment : {};
@@ -304,6 +318,14 @@ module.exports = async function handler(req, res) {
       request_depth_mode: cleanString(body.depth_mode, 20)
     });
     try {
+      var valLayer = navidurSnapshotValidation.buildValidationResult(dto, fieldValidation, null);
+      dto.validation = valLayer.validation;
+      dto.comparison_mode = valLayer.comparison_mode;
+    } catch (_valLayer) {
+      dto.validation = { mode: 'reference', reason: null, observed_traits: [] };
+      dto.comparison_mode = 'reference';
+    }
+    try {
       dto.internal_trait_signals = publicNavidurDto.buildInternalTraitSignalsFromDto(dto);
     } catch (_sig) {
       dto.internal_trait_signals = [];
@@ -323,18 +345,20 @@ module.exports = async function handler(req, res) {
       });
       if (validationRec) {
         await appendDurValidationLog(validationRec);
-        try {
-          await traitLongTerm.bumpTraitCyclesFromValidationRecord(validationRec, {
-            reference_bucket_id: validationRec.station_id,
-            dur_name_ar: validationRec.dur_name,
-            phase_id: validationRec.phase_id || '',
-            depth_mode: validationRec.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
-            evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
-            environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
-            analysis_date: dto.analysis_date || resolvedDate.analysis_date || null,
-            reference_station_name_ar: validationRec.reference_station_name_ar || null
-          });
-        } catch (_bumpErr) { /* ignore */ }
+        if (validationRec.comparison_mode !== 'no_reference') {
+          try {
+            await traitLongTerm.bumpTraitCyclesFromValidationRecord(validationRec, {
+              reference_bucket_id: validationRec.station_id,
+              dur_name_ar: validationRec.dur_name,
+              phase_id: validationRec.phase_id || '',
+              depth_mode: validationRec.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
+              evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
+              environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
+              analysis_date: dto.analysis_date || resolvedDate.analysis_date || null,
+              reference_station_name_ar: validationRec.reference_station_name_ar || null
+            });
+          } catch (_bumpErr) { /* ignore */ }
+        }
       }
     } catch (_valLogErr) { /* never fail analysis on validation append */ }
 

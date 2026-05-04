@@ -6725,6 +6725,32 @@
   }
 
   function renderValidationExplanation(dto, observedTraitsOverride) {
+    if (dto && (dto.comparison_mode === 'no_reference' || (dto.validation && dto.validation.mode === 'no_reference'))) {
+      var obsOnly = uniqueNonEmptyValues(
+        Array.isArray(observedTraitsOverride) && observedTraitsOverride.length
+          ? observedTraitsOverride
+          : deriveObservedTraitsFromAnalysis(dto)
+      );
+      renderTraitList('stAnalyticsExpectedTraitList', [], 'rgba(92,225,255,.16)', 'rgba(92,225,255,.28)', '#dff8ff', '');
+      var expList = getEl('stAnalyticsExpectedTraitList');
+      if (expList) {
+        expList.innerHTML =
+          '<span style="color:#ffe7aa;font-size:.84rem;line-height:1.45">لا توجد سمات مرجعية للمقارنة حالياً</span>';
+      }
+      renderTraitList('stAnalyticsMatchedTraitList', [], 'rgba(110,231,183,.18)', 'rgba(110,231,183,.28)', '#dfffea', '');
+      renderTraitList('stAnalyticsMissingTraitList', [], 'rgba(255,120,120,.12)', 'rgba(255,120,120,.22)', '#ffd8d8', '');
+      renderTraitList('stAnalyticsExtraTraitList', [], 'rgba(255,185,0,.12)', 'rgba(255,185,0,.22)', '#ffe7aa', '');
+      renderTraitList('stAnalyticsObservedTraitList', obsOnly, 'rgba(38,194,129,.16)', 'rgba(38,194,129,.28)', '#dfffea', 'لا توجد سمات مرصودة');
+      var expCountEl = getEl('stAnalyticsExpectedCount');
+      var obsCountEl = getEl('stAnalyticsObservedCount');
+      var sc = getEl('stAnalyticsScore');
+      var st = getEl('stAnalyticsStatus');
+      if (expCountEl) expCountEl.textContent = '—';
+      if (obsCountEl) obsCountEl.textContent = String(obsOnly.length) + ' سمة';
+      if (sc) sc.textContent = '—';
+      if (st) st.textContent = 'لا مرجع للمقارنة';
+      return;
+    }
     var dur = dto && dto.dur ? dto.dur : {};
     var ref = dur.reference || {};
     var phase = dur.active_phase_reference || {};

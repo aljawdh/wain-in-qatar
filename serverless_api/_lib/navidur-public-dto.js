@@ -69,6 +69,15 @@ function sanitizePublicNavidurDto(dto) {
 
 /** Server-side only (stripped before public JSON); built from engine unified traits + observed. */
 function buildInternalTraitSignalsFromDto(dto) {
+  try {
+    if (typeof require === 'function') {
+      var snapV = require('../../shared/navidur-snapshot-validation');
+      var vr0 = snapV.buildValidationResult(dto, null, null);
+      if (vr0 && vr0.comparison_mode === 'no_reference') {
+        return [];
+      }
+    }
+  } catch (_nr) { /* continue with unified path */ }
   var dur = dto && dto.dur ? dto.dur : {};
   var unified = toArray(dur.unified_expected_traits);
   var observed = [];
