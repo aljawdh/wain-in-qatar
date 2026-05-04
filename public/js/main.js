@@ -198,6 +198,9 @@
         var page = btn.getAttribute('data-page');
         State.update({ page: page });
         applyPageVisibility(page);
+        document.querySelectorAll('.nav-btn').forEach(function (x) {
+          x.classList.toggle('active', x === btn);
+        });
       });
     });
   }

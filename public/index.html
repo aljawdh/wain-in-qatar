@@ -4,33 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="navidur-ui-rebuild-version" content="NAVIDUR_UI_REBUILD_VERSION=2026-05-04">
+  <meta name="navidur-ui-visual-version" content="NAVIDUR_UI_REBUILD_VISUAL_V1">
   <title>NAVIDUR</title>
-  <link rel="icon" href="/web/favicon.png">
-  <link rel="stylesheet" href="/web/css/theme.css">
-  <link rel="stylesheet" href="/web/css/base.css">
-  <link rel="stylesheet" href="/web/css/layout.css">
-  <link rel="stylesheet" href="/web/css/components.css">
+  <link rel="icon" href="/favicon.png">
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
 </head>
 <body>
+  <div class="ocean-bg"></div>
+  <div class="wave-overlay"></div>
+
   <div class="app-shell">
-    <header class="header card">
-      <div>
-        <h1 style="margin:0;">NA<span style="color:var(--navidur-v-red);">V</span>IDUR</h1>
-        <div class="muted">واجهة تشغيلية متجاوبة</div>
+    <header class="header glass-card">
+      <div class="brand-area">
+        <div class="brand-logo">NA<span class="v-accent">V</span>IDUR</div>
+        <div class="brand-subtitle">نظام بحري لاتخاذ القرار</div>
       </div>
-      <div>
-        <div class="muted">الحالة: متصل</div>
-        <select id="stationSelector" class="button" aria-label="Station selector"></select>
+      <div class="header-actions">
+        <div class="online-pill">متصل</div>
+        <select id="stationSelector" class="station-select" aria-label="اختيار المحطة"></select>
       </div>
     </header>
-    <section class="day-selector-wrap card">
-      <div id="daySelector" class="day-selector" aria-label="Day selector"></div>
+
+    <section class="day-selector-wrap glass-card">
+      <div id="daySelector" class="day-selector" aria-label="اختيار اليوم"></div>
       <div id="dayDataStatus" class="muted day-status"></div>
     </section>
 
     <main class="content-grid">
       <section id="appContent" data-page-panel="dashboard"></section>
-      <section>
+      <section class="subpages">
         <div id="pageMarine" data-page-panel="marine" class="hidden"></div>
         <div id="pageFishing" data-page-panel="fishing" class="hidden"></div>
         <div id="pageMap" data-page-panel="map" class="hidden"></div>
@@ -39,29 +44,29 @@
   </div>
 
   <nav class="bottom-nav">
-    <button class="button" data-page="dashboard">الرئيسية</button>
-    <button class="button" data-page="marine">تحليل البحر</button>
-    <button class="button" data-page="fishing">توصية الصيد</button>
-    <button class="button" data-page="map">الخريطة</button>
+    <button class="nav-btn active" data-page="dashboard"><span>🏠</span><small>الرئيسية</small></button>
+    <button class="nav-btn" data-page="marine"><span>🌊</span><small>تحليل البحر</small></button>
+    <button class="nav-btn" data-page="fishing"><span>🎣</span><small>توصية الصيد</small></button>
+    <button class="nav-btn" data-page="map"><span>🗺️</span><small>الخريطة</small></button>
   </nav>
 
   <div id="locationModal" class="modal-backdrop">
-    <div class="modal">
+    <div class="modal glass-card">
       <h3>تفعيل تحديد الموقع</h3>
       <p class="muted">لتحليل البحر بدقة واختيار أقرب محطة، يحتاج NAVIDUR إلى معرفة موقعك الحالي.</p>
       <p id="locationHint" class="muted"></p>
-      <div style="display:grid;gap:8px;">
+      <div class="modal-actions">
         <button id="locationEnableBtn" class="button primary">تفعيل الموقع</button>
         <button id="locationSkipBtn" class="button">المتابعة بدون موقع</button>
       </div>
     </div>
   </div>
 
-  <script src="/web/js/helpers.js"></script>
-  <script src="/web/js/components.js"></script>
-  <script src="/web/js/state-manager.js"></script>
-  <script src="/web/js/location-manager.js"></script>
-  <script src="/web/js/ui-renderer.js"></script>
-  <script src="/web/js/main.js"></script>
+  <script src="/js/helpers.js"></script>
+  <script src="/js/components.js"></script>
+  <script src="/js/state-manager.js"></script>
+  <script src="/js/location-manager.js"></script>
+  <script src="/js/ui-renderer.js"></script>
+  <script src="/js/main.js"></script>
 </body>
 </html>

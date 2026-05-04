@@ -15,12 +15,18 @@
 
   function decisionCard(fishing, decision) {
     var label = decision && decision.label ? decision.label : 'غير معروف';
-    var badgeClass = 'badge-caution';
-    if (label === 'مناسب') badgeClass = 'badge-good';
-    if (label === 'غير مناسب') badgeClass = 'badge-bad';
+    var badgeClass = 'decision-caution';
+    if (label === 'مناسب') badgeClass = 'decision-good';
+    if (label === 'غير مناسب') badgeClass = 'decision-bad';
     var scoreText = decision && decision.score != null ? ' (درجة: ' + String(decision.score) + ')' : '';
     var reasonText = fishing && fishing.advice_text ? fishing.advice_text : 'لا توجد توصية حالياً';
-    return card('قرار الصيد', '<span class="badge ' + badgeClass + '">' + label + scoreText + '</span><p class="muted">' + reasonText + '</p>');
+    return card(
+      'قرار اليوم',
+      '<div class="decision-main">'
+      + '<div><span class="decision-pill ' + badgeClass + '">' + label + scoreText + '</span><p class="muted">' + reasonText + '</p></div>'
+      + '<div style="font-size:1.8rem;line-height:1">' + (label === 'مناسب' ? '✅' : label === 'حذر' ? '⚠️' : '⛔') + '</div>'
+      + '</div>'
+    );
   }
 
   root.NavidurComponents = {

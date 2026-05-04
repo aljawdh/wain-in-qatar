@@ -3,6 +3,7 @@
   --color-secondary: #1c3d5a;
   --color-accent: #22d3ee;
   --color-bg: #071226;
+  --color-bg-soft: #0b1a30;
   --color-surface: #0f223f;
   --color-text: #ecf6ff;
   --color-muted: #9ec3de;
@@ -10,4 +11,6 @@
   --decision-caution: #f59e0b;
   --decision-bad: #dc2626;
   --navidur-v-red: #ef4444;
+  --card-glass: rgba(13, 37, 70, 0.55);
+  --card-border: rgba(117, 183, 230, 0.22);
 }

@@ -1,15 +1,31 @@
 .app-shell {
-  width: min(100%, 1320px);
+  position: relative;
+  width: min(100%, 1220px);
   margin: 0 auto;
-  padding: calc(14px + env(safe-area-inset-top)) 14px calc(80px + env(safe-area-inset-bottom));
+  padding: calc(16px + env(safe-area-inset-top)) 12px calc(84px + env(safe-area-inset-bottom));
+  z-index: 2;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
+.ocean-bg,
+.wave-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ocean-bg {
+  z-index: 0;
+  background:
+    radial-gradient(circle at 80% 10%, rgba(34, 211, 238, 0.18), transparent 32%),
+    radial-gradient(circle at 10% 90%, rgba(14, 31, 58, 0.6), transparent 38%),
+    linear-gradient(180deg, var(--color-bg), var(--color-bg-soft));
+}
+
+.wave-overlay {
+  z-index: 1;
+  opacity: 0.35;
+  background-image:
+    repeating-linear-gradient(165deg, rgba(133, 197, 238, 0.08) 0, rgba(133, 197, 238, 0.08) 2px, transparent 2px, transparent 24px);
 }
 
 .content-grid {
@@ -17,15 +33,9 @@
   gap: 12px;
 }
 
-.cards-grid {
+.subpages {
   display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr;
-}
-
-.map-and-gauge {
-  display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .bottom-nav {
@@ -34,31 +44,31 @@
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  background: rgba(7, 18, 38, 0.97);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  z-index: 15;
+  background: rgba(5, 14, 28, 0.92);
+  border-top: 1px solid rgba(94, 174, 224, 0.25);
+  backdrop-filter: blur(12px);
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
 }
 
 @media (min-width: 768px) {
-  .cards-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .map-and-gauge {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .app-shell {
+    padding-left: 18px;
+    padding-right: 18px;
   }
 }
 
 @media (min-width: 1024px) {
   .content-grid {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr 1fr;
     align-items: start;
   }
 }
 
 @media (min-width: 1280px) {
-  .cards-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .content-grid {
+    grid-template-columns: 1.3fr 1fr;
   }
 }

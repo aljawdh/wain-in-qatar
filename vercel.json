@@ -13,7 +13,8 @@
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [
-    { "source": "/", "destination": "/index.html" },
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/index.html", "destination": "/public/index.html" },
     { "source": "/api/admin/summary", "destination": "/api?route=admin-summary" },
     { "source": "/api/admin/:path*", "destination": "/api?route=admin&path=:path*" },
     { "source": "/api/navidur-analysis", "destination": "/api?route=analysis" },
