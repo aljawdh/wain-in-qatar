@@ -63,6 +63,8 @@
   var stationAdminMarker = null;
   var allStationMarkersList = [];
   var selectedDururStationId = null;
+  /** محطة مرجعية لمجموعات أدلة السمات ومعايرة KV (ليست المحطة التشغيلية من الخريطة). */
+  var selectedDururTraitReferenceId = null;
   var stationsBodyClickDelegationBound = false;
   var dururMapFilters = { stationType: 'all', currentDur: 'all', seasonEvent: 'all' };
   var stationReverseRequestId = 0;
@@ -2814,6 +2816,13 @@
     if (!stationId) {
       if (target) target.innerHTML = '<div class="durur-empty-state">اختر محطة من الخريطة المشتركة لعرض تفاصيلها هنا.</div>';
       refreshAllStationMarkers();
+      selectedDururTraitReferenceId = null;
+      var w0 = getEl('dururTraitRefMissingWarn');
+      if (w0) w0.textContent = '';
+      var b0 = getEl('dururTraitRefBanner');
+      if (b0) b0.textContent = '';
+      void refreshDururIntelligenceData();
+      void refreshDururTraitReviewPanel();
       return;
     }
     var station = stationsCache.find(function (s) { return s.id === stationId; });
@@ -2887,6 +2896,9 @@
     html += '<div><strong>الملاحظات:</strong> ' + (station.notes || '--') + '</div>';
     html += '</div>';
     if (target) target.innerHTML = html;
+    syncDurTraitReferenceFromMapStation();
+    void refreshDururIntelligenceData();
+    void refreshDururTraitReviewPanel();
     if (options.triggerAnalysis !== false) {
       currentAnalyzedStationId = stationId;
       void renderStationAnalytics();
@@ -3443,6 +3455,177 @@
     return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,82,82,.14);border:1px solid rgba(255,82,82,.35);color:#ffb3b3;border-radius:999px;padding:2px 8px;font-size:11px;margin-top:4px">محطة مرجعية</span>';
   }
 
+  function collectStationIdsReferencedAsTraitReference(list) {
+    var m = {};
+    (list || []).forEach(function (s) {
+      var r = (s && s.reference_station_id ? String(s.reference_station_id) : '').trim();
+      if (r) m[r] = true;
+    });
+    return m;
+  }
+
+  function getDurTraitReferenceHubStations(list) {
+    var all = Array.isArray(list) ? list : [];
+    var refMap = collectStationIdsReferencedAsTraitReference(all);
+    return all.filter(function (s) {
+      if (!s || !s.id) return false;
+      if (isReferenceCalibrationStation(s)) return true;
+      if (s.is_operational_station === false) return true;
+      if (refMap[s.id]) return true;
+      return false;
+    }).slice().sort(function (a, b) {
+      return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    });
+  }
+
+  function resolveDurTraitMapStationContext(station) {
+    if (!station) return { refId: null, refNameAr: '', operationalNameAr: '', warning: '' };
+    var ref = (station.reference_station_id || '').trim();
+    if (ref) {
+      var refRow = (stationsCache || []).find(function (s) { return s && s.id === ref; });
+      return {
+        refId: ref,
+        refNameAr: station.reference_station_name_ar || (refRow && (refRow.name_ar || refRow.name)) || ref,
+        operationalNameAr: station.name_ar || station.name || '',
+        warning: ''
+      };
+    }
+    if (isReferenceCalibrationStation(station) || station.is_operational_station === false) {
+      return {
+        refId: station.id,
+        refNameAr: station.name_ar || station.name || '',
+        operationalNameAr: '',
+        warning: ''
+      };
+    }
+    var hubs = getDurTraitReferenceHubStations(stationsCache);
+    if (hubs.some(function (h) { return h.id === station.id; })) {
+      return {
+        refId: station.id,
+        refNameAr: station.name_ar || station.name || '',
+        operationalNameAr: '',
+        warning: ''
+      };
+    }
+    if (parseStoredBooleanFlag(station.is_operational_station) !== false) {
+      return { refId: null, refNameAr: '', operationalNameAr: station.name_ar || station.name || '', warning: 'هذه المحطة غير مربوطة بمحطة مرجعية' };
+    }
+    return {
+      refId: station.id,
+      refNameAr: station.name_ar || station.name || '',
+      operationalNameAr: '',
+      warning: ''
+    };
+  }
+
+  function syncDurTraitReferenceFromMapStation() {
+    var op = selectedDururStationId ? (stationsCache || []).find(function (s) { return s.id === selectedDururStationId; }) : null;
+    var ctx = resolveDurTraitMapStationContext(op);
+    if (ctx.refId) {
+      selectedDururTraitReferenceId = ctx.refId;
+    }
+    var warnEl = getEl('dururTraitRefMissingWarn');
+    if (warnEl) warnEl.textContent = ctx.warning || '';
+    var banner = getEl('dururTraitRefBanner');
+    if (banner) {
+      if (op && ctx.refId) {
+        banner.innerHTML = '<strong>المحطة التشغيلية:</strong> ' + escapeHtml(op.name_ar || op.name || op.id)
+          + ' — <strong>المرجع المستخدم:</strong> ' + escapeHtml(ctx.refNameAr || ctx.refId);
+      } else if (op && !ctx.refId) {
+        banner.innerHTML = '<strong>المحطة التشغيلية:</strong> ' + escapeHtml(op.name_ar || op.name || op.id) + ' — <strong>المرجع:</strong> —';
+      } else if (ctx.refId) {
+        banner.innerHTML = '<strong>محطة مرجعية:</strong> ' + escapeHtml(ctx.refNameAr || ctx.refId);
+      } else {
+        banner.textContent = '';
+      }
+    }
+    var sel = getEl('dururTraitReviewReferenceStation');
+    if (sel && ctx.refId) {
+      var hasOpt = false;
+      for (var oi = 0; oi < sel.options.length; oi++) {
+        if (sel.options[oi].value === ctx.refId) {
+          hasOpt = true;
+          break;
+        }
+      }
+      if (hasOpt) sel.value = ctx.refId;
+    }
+  }
+
+  function populateDururTraitReviewReferenceSelect() {
+    var sel = getEl('dururTraitReviewReferenceStation');
+    if (!sel) return;
+    var hubs = getDurTraitReferenceHubStations(stationsCache);
+    var cur = sel.value || selectedDururTraitReferenceId || '';
+    sel.innerHTML = hubs.map(function (h) {
+      return '<option value="' + escapeHtml(h.id) + '">' + escapeHtml(h.name_ar || h.name || h.id) + '</option>';
+    }).join('');
+    if (cur) {
+      for (var oi = 0; oi < sel.options.length; oi++) {
+        if (sel.options[oi].value === cur) {
+          sel.value = cur;
+          break;
+        }
+      }
+    } else if (sel.options.length) {
+      sel.selectedIndex = 0;
+      selectedDururTraitReferenceId = sel.value;
+    }
+  }
+
+  async function refreshDururIntelligenceData() {
+    ensureDururManagementPanel();
+    var body = getEl('dururIntelligenceBody');
+    var status = getEl('dururIntelligenceStatus');
+    if (!body || !status) return;
+    try {
+      if (!selectedDururTraitReferenceId) {
+        populateDururTraitReviewReferenceSelect();
+        var sel = getEl('dururTraitReviewReferenceStation');
+        if (sel && sel.value) selectedDururTraitReferenceId = sel.value;
+      }
+      var url = '/api?route=admin&path=durur-intelligence';
+      if (selectedDururTraitReferenceId) url += '&reference_station_id=' + encodeURIComponent(selectedDururTraitReferenceId);
+      var r = await apiFetch(url, { method: 'GET' }).then(function (res) { return res.json(); });
+      dururIntelligenceGroupedCache = Array.isArray(r.grouped) ? r.grouped : [];
+      status.textContent = String(dururIntelligenceGroupedCache.length) + ' درة';
+      renderDururIntelligencePanel();
+    } catch (err) {
+      console.error('[durur-intelligence] refresh failed', err);
+      dururIntelligenceGroupedCache = [];
+      renderDururIntelligencePanel();
+    }
+  }
+
+  async function updateDururStationPreviewTraitCalibRow() {
+    var mount = getEl('dururStationPreviewTraitCalib');
+    if (!mount) return;
+    var op = selectedDururStationId ? (stationsCache || []).find(function (s) { return s.id === selectedDururStationId; }) : null;
+    var ctx = resolveDurTraitMapStationContext(op);
+    if (!ctx.refId || !selectedGlobalDurId) {
+      mount.innerHTML = '<div style="font-size:.78rem;color:#9fc1d7"><strong>معايرة السمات (KV):</strong> ' + (ctx.warning || 'اختر محطة مرجعية ودراً لعرض السمات المعتمدة من المرجع.') + '</div>';
+      return;
+    }
+    var durRow = globalDururManagementCache.find(function (r) { return r.id === selectedGlobalDurId; }) || {};
+    var durNameAr = durRow.name_ar || durRow.name || '';
+    try {
+      var depth = (getEl('dururTraitReviewDepth') && getEl('dururTraitReviewDepth').value) ? getEl('dururTraitReviewDepth').value : 'coastal';
+      var phaseEl = getEl('dururTraitReviewPhase');
+      var phaseId = phaseEl && phaseEl.value != null ? phaseEl.value : '';
+      var calUrl = '/api?route=admin&path=trait-calibration&reference_station_id=' + encodeURIComponent(ctx.refId) + '&dur_name_ar=' + encodeURIComponent(durNameAr) + '&phase_id=' + encodeURIComponent(phaseId) + '&depth_mode=' + encodeURIComponent(depth);
+      var cal = await apiFetch(calUrl, { method: 'GET' }).then(function (res) { return res.json(); });
+      var entry = cal.entry || {};
+      var conf = (entry.confirmed_traits || []).map(function (x) { return x && x.trait_name; }).filter(Boolean);
+      mount.innerHTML = ''
+        + '<div style="font-size:.78rem;color:#ffe7aa;margin-bottom:6px"><strong>معايرة السمات (KV) للمرجع:</strong> ' + escapeHtml(ctx.refNameAr || ctx.refId) + '</div>'
+        + '<div style="font-size:.74rem;color:#9fc1d7"><strong>المحطة التشغيلية:</strong> ' + escapeHtml(op ? (op.name_ar || op.name || op.id) : '—') + '</div>'
+        + '<div style="margin-top:6px"><strong style="color:#9fc1d7;font-size:.76rem">سمات مؤكدة من المرجع (محلياً):</strong></div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">' + (conf.length ? buildTraitChipHtml(conf, 'rgba(255,185,0,.14)', 'rgba(255,185,0,.3)', '#ffe7aa') : '<span style="color:#9fc1d7;font-size:.76rem">— لا توجد —</span>') + '</div>';
+    } catch (e) {
+      mount.innerHTML = '<div style="font-size:.76rem;color:#ffb3b3">تعذر تحميل معايرة السمات.</div>';
+    }
+  }
+
   function getTimingSourceLabel(dur) {
     if (dur && dur.timing_source_label_ar) return dur.timing_source_label_ar;
     var source = dur && dur.timing_source ? dur.timing_source : '';
@@ -3727,6 +3910,209 @@
     }
   }
 
+  var dururTraitReviewListenersBound = false;
+
+  function populateDururTraitReviewPhaseSelect() {
+    var sel = getEl('dururTraitReviewPhase');
+    if (!sel) return;
+    var dur = globalDururManagementCache.find(function (r) { return r.id === selectedGlobalDurId; });
+    var phases = dur && Array.isArray(dur.phases) ? dur.phases : [];
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">' + 'كل المراحل' + '</option>' + phases.map(function (p) {
+      return '<option value="' + escapeHtml(p.phase_id || '') + '">' + escapeHtml(p.title_ar || p.phase_id || '') + '</option>';
+    }).join('');
+    if (cur) {
+      for (var oi = 0; oi < sel.options.length; oi++) {
+        if (sel.options[oi].value === cur) {
+          sel.value = cur;
+          break;
+        }
+      }
+    }
+  }
+
+  function traitReviewStatusForTrait(entry, traitName) {
+    if (!entry) return '';
+    var lists = [
+      { k: 'confirmed_traits', label: 'مؤكد' },
+      { k: 'excluded_traits', label: 'مستبعد' },
+      { k: 'review_traits', label: 'تحت المراجعة' }
+    ];
+    for (var i = 0; i < lists.length; i++) {
+      var arr = entry[lists[i].k] || [];
+      for (var j = 0; j < arr.length; j++) {
+        if (String(arr[j].trait_name || '').trim() === String(traitName).trim()) return lists[i].label;
+      }
+    }
+    return '';
+  }
+
+  function renderDururTraitReviewTables(ev, calEntry, scope) {
+    var tables = getEl('dururTraitReviewTables');
+    if (!tables) return;
+    var scopeLine = (scope.referenceStationNameAr || scope.referenceStationId || '') + ' · ' + (scope.durNameAr || '') + ' · ' + (scope.phaseId ? ('مرحلة: ' + scope.phaseId) : 'كل المراحل') + ' · ' + (scope.depthMode === 'deep' ? 'غزير' : 'ساحلي');
+    function rowHtml(list, kind) {
+      if (!list || !list.length) return '<div style="color:#9fc1d7;font-size:.8rem">— لا توجد بيانات —</div>';
+      var typeLabel = kind === 'extra' ? 'زائدة' : 'فشل';
+      return '<table style="width:100%;font-size:.78rem;border-collapse:collapse"><thead><tr style="color:#9fc1d7"><th>السمة</th><th>النوع</th><th>مرات</th><th>آخر ظهور</th><th>النطاق</th><th>حالة</th><th></th></tr></thead><tbody>' + list.map(function (item) {
+        var name = item.trait_name || '';
+        var cnt = item.evidence_count != null ? item.evidence_count : 0;
+        var stLabel = traitReviewStatusForTrait(calEntry, name);
+        var lastSeen = item.last_seen_at ? String(item.last_seen_at) : '—';
+        var confirmDis = kind !== 'extra' || cnt < 3 ? ' disabled' : '';
+        var excludeDis = kind !== 'failed' ? ' disabled' : '';
+        return '<tr style="border-bottom:1px solid rgba(255,255,255,.06)"><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(typeLabel) + '</td><td>' + cnt + '</td><td style="font-size:.72rem">' + escapeHtml(lastSeen) + '</td><td style="font-size:.68rem;color:#9fc1d7;max-width:120px;word-break:break-word">' + escapeHtml(scopeLine) + '</td><td>' + escapeHtml(stLabel || '—') + '</td><td style="white-space:nowrap">'
+          + '<button type="button" class="small-btn" data-tr-action="confirm" data-tr-kind="' + escapeHtml(kind) + '" data-tr-name="' + escapeHtml(name) + '" data-tr-ev="' + cnt + '" data-tr-first="' + escapeHtml(item.first_seen_at || '') + '" data-tr-last="' + escapeHtml(item.last_seen_at || '') + '"' + confirmDis + '>اعتماد</button> '
+          + '<button type="button" class="small-btn" data-tr-action="exclude" data-tr-kind="' + escapeHtml(kind) + '" data-tr-name="' + escapeHtml(name) + '" data-tr-ev="' + cnt + '" data-tr-first="' + escapeHtml(item.first_seen_at || '') + '" data-tr-last="' + escapeHtml(item.last_seen_at || '') + '"' + excludeDis + '>تجاهل</button> '
+          + '<button type="button" class="small-btn" data-tr-action="review" data-tr-kind="' + escapeHtml(kind) + '" data-tr-name="' + escapeHtml(name) + '" data-tr-ev="' + cnt + '" data-tr-first="' + escapeHtml(item.first_seen_at || '') + '" data-tr-last="' + escapeHtml(item.last_seen_at || '') + '">تحت المراجعة</button>'
+          + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    }
+    tables.innerHTML = ''
+      + '<div><strong style="color:#ffb3b3;font-size:.82rem">أ) لم تتحقق من المرجع (failed_traits)</strong><div style="margin-top:6px">' + rowHtml(ev.failed, 'failed') + '</div></div>'
+      + '<div><strong style="color:#ffe27a;font-size:.82rem">ب) ظهرت في القراءات (extra_traits)</strong><div style="margin-top:6px">' + rowHtml(ev.extra, 'extra') + '</div></div>';
+    tables.querySelectorAll('button[data-tr-action]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var action = btn.getAttribute('data-tr-action');
+        var kind = btn.getAttribute('data-tr-kind');
+        var traitName = btn.getAttribute('data-tr-name');
+        var evc = Number(btn.getAttribute('data-tr-ev')) || 0;
+        var firstAt = btn.getAttribute('data-tr-first') || '';
+        var lastAt = btn.getAttribute('data-tr-last') || '';
+        void postDururTraitReviewAction(action, kind, traitName, evc, scope, firstAt, lastAt);
+      });
+    });
+  }
+
+  async function postDururTraitReviewAction(action, kind, traitName, evc, scope, firstAt, lastAt) {
+    if (action === 'confirm' && kind !== 'extra') {
+      window.alert('اعتماد السمة متاح لسمات «زائدة» فقط (ظهرت في القراءات).');
+      return;
+    }
+    if (action === 'exclude' && kind !== 'failed') {
+      window.alert('تجاهل السمة يطبق على السمات «الفاشلة» فقط (متوقعة من المرجع).');
+      return;
+    }
+    if (action === 'confirm' && kind === 'extra' && evc < 3) return;
+    if (!scope.referenceStationId) {
+      window.alert('اختر محطة مرجعية من القائمة — لا يُسمح باعتماد سمة على محطة تشغيلية بشكل مستقل.');
+      return;
+    }
+    var body = {
+      action: action === 'confirm' ? 'confirm' : action === 'exclude' ? 'exclude' : 'review',
+      reference_station_id: scope.referenceStationId,
+      reference_station_name_ar: scope.referenceStationNameAr || '',
+      operational_station_id: scope.operationalStationId || undefined,
+      operational_station_name_ar: scope.operationalStationNameAr || undefined,
+      dur_name_ar: scope.durNameAr,
+      phase_id: scope.phaseId || '',
+      depth_mode: scope.depthMode || 'coastal',
+      trait_name: traitName,
+      evidence_count: evc,
+      source: kind === 'extra' ? 'extra' : 'failed',
+      first_seen_at: firstAt || undefined,
+      last_seen_at: lastAt || undefined
+    };
+    try {
+      var res = await apiFetch('/api?route=admin&path=trait-calibration-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      var j = await res.json();
+      if (!res.ok || !j.ok) throw new Error((j && j.error) || 'save_failed');
+      try {
+        if (typeof console !== 'undefined' && console.debug) {
+          console.debug('NAVIDUR_TRAIT_REVIEW_ACTION', {
+            action: body.action,
+            reference_station_id: body.reference_station_id,
+            reference_station_name_ar: body.reference_station_name_ar,
+            operational_station_id: body.operational_station_id,
+            dur_name_ar: body.dur_name_ar,
+            phase_id: body.phase_id,
+            depth_mode: body.depth_mode,
+            trait_name: body.trait_name,
+            evidence_count: body.evidence_count
+          });
+        }
+      } catch (_d) { /* ignore */ }
+      await refreshDururTraitReviewPanel();
+    } catch (e) {
+      window.alert('فشل الحفظ: ' + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function refreshDururTraitReviewPanel() {
+    var hint = getEl('dururTraitReviewHint');
+    var tables = getEl('dururTraitReviewTables');
+    if (!hint || !tables) return;
+    if (!selectedGlobalDurId) {
+      hint.textContent = 'اختر دراً من قائمة الدرور أعلاه، ثم اضغط «تحديث قوائم المراجعة».';
+      tables.innerHTML = '';
+      return;
+    }
+    populateDururTraitReviewReferenceSelect();
+    var refPick = getEl('dururTraitReviewReferenceStation');
+    if (refPick && refPick.value) selectedDururTraitReferenceId = refPick.value;
+    if (!selectedDururTraitReferenceId) {
+      hint.textContent = 'لا توجد محطة مرجعية محددة — أضف محطات مرجعية أو اربط المحطات التشغيلية بمرجع، ثم اختر المرجع من القائمة.';
+      tables.innerHTML = '';
+      return;
+    }
+    populateDururTraitReviewPhaseSelect();
+    var depthEl = getEl('dururTraitReviewDepth');
+    var phaseEl = getEl('dururTraitReviewPhase');
+    var depth = depthEl && depthEl.value ? depthEl.value : 'coastal';
+    var phaseId = phaseEl && phaseEl.value != null ? phaseEl.value : '';
+    var durRow = globalDururManagementCache.find(function (r) { return r.id === selectedGlobalDurId; }) || {};
+    var durNameAr = durRow.name_ar || durRow.name || '';
+    var refRow = (stationsCache || []).find(function (s) { return s.id === selectedDururTraitReferenceId; }) || {};
+    var refNameAr = refRow.name_ar || refRow.name || selectedDururTraitReferenceId;
+    var opSt = selectedDururStationId ? (stationsCache || []).find(function (s) { return s.id === selectedDururStationId; }) : null;
+    syncDurTraitReferenceFromMapStation();
+    hint.textContent = 'جاري التحميل…';
+    try {
+      var evUrl = '/api?route=admin&path=durur-trait-review-evidence&reference_station_id=' + encodeURIComponent(selectedDururTraitReferenceId) + '&dur_id=' + encodeURIComponent(selectedGlobalDurId) + (phaseId ? '&phase_id=' + encodeURIComponent(phaseId) : '');
+      var calUrl = '/api?route=admin&path=trait-calibration&reference_station_id=' + encodeURIComponent(selectedDururTraitReferenceId) + '&dur_name_ar=' + encodeURIComponent(durNameAr) + '&phase_id=' + encodeURIComponent(phaseId) + '&depth_mode=' + encodeURIComponent(depth) + (opSt && opSt.id !== selectedDururTraitReferenceId ? '&legacy_operational_station_id=' + encodeURIComponent(opSt.id) : '');
+      var pair = await Promise.all([
+        apiFetch(evUrl, { method: 'GET' }).then(function (r) { return r.json(); }),
+        apiFetch(calUrl, { method: 'GET' }).then(function (r) { return r.json(); })
+      ]);
+      var ev = pair[0];
+      var cal = pair[1];
+      if (!ev.ok) throw new Error(ev.error || 'evidence_failed');
+      hint.textContent = 'مرجع الأدلة: ' + refNameAr + ' · ' + durNameAr + ' · مرحلة: ' + (phaseId || 'الكل (مفتاح مرحلة فارغ — احتياطي في التحليل الحيّ)') + ' · ' + (depth === 'deep' ? 'غزير' : 'ساحلي') + ' — تشغيلات التحقق: ' + (ev.runs != null ? String(ev.runs) : '—');
+      renderDururTraitReviewTables(ev, cal.entry || null, {
+        referenceStationNameAr: refNameAr,
+        referenceStationId: selectedDururTraitReferenceId,
+        operationalStationId: opSt ? opSt.id : '',
+        operationalStationNameAr: opSt ? (opSt.name_ar || opSt.name || '') : '',
+        durNameAr: durNameAr,
+        phaseId: phaseId,
+        depthMode: depth
+      });
+      void updateDururStationPreviewTraitCalibRow();
+    } catch (e) {
+      hint.textContent = 'تعذر التحميل: ' + (e && e.message ? e.message : e);
+      tables.innerHTML = '';
+    }
+  }
+
+  function ensureDururTraitReviewListeners() {
+    if (dururTraitReviewListenersBound) return;
+    dururTraitReviewListenersBound = true;
+    var b = getEl('dururTraitReviewRefreshBtn');
+    if (b) b.addEventListener('click', function () { void refreshDururTraitReviewPanel(); });
+    var d = getEl('dururTraitReviewDepth');
+    var p = getEl('dururTraitReviewPhase');
+    var refSel = getEl('dururTraitReviewReferenceStation');
+    if (d) d.addEventListener('change', function () { void refreshDururTraitReviewPanel(); });
+    if (p) p.addEventListener('change', function () { void refreshDururTraitReviewPanel(); });
+    if (refSel) {
+      refSel.addEventListener('change', function () {
+        selectedDururTraitReferenceId = refSel.value || null;
+        void refreshDururIntelligenceData();
+        void refreshDururTraitReviewPanel();
+      });
+    }
+  }
+
   function ensureDururManagementPanel() {
     if (getEl('globalDururManagementBlock')) return;
     var analyticsDetails = getEl('stAnalyticsRefreshBtn');
@@ -3757,9 +4143,27 @@
       + '  <div style="padding:12px;background:rgba(255,185,0,.06);border:1px solid rgba(255,185,0,.18);border-radius:10px">'
       + '    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px"><strong style="color:#dff8ff">تحليل أداء الدرور</strong><span id="dururIntelligenceStatus" style="font-size:.8rem;color:#9fc1d7">--</span></div>'
       + '    <div id="dururIntelligenceBody" style="display:grid;gap:10px;color:#c5d5e0;font-size:.84rem">جاري تحميل بيانات الذكاء...</div>'
+      + '    <div id="dururTraitReviewShell" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12)">'
+      + '      <div style="font-size:.86rem;color:#dff8ff;margin-bottom:6px"><strong>مراجعة السمات (محطات مرجعية — KV)</strong></div>'
+      + '      <div id="dururTraitRefBanner" style="font-size:.76rem;color:#c5dce8;margin-bottom:6px;line-height:1.45"></div>'
+      + '      <div id="dururTraitRefMissingWarn" style="font-size:.76rem;color:#ffb3b3;margin-bottom:8px"></div>'
+      + '      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end;margin-bottom:8px">'
+      + '        <div><label style="display:block;font-size:.74rem;color:#9fc1d7;margin-bottom:4px">محطة مرجعية (الأدلة والمعايرة)</label><select id="dururTraitReviewReferenceStation" style="width:100%"></select></div>'
+      + '        <div><button type="button" class="small-btn" id="dururTraitReviewRefreshBtn">تحديث قوائم المراجعة</button></div>'
+      + '      </div>'
+      + '      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end">'
+      + '        <div><label style="display:block;font-size:.74rem;color:#9fc1d7;margin-bottom:4px">ساحلي / غزير</label><select id="dururTraitReviewDepth" style="width:100%"><option value="coastal">ساحلي</option><option value="deep">غزير</option></select></div>'
+      + '        <div><label style="display:block;font-size:.74rem;color:#9fc1d7;margin-bottom:4px">المرحلة (اختياري)</label><select id="dururTraitReviewPhase" style="width:100%"><option value="">كل المراحل</option></select></div>'
+      + '      </div>'
+      + '      <div id="dururTraitReviewHint" style="font-size:.76rem;color:#9fc1d7;margin-top:8px;line-height:1.4"></div>'
+      + '      <div id="dururTraitReviewTables" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>'
+      + '    </div>'
       + '  </div>'
       + '</div>';
     anchor.parentNode.insertBefore(wrapper, anchor.nextSibling);
+    ensureDururTraitReviewListeners();
+    populateDururTraitReviewReferenceSelect();
+    syncDurTraitReferenceFromMapStation();
   }
 
   function renderGlobalDururList() {
@@ -3941,21 +4345,23 @@
     try {
       var pair = await Promise.all([
         apiFetch('/api?route=admin&path=durur', { method: 'GET' }).then(function (res) { return res.json(); }),
-        apiFetch('/api?route=admin&path=durur-overrides', { method: 'GET' }).then(function (res) { return res.json(); }),
-        apiFetch('/api?route=admin&path=durur-intelligence', { method: 'GET' }).then(function (res) { return res.json(); })
+        apiFetch('/api?route=admin&path=durur-overrides', { method: 'GET' }).then(function (res) { return res.json(); })
       ]);
       globalDururManagementCache = Array.isArray(pair[0].items) ? pair[0].items.map(normalizeDurRecordForUi) : [];
       dururGlobalOverridesCache = Array.isArray(pair[1].items) ? pair[1].items : [];
-      dururIntelligenceGroupedCache = Array.isArray(pair[2].grouped) ? pair[2].grouped : [];
+      populateDururTraitReviewReferenceSelect();
+      syncDurTraitReferenceFromMapStation();
+      await refreshDururIntelligenceData();
       if (!selectedGlobalDurId && globalDururManagementCache.length) selectedGlobalDurId = globalDururManagementCache[0].id || '';
       renderGlobalDururList();
       renderGlobalDururEditor();
       renderDururStationPreview();
-      renderDururIntelligencePanel();
+      void refreshDururTraitReviewPanel();
     } catch (err) {
       console.error('[durur-management] load failed', err);
       dururIntelligenceGroupedCache = [];
       renderDururIntelligencePanel();
+      void refreshDururTraitReviewPanel();
     }
   }
 
@@ -4197,7 +4603,9 @@
       + '  <div><strong style="color:#9fc1d7">مرساة سهيل (للملاحظة):</strong><br>' + escapeHtml(resolvedAnchorLabel) + '</div>'
       + '  <div><strong style="color:#9fc1d7">بداية الدورة (للملاحظة):</strong><br>' + escapeHtml(resolvedCycleStartLabel) + '</div>'
       + '</div>'
-      + '</div>';
+      + '</div>'
+      + '<div id="dururStationPreviewTraitCalib" style="margin-top:10px;padding:10px;border:1px solid rgba(255,185,0,.18);border-radius:10px;background:rgba(255,185,0,.06)"></div>';
+    void updateDururStationPreviewTraitCalibRow();
   }
 
   function getFishingModeLabel(mode) {

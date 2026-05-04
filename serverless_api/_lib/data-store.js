@@ -40,7 +40,8 @@ const FILES = {
   live_weather_cache: 'live_weather_cache.json',
   navidur_learning_adjustments: 'navidur_learning_adjustments.json',
   navidur_learning_settings: 'navidur_learning_settings.json',
-  field_session_reviews: 'field_session_reviews.json'
+  field_session_reviews: 'field_session_reviews.json',
+  trait_calibration: 'trait_calibration.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────
@@ -232,19 +233,31 @@ async function appendIndexedRecord(options, record) {
   await kv.ltrim(options.indexKey, 0, options.maxSize - 1);
 }
 
+function recordMatchesStationIdFilter(record, stationId, includeReferenceAlias) {
+  if (!stationId) return true;
+  const sid = String(stationId);
+  const recSid = String(record && record.station_id || '');
+  if (recSid === sid) return true;
+  if (includeReferenceAlias && String(record && record.reference_station_id || '') === sid) return true;
+  return false;
+}
+
 async function getIndexedRecordsLocal(key, options) {
   const rows = await readJsonFile(key, []);
+  const q = options || {};
+  const incRef = !!q.stationIdMatchesReferenceBucket;
+  const lim = typeof q.limit === 'number' && q.limit > 0 ? q.limit : 100;
   return rows.filter(function (record) {
-    if (options.stationId && String(record && record.station_id || '') !== options.stationId) return false;
-    if (options.durId && String(record && record.dur_id || '') !== options.durId) return false;
-    if (options.status && String(record && record.validation_status || '') !== options.status) return false;
+    if (q.stationId && !recordMatchesStationIdFilter(record, q.stationId, incRef)) return false;
+    if (q.durId && String(record && record.dur_id || '') !== q.durId) return false;
+    if (q.status && String(record && record.validation_status || '') !== q.status) return false;
     return true;
-  }).slice(0, options.limit);
+  }).slice(0, lim);
 }
 
 async function getIndexedRecords(config, options) {
   const kv = getKv();
-  const query = Object.assign({ stationId: '', durId: '', status: '', limit: 100 }, options || {});
+  const query = Object.assign({ stationId: '', durId: '', status: '', limit: 100, stationIdMatchesReferenceBucket: false }, options || {});
   if (!kv) {
     assertPersistentStoreAvailable();
     return getIndexedRecordsLocal(config.fileKey, query);
@@ -256,8 +269,9 @@ async function getIndexedRecords(config, options) {
   const keys = ids.map(function (id) { return config.recordPrefix + String(id); });
   const rawRecords = await kv.mget(...keys);
   const records = rawRecords.map(parseStoredRecord).filter(Boolean);
+  const incRef = !!query.stationIdMatchesReferenceBucket;
   return records.filter(function (record) {
-    if (query.stationId && String(record.station_id || '') !== query.stationId) return false;
+    if (query.stationId && !recordMatchesStationIdFilter(record, query.stationId, incRef)) return false;
     if (query.durId && String(record.dur_id || '') !== query.durId) return false;
     if (query.status && String(record.validation_status || '') !== query.status) return false;
     return true;

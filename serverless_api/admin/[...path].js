@@ -8,7 +8,8 @@ const { resolveAutoReferenceInheritance } = require('../_lib/reference-station-i
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
 const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require('../_lib/stations');
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
-const { getDurIntelligenceSummary } = require('../_lib/dur-intelligence');
+const { getDurIntelligenceSummary, getDurTraitReviewEvidence } = require('../_lib/dur-intelligence');
+const traitCalibrationLib = require('../../shared/navidur-trait-calibration');
 const { utcTodayIso } = require('../_lib/station-local-dur-resolver');
 const tfLookup = require('../../shared/true-final-station-reference-lookup');
 
@@ -591,6 +592,143 @@ async function readDurMasterRows() {
   const out = Array.isArray(rows) ? rows : [];
   validateDurMasterCollection(out);
   return out;
+}
+
+function removeTraitCalibrationEntryByName(arr, traitName) {
+  return (Array.isArray(arr) ? arr : []).filter(function (e) {
+    return cleanString(e && e.trait_name, 120) !== traitName;
+  });
+}
+
+async function applyTraitCalibrationAction(actor, body) {
+  const action = cleanString(body.action, 20);
+  const traitName = cleanString(body.trait_name, 120);
+  if (!traitName) {
+    const err = new Error('trait_name_required');
+    err.code = 400;
+    throw err;
+  }
+  const evidence = Number(body.evidence_count) || 0;
+  const durNameAr = cleanString(body.dur_name_ar, 120);
+  const phaseId = cleanString(body.phase_id, 120);
+  const depthMode = cleanString(body.depth_mode, 20) || 'coastal';
+  const refId = cleanString(body.reference_station_id, 80);
+  if (!refId || !durNameAr) {
+    const err = new Error('reference_station_and_dur_required');
+    err.code = 400;
+    throw err;
+  }
+  const opId = cleanString(body.operational_station_id, 80);
+  if (action === 'confirm' && evidence < 3) {
+    const err = new Error('confirm_requires_evidence_3');
+    err.code = 400;
+    throw err;
+  }
+  const refNameAr = cleanString(body.reference_station_name_ar, 200);
+  const key = traitCalibrationLib.buildTraitCalibrationScopeKey({
+    reference_station_id: refId,
+    dur_name_ar: durNameAr,
+    phase_id: phaseId,
+    depth_mode: depthMode
+  });
+  const doc = await readJsonFile('trait_calibration', { version: 1, scopes: {} });
+  doc.version = 1;
+  doc.scopes = doc.scopes && typeof doc.scopes === 'object' ? doc.scopes : {};
+  const nowIso = new Date().toISOString();
+  var entry = doc.scopes[key];
+  if (!entry) {
+    entry = {
+      reference_station_id: refId,
+      reference_station_name_ar: refNameAr,
+      dur_name_ar: durNameAr,
+      phase_id: phaseId,
+      depth_mode: depthMode,
+      confirmed_traits: [],
+      excluded_traits: [],
+      review_traits: [],
+      updated_at: nowIso
+    };
+    doc.scopes[key] = entry;
+  }
+  entry.reference_station_id = refId;
+  entry.reference_station_name_ar = refNameAr || entry.reference_station_name_ar;
+  entry.dur_name_ar = durNameAr;
+  entry.phase_id = phaseId;
+  entry.depth_mode = depthMode;
+  entry.confirmed_traits = removeTraitCalibrationEntryByName(entry.confirmed_traits, traitName);
+  entry.excluded_traits = removeTraitCalibrationEntryByName(entry.excluded_traits, traitName);
+  entry.review_traits = removeTraitCalibrationEntryByName(entry.review_traits, traitName);
+  const srcHint = cleanString(body.source, 40);
+  const bodyFirst = cleanString(body.first_seen_at, 50);
+  const bodyLast = cleanString(body.last_seen_at, 50);
+  const firstSeen = bodyFirst || nowIso;
+  const lastSeen = bodyLast || bodyFirst || nowIso;
+  if (action === 'confirm') {
+    entry.confirmed_traits.push({
+      trait_name: traitName,
+      source: 'observed_extra',
+      evidence_count: evidence,
+      first_seen_at: firstSeen,
+      last_seen_at: lastSeen,
+      status: 'confirmed'
+    });
+  } else if (action === 'exclude') {
+    entry.excluded_traits.push({
+      trait_name: traitName,
+      source: 'predicted_failed',
+      evidence_count: evidence,
+      first_seen_at: firstSeen,
+      last_seen_at: lastSeen,
+      status: 'excluded'
+    });
+  } else if (action === 'review') {
+    entry.review_traits.push({
+      trait_name: traitName,
+      source: srcHint === 'extra' ? 'extra' : 'failed',
+      evidence_count: Math.max(1, evidence),
+      first_seen_at: firstSeen,
+      last_seen_at: lastSeen,
+      status: 'review'
+    });
+  } else {
+    const err = new Error('invalid_action');
+    err.code = 400;
+    throw err;
+  }
+  entry.updated_at = nowIso;
+  await writeJsonFile('trait_calibration', doc);
+  await writeAudit('trait_calibration_' + action, actor, {
+    scope_key: key,
+    trait_name: traitName,
+    evidence_count: evidence,
+    operational_station_id: opId || null
+  });
+  try {
+    if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+      console.debug('NAVIDUR_TRAIT_REVIEW_ACTION', {
+        action: action,
+        reference_station_id: entry.reference_station_id,
+        reference_station_name_ar: entry.reference_station_name_ar,
+        operational_station_id: cleanString(body.operational_station_id, 80) || undefined,
+        dur_name_ar: entry.dur_name_ar,
+        phase_id: entry.phase_id,
+        depth_mode: entry.depth_mode,
+        trait_name: traitName,
+        evidence_count: evidence
+      });
+      console.debug('NAVIDUR_TRAIT_CALIBRATION_APPLIED', {
+        reference_station_id: entry.reference_station_id,
+        reference_station_name_ar: entry.reference_station_name_ar,
+        dur_name_ar: entry.dur_name_ar,
+        phase_id: entry.phase_id,
+        depth_mode: entry.depth_mode,
+        confirmed_traits: entry.confirmed_traits,
+        excluded_traits: entry.excluded_traits,
+        review_traits: entry.review_traits
+      });
+    }
+  } catch (_logE) { /* ignore */ }
+  return { ok: true, scope_key: key, entry: entry };
 }
 
 module.exports = async function handler(req, res) {
@@ -1591,7 +1729,8 @@ module.exports = async function handler(req, res) {
       return res.status(405).json({ error: 'method_not_allowed' });
     }
     const durId = cleanString(req.query && req.query.dur_id, 80);
-    const stationId = cleanString(req.query && req.query.station_id, 80);
+    const stationId =
+      cleanString(req.query && req.query.reference_station_id, 80) || cleanString(req.query && req.query.station_id, 80);
     const result = await getDurIntelligenceSummary({ durId: durId, stationId: stationId });
     return res.status(200).json({
       ok: true,
@@ -1599,6 +1738,75 @@ module.exports = async function handler(req, res) {
       items: Array.isArray(result.items) ? result.items : [],
       grouped: Array.isArray(result.grouped) ? result.grouped : []
     });
+  }
+
+  if (root === 'durur-trait-review-evidence') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const q = req.query || {};
+    const refStationId = cleanString(q.reference_station_id, 80) || cleanString(q.station_id, 80);
+    const evidence = await getDurTraitReviewEvidence({
+      referenceStationId: refStationId,
+      durId: cleanString(q.dur_id, 80),
+      phaseId: cleanString(q.phase_id, 120),
+      limit: 20000
+    });
+    return res.status(200).json(evidence);
+  }
+
+  if (root === 'trait-calibration') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    const doc = await readJsonFile('trait_calibration', { version: 1, scopes: {} });
+    const q = req.query || {};
+    const durName = cleanString(q.dur_name_ar, 120);
+    const phaseId = cleanString(q.phase_id, 120);
+    const depthMode = cleanString(q.depth_mode, 20) || 'coastal';
+    const refId = cleanString(q.reference_station_id, 80) || cleanString(q.station_id, 80);
+    if (refId && durName) {
+      const sk = traitCalibrationLib.buildTraitCalibrationScopeKey({
+        reference_station_id: refId,
+        dur_name_ar: durName,
+        phase_id: phaseId,
+        depth_mode: depthMode
+      });
+      var entryOut = (doc.scopes && doc.scopes[sk]) || null;
+      if (!entryOut && cleanString(q.legacy_operational_station_id, 80)) {
+        const leg = traitCalibrationLib.buildLegacyTraitCalibrationScopeKey({
+          station_id: cleanString(q.legacy_operational_station_id, 80),
+          reference_station_id: refId,
+          dur_name_ar: durName,
+          phase_id: phaseId,
+          depth_mode: depthMode
+        });
+        entryOut = (doc.scopes && doc.scopes[leg]) || null;
+      }
+      return res.status(200).json({
+        ok: true,
+        scope_key: sk,
+        entry: entryOut
+      });
+    }
+    return res.status(200).json({ ok: true, version: doc.version, scopes: doc.scopes || {} });
+  }
+
+  if (root === 'trait-calibration-action') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const body = parseBody(req);
+      const out = await applyTraitCalibrationAction(actor, body);
+      return res.status(200).json(out);
+    } catch (err) {
+      const code = err && err.code === 400 ? 400 : 500;
+      return res.status(code).json({ ok: false, error: String(err.message || err) });
+    }
   }
 
   /** FIELD review + learning (admin-only; catch logs from KV only) */

@@ -185,6 +185,13 @@ function normalizeRequestedStation(body, stations) {
   var lat = toNumber(raw.lat != null ? raw.lat : body && body.lat);
   var lon = toNumber(raw.lon != null ? raw.lon : (raw.lng != null ? raw.lng : (body && (body.lon != null ? body.lon : body.lng))));
 
+  var isOperationalStation =
+    raw.is_operational_station !== undefined
+      ? !!raw.is_operational_station
+      : storedStation && storedStation.is_operational_station !== undefined
+        ? !!storedStation.is_operational_station
+        : true;
+
   return {
     id: storedStation ? storedStation.id : (cleanString(raw.id, 80) || null),
     name: cleanString(raw.name, 120),
@@ -197,6 +204,7 @@ function normalizeRequestedStation(body, stations) {
     region: cleanString(raw.region, 80),
     station_role_type: cleanString(raw.station_role_type, 40),
     reference_station_id: referenceStationId,
+    is_operational_station: isOperationalStation,
     is_reference_station: !!raw.is_reference_station,
     reference_priority: toNumber(raw.reference_priority),
     latitude_band_key: cleanString(raw.latitude_band_key, 80),

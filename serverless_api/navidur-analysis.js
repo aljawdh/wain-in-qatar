@@ -1,6 +1,7 @@
 'use strict';
 
 const { isAllowedOrigin, parseBody, setNoCache, cleanString } = require('./_lib/security');
+const { readJsonFile, appendDurValidationLog, createId, nowIso } = require('./_lib/data-store');
 const { analyzeLiveStation } = require('../shared/navidur-analysis-engine');
 const {
   normalizeRequestedStation,
@@ -285,6 +286,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    var traitCalibDoc = await readJsonFile('trait_calibration', { version: 1, scopes: {} });
+
     var dto = analyzeLiveStation({
       station: station,
       datetime: resolvedDate.datetime,
@@ -294,10 +297,26 @@ module.exports = async function handler(req, res) {
       weather_meta: weatherMeta,
       tide_debug: weatherPack.tide_debug && typeof weatherPack.tide_debug === 'object' ? weatherPack.tide_debug : null,
       debug_log: !!(body && (body.debug_log === true || body.debug === true || body.debug_analysis === true)),
-      field_validation: fieldValidation
+      field_validation: fieldValidation,
+      trait_calibration: traitCalibDoc,
+      request_depth_mode: cleanString(body.depth_mode, 20)
     });
 
     logNavidurTraitsValidation(dto, station, { analysis_date: resolvedDate.analysis_date });
+
+    try {
+      var validationRec = navidurSnapshotValidation.buildValidationLogRecord({
+        validation_id: createId('validation'),
+        timestamp: nowIso(),
+        station: station,
+        dto: dto,
+        field_validation: fieldValidation,
+        notes: null
+      });
+      if (validationRec) {
+        await appendDurValidationLog(validationRec);
+      }
+    } catch (_valLogErr) { /* never fail analysis on validation append */ }
 
     dto.confidence = dto.fishing && dto.fishing.confidence_score != null ? dto.fishing.confidence_score : null;
     dto.analysis_date = resolvedDate.analysis_date;

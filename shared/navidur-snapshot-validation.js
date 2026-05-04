@@ -7,6 +7,15 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  function loadTraitRefScope() {
+    try {
+      if (typeof require === 'function') {
+        return require('./navidur-trait-reference-scope');
+      }
+    } catch (_e) { /* ignore */ }
+    return null;
+  }
+
   var SUPPORTED_VALIDATION_TRAITS = [
     'جو حار وجاف',
     'جو بارد',
@@ -311,9 +320,27 @@
     var dto = input && input.dto ? input.dto : {};
     var station = input && input.station ? input.station : {};
     var comparison = buildValidationResult(dto, input && input.field_validation, input && input.notes);
+    var traitRef = loadTraitRefScope();
+    var bucketId = traitRef ? traitRef.resolveTraitEvidenceReferenceBucketId(station) : '';
+    if (!bucketId) {
+      var ref0 = normalizeString(station.reference_station_id);
+      if (ref0) bucketId = ref0;
+      else if (station.is_reference_station === true || station.is_reference_station === 'true') bucketId = normalizeString(station.id);
+      else if (station.is_operational_station === false) bucketId = normalizeString(station.id);
+    }
+    if (!bucketId) {
+      return null;
+    }
+    var opId = normalizeString(station.id || input && input.station_id);
+    var refLink = normalizeString(station.reference_station_id);
+    var refNameAr = traitRef ? traitRef.resolveTraitEvidenceReferenceNameAr(station) : (refLink ? normalizeString(station.reference_station_name_ar) : normalizeString(station.name_ar || station.name));
     return {
       validation_id: normalizeString(input && input.validation_id),
-      station_id: normalizeString(station.id || input && input.station_id),
+      station_id: bucketId,
+      reference_station_id: refLink || bucketId,
+      reference_station_name_ar: refNameAr,
+      operational_station_id: refLink ? opId : '',
+      operational_station_name_ar: refLink ? normalizeString(station.name_ar || station.name) : '',
       timestamp: normalizeString(input && input.timestamp),
       dur_id: normalizeString(dto && dto.dur && dto.dur.period_id),
       dur_name: normalizeString(dto && dto.dur && dto.dur.period_name),

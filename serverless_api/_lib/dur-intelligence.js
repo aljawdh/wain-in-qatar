@@ -38,6 +38,10 @@ function normalizeValidationRecord(record) {
     dur_name: normalizeString(item.dur_name),
     phase_id: normalizeString(item.phase_id || item.active_phase_id) || null,
     station_id: normalizeString(item.station_id),
+    reference_station_id: normalizeString(item.reference_station_id),
+    reference_station_name_ar: normalizeString(item.reference_station_name_ar),
+    operational_station_id: normalizeString(item.operational_station_id),
+    operational_station_name_ar: normalizeString(item.operational_station_name_ar),
     validation_score: toNumber(item.validation_score),
     validation_status: normalizeString(item.validation_status) || 'needs_review',
     matched_traits: uniqueStrings(item.matched_traits),
@@ -214,7 +218,8 @@ async function getDurIntelligenceSummary(options) {
     const filteredLogs = await getDurValidationLogs({
       stationId: query.stationId,
       durId: query.durId || '',
-      limit: MAX_VALIDATION_SCAN
+      limit: MAX_VALIDATION_SCAN,
+      stationIdMatchesReferenceBucket: true
     });
     return aggregateValidationRecords(filteredLogs);
   }
@@ -226,9 +231,59 @@ async function getDurIntelligenceSummary(options) {
   };
 }
 
+function aggregateTraitEvidenceCounts(records, field) {
+  const counts = {};
+  const firstTs = {};
+  const lastTs = {};
+  toArray(records).forEach((rec) => {
+    const ts = normalizeString(rec && rec.timestamp);
+    uniqueStrings(rec && rec[field]).forEach((trait) => {
+      counts[trait] = (counts[trait] || 0) + 1;
+      if (ts) {
+        if (!firstTs[trait] || ts < firstTs[trait]) firstTs[trait] = ts;
+        if (!lastTs[trait] || ts > lastTs[trait]) lastTs[trait] = ts;
+      }
+    });
+  });
+  return sortTraitCounts(counts).map((trait) => ({
+    trait_name: trait,
+    evidence_count: counts[trait],
+    first_seen_at: firstTs[trait] || null,
+    last_seen_at: lastTs[trait] || null
+  }));
+}
+
+/**
+ * Evidence counts for failed_traits / extra_traits from validation logs (scoped).
+ */
+async function getDurTraitReviewEvidence(options) {
+  const query = Object.assign({ referenceStationId: '', stationId: '', durId: '', phaseId: '', limit: MAX_VALIDATION_SCAN }, options || {});
+  const refBucket = normalizeString(query.referenceStationId) || normalizeString(query.stationId);
+  if (!refBucket || !query.durId) {
+    return { ok: false, error: 'reference_station_id_and_dur_id_required', failed: [], extra: [], runs: 0 };
+  }
+  const logs = await getDurValidationLogs({
+    stationId: refBucket,
+    durId: query.durId,
+    limit: query.limit,
+    stationIdMatchesReferenceBucket: true
+  });
+  let rows = toArray(logs).map(normalizeValidationRecord);
+  if (query.phaseId) {
+    rows = rows.filter((r) => String(r.phase_id || '') === String(query.phaseId));
+  }
+  return {
+    ok: true,
+    failed: aggregateTraitEvidenceCounts(rows, 'failed_traits'),
+    extra: aggregateTraitEvidenceCounts(rows, 'extra_traits'),
+    runs: rows.length
+  };
+}
+
 module.exports = {
   normalizeValidationRecord,
   aggregateValidationRecords,
   recomputeGlobalSummary,
-  getDurIntelligenceSummary
+  getDurIntelligenceSummary,
+  getDurTraitReviewEvidence
 };

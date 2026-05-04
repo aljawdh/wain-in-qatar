@@ -1394,6 +1394,114 @@
         .concat(traitBundle.fish_traits || [])
     );
 
+    var traitCalibMod = null;
+    var traitRefBucketMod = null;
+    try {
+      if (typeof require === 'function') {
+        traitCalibMod = require('./navidur-trait-calibration');
+        traitRefBucketMod = require('./navidur-trait-reference-scope');
+      }
+    } catch (_tcErr) {
+      traitCalibMod = null;
+      traitRefBucketMod = null;
+    }
+    if (traitCalibMod && options.trait_calibration && options.trait_calibration.scopes) {
+      var depthMode0 =
+        normalizeString(options.request_depth_mode || station.fishing_mode || station.depth_mode || 'coastal') ||
+        'coastal';
+      var phaseIdCalib = normalizeString(activePhase && activePhase.phase_id);
+      var refBucketId = traitRefBucketMod
+        ? traitRefBucketMod.resolveTraitEvidenceReferenceBucketId(station)
+        : normalizeString(station.reference_station_id) ||
+          (station.is_reference_station === true || station.is_reference_station === 'true'
+            ? normalizeString(station.id)
+            : station.is_operational_station === false
+              ? normalizeString(station.id)
+              : '');
+      var refNameAr0 = traitRefBucketMod
+        ? traitRefBucketMod.resolveTraitEvidenceReferenceNameAr(station)
+        : normalizeString(station.reference_station_name_ar || station.name_ar || station.name);
+      if (refBucketId) {
+        var scopeKey0 = traitCalibMod.buildTraitCalibrationScopeKey({
+          reference_station_id: refBucketId,
+          dur_name_ar: normalizeString(tf.current_dur_name_ar),
+          phase_id: phaseIdCalib,
+          depth_mode: depthMode0
+        });
+        var scopeDoc0 = options.trait_calibration.scopes[scopeKey0] || null;
+        if (!scopeDoc0 && traitCalibMod.buildLegacyTraitCalibrationScopeKey) {
+          var legKey0 = traitCalibMod.buildLegacyTraitCalibrationScopeKey({
+            station_id: normalizeString(station.id),
+            reference_station_id: normalizeString(station.reference_station_id),
+            dur_name_ar: normalizeString(tf.current_dur_name_ar),
+            phase_id: phaseIdCalib,
+            depth_mode: depthMode0
+          });
+          scopeDoc0 = options.trait_calibration.scopes[legKey0] || null;
+        }
+        if (!scopeDoc0 && phaseIdCalib) {
+          var scopeKeyAllPhases = traitCalibMod.buildTraitCalibrationScopeKey({
+            reference_station_id: refBucketId,
+            dur_name_ar: normalizeString(tf.current_dur_name_ar),
+            phase_id: '',
+            depth_mode: depthMode0
+          });
+          scopeDoc0 = options.trait_calibration.scopes[scopeKeyAllPhases] || null;
+          if (!scopeDoc0 && traitCalibMod.buildLegacyTraitCalibrationScopeKey) {
+            var legKeyAll = traitCalibMod.buildLegacyTraitCalibrationScopeKey({
+              station_id: normalizeString(station.id),
+              reference_station_id: normalizeString(station.reference_station_id),
+              dur_name_ar: normalizeString(tf.current_dur_name_ar),
+              phase_id: '',
+              depth_mode: depthMode0
+            });
+            scopeDoc0 = options.trait_calibration.scopes[legKeyAll] || null;
+          }
+        }
+        var unifiedBeforeCalib = unifiedExpectedTraits.slice();
+        unifiedExpectedTraits = traitCalibMod.applyCalibrationToUnified(unifiedExpectedTraits, scopeDoc0);
+        try {
+          if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+            var namesFromCalib = function (arr) {
+              var out = [];
+              var list = Array.isArray(arr) ? arr : [];
+              for (var ci = 0; ci < list.length; ci++) {
+                var tn = list[ci] && list[ci].trait_name != null ? normalizeString(list[ci].trait_name) : '';
+                if (tn && out.indexOf(tn) < 0) out.push(tn);
+              }
+              return out;
+            };
+            console.debug('NAVIDUR_REFERENCE_TRAIT_CALIBRATION', {
+              operational_station: {
+                id: normalizeString(station.id),
+                name_ar: normalizeString(station.name_ar || station.name)
+              },
+              reference_station: { id: refBucketId, name_ar: refNameAr0 },
+              dur_name_ar: normalizeString(tf.current_dur_name_ar),
+              phase_id: phaseIdCalib,
+              depth_mode: depthMode0,
+              applied_traits: {
+                confirmed: namesFromCalib(scopeDoc0 && scopeDoc0.confirmed_traits),
+                excluded: namesFromCalib(scopeDoc0 && scopeDoc0.excluded_traits),
+                review: namesFromCalib(scopeDoc0 && scopeDoc0.review_traits)
+              }
+            });
+            console.debug('NAVIDUR_TRAIT_CALIBRATION_APPLIED', {
+              reference_station_id: refBucketId,
+              dur_name_ar: normalizeString(tf.current_dur_name_ar),
+              phase_id: normalizeString(activePhase && activePhase.phase_id),
+              depth_mode: depthMode0,
+              confirmed_traits: namesFromCalib(scopeDoc0 && scopeDoc0.confirmed_traits),
+              excluded_traits: namesFromCalib(scopeDoc0 && scopeDoc0.excluded_traits),
+              review_traits: namesFromCalib(scopeDoc0 && scopeDoc0.review_traits),
+              unified_before_count: unifiedBeforeCalib.length,
+              unified_after_count: unifiedExpectedTraits.length
+            });
+          }
+        } catch (_logC) { /* ignore */ }
+      }
+    }
+
     var minTfCurrent = { durRow: mergedAfterOverrides, start: tfStart, end: tfEnd };
     var minTfNext = { durRow: nextRowForRef, start: null, end: null };
     var tfRefOnly = buildDurReferenceMetadata(mergedAfterOverrides, minTfNext, seasonalEventsResolved);

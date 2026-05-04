@@ -72,7 +72,9 @@ async function captureSnapshotInternal(body, options) {
   });
 
   await appendStationSnapshot(snapshot);
-  await appendDurValidationLog(validation);
+  if (validation) {
+    await appendDurValidationLog(validation);
+  }
 
   return {
     snapshot: snapshot,
