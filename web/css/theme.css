@@ -10,4 +10,6 @@
   --decision-caution: #f59e0b;
   --decision-bad: #dc2626;
   --navidur-v-red: #ef4444;
+  --card-glass: rgba(13, 37, 70, 0.55);
+  --card-border: rgba(117, 183, 230, 0.22);
 }

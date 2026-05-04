@@ -135,6 +135,77 @@
 }
 .modal-actions { display: grid; gap: 8px; }
 
+.dashboard-stack { display: grid; gap: 12px; }
+
+.decision-hero {
+  padding: 16px 14px;
+  border-color: rgba(34, 211, 238, 0.35);
+  box-shadow: 0 12px 40px rgba(4, 14, 28, 0.45);
+}
+.decision-hero h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--color-muted); font-weight: 600; }
+.decision-main--hero { grid-template-columns: 1fr auto; align-items: start; gap: 12px; }
+.decision-pill--hero { font-size: 1.05rem; padding: 10px 16px; }
+.decision-reason--hero { font-size: 1rem; margin-top: 10px; line-height: 1.45; color: #d4ecfb; }
+.decision-hint { font-size: 0.78rem; margin-top: 8px; margin-bottom: 0; opacity: 0.9; }
+.decision-icon { font-size: 1.8rem; line-height: 1; }
+.decision-icon--hero { font-size: 2.4rem; }
+
+.dashboard-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.dashboard-quick__item {
+  background: var(--card-glass);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+.dashboard-quick__label { font-size: 0.78rem; color: var(--color-muted); }
+.dashboard-quick__value { font-size: 1.05rem; font-weight: 800; color: var(--color-text); }
+
+.gauge-bar--dashboard { height: 18px; }
+
+.heatmap-mini {
+  position: relative;
+  height: 72px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(8, 40, 72, 0.9), rgba(12, 28, 52, 0.95));
+  border: 1px solid rgba(94, 174, 224, 0.2);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px 10px 6px;
+  gap: 4px;
+}
+.heatmap-mini__bars { display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 100%; width: 100%; }
+.heatmap-mini__bar {
+  flex: 1;
+  max-width: 14px;
+  min-height: 8px;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, #22d3ee, #0ea5e9 40%, #7c3aed 75%, #ef4444);
+  opacity: 0.85;
+}
+.heatmap-mini__crosshair {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25);
+}
+.heatmap-mini__hint { margin-top: 8px; margin-bottom: 0; font-size: 0.78rem; }
+
+.marine-stack { display: grid; gap: 10px; }
+.marine-stack .card { margin: 0; }
+
 @media (min-width: 768px) {
   .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
