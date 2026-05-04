@@ -329,7 +329,10 @@ module.exports = async function handler(req, res) {
             dur_name_ar: validationRec.dur_name,
             phase_id: validationRec.phase_id || '',
             depth_mode: validationRec.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
-            evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation)
+            evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
+            environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
+            analysis_date: dto.analysis_date || resolvedDate.analysis_date || null,
+            reference_station_name_ar: validationRec.reference_station_name_ar || null
           });
         } catch (_bumpErr) { /* ignore */ }
       }

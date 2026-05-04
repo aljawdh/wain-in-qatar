@@ -3911,6 +3911,7 @@
   }
 
   var dururTraitReviewListenersBound = false;
+  var lastDururLongTermScope = null;
 
   function populateDururTraitReviewPhaseSelect() {
     var sel = getEl('dururTraitReviewPhase');
@@ -4123,66 +4124,105 @@
     }
   }
 
+  function formatTraitYearStatsAr(ys) {
+    if (!ys || !ys.event_count) return '—';
+    var ok = (ys.matched_count || 0) + (ys.extra_count || 0);
+    return ok + ' تحقق / ' + (ys.failed_count || 0) + ' فشل';
+  }
+
+  function formatTraitDeltaPct(d) {
+    if (d == null || typeof d !== 'number' || isNaN(d)) return '—';
+    var pct = Math.round(d * 100);
+    return (pct > 0 ? '+' : '') + String(pct) + '%';
+  }
+
   async function refreshDururTraitLongTermPanel(scope) {
     var mount = getEl('dururTraitLongTermMount');
     var hint = getEl('dururTraitLongTermHint');
     if (!mount || !hint) return;
-    if (!scope || !scope.referenceStationId || !scope.durNameAr) {
+    var eff = scope && scope.referenceStationId && scope.durNameAr ? scope : lastDururLongTermScope;
+    if (!eff || !eff.referenceStationId || !eff.durNameAr) {
+      lastDururLongTermScope = null;
       mount.innerHTML = '';
       hint.textContent = 'اختر محطة مرجعية ودراً ثم «تحديث قوائم المراجعة» لعرض دورات السمات الداخلية.';
       return;
     }
+    lastDururLongTermScope = eff;
     hint.textContent = 'جاري تحميل دورات السمات…';
     mount.innerHTML = '';
     try {
-      var q = 'reference_station_id=' + encodeURIComponent(scope.referenceStationId)
-        + '&dur_name_ar=' + encodeURIComponent(scope.durNameAr)
-        + '&phase_id=' + encodeURIComponent(scope.phaseId || '')
-        + '&depth_mode=' + encodeURIComponent(scope.depthMode || 'coastal');
+      var q = 'reference_station_id=' + encodeURIComponent(eff.referenceStationId)
+        + '&dur_name_ar=' + encodeURIComponent(eff.durNameAr)
+        + '&phase_id=' + encodeURIComponent(eff.phaseId || '')
+        + '&depth_mode=' + encodeURIComponent(eff.depthMode || 'coastal');
+      var cyEl = getEl('dururTraitLongTermCompareYear');
+      var pyEl = getEl('dururTraitLongTermComparePrevYear');
+      var flEl = getEl('dururTraitLongTermFilter');
+      if (cyEl && String(cyEl.value || '').trim()) q += '&compare_year=' + encodeURIComponent(String(cyEl.value).trim());
+      if (pyEl && String(pyEl.value || '').trim()) q += '&compare_previous_year=' + encodeURIComponent(String(pyEl.value).trim());
+      if (flEl && String(flEl.value || '').trim()) q += '&comparison_filter=' + encodeURIComponent(String(flEl.value).trim());
       var r = await apiFetch('/api?route=admin&path=trait-long-term-state&' + q, { method: 'GET' }).then(function (res) { return res.json(); });
       if (!r.ok) throw new Error(r.error || 'load_failed');
       var rows = Array.isArray(r.rows) ? r.rows : [];
-      hint.textContent = 'النطاق: ' + escapeHtml(scope.referenceStationNameAr || scope.referenceStationId) + ' · ' + escapeHtml(scope.durNameAr) + ' · مرحلة: ' + escapeHtml(scope.phaseId || '(الكل)') + ' · ' + (scope.depthMode === 'deep' ? 'غزير' : 'ساحلي') + ' — ' + String(rows.length) + ' سمة مسجّلة';
+      var yCur = rows.length && rows[0].current_year != null ? rows[0].current_year : '';
+      var yPrev = rows.length && rows[0].previous_year != null ? rows[0].previous_year : '';
+      hint.textContent = 'النطاق: ' + escapeHtml(eff.referenceStationNameAr || eff.referenceStationId) + ' · ' + escapeHtml(eff.durNameAr) + ' · مرحلة: ' + escapeHtml(eff.phaseId || '(الكل)') + ' · ' + (eff.depthMode === 'deep' ? 'غزير' : 'ساحلي')
+        + ' — مقارنة ' + escapeHtml(String(yCur)) + ' ↔ ' + escapeHtml(String(yPrev))
+        + ' — عرض ' + String(rows.length) + ' سمة';
       if (!rows.length) {
-        mount.innerHTML = '<div style="color:#9fc1d7;font-size:.76rem">لا توجد دورات مسجّلة لهذا النطاق بعد (يُحدَّث عند إرسال سجلات التحقق).</div>';
+        mount.innerHTML = '<div style="color:#9fc1d7;font-size:.76rem">لا توجد سمات تطابق الفلتر، أو لا توجد بيانات لهذا النطاق بعد.</div>';
         return;
       }
-      var head = '<thead><tr style="text-align:right;font-size:.72rem;color:#9fc1d7">'
+      var head = '<thead><tr style="text-align:right;font-size:.68rem;color:#9fc1d7">'
         + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">السمة</th>'
-        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">مطابقة / فشل / زائد</th>'
-        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">دورات إيجابية</th>'
-        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">آخر سنة</th>'
-        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">ثقة</th>'
-        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">الحالة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">إجمالي م/ف/ز</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">دورات موسمية</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">سنة حالية</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">إحصاء السنة الحالية</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">سنة سابقة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">إحصاء السنة السابقة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">فرق الثقة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">فرق الفشل</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">مقارنة</th>'
+        + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">حالة الدر</th>'
         + '<th style="padding:6px;border-bottom:1px solid rgba(255,255,255,.1)">إجراءات</th>'
         + '</tr></thead>';
       var bodyRows = rows.map(function (row) {
         var st = String(row.status || '');
         var canConfirm = st === 'stage_3_confirmed_candidate' || st === 'exclusion_candidate';
+        var cyclesOk = row.cycle_count != null && Number(row.cycle_count) >= 3;
         var confirmLabel = st === 'exclusion_candidate' ? 'تأكيد الاستبعاد' : 'اعتماد للمرجع';
-        var label = row.candidate_label ? ' <span style="color:#ffe7aa;font-size:.7rem">' + escapeHtml(row.candidate_label) + '</span>' : '';
-        var hold = row.supervisor_hold ? ' <span style="color:#9fc1d7;font-size:.7rem">(معلّق)</span>' : '';
+        var label = row.candidate_label ? ' <span style="color:#ffe7aa;font-size:.68rem">' + escapeHtml(row.candidate_label) + '</span>' : '';
+        var hold = row.supervisor_hold ? ' <span style="color:#9fc1d7;font-size:.68rem">(معلّق)</span>' : '';
+        var cycHint = !cyclesOk ? '<div style="font-size:.65rem;color:#ffb3b3;margin-top:2px">يتطلب 3 دورات موسمية للاعتماد/الاستبعاد</div>' : '';
         var btns = ''
-          + '<button type="button" class="small-btn" data-trait-learning="confirm" data-trait-name="' + escapeHtml(row.trait_name) + '"' + (canConfirm ? '' : ' disabled') + ' style="margin-left:4px;font-size:.7rem">' + escapeHtml(confirmLabel) + '</button>'
-          + '<button type="button" class="small-btn" data-trait-learning="exclude" data-trait-name="' + escapeHtml(row.trait_name) + '" style="margin-left:4px;font-size:.7rem">استبعاد</button>'
-          + '<button type="button" class="small-btn" data-trait-learning="review" data-trait-name="' + escapeHtml(row.trait_name) + '" style="margin-left:4px;font-size:.7rem">إبقاء تحت المراجعة</button>';
-        return '<tr style="font-size:.74rem;color:#c5d5e0">'
-          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top">' + escapeHtml(row.trait_name) + label + hold + '</td>'
+          + '<button type="button" class="small-btn" data-trait-learning="confirm" data-trait-name="' + escapeHtml(row.trait_name) + '"' + (canConfirm && cyclesOk ? '' : ' disabled') + ' style="margin-left:4px;font-size:.65rem">' + escapeHtml(confirmLabel) + '</button>'
+          + '<button type="button" class="small-btn" data-trait-learning="exclude" data-trait-name="' + escapeHtml(row.trait_name) + '"' + (!cyclesOk ? ' disabled' : '') + ' style="margin-left:4px;font-size:.65rem">استبعاد</button>'
+          + '<button type="button" class="small-btn" data-trait-learning="review" data-trait-name="' + escapeHtml(row.trait_name) + '" style="margin-left:4px;font-size:.65rem">إبقاء تحت المراجعة</button>';
+        var curYs = row.current_year_stats || {};
+        var prevYs = row.previous_year_stats || {};
+        return '<tr style="font-size:.7rem;color:#c5d5e0">'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:top;max-width:140px">' + escapeHtml(row.trait_name) + label + hold + cycHint + '</td>'
           + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap">' + escapeHtml(String(row.matched_count != null ? row.matched_count : '0')) + ' / ' + escapeHtml(String(row.failed_count != null ? row.failed_count : '0')) + ' / ' + escapeHtml(String(row.extra_count != null ? row.extra_count : '0')) + '</td>'
-          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.positive_events != null ? row.positive_events : '0')) + '</td>'
-          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.last_seen_year != null ? row.last_seen_year : '—')) + '</td>'
-          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(row.confidence != null ? String(row.confidence) : '—') + '</td>'
-          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.7rem">' + escapeHtml(st || '—') + '</td>'
-          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap">' + btns + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.cycle_count != null ? row.cycle_count : '0')) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.current_year != null ? row.current_year : '—')) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);line-height:1.35">' + escapeHtml(formatTraitYearStatsAr(curYs)) + '<br><span style="color:#8fb4c8;font-size:.65rem">ثقة ' + escapeHtml(curYs.confidence != null ? String(Math.round(Number(curYs.confidence) * 100)) : '—') + '% · n=' + escapeHtml(String(curYs.event_count != null ? curYs.event_count : '0')) + '</span></td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(String(row.previous_year != null ? row.previous_year : '—')) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);line-height:1.35">' + escapeHtml(formatTraitYearStatsAr(prevYs)) + '<br><span style="color:#8fb4c8;font-size:.65rem">ثقة ' + escapeHtml(prevYs.confidence != null ? String(Math.round(Number(prevYs.confidence) * 100)) : '—') + '% · n=' + escapeHtml(String(prevYs.event_count != null ? prevYs.event_count : '0')) + '</span></td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(formatTraitDeltaPct(row.confidence_delta)) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06)">' + escapeHtml(formatTraitDeltaPct(row.failure_delta)) + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.68rem;color:#dff8ff">' + escapeHtml(row.label_ar || row.comparison_status || '—') + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.68rem">' + escapeHtml(st || '—') + '</td>'
+          + '<td style="padding:6px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap;vertical-align:top">' + btns + '</td>'
           + '</tr>';
       }).join('');
-      mount.innerHTML = '<table style="width:100%;border-collapse:collapse">' + head + '<tbody>' + bodyRows + '</tbody></table>';
+      mount.innerHTML = '<table style="width:100%;border-collapse:collapse;min-width:980px">' + head + '<tbody>' + bodyRows + '</tbody></table>';
       mount.querySelectorAll('button[data-trait-learning]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           var act = btn.getAttribute('data-trait-learning');
           var tn = btn.getAttribute('data-trait-name');
           if (!act || !tn) return;
-          void postTraitLearningSupervisor(scope, act, tn);
+          void postTraitLearningSupervisor(eff, act, tn);
         });
       });
     } catch (e) {
@@ -4207,6 +4247,8 @@
         void refreshDururTraitReviewPanel();
       });
     }
+    var ltf = getEl('dururTraitLongTermFilterBtn');
+    if (ltf) ltf.addEventListener('click', function () { void refreshDururTraitLongTermPanel(lastDururLongTermScope); });
   }
 
   function ensureDururManagementPanel() {
@@ -4255,8 +4297,21 @@
       + '      <div id="dururTraitReviewTables" style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>'
       + '      <div id="dururTraitLongTermShell" style="margin-top:14px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.12)">'
       + '        <div style="font-size:.86rem;color:#dff8ff;margin-bottom:6px"><strong>إشارات السمات طويلة المدى (KV — مراجعة المشرف)</strong></div>'
+      + '        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:8px">'
+      + '          <div><label style="display:block;font-size:.72rem;color:#9fc1d7;margin-bottom:4px">سنة المقارنة (حالية)</label><input id="dururTraitLongTermCompareYear" type="number" min="2000" max="2100" step="1" placeholder="التقويم" style="width:118px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--bg3);color:var(--txt)"></div>'
+      + '          <div><label style="display:block;font-size:.72rem;color:#9fc1d7;margin-bottom:4px">سنة سابقة</label><input id="dururTraitLongTermComparePrevYear" type="number" min="2000" max="2100" step="1" placeholder="حالية − 1" style="width:118px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--bg3);color:var(--txt)"></div>'
+      + '          <div><label style="display:block;font-size:.72rem;color:#9fc1d7;margin-bottom:4px">فلتر الحالة</label><select id="dururTraitLongTermFilter" style="min-width:168px;padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:var(--bg3);color:var(--txt)">'
+      + '            <option value="">الكل</option>'
+      + '            <option value="stable">مستقر فقط</option>'
+      + '            <option value="improved">متحسّن فقط</option>'
+      + '            <option value="declined">متراجع فقط</option>'
+      + '            <option value="no_previous_cycle">بدون دورة سابقة</option>'
+      + '            <option value="insufficient_data">بيانات غير كافية</option>'
+      + '          </select></div>'
+      + '          <button type="button" class="small-btn" id="dururTraitLongTermFilterBtn">تطبيق المقارنة</button>'
+      + '        </div>'
       + '        <div id="dururTraitLongTermHint" style="font-size:.74rem;color:#9fc1d7;margin-bottom:8px;line-height:1.4"></div>'
-      + '        <div id="dururTraitLongTermMount" style="overflow:auto;max-height:420px"></div>'
+      + '        <div id="dururTraitLongTermMount" style="overflow:auto;max-height:520px"></div>'
       + '      </div>'
       + '    </div>'
       + '  </div>'

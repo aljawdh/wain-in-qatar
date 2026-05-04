@@ -10,6 +10,7 @@ const { normalizeStationInput, hasDuplicateStation, normalizeStatus } = require(
 const { isAllowedOrigin, parseBody, cleanString, setNoCache } = require('../_lib/security');
 const { getDurIntelligenceSummary, getDurTraitReviewEvidence } = require('../_lib/dur-intelligence');
 const traitCalibrationLib = require('../../shared/navidur-trait-calibration');
+const traitLongTermLib = require('../_lib/navidur-trait-long-term');
 const { utcTodayIso } = require('../_lib/station-local-dur-resolver');
 const tfLookup = require('../../shared/true-final-station-reference-lookup');
 
@@ -759,6 +760,12 @@ async function applyTraitLearningSupervisor(actor, body) {
     throw err;
   }
   const refNameAr = cleanString(body.reference_station_name_ar, 200);
+  const seasonalCycles = traitLongTermLib.yearCycleCountForSupervisor(row);
+  if ((action === 'confirm' || action === 'exclude') && seasonalCycles < 3) {
+    const err = new Error('لا يمكن اتخاذ قرار قبل 3 دورات موسمية');
+    err.code = 400;
+    throw err;
+  }
   if (action === 'confirm') {
     if (String(row.status) === 'stage_3_confirmed_candidate') {
       row.supervisor_hold = false;
@@ -1927,24 +1934,13 @@ module.exports = async function handler(req, res) {
       });
       const scope = doc.scopes && doc.scopes[sk] ? doc.scopes[sk] : null;
       const traits = scope && scope.traits ? scope.traits : {};
-      const rows = Object.keys(traits).map(function (name) {
-        const t = traits[name] || {};
-        return {
-          trait_name: name,
-          matched_count: t.matched_count,
-          failed_count: t.failed_count,
-          extra_count: t.extra_count,
-          cycle_number: t.cycle_number,
-          last_seen_year: t.last_seen_year,
-          confidence: t.confidence,
-          status: t.status,
-          positive_events: t.positive_events,
-          failed_events: t.failed_events,
-          supervisor_hold: !!t.supervisor_hold,
-          candidate_label: String(t.status) === 'stage_3_confirmed_candidate' ? 'مرشحة للاعتماد' : ''
-        };
-      });
-      return res.status(200).json({ ok: true, scope_key: sk, rows: rows });
+      const query = {
+        compare_year: cleanString(q.compare_year, 8),
+        compare_previous_year: cleanString(q.compare_previous_year, 8),
+        comparison_filter: cleanString(q.comparison_filter, 40)
+      };
+      const rows = traitLongTermLib.buildTraitLongTermStateRows({ scope: Object.assign({}, scope, { traits: traits }), query: query });
+      return res.status(200).json({ ok: true, scope_key: sk, rows: rows, comparison_query: query });
     }
     return res.status(200).json({ ok: true, version: doc.version, scopes: doc.scopes || {} });
   }

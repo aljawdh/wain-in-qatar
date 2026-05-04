@@ -88,7 +88,10 @@ async function captureSnapshotInternal(body, options) {
         dur_name_ar: validation.dur_name,
         phase_id: validation.phase_id || '',
         depth_mode: validation.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
-        evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation)
+        evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
+        environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
+        analysis_date: dto.analysis_date || null,
+        reference_station_name_ar: validation.reference_station_name_ar || null
       });
     } catch (_bumpSnap) { /* ignore */ }
   }
