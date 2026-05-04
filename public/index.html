@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="navidur-ui-rebuild-version" content="NAVIDUR_UI_REBUILD_VERSION=2026-05-04">
+  <title>NAVIDUR</title>
+  <link rel="icon" href="/web/favicon.png">
+  <link rel="stylesheet" href="/web/css/theme.css">
+  <link rel="stylesheet" href="/web/css/base.css">
+  <link rel="stylesheet" href="/web/css/layout.css">
+  <link rel="stylesheet" href="/web/css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header card">
+      <div>
+        <h1 style="margin:0;">NA<span style="color:var(--navidur-v-red);">V</span>IDUR</h1>
+        <div class="muted">واجهة تشغيلية متجاوبة</div>
+      </div>
+      <div>
+        <div class="muted">الحالة: متصل</div>
+        <select id="stationSelector" class="button" aria-label="Station selector"></select>
+      </div>
+    </header>
+    <section class="day-selector-wrap card">
+      <div id="daySelector" class="day-selector" aria-label="Day selector"></div>
+      <div id="dayDataStatus" class="muted day-status"></div>
+    </section>
+
+    <main class="content-grid">
+      <section id="appContent" data-page-panel="dashboard"></section>
+      <section>
+        <div id="pageMarine" data-page-panel="marine" class="hidden"></div>
+        <div id="pageFishing" data-page-panel="fishing" class="hidden"></div>
+        <div id="pageMap" data-page-panel="map" class="hidden"></div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="button" data-page="dashboard">الرئيسية</button>
+    <button class="button" data-page="marine">تحليل البحر</button>
+    <button class="button" data-page="fishing">توصية الصيد</button>
+    <button class="button" data-page="map">الخريطة</button>
+  </nav>
+
+  <div id="locationModal" class="modal-backdrop">
+    <div class="modal">
+      <h3>تفعيل تحديد الموقع</h3>
+      <p class="muted">لتحليل البحر بدقة واختيار أقرب محطة، يحتاج NAVIDUR إلى معرفة موقعك الحالي.</p>
+      <p id="locationHint" class="muted"></p>
+      <div style="display:grid;gap:8px;">
+        <button id="locationEnableBtn" class="button primary">تفعيل الموقع</button>
+        <button id="locationSkipBtn" class="button">المتابعة بدون موقع</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/web/js/helpers.js"></script>
+  <script src="/web/js/components.js"></script>
+  <script src="/web/js/state-manager.js"></script>
+  <script src="/web/js/location-manager.js"></script>
+  <script src="/web/js/ui-renderer.js"></script>
+  <script src="/web/js/main.js"></script>
+</body>
+</html>
