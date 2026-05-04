@@ -1018,6 +1018,92 @@
     };
   }
 
+  function scoreDecisionWave(v) {
+    if (v == null || isNaN(Number(v))) return 62;
+    var wave = Number(v);
+    if (wave < 0.3) return 95;
+    if (wave < 0.8) return 80;
+    if (wave < 1.5) return 58;
+    return 30;
+  }
+
+  function scoreDecisionWind(v) {
+    if (v == null || isNaN(Number(v))) return 60;
+    var wind = Number(v);
+    if (wind < 10) return 95;
+    if (wind < 16) return 78;
+    if (wind < 18) return 64;
+    if (wind < 26) return 52;
+    return 28;
+  }
+
+  function scoreDecisionCurrent(v) {
+    if (v == null || isNaN(Number(v))) return 62;
+    var current = Number(v);
+    if (current < 0.25) return 45;
+    if (current < 0.6) return 72;
+    if (current < 0.95) return 85;
+    return 55;
+  }
+
+  function scoreDecisionTemp(v) {
+    if (v == null || isNaN(Number(v))) return 68;
+    var temp = Number(v);
+    if (temp >= 22 && temp <= 31) return 80;
+    if (temp >= 19 && temp <= 34) return 66;
+    return 48;
+  }
+
+  function scoreDecisionTide(tideState) {
+    if (tideState === 'LOAD') return 80;
+    if (tideState === 'FASAD') return 52;
+    return 65;
+  }
+
+  function buildBackendDecision(environment, tideState) {
+    var env = environment && typeof environment === 'object' ? environment : {};
+    var wave = env.wave_height_m != null ? Number(env.wave_height_m) : null;
+    var wind = env.wind_speed_kmh != null ? Number(env.wind_speed_kmh) : null;
+    var current = env.current_speed_ms != null ? Number(env.current_speed_ms) : null;
+    var temp = env.water_temp_c != null ? Number(env.water_temp_c) : (env.temp_c != null ? Number(env.temp_c) : null);
+    var tide = normalizeString(tideState);
+    var breakdown = {
+      wave: scoreDecisionWave(wave),
+      wind: scoreDecisionWind(wind),
+      current: scoreDecisionCurrent(current),
+      temp: scoreDecisionTemp(temp),
+      tide: scoreDecisionTide(tide)
+    };
+    var score = Math.round(
+      (breakdown.wave * 0.28) +
+      (breakdown.wind * 0.34) +
+      (breakdown.current * 0.23) +
+      (breakdown.tide * 0.10) +
+      (breakdown.temp * 0.05)
+    );
+    var label = 'غير مناسب';
+    if (score >= 72) label = 'مناسب';
+    else if (score >= 55) label = 'حذر';
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_DECISION_BREAKDOWN', {
+          wind: wind,
+          wave: wave,
+          current: current,
+          temp: temp,
+          tide: tide || null,
+          final_score: score,
+          decision: label
+        });
+      }
+    } catch (_dbgDecisionErr) { /* ignore */ }
+    return {
+      score: score,
+      label: label,
+      breakdown: breakdown
+    };
+  }
+
   function normalizeReferenceData(referenceData) {
     var source = referenceData || {};
     var dururReference = sortDurRows(source.durur_master || []).map(normalizeDurRow);
@@ -1524,6 +1610,7 @@
       options.field_validation || null,
       { analysisDateTime: analysisDateTime, activePhase: activePhase }
     );
+    var backendDecision = buildBackendDecision(liveEnvironment, tideState);
     if (options.debug_log) {
       try {
         if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
@@ -1620,7 +1707,8 @@
         fish_recommendations: toArray(fishingTf.fish_recommendations),
         confidence_score: fishingTf.confidence_score,
         advice_text: fishingTf.advice_text
-      }
+      },
+      decision: backendDecision
     };
     if (options.debug_log && durRefDbgStore) {
       _dtoOut.dur_reference_resolution = durRefDbgStore;
