@@ -9,11 +9,11 @@
     { "path": "/api/run-snapshots", "schedule": "0 0 * * *" }
   ],
   "redirects": [
-    { "source": "/web/index.html", "destination": "/index.html", "permanent": false },
     { "source": "/admin", "destination": "/admin.html", "permanent": false },
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [
+    { "source": "/", "destination": "/web/index.html" },
     { "source": "/api/admin/summary", "destination": "/api?route=admin-summary" },
     { "source": "/api/admin/:path*", "destination": "/api?route=admin&path=:path*" },
     { "source": "/api/navidur-analysis", "destination": "/api?route=analysis" },
