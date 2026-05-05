@@ -86,6 +86,7 @@
       + C.marineMetricCard('التيار', currentHtml)
       + C.marineMetricCard('حرارة الماء', waterHtml)
       + '</div>'
+      + C.marineTideTimelineSection(dto && dto.tide_series)
       + '</div>';
   }
 

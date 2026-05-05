@@ -426,6 +426,78 @@
   }
 }
 
+.marine-tide-card {
+  padding: 16px 18px !important;
+  border-radius: 20px !important;
+}
+
+.marine-tide-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #f2fbff;
+}
+
+.marine-tide-empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.marine-tide-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(117, 183, 230, 0.18);
+  background: rgba(6, 20, 40, 0.45);
+  padding: 8px 10px;
+}
+
+.marine-tide-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 4px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(117, 183, 230, 0.12);
+}
+
+.marine-tide-row:last-child {
+  border-bottom: none;
+}
+
+.marine-tide-time {
+  color: rgba(200, 230, 248, 0.92);
+}
+
+.marine-tide-height {
+  font-weight: 700;
+  color: #f4fcff;
+  white-space: nowrap;
+}
+
+.marine-tide-extremes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.marine-tide-chip {
+  font-size: 0.75rem;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  color: #e8fbff;
+}
+
+.marine-tide-copy {
+  margin: 12px 0 0;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
 @media (min-width: 768px) {
   .cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

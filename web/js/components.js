@@ -9,6 +9,44 @@
     return card(title, '<div class="metric">' + value + (unit ? ' <span class="muted">' + unit + '</span>' : '') + '</div>');
   }
 
+  function escapeHtmlText(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function marineTideTimelineSection(series) {
+    if (!series || series.source !== 'worldtides' || !Array.isArray(series.timeline) || !series.timeline.length) {
+      return '<section class="card marine-tide-card"><h3>المد والجزر</h3><p class="muted marine-tide-empty">لا تتوفر بيانات المد والجزر حالياً</p></section>';
+    }
+    var rows = series.timeline.slice(0, 72).map(function (pt) {
+      if (!pt || !pt.time) return '';
+      var d = new Date(pt.time);
+      var label = isNaN(d.getTime()) ? String(pt.time) : d.toLocaleString('ar-QA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      var hm = pt.height_m != null && Number.isFinite(Number(pt.height_m)) ? Number(pt.height_m).toFixed(2) : '—';
+      return '<div class="marine-tide-row"><span class="marine-tide-time">' + escapeHtmlText(label) + '</span><span class="marine-tide-height">' + hm + ' <span class="muted marine-unit">م</span></span></div>';
+    }).join('');
+    var exHtml = '';
+    if (Array.isArray(series.extremes) && series.extremes.length) {
+      exHtml = '<div class="marine-tide-extremes">' + series.extremes.slice(0, 12).map(function (ex) {
+        if (!ex || !ex.time) return '';
+        var d2 = new Date(ex.time);
+        var tlab = isNaN(d2.getTime()) ? String(ex.time) : d2.toLocaleString('ar-QA', { hour: '2-digit', minute: '2-digit' });
+        var typAr = ex.type === 'high' ? 'قمة' : ex.type === 'low' ? 'قاع' : escapeHtmlText(String(ex.type || ''));
+        var h2 = ex.height_m != null && Number.isFinite(Number(ex.height_m)) ? Number(ex.height_m).toFixed(2) : '—';
+        return '<span class="marine-tide-chip">' + escapeHtmlText(tlab) + ' · ' + typAr + ' · ' + h2 + ' م</span>';
+      }).join('') + '</div>';
+    }
+    var copy = series.copyright ? '<p class="marine-tide-copy muted">' + escapeHtmlText(series.copyright) + '</p>' : '';
+    return '<section class="card marine-tide-card"><h3>المد والجزر</h3>'
+      + '<div class="marine-tide-scroll">' + rows + '</div>'
+      + exHtml
+      + copy
+      + '</section>';
+  }
+
   function fishRow(name, reason) {
     return '<div class="fish-row"><strong>' + name + '</strong><span class="muted">' + reason + '</span></div>';
   }
@@ -100,6 +138,7 @@
   root.NavidurComponents = {
     card: card,
     metricCard: metricCard,
+    marineTideTimelineSection: marineTideTimelineSection,
     fishRow: fishRow,
     decisionCard: decisionCard,
     renderWindCompass: renderWindCompass

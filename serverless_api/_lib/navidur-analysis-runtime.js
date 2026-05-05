@@ -2,6 +2,7 @@
 
 const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
+const worldTides = require('./worldtides-tide-provider');
 
 /** Shown when sky/condition cannot be derived (UI only; analysis still uses numeric fallbacks). */
 var WEATHER_UNAVAILABLE_AR = 'الحالة الجوية غير متاحة حالياً';
@@ -388,6 +389,32 @@ async function readWeatherCacheStore() {
   return readJsonFile('live_weather_cache', { version: 1, entries: {} });
 }
 
+async function attachWorldTidesSeries(out, station, asOfDate) {
+  var la = toNumber(station && station.lat);
+  var lo = toNumber(station && station.lon);
+  if (la == null || lo == null) {
+    out.tide_series = null;
+    return;
+  }
+  var tideDateStr = (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate)))
+    ? String(asOfDate)
+    : new Date().toISOString().slice(0, 10);
+  var wtPack = await worldTides.getTideData({
+    lat: la,
+    lng: lo,
+    date: tideDateStr,
+    station_id: station && station.id != null ? String(station.id) : ''
+  });
+  out.tide_series = wtPack && wtPack.ok
+    ? {
+      source: wtPack.source,
+      timeline: wtPack.timeline,
+      extremes: Array.isArray(wtPack.extremes) ? wtPack.extremes : [],
+      copyright: cleanString(wtPack.copyright, 4000) || ''
+    }
+    : null;
+}
+
 async function saveWeatherCacheEntry(key, liveInputs, weatherStatusAr) {
   var doc = await readWeatherCacheStore();
   doc.entries = doc.entries || {};
@@ -427,7 +454,8 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     no_data_for_date: false,
     requested_date: cleanString(asOfDate, 20) || '',
     cache_key: '',
-    forecast_source: 'open_meteo_hourly'
+    forecast_source: 'open_meteo_hourly',
+    tide_series: null
   };
   var la = toNumber(station && station.lat);
   var lo = toNumber(station && station.lon);
@@ -520,6 +548,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       };
       out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
       out.forecast_source = 'open_meteo_out_of_range';
+      await attachWorldTidesSeries(out, station, asOfDate);
       return out;
     }
     var weatherCurrent = {
@@ -608,6 +637,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       }
     } catch (_dbgWeatherErr) { /* ignore */ }
     out.forecast_source = 'open_meteo_hourly';
+    await attachWorldTidesSeries(out, station, asOfDate);
     return out;
   } catch (_e) {
     var key = weatherCacheKeyByDate(station, asOfDate);
@@ -652,6 +682,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
           out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
         }
       }
+      await attachWorldTidesSeries(out, station, asOfDate);
       return out;
     }
     out.ok = true;
@@ -675,6 +706,7 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     };
     out.weather_status_ar = WEATHER_UNAVAILABLE_AR;
     out.forecast_source = 'no_marine_data_for_date';
+    await attachWorldTidesSeries(out, station, asOfDate);
     return out;
   }
 }
@@ -705,7 +737,8 @@ async function fetchWeatherAndMarineInputs(station, body) {
   if (hasExplicitValues) {
     return {
       live_inputs: liveInputs,
-      weather_meta: { from_request_body: true, weather_status_ar: '', humidity_pct: null }
+      weather_meta: { from_request_body: true, weather_status_ar: '', humidity_pct: null },
+      tide_series: null
     };
   }
   if (station.lat == null || station.lon == null) {
@@ -720,7 +753,8 @@ async function fetchWeatherAndMarineInputs(station, body) {
         computed_state: '',
         trend: '',
         no_coordinates: true
-      }
+      },
+      tide_series: null
     };
   }
   var asOf = '';
@@ -777,7 +811,8 @@ async function fetchWeatherAndMarineInputs(station, body) {
       values_sample: [],
       computed_state: '',
       trend: ''
-    }
+    },
+    tide_series: pack.tide_series != null ? pack.tide_series : null
   };
 }
 

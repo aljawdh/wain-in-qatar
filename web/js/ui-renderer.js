@@ -56,7 +56,8 @@
       + C.metricCard('اتجاه الرياح', H.formatDirection(env.wind_direction_deg), '')
       + C.metricCard('التيار', tide.current_speed_ms != null ? tide.current_speed_ms : '—', 'م/ث')
       + C.metricCard('حرارة الماء', env.water_temp_c != null ? env.water_temp_c : '—', '°')
-      + '</div>';
+      + '</div>'
+      + C.marineTideTimelineSection(dto && dto.tide_series);
   }
 
   function renderFishingRecommendation(dto) {
