@@ -41,7 +41,8 @@
     return list.map(function (s) {
       return {
         id: s.id,
-        name: s.name_ar || s.name || s.id,
+        name_ar: s.name_ar || '',
+        name: s.name || s.name_ar || s.id,
         lat: Number(s.lat),
         lon: Number(s.lon != null ? s.lon : s.lng)
       };
@@ -125,7 +126,7 @@
     UI.renderDashboard(dto, s);
     UI.renderMarineAnalysis(dto);
     UI.renderFishingRecommendation(dto);
-    UI.renderMap(dto);
+    UI.renderMap(dto, s);
     UI.renderLocationModal(s);
   }
 
@@ -225,6 +226,7 @@
       var s = State.getState();
       if (result.ok) {
         var nearest = Loc.findNearestStation(s.stations, result.location);
+        if (typeof Loc.saveLocation === 'function') Loc.saveLocation(result.location);
         State.update({ userLocation: result.location, locationPromptDismissed: true, selectedStation: nearest || s.selectedStation });
         if (nearest) H.byId('stationSelector').value = nearest.id;
       } else {
@@ -248,8 +250,19 @@
 
   async function init() {
     var stations = await loadStations();
-    State.update({ stations: stations, selectedStation: stations[0] || null });
+    var savedLocation = typeof Loc.readSavedLocation === 'function' ? Loc.readSavedLocation() : null;
+    var selectedStation = stations[0] || null;
+    if (savedLocation && typeof Loc.findNearestStation === 'function') {
+      selectedStation = Loc.findNearestStation(stations, savedLocation) || selectedStation;
+    }
+    State.update({
+      stations: stations,
+      selectedStation: selectedStation,
+      userLocation: savedLocation,
+      locationPromptDismissed: !!savedLocation
+    });
     fillStations(stations);
+    if (selectedStation) H.byId('stationSelector').value = selectedStation.id;
     renderDaySelector();
     bindNavigation();
     bindStationSelector();

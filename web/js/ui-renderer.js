@@ -83,16 +83,34 @@
       + C.card('الأنواع المتوقعة', species.length ? species.map(function (s) { return C.fishRow(s, 'ملاءمة الظروف'); }).join('') : '<p class="muted">لا توجد أنواع الآن</p>');
   }
 
-  function renderMap(dto) {
+  function renderMap(dto, state) {
     var el = H.byId('pageMap');
     if (!el) return;
     if (!dto || typeof dto !== 'object') {
       el.innerHTML = noDataCard('الخريطة / Heatmap');
       return;
     }
-    var station = dto && dto.station_id ? dto.station_id : '—';
+    var stations = state && Array.isArray(state.stations) ? state.stations : [];
+    var st = state && state.selectedStation ? state.selectedStation : null;
+    if ((!st || !Number.isFinite(Number(st.lat)) || !Number.isFinite(Number(st.lon))) && dto && dto.station_id) {
+      st = stations.find(function (x) { return x && x.id === dto.station_id; }) || st;
+    }
+    var userLoc = state && state.userLocation ? state.userLocation : null;
+    var lat = st && Number.isFinite(Number(st.lat)) ? Number(st.lat) : (userLoc && Number.isFinite(Number(userLoc.lat)) ? Number(userLoc.lat) : null);
+    var lon = st && Number.isFinite(Number(st.lon)) ? Number(st.lon) : (userLoc && Number.isFinite(Number(userLoc.lon)) ? Number(userLoc.lon) : null);
+    var stationName = st && (st.name_ar || st.name) ? (st.name_ar || st.name) : (dto && dto.station_id ? dto.station_id : '—');
     var hs = dto && dto.hotspot ? dto.hotspot : {};
-    el.innerHTML = C.card('الخريطة', '<p class="muted">المحطة الحالية: ' + station + '</p><p class="muted">متوسط النشاط: ' + (hs.avg_score != null ? hs.avg_score : '—') + '</p><p class="muted">سبب التقييم: ' + (hs.reason_if_unknown || 'محسوب من النقاط البحرية') + '</p>');
+    if (lat == null || lon == null) {
+      el.innerHTML = C.card('الخريطة', '<p class="muted">لا توجد إحداثيات لهذه المحطة</p>');
+      return;
+    }
+    var mapUrl = 'https://maps.google.com/maps?q=' + encodeURIComponent(String(lat) + ',' + String(lon)) + '&z=10&output=embed';
+    el.innerHTML = C.card('الخريطة',
+      '<p class="muted">المحطة الحالية: ' + stationName + '</p>'
+      + '<p class="muted">الموقع: ' + lat.toFixed(4) + ', ' + lon.toFixed(4) + '</p>'
+      + '<div class="map-embed-wrap"><iframe title="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="' + mapUrl + '" style="width:100%;height:260px;border:0;border-radius:12px;"></iframe></div>'
+      + '<p class="muted">متوسط النشاط: ' + (hs.avg_score != null ? hs.avg_score : '—') + '</p>'
+      + '<p class="muted">سبب التقييم: ' + (hs.reason_if_unknown || 'محسوب من النقاط البحرية') + '</p>');
   }
 
   function renderLocationModal(state) {
