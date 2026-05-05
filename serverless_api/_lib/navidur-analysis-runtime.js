@@ -410,6 +410,9 @@ async function attachWorldTidesSeries(out, station, asOfDate) {
       source: wtPack.source,
       timeline: wtPack.timeline,
       extremes: Array.isArray(wtPack.extremes) ? wtPack.extremes : [],
+      meta: wtPack.meta && typeof wtPack.meta === 'object'
+        ? wtPack.meta
+        : { lat: la, lon: lo },
       copyright: cleanString(wtPack.copyright, 4000) || ''
     }
     : null;

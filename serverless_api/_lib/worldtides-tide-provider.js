@@ -9,7 +9,7 @@ const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
 
 var CACHE_MS = 6 * 60 * 60 * 1000;
-var CACHE_DOC_KEY = 'worldtides_tide_cache';
+var CACHE_DOC_KEY = 'worldtides_tide_cache_v2meta';
 
 function cacheEntryKey(stationId, date) {
   var sid = cleanString(stationId, 120);
@@ -19,36 +19,56 @@ function cacheEntryKey(stationId, date) {
 }
 
 /**
- * Maps data.extremes to NAVIDUR timeline.
- * Each point: time = Unix epoch in milliseconds (JS Date interop), height, type HIGH|LOW;
- * height_m mirrors height for existing UI consumers.
+ * Maps WorldTides response.extremes → tide_series.timeline.
+ * Also sets time (ms) + height_m for existing UI row rendering (no UI file edits).
  */
-function extremesToTimeline(data) {
-  if (!data || typeof data !== 'object') return null;
-  var arr = Array.isArray(data.extremes) ? data.extremes : [];
+function buildTimelineFromExtremes(extremesArr) {
+  if (!Array.isArray(extremesArr) || !extremesArr.length) return null;
   var timeline = [];
-  for (var i = 0; i < arr.length; i++) {
-    var e = arr[i];
+  for (var i = 0; i < extremesArr.length; i++) {
+    var e = extremesArr[i];
     if (!e || typeof e !== 'object') continue;
     var dtSec = toNumber(e.dt);
-    var h = toNumber(e.height);
-    if (dtSec == null || !Number.isFinite(dtSec) || h == null || !Number.isFinite(h)) continue;
-    var typRaw = e.type != null ? String(e.type).trim().toLowerCase() : '';
-    var typOut = typRaw === 'high' || typRaw === 'h' ? 'HIGH' : typRaw === 'low' || typRaw === 'l' ? 'LOW' : '';
-    if (!typOut) continue;
-    var heightNum = Number(h.toFixed(4));
+    var hn = toNumber(e.height);
+    if (dtSec == null || !Number.isFinite(dtSec) || hn == null || !Number.isFinite(hn)) continue;
+    var typeOut = e.type === 'High' ? 'HIGH' : e.type === 'Low' ? 'LOW' : null;
+    if (!typeOut) continue;
     timeline.push({
+      timestamp: e.dt,
+      height: e.height,
+      type: typeOut,
       time: Math.round(dtSec * 1000),
-      height: heightNum,
-      type: typOut,
-      height_m: heightNum
+      height_m: Number(hn.toFixed(4))
     });
   }
   if (!timeline.length) return null;
   timeline.sort(function (a, b) {
-    return (a.time || 0) - (b.time || 0);
+    var ta = toNumber(a.timestamp);
+    var tb = toNumber(b.timestamp);
+    return (ta != null ? ta : 0) - (tb != null ? tb : 0);
   });
   return timeline;
+}
+
+/** Augment API extremes for chip UI (time ms, height_m, type low|high). */
+function buildExtremesForDto(extremesArr) {
+  if (!Array.isArray(extremesArr)) return [];
+  var out = [];
+  for (var j = 0; j < extremesArr.length; j++) {
+    var e = extremesArr[j];
+    if (!e || typeof e !== 'object') continue;
+    var dtSec = toNumber(e.dt);
+    var hn = toNumber(e.height);
+    if (dtSec == null || !Number.isFinite(dtSec) || hn == null || !Number.isFinite(hn)) continue;
+    var chipType = e.type === 'High' ? 'high' : e.type === 'Low' ? 'low' : null;
+    if (!chipType) continue;
+    out.push(Object.assign({}, e, {
+      time: Math.round(dtSec * 1000),
+      height_m: Number(hn.toFixed(4)),
+      type: chipType
+    }));
+  }
+  return out;
 }
 
 async function readTideCacheStore() {
@@ -71,7 +91,7 @@ async function writeTideCacheEntry(key, payload) {
 
 /**
  * @param {{ lat: number, lng: number, date: string, station_id?: string|null }} opts
- * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, copyright?: string, error?: string }>}
+ * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, extremes?: array, meta?: object, copyright?: string, error?: string }>}
  */
 async function getTideData(opts) {
   var lat = toNumber(opts && opts.lat);
@@ -98,6 +118,11 @@ async function getTideData(opts) {
       var savedMs = Date.parse(String(ent.saved_at));
       if (!Number.isNaN(savedMs) && nowMs - savedMs < CACHE_MS) {
         var d0 = ent.data;
+        try {
+          if (typeof console !== 'undefined' && console && typeof console.log === 'function' && d0.timeline) {
+            console.log('NAVIDUR_TIDE_SERIES_READY', { count: d0.timeline.length });
+          }
+        } catch (_logC) { /* ignore */ }
         return Object.assign({ ok: true, cached: true }, d0);
       }
     }
@@ -160,7 +185,8 @@ async function getTideData(opts) {
       return out;
     }
 
-    var timeline = extremesToTimeline(data);
+    var rawExtremes = Array.isArray(data.extremes) ? data.extremes : [];
+    var timeline = buildTimelineFromExtremes(rawExtremes);
     if (!timeline) {
       try {
         console.warn('NAVIDUR_TIDE_FAILED');
@@ -169,9 +195,22 @@ async function getTideData(opts) {
       return out;
     }
 
+    var extremes = buildExtremesForDto(rawExtremes);
+
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+        console.log('NAVIDUR_TIDE_SERIES_READY', { count: timeline.length });
+      }
+    } catch (_log0) { /* ignore */ }
+
     var normalized = {
       source: 'worldtides',
       timeline: timeline,
+      extremes: extremes,
+      meta: {
+        lat: lat,
+        lon: lon
+      },
       copyright: cleanString(data.copyright, 4000) || ''
     };
 
