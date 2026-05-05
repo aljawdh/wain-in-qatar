@@ -49,13 +49,43 @@
     }
     var env = dto && dto.environment ? dto.environment : {};
     var tide = dto && dto.tide ? dto.tide : {};
-    el.innerHTML = '<div class="marine-stack">'
-      + C.metricCard('حالة البحر (FASAD)', tide.state || '—', '')
-      + C.metricCard('ارتفاع الموج', env.wave_height_m != null ? env.wave_height_m : '—', 'م')
-      + C.metricCard('سرعة الرياح', env.wind_speed_kmh != null ? env.wind_speed_kmh : '—', 'كم/س')
-      + C.metricCard('اتجاه الرياح', H.formatDirection(env.wind_direction_deg), '')
-      + C.metricCard('التيار', tide.current_speed_ms != null ? tide.current_speed_ms : '—', 'م/ث')
-      + C.metricCard('حرارة الماء', env.water_temp_c != null ? env.water_temp_c : '—', '°')
+
+    var tide_state_ar = H.formatTideState(tide.state);
+    var waveNum = H.formatMarineNumber(env.wave_height_m, 2);
+    var waveHtml = waveNum == null ? 'غير متاح' : waveNum + '<span class="muted marine-unit"> م</span>';
+
+    var windNum = H.formatMarineNumber(env.wind_speed_kmh, 1);
+    var windHtml = windNum == null ? 'غير متاح' : windNum + '<span class="muted marine-unit"> كم/س</span>';
+
+    var wind_direction_ar = H.formatWindDirection(env.wind_direction_deg);
+
+    var curNum = H.formatMarineNumber(tide.current_speed_ms, 2);
+    var currentHtml = curNum == null ? 'غير متاح' : curNum + '<span class="muted marine-unit"> م/ث</span>';
+
+    var tempNum = H.formatMarineNumber(env.water_temp_c, 1);
+    var waterHtml = tempNum == null ? 'غير متاح' : tempNum + '<span class="muted marine-unit">°</span>';
+
+    try {
+      console.debug('NAVIDUR_MARINE_PAGE_RENDER', {
+        tide_state_ar: tide_state_ar,
+        wave: waveNum,
+        wind_speed: windNum,
+        wind_direction_ar: wind_direction_ar,
+        current: curNum,
+        water_temp: tempNum
+      });
+    } catch (_e) { /* ignore */ }
+
+    el.innerHTML = '<div class="marine-page">'
+      + C.marineIntroCard()
+      + '<div class="marine-grid">'
+      + C.marineMetricCard('حالة البحر', tide_state_ar)
+      + C.marineMetricCard('ارتفاع الموج', waveHtml)
+      + C.marineMetricCard('سرعة الرياح', windHtml)
+      + C.marineMetricCard('اتجاه الرياح', wind_direction_ar)
+      + C.marineMetricCard('التيار', currentHtml)
+      + C.marineMetricCard('حرارة الماء', waterHtml)
+      + '</div>'
       + '</div>';
   }
 

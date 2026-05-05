@@ -13,6 +13,19 @@
     return '<div class="fish-row"><strong>' + name + '</strong><span class="muted">' + reason + '</span></div>';
   }
 
+  function marineIntroCard() {
+    return '<section class="card marine-summary-card"><h3>تحليل البحر</h3>'
+      + '<p class="muted marine-summary-text">حالة البحر الحالية بناءً على الرياح، الموج، التيار، والمد.</p>'
+      + '</section>';
+  }
+
+  function marineMetricCard(label, valueHtml) {
+    return '<div class="marine-metric-card">'
+      + '<div class="marine-metric-label">' + label + '</div>'
+      + '<div class="marine-metric-value">' + valueHtml + '</div>'
+      + '</div>';
+  }
+
   function decisionCard(fishing, decision, hero) {
     var label = decision && decision.label ? decision.label : 'غير معروف';
     var badgeClass = 'decision-caution';
@@ -101,6 +114,8 @@
     card: card,
     metricCard: metricCard,
     fishRow: fishRow,
+    marineIntroCard: marineIntroCard,
+    marineMetricCard: marineMetricCard,
     decisionCard: decisionCard,
     renderWindCompass: renderWindCompass
   };
