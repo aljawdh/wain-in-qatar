@@ -25,16 +25,12 @@ function normalizeStormglassType(value) {
   return v.indexOf('high') >= 0 ? 'مد' : 'جزر';
 }
 
-/**
- * Maps Stormglass tide extremes -> NAVIDUR timeline.
- */
 function mapStormglassExtremesToTimeline(extremesArr) {
   if (!Array.isArray(extremesArr) || !extremesArr.length) return null;
 
   var timeline = extremesArr.map(function (e) {
     var rawTime = e && (e.time || e.date || e.datetime);
     var ts = rawTime != null ? Date.parse(String(rawTime)) : NaN;
-
     var h = toNumber(e && (e.height != null ? e.height : e.height_m));
 
     return {
@@ -76,10 +72,6 @@ async function writeTideCacheEntry(key, payload) {
   }
 }
 
-/**
- * @param {{ lat: number, lng: number, date: string, station_id?: string|null }} opts
- * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, extremes?: array, error?: string }>}
- */
 async function getTideData(opts) {
   var lat = toNumber(opts && opts.lat);
   var lon = toNumber(opts && opts.lng);
@@ -138,9 +130,14 @@ async function getTideData(opts) {
     return out;
   }
 
+  var start = dateStr + 'T00:00:00+00:00';
+  var end = dateStr + 'T23:59:59+00:00';
+
   var url = 'https://api.stormglass.io/v2/tide/extremes'
     + '?lat=' + encodeURIComponent(String(lat))
-    + '&lng=' + encodeURIComponent(String(lon));
+    + '&lng=' + encodeURIComponent(String(lon))
+    + '&start=' + encodeURIComponent(start)
+    + '&end=' + encodeURIComponent(end);
 
   try {
     console.debug('NAVIDUR_TIDE_REQUEST', {
@@ -148,6 +145,7 @@ async function getTideData(opts) {
       url: url,
       lat: lat,
       lon: lon,
+      date: dateStr,
       key_present: !!apiKey
     });
 
