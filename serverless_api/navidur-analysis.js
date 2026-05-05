@@ -317,6 +317,14 @@ module.exports = async function handler(req, res) {
       trait_calibration: traitCalibDoc,
       request_depth_mode: cleanString(body.depth_mode, 20)
     });
+    dto.station = {
+      id: station && station.id ? String(station.id) : null,
+      name_ar: station && station.name_ar ? String(station.name_ar) : '',
+      lat: station && Number.isFinite(Number(station.lat)) ? Number(station.lat) : null,
+      lon: station && Number.isFinite(Number(station.lon != null ? station.lon : station.lng))
+        ? Number(station.lon != null ? station.lon : station.lng)
+        : null
+    };
     dto.tide_series = weatherPack.tide_series || null;
     try {
       if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {

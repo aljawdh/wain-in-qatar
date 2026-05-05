@@ -2,6 +2,10 @@
   var C = root.NavidurComponents;
   var H = root.NavidurHelpers;
   var NO_DATA_TEXT = 'لا تتوفر بيانات لهذا اليوم';
+  var mapInstance = null;
+  var mapStationLayer = null;
+  var mapHeatLayer = null;
+  var mapHotspotMarker = null;
 
   function noDataCard(title) {
     return C.card(title, '<p class="muted">' + NO_DATA_TEXT + '</p>');
@@ -83,6 +87,12 @@
       + C.card('الأنواع المتوقعة', species.length ? species.map(function (s) { return C.fishRow(s, 'ملاءمة الظروف'); }).join('') : '<p class="muted">لا توجد أنواع الآن</p>');
   }
 
+  function pointScore(p) {
+    if (!p || typeof p !== 'object') return null;
+    var n = Number(p.score);
+    return Number.isFinite(n) ? n : null;
+  }
+
   function renderMap(dto, state) {
     var el = H.byId('pageMap');
     if (!el) return;
@@ -99,18 +109,87 @@
     var lat = st && Number.isFinite(Number(st.lat)) ? Number(st.lat) : (userLoc && Number.isFinite(Number(userLoc.lat)) ? Number(userLoc.lat) : null);
     var lon = st && Number.isFinite(Number(st.lon)) ? Number(st.lon) : (userLoc && Number.isFinite(Number(userLoc.lon)) ? Number(userLoc.lon) : null);
     var stationName = st && (st.name_ar || st.name) ? (st.name_ar || st.name) : (dto && dto.station_id ? dto.station_id : '—');
-    var hs = dto && dto.hotspot ? dto.hotspot : {};
     if (lat == null || lon == null) {
       el.innerHTML = C.card('الخريطة', '<p class="muted">لا توجد إحداثيات لهذه المحطة</p>');
       return;
     }
-    var mapUrl = 'https://maps.google.com/maps?q=' + encodeURIComponent(String(lat) + ',' + String(lon)) + '&z=10&output=embed';
+    var mapContainerId = 'navidurLeafletMap';
     el.innerHTML = C.card('الخريطة',
       '<p class="muted">المحطة الحالية: ' + stationName + '</p>'
       + '<p class="muted">الموقع: ' + lat.toFixed(4) + ', ' + lon.toFixed(4) + '</p>'
-      + '<div class="map-embed-wrap"><iframe title="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="' + mapUrl + '" style="width:100%;height:260px;border:0;border-radius:12px;"></iframe></div>'
-      + '<p class="muted">متوسط النشاط: ' + (hs.avg_score != null ? hs.avg_score : '—') + '</p>'
-      + '<p class="muted">سبب التقييم: ' + (hs.reason_if_unknown || 'محسوب من النقاط البحرية') + '</p>');
+      + '<div id="' + mapContainerId + '" style="width:100%;height:320px;border-radius:12px;overflow:hidden;"></div>'
+      + '<p class="muted" id="mapSummaryText">جارٍ تحميل طبقات الخريطة...</p>');
+
+    if (typeof L === 'undefined') {
+      H.byId('mapSummaryText').textContent = 'تعذر تحميل مكتبة الخريطة';
+      return;
+    }
+
+    if (mapInstance) {
+      mapInstance.remove();
+      mapInstance = null;
+    }
+    mapStationLayer = null;
+    mapHeatLayer = null;
+    mapHotspotMarker = null;
+
+    mapInstance = L.map(mapContainerId, { zoomControl: true }).setView([lat, lon], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(mapInstance);
+
+    mapStationLayer = L.layerGroup().addTo(mapInstance);
+    stations.forEach(function (s) {
+      if (!s || !Number.isFinite(Number(s.lat)) || !Number.isFinite(Number(s.lon))) return;
+      var title = s.name_ar || s.name || s.id || '—';
+      L.circleMarker([Number(s.lat), Number(s.lon)], {
+        radius: s.id === (st && st.id) ? 7 : 4,
+        color: s.id === (st && st.id) ? '#22d3ee' : '#8fb8d8',
+        weight: 1,
+        fillOpacity: 0.85
+      }).bindPopup(title).addTo(mapStationLayer);
+    });
+
+    var evaluated = Array.isArray(dto.evaluated_points) ? dto.evaluated_points : [];
+    var heatTriplets = [];
+    evaluated.forEach(function (p) {
+      var pla = Number(p && p.lat);
+      var plo = Number(p && (p.lon != null ? p.lon : p.lng));
+      var score = pointScore(p);
+      if (!Number.isFinite(pla) || !Number.isFinite(plo) || !Number.isFinite(score)) return;
+      var intensity = Math.max(0.1, Math.min(1, score / 100));
+      heatTriplets.push([pla, plo, intensity]);
+    });
+    if (heatTriplets.length && typeof L.heatLayer === 'function') {
+      mapHeatLayer = L.heatLayer(heatTriplets, {
+        radius: 22,
+        blur: 18,
+        maxZoom: 11,
+        minOpacity: 0.25
+      }).addTo(mapInstance);
+    }
+
+    var best = null;
+    evaluated.forEach(function (p) {
+      var score = pointScore(p);
+      var pla = Number(p && p.lat);
+      var plo = Number(p && (p.lon != null ? p.lon : p.lng));
+      if (!Number.isFinite(score) || !Number.isFinite(pla) || !Number.isFinite(plo)) return;
+      if (!best || score > best.score) best = { lat: pla, lon: plo, score: score };
+    });
+    if (best) {
+      mapHotspotMarker = L.marker([best.lat, best.lon]).addTo(mapInstance);
+      mapHotspotMarker.bindPopup('أفضل نقطة صيد: ' + best.score.toFixed(0) + '%');
+    }
+
+    var summary = H.byId('mapSummaryText');
+    if (summary) {
+      summary.textContent = 'محطات: ' + stations.length + ' | نقاط الحرارة: ' + heatTriplets.length + (best ? (' | أفضل نقطة: ' + best.score.toFixed(0) + '%') : '');
+    }
+    setTimeout(function () {
+      if (mapInstance) mapInstance.invalidateSize();
+    }, 0);
   }
 
   function renderLocationModal(state) {

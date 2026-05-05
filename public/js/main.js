@@ -36,9 +36,19 @@
   }
 
   async function loadStations() {
-    var res = await fetch('/api?route=stations', { cache: 'no-store' });
-    var json = await res.json();
-    var list = Array.isArray(json.stations) ? json.stations : [];
+    var list = [];
+    try {
+      var resDirect = await fetch('/api/stations', { cache: 'no-store' });
+      if (resDirect.ok) {
+        var jsonDirect = await resDirect.json();
+        list = Array.isArray(jsonDirect) ? jsonDirect : (Array.isArray(jsonDirect && jsonDirect.stations) ? jsonDirect.stations : []);
+      }
+    } catch (_directErr) { /* fallback */ }
+    if (!Array.isArray(list) || !list.length) {
+      var res = await fetch('/api?route=stations', { cache: 'no-store' });
+      var json = await res.json();
+      list = Array.isArray(json.stations) ? json.stations : [];
+    }
     return list.map(function (s) {
       return {
         id: s.id,
@@ -200,6 +210,10 @@
         var page = btn.getAttribute('data-page');
         State.update({ page: page });
         applyPageVisibility(page);
+        if (page === 'map') {
+          var s = State.getState();
+          UI.renderMap(s.currentSharedAnalysisDto, s);
+        }
         document.querySelectorAll('.nav-btn').forEach(function (x) {
           x.classList.toggle('active', x === btn);
         });
