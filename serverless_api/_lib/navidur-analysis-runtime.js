@@ -399,18 +399,33 @@ async function attachWorldTidesSeries(out, station, asOfDate) {
   var tideDateStr = (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate)))
     ? String(asOfDate)
     : new Date().toISOString().slice(0, 10);
-  var wtPack = await worldTides.getTideData({
+  try {
+    if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+      console.log('NAVIDUR_TIDE_CALL_START', { lat: la, lon: lo });
+    }
+  } catch (_tideCallStart) { /* ignore */ }
+  var tideData = await worldTides.getTideData({
     lat: la,
     lng: lo,
     date: tideDateStr,
     station_id: station && station.id != null ? String(station.id) : ''
   });
-  out.tide_series = wtPack && wtPack.ok
+  try {
+    if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+      console.log('NAVIDUR_TIDE_CALL_RESULT', {
+        hasData: !!tideData,
+        source: tideData?.source,
+        timeline: tideData?.timeline?.length,
+        extremes: tideData?.extremes?.length
+      });
+    }
+  } catch (_tideCallResult) { /* ignore */ }
+  out.tide_series = tideData && tideData.ok
     ? {
-      source: wtPack.source,
-      timeline: wtPack.timeline,
-      extremes: Array.isArray(wtPack.extremes) ? wtPack.extremes : [],
-      copyright: wtPack.copyright != null ? wtPack.copyright : null
+      source: tideData.source,
+      timeline: tideData.timeline,
+      extremes: Array.isArray(tideData.extremes) ? tideData.extremes : [],
+      copyright: tideData.copyright != null ? tideData.copyright : null
     }
     : null;
 }
@@ -735,11 +750,52 @@ async function fetchWeatherAndMarineInputs(station, body) {
       liveInputs.tide.next != null
     ));
   if (hasExplicitValues) {
-    return {
+    var tideSeriesExplicit = null;
+    var la0 = toNumber(station && station.lat);
+    var lo0 = toNumber(station && station.lon);
+    if (la0 != null && lo0 != null) {
+      var tideDate0 = new Date().toISOString().slice(0, 10);
+      try {
+        if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+          console.log('NAVIDUR_TIDE_CALL_START', { lat: la0, lon: lo0 });
+        }
+      } catch (_tideCallStart0) { /* ignore */ }
+      var tideData0 = await worldTides.getTideData({
+        lat: la0,
+        lng: lo0,
+        date: tideDate0,
+        station_id: station && station.id != null ? String(station.id) : ''
+      });
+      try {
+        if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+          console.log('NAVIDUR_TIDE_CALL_RESULT', {
+            hasData: !!tideData0,
+            source: tideData0?.source,
+            timeline: tideData0?.timeline?.length,
+            extremes: tideData0?.extremes?.length
+          });
+        }
+      } catch (_tideCallResult0) { /* ignore */ }
+      tideSeriesExplicit = tideData0 && tideData0.ok
+        ? {
+          source: tideData0.source,
+          timeline: tideData0.timeline,
+          extremes: Array.isArray(tideData0.extremes) ? tideData0.extremes : [],
+          copyright: tideData0.copyright != null ? tideData0.copyright : null
+        }
+        : null;
+    }
+    var weatherPackExplicit = {
       live_inputs: liveInputs,
       weather_meta: { from_request_body: true, weather_status_ar: '', humidity_pct: null },
-      tide_series: null
+      tide_series: tideSeriesExplicit
     };
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+        console.log('NAVIDUR_TIDE_PACK', weatherPackExplicit.tide_series);
+      }
+    } catch (_tidePack0) { /* ignore */ }
+    return weatherPackExplicit;
   }
   if (station.lat == null || station.lon == null) {
     return {
@@ -793,7 +849,7 @@ async function fetchWeatherAndMarineInputs(station, body) {
     await saveWeatherCacheEntry(cacheKey, li, pack.weather_status_ar);
   }
   var hum = toNumber(li.relative_humidity_2m);
-  return {
+  var weatherPack = {
     live_inputs: li,
     weather_meta: {
       from_cache: !!pack.from_cache,
@@ -814,6 +870,12 @@ async function fetchWeatherAndMarineInputs(station, body) {
     },
     tide_series: pack.tide_series != null ? pack.tide_series : null
   };
+  try {
+    if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
+      console.log('NAVIDUR_TIDE_PACK', weatherPack.tide_series);
+    }
+  } catch (_tidePack) { /* ignore */ }
+  return weatherPack;
 }
 
 async function loadReferenceData() {
