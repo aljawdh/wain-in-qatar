@@ -2,7 +2,7 @@
 
 const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
-const worldTides = require('./worldtides-tide-provider');
+const stormglass = require('./stormglass-tide-provider');
 
 /** Shown when sky/condition cannot be derived (UI only; analysis still uses numeric fallbacks). */
 var WEATHER_UNAVAILABLE_AR = 'الحالة الجوية غير متاحة حالياً';
