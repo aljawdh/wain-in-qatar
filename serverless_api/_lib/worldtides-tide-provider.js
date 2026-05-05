@@ -9,7 +9,7 @@ const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
 
 var CACHE_MS = 6 * 60 * 60 * 1000;
-var CACHE_DOC_KEY = 'worldtides_tide_cache_v2meta';
+var CACHE_DOC_KEY = 'stormglass_tide_cache_v1';
 
 function cacheEntryKey(stationId, date) {
   var sid = cleanString(stationId, 120);
@@ -18,30 +18,42 @@ function cacheEntryKey(stationId, date) {
   return sid + '|' + d;
 }
 
+function normalizeStormglassType(value) {
+  var v = String(value || '').toLowerCase();
+  if (v === 'high' || v === 'high_tide') return 'مد';
+  if (v === 'low' || v === 'low_tide') return 'جزر';
+  return v.indexOf('high') >= 0 ? 'مد' : 'جزر';
+}
+
 /**
- * Maps Stormglass data.data -> NAVIDUR timeline.
+ * Maps Stormglass tide extremes -> NAVIDUR timeline.
  */
 function mapStormglassExtremesToTimeline(extremesArr) {
   if (!Array.isArray(extremesArr) || !extremesArr.length) return null;
+
   var timeline = extremesArr.map(function (e) {
-    var ts = e && e.time != null ? Date.parse(String(e.time)) : NaN;
-    var h = toNumber(e && e.height);
-    var typ = e && e.type === 'high' ? 'مد' : 'جزر';
+    var rawTime = e && (e.time || e.date || e.datetime);
+    var ts = rawTime != null ? Date.parse(String(rawTime)) : NaN;
+
+    var h = toNumber(e && (e.height != null ? e.height : e.height_m));
+
     return {
       ts: Number.isNaN(ts) ? null : ts,
-      height_m: h != null ? h : e.height,
-      type: typ
+      time: rawTime ? String(rawTime) : null,
+      height_m: h,
+      height: h,
+      type: normalizeStormglassType(e && e.type)
     };
-  });
-  timeline = timeline.filter(function (pt) {
+  }).filter(function (pt) {
     return pt.ts != null && Number.isFinite(Number(pt.ts));
   });
+
   if (!timeline.length) return null;
+
   timeline.sort(function (a, b) {
-    var ta = toNumber(a.ts);
-    var tb = toNumber(b.ts);
-    return (ta != null ? ta : 0) - (tb != null ? tb : 0);
+    return Number(a.ts) - Number(b.ts);
   });
+
   return timeline;
 }
 
@@ -56,6 +68,7 @@ async function writeTideCacheEntry(key, payload) {
     saved_at: new Date().toISOString(),
     data: payload
   };
+
   try {
     await writeJsonFile(CACHE_DOC_KEY, doc);
   } catch (_e) {
@@ -74,7 +87,13 @@ async function getTideData(opts) {
   var stationId = opts && opts.station_id != null ? String(opts.station_id) : '';
 
   var out = { ok: false, error: 'invalid_params' };
+
   if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+    console.warn('NAVIDUR_TIDE_FAILED', {
+      reason: 'invalid_params',
+      lat: lat,
+      lon: lon
+    });
     return out;
   }
 
@@ -88,36 +107,49 @@ async function getTideData(opts) {
   try {
     var doc = await readTideCacheStore();
     var ent = doc.entries && doc.entries[key];
+
     if (ent && ent.data && ent.saved_at) {
       var savedMs = Date.parse(String(ent.saved_at));
+
       if (!Number.isNaN(savedMs) && nowMs - savedMs < CACHE_MS) {
-        var d0 = ent.data;
-        return Object.assign({ ok: true, cached: true }, d0);
+        console.debug('NAVIDUR_TIDE_CACHE_HIT', {
+          key: key,
+          source: ent.data.source,
+          timeline_count: ent.data.timeline && ent.data.timeline.length,
+          extremes_count: ent.data.extremes && ent.data.extremes.length
+        });
+
+        return Object.assign({ ok: true, cached: true }, ent.data);
       }
     }
-  } catch (_r) { /* miss */ }
+  } catch (_r) {
+    /* cache miss */
+  }
 
   var apiKey = (process.env.STORMGLASS_API_KEY != null ? String(process.env.STORMGLASS_API_KEY) : '').trim();
+
   if (!apiKey) {
-    try {
-      console.warn('NAVIDUR_TIDE_FAILED');
-    } catch (_w) { /* ignore */ }
+    console.warn('NAVIDUR_TIDE_FAILED', {
+      reason: 'no_api_key',
+      key_present: false
+    });
+
     out.error = 'no_api_key';
     return out;
   }
 
-  var url = `https://api.stormglass.io/v2/tide/extremes?lat=${lat}&lng=${lon}`;
+  var url = 'https://api.stormglass.io/v2/tide/extremes'
+    + '?lat=' + encodeURIComponent(String(lat))
+    + '&lng=' + encodeURIComponent(String(lon));
 
   try {
-    try {
-      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
-        console.debug('NAVIDUR_TIDE_REQUEST', {
-          lat: lat,
-          lon: lon,
-          key_present: !!(process.env.STORMGLASS_API_KEY && String(process.env.STORMGLASS_API_KEY).trim())
-        });
-      }
-    } catch (_dbg0) { /* ignore */ }
+    console.debug('NAVIDUR_TIDE_REQUEST', {
+      source: 'stormglass',
+      url: url,
+      lat: lat,
+      lon: lon,
+      key_present: !!apiKey
+    });
 
     var res = await fetch(url, {
       method: 'GET',
@@ -125,46 +157,54 @@ async function getTideData(opts) {
         Authorization: apiKey
       }
     });
+
     var text = await res.text();
     var data;
+
     try {
       data = JSON.parse(text);
     } catch (_parse) {
-      try {
-        console.warn('NAVIDUR_TIDE_FAILED');
-      } catch (_w2) { /* ignore */ }
+      console.warn('NAVIDUR_TIDE_FAILED', {
+        reason: 'invalid_json',
+        status: res.status,
+        body_sample: cleanString(text, 500)
+      });
+
       out.error = 'invalid_json';
       return out;
     }
 
-    try {
-      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
-        console.debug('NAVIDUR_TIDE_RESPONSE', data);
-      }
-    } catch (_dbg1) { /* ignore */ }
-
-    if (!data || typeof data !== 'object') {
-      try {
-        console.warn('NAVIDUR_TIDE_FAILED');
-      } catch (_w3) { /* ignore */ }
-      out.error = 'empty_response';
-      return out;
-    }
+    console.debug('NAVIDUR_TIDE_RESPONSE', {
+      status: res.status,
+      ok: res.ok,
+      has_data_array: Array.isArray(data && data.data),
+      data_count: Array.isArray(data && data.data) ? data.data.length : 0,
+      message: data && data.message ? data.message : null,
+      errors: data && data.errors ? data.errors : null
+    });
 
     if (!res.ok) {
-      try {
-        console.warn('NAVIDUR_TIDE_FAILED');
-      } catch (_w4) { /* ignore */ }
+      console.warn('NAVIDUR_TIDE_FAILED', {
+        reason: 'http_error',
+        status: res.status,
+        message: cleanString(data && data.message, 300),
+        errors: data && data.errors ? data.errors : null
+      });
+
       out.error = cleanString(data && data.message, 200) || ('stormglass_http_' + String(res.status));
       return out;
     }
 
-    var rawExtremes = Array.isArray(data.data) ? data.data : [];
+    var rawExtremes = Array.isArray(data && data.data) ? data.data : [];
     var timeline = mapStormglassExtremesToTimeline(rawExtremes);
+
     if (!timeline) {
-      try {
-        console.warn('NAVIDUR_TIDE_FAILED');
-      } catch (_w5) { /* ignore */ }
+      console.warn('NAVIDUR_TIDE_FAILED', {
+        reason: 'empty_extremes',
+        data_count: rawExtremes.length,
+        sample: rawExtremes.slice(0, 3)
+      });
+
       out.error = 'empty_extremes';
       return out;
     }
@@ -175,13 +215,21 @@ async function getTideData(opts) {
       extremes: rawExtremes
     };
 
+    console.debug('NAVIDUR_TIDE_SERIES_READY', {
+      source: normalized.source,
+      timeline_count: normalized.timeline.length,
+      extremes_count: normalized.extremes.length
+    });
+
     await writeTideCacheEntry(key, normalized);
 
     return Object.assign({ ok: true, cached: false }, normalized);
   } catch (e) {
-    try {
-      console.warn('NAVIDUR_TIDE_FAILED');
-    } catch (_w6) { /* ignore */ }
+    console.warn('NAVIDUR_TIDE_FAILED', {
+      reason: 'fetch_failed',
+      error: cleanString(e && e.message ? e.message : String(e), 300)
+    });
+
     out.error = cleanString(e && e.message ? e.message : String(e), 200) || 'fetch_failed';
     return out;
   }
