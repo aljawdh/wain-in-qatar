@@ -24,10 +24,14 @@ function cacheEntryKey(stationId, date) {
 function mapExtremesToTimeline(extremesArr) {
   if (!Array.isArray(extremesArr) || !extremesArr.length) return null;
   var timeline = extremesArr.map(function (e) {
+    var ts = toNumber(e && e.dt);
+    var h = toNumber(e && e.height);
+    var t = e && e.date != null ? e.date : (ts != null ? new Date(ts * 1000).toISOString() : null);
     return {
-      time: e.date,
-      timestamp: e.dt,
-      height_m: e.height,
+      time: t,
+      timestamp: e && e.dt != null ? e.dt : null,
+      height_m: h != null ? h : e.height,
+      height: h != null ? h : e.height,
       type: e.type === 'High' ? 'HIGH' : 'LOW'
     };
   });

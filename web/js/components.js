@@ -18,24 +18,34 @@
   }
 
   function marineTideTimelineSection(series) {
-    if (!series || series.source !== 'worldtides' || !Array.isArray(series.timeline) || !series.timeline.length) {
+    var points = series && Array.isArray(series.timeline) && series.timeline.length
+      ? series.timeline
+      : (series && Array.isArray(series.extremes) ? series.extremes : []);
+    if (!series || series.source !== 'worldtides' || !Array.isArray(points) || points.length < 2) {
       return '<section class="card marine-tide-card"><h3>المد والجزر</h3><p class="muted marine-tide-empty">لا تتوفر بيانات المد والجزر حالياً</p></section>';
     }
-    var rows = series.timeline.slice(0, 72).map(function (pt) {
-      if (!pt || !pt.time) return '';
-      var d = new Date(pt.time);
-      var label = isNaN(d.getTime()) ? String(pt.time) : d.toLocaleString('ar-QA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      var hm = pt.height_m != null && Number.isFinite(Number(pt.height_m)) ? Number(pt.height_m).toFixed(2) : '—';
+    var rows = points.slice(0, 72).map(function (pt) {
+      if (!pt) return '';
+      var rawTime = pt.time != null ? pt.time : (pt.date != null ? pt.date : (pt.timestamp != null ? Number(pt.timestamp) * 1000 : null));
+      if (!rawTime) return '';
+      var d = new Date(rawTime);
+      var label = isNaN(d.getTime()) ? String(rawTime) : d.toLocaleString('ar-QA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      var rawHeight = pt.height_m != null ? pt.height_m : pt.height;
+      var hm = rawHeight != null && Number.isFinite(Number(rawHeight)) ? Number(rawHeight).toFixed(2) : '—';
       return '<div class="marine-tide-row"><span class="marine-tide-time">' + escapeHtmlText(label) + '</span><span class="marine-tide-height">' + hm + ' <span class="muted marine-unit">م</span></span></div>';
     }).join('');
     var exHtml = '';
     if (Array.isArray(series.extremes) && series.extremes.length) {
       exHtml = '<div class="marine-tide-extremes">' + series.extremes.slice(0, 12).map(function (ex) {
-        if (!ex || !ex.time) return '';
-        var d2 = new Date(ex.time);
-        var tlab = isNaN(d2.getTime()) ? String(ex.time) : d2.toLocaleString('ar-QA', { hour: '2-digit', minute: '2-digit' });
-        var typAr = ex.type === 'high' ? 'قمة' : ex.type === 'low' ? 'قاع' : escapeHtmlText(String(ex.type || ''));
-        var h2 = ex.height_m != null && Number.isFinite(Number(ex.height_m)) ? Number(ex.height_m).toFixed(2) : '—';
+        if (!ex) return '';
+        var exTime = ex.time != null ? ex.time : (ex.date != null ? ex.date : (ex.dt != null ? Number(ex.dt) * 1000 : null));
+        if (!exTime) return '';
+        var d2 = new Date(exTime);
+        var tlab = isNaN(d2.getTime()) ? String(exTime) : d2.toLocaleString('ar-QA', { hour: '2-digit', minute: '2-digit' });
+        var typeNorm = String(ex.type || '').toLowerCase();
+        var typAr = typeNorm === 'high' ? 'قمة' : typeNorm === 'low' ? 'قاع' : escapeHtmlText(String(ex.type || ''));
+        var exHeight = ex.height_m != null ? ex.height_m : ex.height;
+        var h2 = exHeight != null && Number.isFinite(Number(exHeight)) ? Number(exHeight).toFixed(2) : '—';
         return '<span class="marine-tide-chip">' + escapeHtmlText(tlab) + ' · ' + typAr + ' · ' + h2 + ' م</span>';
       }).join('') + '</div>';
     }

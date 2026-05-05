@@ -49,6 +49,14 @@
     }
     var env = dto && dto.environment ? dto.environment : {};
     var tide = dto && dto.tide ? dto.tide : {};
+    try {
+      console.debug('NAVIDUR_TIDE_UI_RENDER', {
+        has_series: !!(dto && dto.tide_series),
+        source: dto && dto.tide_series ? dto.tide_series.source : undefined,
+        timeline_count: dto && dto.tide_series && Array.isArray(dto.tide_series.timeline) ? dto.tide_series.timeline.length : 0,
+        extremes_count: dto && dto.tide_series && Array.isArray(dto.tide_series.extremes) ? dto.tide_series.extremes.length : 0
+      });
+    } catch (_te) { /* ignore */ }
     el.innerHTML = '<div class="marine-stack">'
       + C.metricCard('حالة البحر (FASAD)', tide.state || '—', '')
       + C.metricCard('ارتفاع الموج', env.wave_height_m != null ? env.wave_height_m : '—', 'م')

@@ -317,12 +317,22 @@ module.exports = async function handler(req, res) {
       trait_calibration: traitCalibDoc,
       request_depth_mode: cleanString(body.depth_mode, 20)
     });
-    dto.tide_series = weatherPack.tide_series;
+    dto.tide_series = weatherPack.tide_series || null;
     try {
       if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
         console.debug('NAVIDUR_TIDE_SOURCE', dto.tide_series?.source);
       }
     } catch (_tideDbg) { /* ignore */ }
+    try {
+      if (typeof console !== 'undefined' && console && typeof console.debug === 'function') {
+        console.debug('NAVIDUR_TIDE_FINAL_DTO', {
+          has_tide_series: !!dto.tide_series,
+          source: dto.tide_series?.source,
+          timeline_count: dto.tide_series?.timeline?.length,
+          extremes_count: dto.tide_series?.extremes?.length
+        });
+      }
+    } catch (_tideFinalDbg) { /* ignore */ }
     try {
       var valLayer = navidurSnapshotValidation.buildValidationResult(dto, fieldValidation, null);
       dto.validation = valLayer.validation;
