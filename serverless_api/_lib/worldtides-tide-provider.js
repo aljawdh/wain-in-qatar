@@ -19,28 +19,21 @@ function cacheEntryKey(stationId, date) {
 }
 
 /**
- * Maps WorldTides response.extremes → tide_series.timeline.
- * Also sets time (ms) + height_m for existing UI row rendering (no UI file edits).
+ * Maps response.extremes → tide_series.timeline (NAVIDUR shape).
  */
-function buildTimelineFromExtremes(extremesArr) {
+function mapExtremesToTimeline(extremesArr) {
   if (!Array.isArray(extremesArr) || !extremesArr.length) return null;
-  var timeline = [];
-  for (var i = 0; i < extremesArr.length; i++) {
-    var e = extremesArr[i];
-    if (!e || typeof e !== 'object') continue;
-    var dtSec = toNumber(e.dt);
-    var hn = toNumber(e.height);
-    if (dtSec == null || !Number.isFinite(dtSec) || hn == null || !Number.isFinite(hn)) continue;
-    var typeOut = e.type === 'High' ? 'HIGH' : e.type === 'Low' ? 'LOW' : null;
-    if (!typeOut) continue;
-    timeline.push({
+  var timeline = extremesArr.map(function (e) {
+    return {
+      time: e.date,
       timestamp: e.dt,
-      height: e.height,
-      type: typeOut,
-      time: Math.round(dtSec * 1000),
-      height_m: Number(hn.toFixed(4))
-    });
-  }
+      height_m: e.height,
+      type: e.type === 'High' ? 'HIGH' : 'LOW'
+    };
+  });
+  timeline = timeline.filter(function (pt) {
+    return pt.time != null && String(pt.time).length > 0;
+  });
   if (!timeline.length) return null;
   timeline.sort(function (a, b) {
     var ta = toNumber(a.timestamp);
@@ -48,27 +41,6 @@ function buildTimelineFromExtremes(extremesArr) {
     return (ta != null ? ta : 0) - (tb != null ? tb : 0);
   });
   return timeline;
-}
-
-/** Augment API extremes for chip UI (time ms, height_m, type low|high). */
-function buildExtremesForDto(extremesArr) {
-  if (!Array.isArray(extremesArr)) return [];
-  var out = [];
-  for (var j = 0; j < extremesArr.length; j++) {
-    var e = extremesArr[j];
-    if (!e || typeof e !== 'object') continue;
-    var dtSec = toNumber(e.dt);
-    var hn = toNumber(e.height);
-    if (dtSec == null || !Number.isFinite(dtSec) || hn == null || !Number.isFinite(hn)) continue;
-    var chipType = e.type === 'High' ? 'high' : e.type === 'Low' ? 'low' : null;
-    if (!chipType) continue;
-    out.push(Object.assign({}, e, {
-      time: Math.round(dtSec * 1000),
-      height_m: Number(hn.toFixed(4)),
-      type: chipType
-    }));
-  }
-  return out;
 }
 
 async function readTideCacheStore() {
@@ -91,7 +63,7 @@ async function writeTideCacheEntry(key, payload) {
 
 /**
  * @param {{ lat: number, lng: number, date: string, station_id?: string|null }} opts
- * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, extremes?: array, meta?: object, copyright?: string, error?: string }>}
+ * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, extremes?: array, copyright?: string|null, error?: string }>}
  */
 async function getTideData(opts) {
   var lat = toNumber(opts && opts.lat);
@@ -118,11 +90,6 @@ async function getTideData(opts) {
       var savedMs = Date.parse(String(ent.saved_at));
       if (!Number.isNaN(savedMs) && nowMs - savedMs < CACHE_MS) {
         var d0 = ent.data;
-        try {
-          if (typeof console !== 'undefined' && console && typeof console.log === 'function' && d0.timeline) {
-            console.log('NAVIDUR_TIDE_SERIES_READY', { count: d0.timeline.length });
-          }
-        } catch (_logC) { /* ignore */ }
         return Object.assign({ ok: true, cached: true }, d0);
       }
     }
@@ -186,7 +153,7 @@ async function getTideData(opts) {
     }
 
     var rawExtremes = Array.isArray(data.extremes) ? data.extremes : [];
-    var timeline = buildTimelineFromExtremes(rawExtremes);
+    var timeline = mapExtremesToTimeline(rawExtremes);
     if (!timeline) {
       try {
         console.warn('NAVIDUR_TIDE_FAILED');
@@ -195,23 +162,11 @@ async function getTideData(opts) {
       return out;
     }
 
-    var extremes = buildExtremesForDto(rawExtremes);
-
-    try {
-      if (typeof console !== 'undefined' && console && typeof console.log === 'function') {
-        console.log('NAVIDUR_TIDE_SERIES_READY', { count: timeline.length });
-      }
-    } catch (_log0) { /* ignore */ }
-
     var normalized = {
       source: 'worldtides',
       timeline: timeline,
-      extremes: extremes,
-      meta: {
-        lat: lat,
-        lon: lon
-      },
-      copyright: cleanString(data.copyright, 4000) || ''
+      extremes: rawExtremes,
+      copyright: data.copyright || null
     };
 
     await writeTideCacheEntry(key, normalized);
