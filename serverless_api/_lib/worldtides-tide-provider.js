@@ -1,8 +1,8 @@
 'use strict';
 
 /**
- * WorldTides API v2 — extremes only (no heights).
- * Normalized for NAVIDUR tide_series (no sine, no wave proxy).
+ * Stormglass tide provider (extremes endpoint).
+ * Normalized for NAVIDUR tide_series.
  */
 
 const { readJsonFile, writeJsonFile } = require('./data-store');
@@ -19,29 +19,27 @@ function cacheEntryKey(stationId, date) {
 }
 
 /**
- * Maps response.extremes → tide_series.timeline (NAVIDUR shape).
+ * Maps Stormglass data.data -> NAVIDUR timeline.
  */
-function mapExtremesToTimeline(extremesArr) {
+function mapStormglassExtremesToTimeline(extremesArr) {
   if (!Array.isArray(extremesArr) || !extremesArr.length) return null;
   var timeline = extremesArr.map(function (e) {
-    var ts = toNumber(e && e.dt);
+    var ts = e && e.time != null ? Date.parse(String(e.time)) : NaN;
     var h = toNumber(e && e.height);
-    var t = e && e.date != null ? e.date : (ts != null ? new Date(ts * 1000).toISOString() : null);
+    var typ = e && e.type === 'high' ? 'مد' : 'جزر';
     return {
-      time: t,
-      timestamp: e && e.dt != null ? e.dt : null,
+      ts: Number.isNaN(ts) ? null : ts,
       height_m: h != null ? h : e.height,
-      height: h != null ? h : e.height,
-      type: e.type === 'High' ? 'HIGH' : 'LOW'
+      type: typ
     };
   });
   timeline = timeline.filter(function (pt) {
-    return pt.time != null && String(pt.time).length > 0;
+    return pt.ts != null && Number.isFinite(Number(pt.ts));
   });
   if (!timeline.length) return null;
   timeline.sort(function (a, b) {
-    var ta = toNumber(a.timestamp);
-    var tb = toNumber(b.timestamp);
+    var ta = toNumber(a.ts);
+    var tb = toNumber(b.ts);
     return (ta != null ? ta : 0) - (tb != null ? tb : 0);
   });
   return timeline;
@@ -67,7 +65,7 @@ async function writeTideCacheEntry(key, payload) {
 
 /**
  * @param {{ lat: number, lng: number, date: string, station_id?: string|null }} opts
- * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, extremes?: array, copyright?: string|null, error?: string }>}
+ * @returns {Promise<{ ok: boolean, cached?: boolean, source?: string, timeline?: array, extremes?: array, error?: string }>}
  */
 async function getTideData(opts) {
   var lat = toNumber(opts && opts.lat);
@@ -99,7 +97,7 @@ async function getTideData(opts) {
     }
   } catch (_r) { /* miss */ }
 
-  var apiKey = (process.env.WORLDTIDES_API_KEY != null ? String(process.env.WORLDTIDES_API_KEY) : '').trim();
+  var apiKey = (process.env.STORMGLASS_API_KEY != null ? String(process.env.STORMGLASS_API_KEY) : '').trim();
   if (!apiKey) {
     try {
       console.warn('NAVIDUR_TIDE_FAILED');
@@ -108,7 +106,7 @@ async function getTideData(opts) {
     return out;
   }
 
-  var url = `https://www.worldtides.info/api/v2?extremes&lat=${lat}&lon=${lon}&key=${apiKey}`;
+  var url = `https://api.stormglass.io/v2/tide/extremes?lat=${lat}&lng=${lon}`;
 
   try {
     try {
@@ -116,12 +114,17 @@ async function getTideData(opts) {
         console.debug('NAVIDUR_TIDE_REQUEST', {
           lat: lat,
           lon: lon,
-          key_present: !!(process.env.WORLDTIDES_API_KEY && String(process.env.WORLDTIDES_API_KEY).trim())
+          key_present: !!(process.env.STORMGLASS_API_KEY && String(process.env.STORMGLASS_API_KEY).trim())
         });
       }
     } catch (_dbg0) { /* ignore */ }
 
-    var res = await fetch(url, { method: 'GET' });
+    var res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: apiKey
+      }
+    });
     var text = await res.text();
     var data;
     try {
@@ -148,17 +151,16 @@ async function getTideData(opts) {
       return out;
     }
 
-    var hasExtremes = Array.isArray(data.extremes) && data.extremes.length > 0;
-    if (Number(data.status) !== 200 && !hasExtremes) {
+    if (!res.ok) {
       try {
         console.warn('NAVIDUR_TIDE_FAILED');
       } catch (_w4) { /* ignore */ }
-      out.error = cleanString(data.error, 200) || 'worldtides_http';
+      out.error = cleanString(data && data.message, 200) || ('stormglass_http_' + String(res.status));
       return out;
     }
 
-    var rawExtremes = Array.isArray(data.extremes) ? data.extremes : [];
-    var timeline = mapExtremesToTimeline(rawExtremes);
+    var rawExtremes = Array.isArray(data.data) ? data.data : [];
+    var timeline = mapStormglassExtremesToTimeline(rawExtremes);
     if (!timeline) {
       try {
         console.warn('NAVIDUR_TIDE_FAILED');
@@ -168,10 +170,9 @@ async function getTideData(opts) {
     }
 
     var normalized = {
-      source: 'worldtides',
+      source: 'stormglass',
       timeline: timeline,
-      extremes: rawExtremes,
-      copyright: data.copyright || null
+      extremes: rawExtremes
     };
 
     await writeTideCacheEntry(key, normalized);
