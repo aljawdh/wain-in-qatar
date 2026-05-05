@@ -33,24 +33,68 @@
     return card('قرار اليوم', inner);
   }
 
+  var WIND_ROSE = [
+    { rot: 0, en: 'N', ar: 'شمال' },
+    { rot: 45, en: 'NE', ar: 'شمال شرقي' },
+    { rot: 90, en: 'E', ar: 'شرق' },
+    { rot: 135, en: 'SE', ar: 'جنوب شرقي' },
+    { rot: 180, en: 'S', ar: 'جنوب' },
+    { rot: 225, en: 'SW', ar: 'جنوب غربي' },
+    { rot: 270, en: 'W', ar: 'غرب' },
+    { rot: 315, en: 'NW', ar: 'شمال غربي' }
+  ];
+
+  function windDirectionFullAr(deg) {
+    var d = ((deg % 360) + 360) % 360;
+    var idx = Math.round(d / 45) % 8;
+    var full = ['شمال', 'شمال شرقي', 'شرق', 'جنوب شرقي', 'جنوب', 'جنوب غربي', 'غرب', 'شمال غربي'];
+    return full[idx];
+  }
+
+  function windRoseTicksHtml() {
+    return WIND_ROSE.map(function (t) {
+      return '<div class="rose-tick" style="--rot:' + t.rot + 'deg">'
+        + '<div class="rose-tick-inner">'
+        + '<span class="rose-en">' + t.en + '</span>'
+        + '<span class="rose-ar">' + t.ar + '</span>'
+        + '</div></div>';
+    }).join('');
+  }
+
   function renderWindCompass(dto) {
     var env = dto && dto.environment ? dto.environment : {};
     var raw = env.wind_direction_deg;
     var deg = H.toNumber(raw, null);
+    var faceTicks = windRoseTicksHtml();
+    var bodyIdle = '<div class="wind-compass-card__body">'
+      + '<div class="compass-face compass-face--idle" dir="ltr">'
+      + '<div class="compass-rose">' + faceTicks + '</div>'
+      + '<div class="compass-arrow-layer compass-arrow-layer--idle" aria-hidden="true"><div class="compass-arrow-fat"></div></div>'
+      + '</div>'
+      + '<div class="compass-summary">'
+      + '<div class="compass-dir-name">—</div>'
+      + '<div class="compass-dir-deg">—</div>'
+      + '</div></div>';
+
     if (deg == null || !Number.isFinite(deg)) {
-      return '<div class="wind-compass" aria-hidden="true"><div class="compass-circle"><div class="compass-arrow-rotate compass-arrow-rotate--idle"><div class="compass-arrow"></div></div></div><div class="compass-label">—</div></div>';
+      return '<section class="card wind-compass-card" aria-label="اتجاه الرياح"><h3>اتجاه الرياح</h3>' + bodyIdle + '</section>';
     }
     deg = ((deg % 360) + 360) % 360;
-    var name = H.formatDirection(deg);
-    var labelText = name === '—' ? '—' : name + ' ' + Math.round(deg) + '°';
-    return '<div class="wind-compass" role="img" aria-label="اتجاه الرياح">'
-      + '<div class="compass-circle">'
-      + '<div class="compass-arrow-rotate" style="transform: rotate(' + deg + 'deg)">'
-      + '<div class="compass-arrow"></div>'
+    var dirAr = windDirectionFullAr(deg);
+    var degRounded = Math.round(deg);
+    var body = '<div class="wind-compass-card__body">'
+      + '<div class="compass-face" dir="ltr">'
+      + '<div class="compass-rose">' + faceTicks + '</div>'
+      + '<div class="compass-arrow-layer" style="transform: rotate(' + deg + 'deg)" role="presentation">'
+      + '<div class="compass-arrow-fat"></div>'
       + '</div>'
       + '</div>'
-      + '<div class="compass-label">' + labelText + '</div>'
-      + '</div>';
+      + '<div class="compass-summary">'
+      + '<div class="compass-dir-name">' + dirAr + '</div>'
+      + '<div class="compass-dir-deg">' + degRounded + '°</div>'
+      + '</div></div>';
+
+    return '<section class="card wind-compass-card" aria-label="اتجاه الرياح"><h3>اتجاه الرياح</h3>' + body + '</section>';
   }
 
   root.NavidurComponents = {
