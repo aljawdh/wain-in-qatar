@@ -148,7 +148,8 @@ async function getTideData(opts) {
       return out;
     }
 
-    if (Number(data.status) !== 200) {
+    var hasExtremes = Array.isArray(data.extremes) && data.extremes.length > 0;
+    if (Number(data.status) !== 200 && !hasExtremes) {
       try {
         console.warn('NAVIDUR_TIDE_FAILED');
       } catch (_w4) { /* ignore */ }
