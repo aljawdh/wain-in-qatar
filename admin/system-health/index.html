@@ -41,9 +41,9 @@
     <div style="margin:12px 0;"><button id="reloadBtn">تحديث</button> <span id="generatedAt" class="muted"></span></div>
     <section class="cards">
       <div class="card"><div class="k">الحالة العامة</div><div id="status" class="v">—</div></div>
-      <div class="card"><div class="k">أخطاء حرجة</div><div id="critical" class="v">0</div></div>
-      <div class="card"><div class="k">تحذيرات</div><div id="warnings" class="v">0</div></div>
-      <div class="card"><div class="k">سليم</div><div id="okCount" class="v">0</div></div>
+      <div class="card"><div class="k">أخطاء حرجة</div><div id="critical" class="v">—</div></div>
+      <div class="card"><div class="k">تحذيرات</div><div id="warnings" class="v">—</div></div>
+      <div class="card"><div class="k">سليم</div><div id="okCount" class="v">—</div></div>
     </section>
     <section class="grid">
       <div class="card">
@@ -134,6 +134,28 @@
       return out;
     }
 
+    function resetSummaryToUnknown() {
+      byId('status').textContent = '—';
+      byId('status').className = 'v';
+      byId('critical').textContent = '—';
+      byId('warnings').textContent = '—';
+      byId('okCount').textContent = '—';
+      byId('generatedAt').textContent = 'آخر تحديث: —';
+    }
+
+    function renderReportError(statusCode) {
+      const code = Number(statusCode);
+      if (code === 401 || code === 403) {
+        byId('status').textContent = 'تحتاج تسجيل دخول إداري';
+      } else {
+        byId('status').textContent = 'تعذر قراءة تقرير السلامة' + (Number.isFinite(code) && code > 0 ? (' (' + code + ')') : '');
+      }
+      byId('status').className = 'v sev-warning';
+      byId('critical').textContent = '—';
+      byId('warnings').textContent = '—';
+      byId('okCount').textContent = '—';
+    }
+
     function renderMap(stations, findings) {
       if (!map) {
         map = L.map('stationMap').setView([25.5, 51.5], 6);
@@ -184,17 +206,56 @@
     }
 
     async function refresh() {
-      const [stationsRes, integrityRes] = await Promise.all([
-        loadStations(),
-        fetch('/api/admin/system-integrity', { cache: 'no-store' }).then(r => r.json())
-      ]);
+      resetSummaryToUnknown();
+      const stationsRes = await loadStations();
+      const endpoint = '/api/admin/system-integrity?ts=' + Date.now();
+      let res;
+      try {
+        res = await fetch(endpoint, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+      } catch (_networkErr) {
+        renderReportError(0);
+        renderFindings([]);
+        renderMap(stationsRes, []);
+        return;
+      }
+
+      if (!res.ok) {
+        renderReportError(res.status);
+        renderFindings([]);
+        renderMap(stationsRes, []);
+        return;
+      }
+
+      let integrityRes;
+      try {
+        integrityRes = await res.json();
+      } catch (_jsonErr) {
+        renderReportError(res.status || 0);
+        renderFindings([]);
+        renderMap(stationsRes, []);
+        return;
+      }
+
+      if (!integrityRes || typeof integrityRes !== 'object' || !integrityRes.summary || !integrityRes.status) {
+        renderReportError(res.status || 0);
+        renderFindings([]);
+        renderMap(stationsRes, []);
+        return;
+      }
+
       const findings = collectFindings(integrityRes);
-      byId('status').textContent = tSeverity(integrityRes.status || 'ok');
-      byId('status').className = 'v sev-' + (integrityRes.status || 'ok');
-      byId('critical').textContent = integrityRes.summary ? integrityRes.summary.critical : '0';
-      byId('warnings').textContent = integrityRes.summary ? integrityRes.summary.warnings : '0';
-      byId('okCount').textContent = integrityRes.summary ? integrityRes.summary.ok : '0';
-      byId('generatedAt').textContent = integrityRes.generated_at || '';
+      byId('status').textContent = tSeverity(integrityRes.status);
+      byId('status').className = 'v sev-' + integrityRes.status;
+      byId('critical').textContent = integrityRes.summary.critical;
+      byId('warnings').textContent = integrityRes.summary.warnings;
+      byId('okCount').textContent = integrityRes.summary.ok;
+      byId('generatedAt').textContent = 'آخر تحديث: ' + (integrityRes.generated_at || '—');
       renderLatency(integrityRes);
       renderFindings(findings);
       renderMap(stationsRes, findings);
