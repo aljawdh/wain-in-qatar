@@ -43,7 +43,8 @@ const FILES = {
   field_session_reviews: 'field_session_reviews.json',
   trait_calibration: 'trait_calibration.json',
   trait_cycles: 'trait_cycles.json',
-  trait_evidence: 'trait_evidence.json'
+  trait_evidence: 'trait_evidence.json',
+  navidur_system_events: 'navidur_system_events.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

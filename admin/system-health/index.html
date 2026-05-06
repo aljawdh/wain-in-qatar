@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NAVIDUR Operational Integrity Center</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #0b1324; color: #dbe9ff; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .cards { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .card { background: #13213a; border: 1px solid #213760; border-radius: 12px; padding: 12px; }
+    .k { color: #8fb1de; font-size: 12px; }
+    .v { font-size: 20px; font-weight: 700; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+    #stationMap { height: 420px; border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #1e3358; padding: 8px; text-align: right; vertical-align: top; }
+    .sev-critical { color: #ff6b6b; }
+    .sev-warning { color: #ffd166; }
+    .sev-ok { color: #7ae582; }
+    button { background: #2150a4; border: 0; color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+    .muted { color: #9bb3d3; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>NAVIDUR Operational Integrity Center</h2>
+    <div class="muted">Diagnostic center only. No runtime auto-fix.</div>
+    <div style="margin:12px 0;"><button id="reloadBtn">تحديث</button> <span id="generatedAt" class="muted"></span></div>
+    <section class="cards">
+      <div class="card"><div class="k">الحالة</div><div id="status" class="v">—</div></div>
+      <div class="card"><div class="k">Critical</div><div id="critical" class="v">0</div></div>
+      <div class="card"><div class="k">Warnings</div><div id="warnings" class="v">0</div></div>
+      <div class="card"><div class="k">Runtime</div><div id="runtime" class="v">—</div></div>
+    </section>
+    <section class="grid">
+      <div class="card">
+        <h3>Station Integrity Map</h3>
+        <div id="stationMap"></div>
+      </div>
+      <div class="card">
+        <h3>API Latency</h3>
+        <table id="latencyTable"><tbody></tbody></table>
+      </div>
+    </section>
+    <section class="card" style="margin-top:12px;">
+      <h3>Active Findings</h3>
+      <table id="findingsTable">
+        <thead><tr><th>Severity</th><th>Check</th><th>Station</th><th>Message</th><th>Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let map = null;
+    let stationById = {};
+
+    function byId(id) { return document.getElementById(id); }
+    function colorBySeverity(sev) {
+      if (sev === 'critical') return '#ef4444';
+      if (sev === 'warning') return '#f59e0b';
+      return '#22c55e';
+    }
+    function stationSeverityFromFindings(stationId, findings) {
+      const rows = findings.filter(f => String(f.station_id || '') === String(stationId || ''));
+      if (!rows.length) return 'ok';
+      if (rows.some(r => r.severity === 'critical')) return 'critical';
+      if (rows.some(r => r.severity === 'warning')) return 'warning';
+      return 'ok';
+    }
+
+    async function loadStations() {
+      const res = await fetch('/api?route=stations', { cache: 'no-store' });
+      const json = await res.json();
+      const rows = Array.isArray(json.stations) ? json.stations : [];
+      stationById = {};
+      rows.forEach(s => { stationById[String(s.id)] = s; });
+      return rows;
+    }
+
+    function collectFindings(report) {
+      const checks = report && report.checks ? report.checks : {};
+      const out = [];
+      Object.keys(checks).forEach(name => {
+        const rows = Array.isArray(checks[name].findings) ? checks[name].findings : [];
+        rows.forEach(r => out.push(Object.assign({ check: name }, r)));
+      });
+      return out;
+    }
+
+    function renderMap(stations, findings) {
+      if (!map) {
+        map = L.map('stationMap').setView([25.5, 51.5], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      }
+      map.eachLayer(layer => {
+        if (layer instanceof L.CircleMarker || layer instanceof L.Marker) map.removeLayer(layer);
+      });
+      stations.forEach(s => {
+        const lat = Number(s.lat), lon = Number(s.lon != null ? s.lon : s.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        const sev = stationSeverityFromFindings(s.id, findings);
+        L.circleMarker([lat, lon], { radius: 6, color: colorBySeverity(sev), fillOpacity: 0.9, weight: 1 })
+          .bindPopup((s.name_ar || s.name || s.id) + ' - ' + sev).addTo(map);
+      });
+    }
+
+    function renderLatency(report) {
+      const body = byId('latencyTable').querySelector('tbody');
+      const api = report && report.checks && report.checks.checkApiIntegrity && report.checks.checkApiIntegrity.metrics
+        ? report.checks.checkApiIntegrity.metrics : {};
+      const weather = report && report.checks && report.checks.checkWeatherIntegrity && report.checks.checkWeatherIntegrity.metrics
+        ? report.checks.checkWeatherIntegrity.metrics : {};
+      const rows = [
+        ['Stormglass', api.stormglass && api.stormglass.ms, api.stormglass && (api.stormglass.ok ? 'ok' : 'fail')],
+        ['Open-Meteo', weather.open_meteo && weather.open_meteo.ms, weather.open_meteo && (weather.open_meteo.ok ? 'ok' : 'fail')],
+        ['Marine Open-Meteo', weather.marine_open_meteo && weather.marine_open_meteo.ms, weather.marine_open_meteo && (weather.marine_open_meteo.ok ? 'ok' : 'fail')]
+      ];
+      body.innerHTML = rows.map(r => '<tr><td>' + r[0] + '</td><td>' + (r[1] != null ? r[1] + ' ms' : '—') + '</td><td>' + (r[2] || '—') + '</td></tr>').join('');
+    }
+
+    function renderFindings(findings) {
+      const body = byId('findingsTable').querySelector('tbody');
+      body.innerHTML = findings.slice(0, 120).map(f => {
+        const s = stationById[String(f.station_id || '')];
+        const sName = s ? (s.name_ar || s.name || s.id) : (f.station_id || '—');
+        return '<tr>'
+          + '<td class="sev-' + (f.severity || 'ok') + '">' + (f.severity || 'ok') + '</td>'
+          + '<td>' + (f.check || '—') + '</td>'
+          + '<td>' + sName + '</td>'
+          + '<td>' + (f.message || '—') + '</td>'
+          + '<td>' + (f.created_at || '—') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+
+    async function refresh() {
+      const [stationsRes, integrityRes] = await Promise.all([
+        loadStations(),
+        fetch('/api/admin/system-integrity', { cache: 'no-store' }).then(r => r.json())
+      ]);
+      const findings = collectFindings(integrityRes);
+      byId('status').textContent = integrityRes.status || '—';
+      byId('status').className = 'v sev-' + (integrityRes.status || 'ok');
+      byId('critical').textContent = integrityRes.summary ? integrityRes.summary.critical : '0';
+      byId('warnings').textContent = integrityRes.summary ? integrityRes.summary.warnings : '0';
+      byId('runtime').textContent = integrityRes.runtime_version || '—';
+      byId('generatedAt').textContent = integrityRes.generated_at || '';
+      renderLatency(integrityRes);
+      renderFindings(findings);
+      renderMap(stationsRes, findings);
+    }
+
+    byId('reloadBtn').addEventListener('click', refresh);
+    refresh().catch(err => alert('Failed to load integrity data: ' + (err && err.message ? err.message : err)));
+  </script>
+</body>
+</html>

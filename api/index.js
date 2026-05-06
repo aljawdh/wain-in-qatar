@@ -12,6 +12,7 @@ const runSnapshotsHandler = require('../serverless_api/run-snapshots');
 const adminSettingsHandler = require('../serverless_api/admin-settings');
 const adminAnalyticsHandler = require('../serverless_api/admin-analytics');
 const adminSummaryHandler = require('../serverless_api/admin/summary');
+const adminSystemIntegrityHandler = require('../serverless_api/admin-system-integrity');
 const adminHandler = require('../serverless_api/admin/[...path]');
 const waterLandOverridesHandler = require('../serverless_api/water-land-overrides');
 const vercelAnalyticsHandler = require('../serverless_api/vercel-analytics');
@@ -71,6 +72,7 @@ module.exports = async function handler(req, res) {
   if (route === 'astro-dur') return astroDurApiHandler(req, res);
   if (route === 'admin-analytics') return adminAnalyticsHandler(req, res);
   if (route === 'admin-summary') return adminSummaryHandler(req, res);
+  if (route === 'admin-system-integrity' || route === 'system-integrity') return adminSystemIntegrityHandler(req, res);
   if (route === 'log-catch') {
     req.query._navidur_route = 'log_catch';
     return trackingHandler(req, res);
