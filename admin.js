@@ -10016,6 +10016,11 @@
     });
     document.querySelectorAll('.ecc-ac-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        var openUrl = btn.getAttribute('data-open-url');
+        if (openUrl) {
+          window.location.href = openUrl;
+          return;
+        }
         var g = btn.getAttribute('data-go');
         if (g) setAdminDataFilter(g);
       });

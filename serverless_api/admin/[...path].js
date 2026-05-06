@@ -13,6 +13,9 @@ const traitCalibrationLib = require('../../shared/navidur-trait-calibration');
 const traitLongTermLib = require('../_lib/navidur-trait-long-term');
 const { utcTodayIso } = require('../_lib/station-local-dur-resolver');
 const tfLookup = require('../../shared/true-final-station-reference-lookup');
+const { analyzeLiveStation } = require('../../shared/navidur-analysis-engine');
+const { normalizeRequestedStation, fetchWeatherAndMarineInputs, loadReferenceData } = require('../_lib/navidur-analysis-runtime');
+const sgMonitoring = require('../_lib/stormglass-monitoring-provider');
 
 /** Canonical 28 DUR names (admin manual edit + annual_flat_rows patch) — order fixed for UI. */
 const TRUE_FINAL_MANUAL_DUR_NAME_LIST = [
@@ -2167,8 +2170,263 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, adjustments: Array.isArray(doc.adjustments) ? doc.adjustments : [] });
   }
 
+  if (root === 'monitoring-snapshot') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const q = req.query || {};
+      const date = cleanString(q.date, 20) || new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'date_invalid' });
+      }
+      const stationId = cleanString(q.station_id, 80);
+      if (!stationId) return res.status(400).json({ error: 'station_id_required' });
+      const source = cleanString(q.source, 20).toLowerCase();
+
+      const referenceData = await loadReferenceData();
+      const station = normalizeRequestedStation({ station_id: stationId }, referenceData.stations || []);
+      if (!station || !station.id) return res.status(404).json({ error: 'station_not_found' });
+      if (station.lat == null || station.lon == null) return res.status(400).json({ error: 'station_coordinates_required' });
+
+      const body = { analysis_date: date, datetime: date + 'T12:00:00Z', as_of_iso: date + 'T12:00:00Z', source: source === 'sg' ? 'sg' : '' };
+      const weatherPack = await fetchWeatherAndMarineInputs(station, body);
+      const liveInputs = weatherPack.live_inputs || {};
+      const dto = analyzeLiveStation({
+        station: station,
+        datetime: body.datetime,
+        reference_data: referenceData,
+        overrides: null,
+        live_inputs: liveInputs,
+        weather_meta: weatherPack.weather_meta || {},
+        tide_debug: weatherPack.tide_debug || null,
+        debug_log: false,
+        field_validation: null,
+        trait_calibration: await readJsonFile('trait_calibration', { version: 1, scopes: {} }),
+        request_depth_mode: 'coastal'
+      });
+
+      const start = date + 'T00:00:00Z';
+      const end = date + 'T23:59:59Z';
+      const sgWeather = await sgMonitoring.getStormglassWeatherPoint(station.lat, station.lon, start, end);
+      const sgMarine = await sgMonitoring.getStormglassMarinePoint(station.lat, station.lon, start, end);
+      const sgTideExtremes = await sgMonitoring.getStormglassTideExtremes(station.lat, station.lon, start, end);
+      const sgSeaLevel = await sgMonitoring.getStormglassTideSeaLevel(station.lat, station.lon, start, end);
+
+      const sgHoursMerged = mergeStormglassHours(sgWeather.hours || [], sgMarine.hours || []);
+      const sgCurrent = pickClosestHour(sgHoursMerged, body.datetime);
+      const sgSea = pickClosestHour(sgSeaLevel.seaLevel || [], body.datetime);
+      const sgValues = {
+        windSpeed: n(sgCurrent && sgCurrent.windSpeed),
+        windDirection: n(sgCurrent && sgCurrent.windDirection),
+        airTemperature: n(sgCurrent && sgCurrent.airTemperature),
+        waveHeight: n(sgCurrent && sgCurrent.waveHeight),
+        swellHeight: n(sgCurrent && sgCurrent.swellHeight),
+        swellDirection: n(sgCurrent && sgCurrent.swellDirection),
+        currentSpeed: n(sgCurrent && sgCurrent.currentSpeed),
+        currentDirection: n(sgCurrent && sgCurrent.currentDirection),
+        waterTemperature: n(sgCurrent && sgCurrent.waterTemperature),
+        seaLevel: n((sgCurrent && sgCurrent.seaLevel) != null ? sgCurrent.seaLevel : (sgSea && sgSea.seaLevel)),
+        tideExtremes: Array.isArray(sgTideExtremes.extremes) ? sgTideExtremes.extremes.slice(0, 10) : []
+      };
+
+      const validationStatus = (sgWeather.ok && sgMarine.ok && sgTideExtremes.ok && sgSeaLevel.ok)
+        ? 'stormglass_available'
+        : 'stormglass_unavailable';
+      if (validationStatus === 'stormglass_unavailable') {
+        console.warn('NAVIDUR_STORMGLASS_MONITORING_FAILED', {
+          station_id: station.id,
+          date: date,
+          weather_ok: !!sgWeather.ok,
+          marine_ok: !!sgMarine.ok,
+          tide_extremes_ok: !!sgTideExtremes.ok,
+          sea_level_ok: !!sgSeaLevel.ok
+        });
+      }
+
+      const openMeteoValues = {
+        windSpeed: n(liveInputs.wind_speed_kmh),
+        windDirection: n(liveInputs.wind_direction_deg),
+        airTemperature: n(liveInputs.temp_c),
+        waveHeight: n(liveInputs.wave_height_m),
+        currentSpeed: n(liveInputs.current_speed_ms),
+        waterTemperature: n(liveInputs.temp_c),
+        tideState: dto && dto.tide ? dto.tide.state || null : null
+      };
+      const agreement = computeAgreement(openMeteoValues, sgValues);
+      console.info('NAVIDUR_SOURCE_AGREEMENT_COMPUTED', {
+        station_id: station.id,
+        date: date,
+        score: agreement.score
+      });
+
+      const traitMatch = computeTraitMatchScore(dto);
+      const anomalies = buildAnomalies(openMeteoValues, sgValues, validationStatus, agreement.pairs);
+
+      const snapshot = {
+        station_id: String(station.id),
+        station_name_ar: cleanString(station.name_ar || station.name, 120),
+        date: date,
+        dur_name_ar: cleanString(dto && dto.dur && dto.dur.period_name, 120),
+        open_meteo_values: openMeteoValues,
+        stormglass_values: sgValues,
+        navidur_decision: {
+          advice_text: cleanString(dto && dto.fishing && dto.fishing.recommendation_text, 400),
+          confidence_score: n(dto && dto.fishing && dto.fishing.confidence_score),
+          tide_state: cleanString(dto && dto.tide && dto.tide.state, 40)
+        },
+        source_agreement_score: agreement.score,
+        dur_trait_match_score: traitMatch,
+        anomalies: anomalies,
+        validation_status: validationStatus,
+        created_at: nowIso()
+      };
+
+      const doc = await readJsonFile('navidur_monitoring_snapshots', { version: 1, snapshots: [] });
+      const rows = Array.isArray(doc.snapshots) ? doc.snapshots : [];
+      rows.unshift(snapshot);
+      doc.version = 1;
+      doc.snapshots = rows.slice(0, 300);
+      await writeJsonFile('navidur_monitoring_snapshots', doc);
+
+      console.info('NAVIDUR_MONITORING_SNAPSHOT_CREATED', {
+        station_id: station.id,
+        date: date,
+        validation_status: validationStatus
+      });
+
+      return res.status(200).json({
+        station: {
+          id: String(station.id),
+          name_ar: cleanString(station.name_ar || station.name, 120),
+          lat: n(station.lat),
+          lon: n(station.lon != null ? station.lon : station.lng)
+        },
+        date: date,
+        dur: dto && dto.dur ? dto.dur : null,
+        navidur_decision: snapshot.navidur_decision,
+        open_meteo_values: openMeteoValues,
+        stormglass_values: sgValues,
+        tide_values: {
+          navidur_tide: dto && dto.tide ? dto.tide : null,
+          stormglass_sea_level: Array.isArray(sgSeaLevel.seaLevel) ? sgSeaLevel.seaLevel.slice(0, 24) : [],
+          stormglass_tide_extremes: Array.isArray(sgTideExtremes.extremes) ? sgTideExtremes.extremes : []
+        },
+        source_agreement_score: agreement.score,
+        dur_trait_match_score: traitMatch,
+        anomalies: anomalies,
+        validation_status: validationStatus,
+        selected_source: source === 'sg' ? 'sg' : 'default',
+        generated_at: nowIso()
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'monitoring_snapshot_failed', detail: String(err && err.message ? err.message : err) });
+    }
+  }
+
   return res.status(404).json({ error: 'admin_route_not_found' });
 };
+
+function n(v) {
+  if (v == null || v === '') return null;
+  const x = Number(v);
+  return Number.isFinite(x) ? x : null;
+}
+
+function pickClosestHour(rows, isoTime) {
+  const arr = Array.isArray(rows) ? rows : [];
+  if (!arr.length) return null;
+  const target = Date.parse(String(isoTime || ''));
+  if (Number.isNaN(target)) return arr[0];
+  let best = null;
+  let diff = Infinity;
+  for (let i = 0; i < arr.length; i += 1) {
+    const row = arr[i];
+    const ts = Date.parse(String(row && row.time || ''));
+    if (Number.isNaN(ts)) continue;
+    const d = Math.abs(ts - target);
+    if (d < diff) {
+      diff = d;
+      best = row;
+    }
+  }
+  return best || arr[0];
+}
+
+function mergeStormglassHours(a, b) {
+  const map = Object.create(null);
+  (Array.isArray(a) ? a : []).forEach(function (row) {
+    const t = String(row && row.time || '');
+    if (!t) return;
+    map[t] = Object.assign({}, row);
+  });
+  (Array.isArray(b) ? b : []).forEach(function (row) {
+    const t = String(row && row.time || '');
+    if (!t) return;
+    map[t] = Object.assign({}, map[t] || {}, row);
+  });
+  return Object.keys(map).sort().map(function (k) { return map[k]; });
+}
+
+function computeAgreement(openVals, sgVals) {
+  const checks = [
+    ['windSpeed', 4],
+    ['airTemperature', 2.5],
+    ['waveHeight', 0.4],
+    ['currentSpeed', 0.25],
+    ['waterTemperature', 2.5],
+    ['seaLevel', 0.25]
+  ];
+  let used = 0;
+  let ok = 0;
+  const pairs = [];
+  checks.forEach(function (pair) {
+    const key = pair[0];
+    const tol = pair[1];
+    const a = n(openVals[key]);
+    const b = n(sgVals[key]);
+    if (a == null || b == null) return;
+    used += 1;
+    const pass = Math.abs(a - b) <= tol;
+    if (pass) ok += 1;
+    pairs.push({ key: key, open: a, stormglass: b, delta: n(Math.abs(a - b).toFixed(3)), pass: pass });
+  });
+  if (!used) return { score: 0, pairs: [] };
+  return { score: Math.round((ok / used) * 100), pairs: pairs };
+}
+
+function computeTraitMatchScore(dto) {
+  const v = dto && dto.validation && typeof dto.validation === 'object' ? dto.validation : {};
+  const matched = Array.isArray(v.matched_traits) ? v.matched_traits.length : 0;
+  const failed = Array.isArray(v.failed_traits) ? v.failed_traits.length : 0;
+  const total = matched + failed;
+  if (!total) return null;
+  return Math.round((matched / total) * 100);
+}
+
+function buildAnomalies(openVals, sgVals, validationStatus, pairs) {
+  const out = [];
+  if (validationStatus !== 'stormglass_available') {
+    out.push({ type: 'stormglass_unavailable', message: 'Stormglass غير متاح' });
+    return out;
+  }
+  (Array.isArray(pairs) ? pairs : []).forEach(function (p) {
+    if (!p.pass) {
+      out.push({
+        type: 'source_mismatch',
+        metric: p.key,
+        open_meteo: p.open,
+        stormglass: p.stormglass,
+        delta: p.delta
+      });
+    }
+  });
+  if (out.length === 0) {
+    out.push({ type: 'none', message: 'لا توجد فروقات جوهرية' });
+  }
+  return out;
+}
 
 // ---- Analytics snapshot builder ----
 const ANALYTICS_THRESHOLDS = { sessions_per_day: 20, analyses_per_day: 10, conversion_pct: 60 };

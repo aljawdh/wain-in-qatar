@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>/admin/monitoring - مركز الرصد البحري</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #0b1324; color: #dce9ff; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .top { display: grid; grid-template-columns: 1fr 220px 150px; gap: 10px; margin: 12px 0; }
+    select, input, button { padding: 10px; border-radius: 8px; border: 1px solid #355280; background: #11203a; color: #dce9ff; }
+    button { cursor: pointer; background: #1f4ea5; }
+    .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
+    .card { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 10px; }
+    .k { color: #9fb7de; font-size: 12px; }
+    .v { font-weight: 700; font-size: 18px; margin-top: 6px; }
+    .row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 12px; }
+    .panel { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #22375d; padding: 8px; text-align: right; }
+    .muted { color: #94aecd; font-size: 12px; }
+    .danger { color: #ff8b8b; }
+    .ok { color: #7ef0a1; }
+    canvas { width: 100%; height: 320px; background: #0e1a2f; border-radius: 8px; }
+    @media (max-width: 1000px) {
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .row, .top { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>مركز الرصد البحري</h2>
+    <div class="muted">Stormglass للتحقق والمقارنة فقط - دون التأثير على قرار NAVIDUR.</div>
+    <div class="top">
+      <select id="stationSelect"></select>
+      <input id="dateInput" type="date">
+      <button id="refreshBtn">تحديث الرصد</button>
+    </div>
+    <div id="status" class="muted">جاهز.</div>
+
+    <section class="cards">
+      <div class="card"><div class="k">درجة اتفاق المصادر</div><div id="agreementScore" class="v">—</div></div>
+      <div class="card"><div class="k">مطابقة سمات الدر</div><div id="traitScore" class="v">—</div></div>
+      <div class="card"><div class="k">سرعة الرياح (NAVIDUR/Open)</div><div id="windVal" class="v">—</div></div>
+      <div class="card"><div class="k">ارتفاع الموج</div><div id="waveVal" class="v">—</div></div>
+      <div class="card"><div class="k">سرعة التيار</div><div id="currentVal" class="v">—</div></div>
+    </section>
+
+    <section class="row">
+      <div class="panel">
+        <h3>رسم المقارنة</h3>
+        <canvas id="chart" width="760" height="320"></canvas>
+      </div>
+      <div class="panel">
+        <h3>Anomalies</h3>
+        <ul id="anomaliesList"></ul>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:12px;">
+      <h3>جدول المقارنة</h3>
+      <table>
+        <thead><tr><th>المؤشر</th><th>NAVIDUR/Open-Meteo</th><th>Stormglass</th></tr></thead>
+        <tbody id="cmpBody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('navidur_admin_token') || '';
+    const byId = (id) => document.getElementById(id);
+    let latest = null;
+
+    function authHeaders() {
+      const h = { 'Cache-Control': 'no-store' };
+      if (token) h.Authorization = 'Bearer ' + token;
+      return h;
+    }
+
+    function fmt(v, unit) {
+      if (v == null || v === '') return '—';
+      return Number(v).toFixed(2) + (unit ? ' ' + unit : '');
+    }
+
+    function setStatus(text, isErr) {
+      const el = byId('status');
+      el.textContent = text;
+      el.className = isErr ? 'danger' : 'muted';
+    }
+
+    async function loadStations() {
+      const res = await fetch('/api?route=admin&path=stations', { headers: authHeaders() });
+      if (!res.ok) throw new Error('unauthorized_or_failed');
+      const json = await res.json();
+      const rows = Array.isArray(json.stations) ? json.stations : [];
+      const sel = byId('stationSelect');
+      sel.innerHTML = rows.map((s) => '<option value="' + s.id + '">' + (s.name_ar || s.name || s.id) + '</option>').join('');
+      const aqir = rows.find((s) => String(s.name_ar || '').includes('العقير 02')) || rows[0];
+      if (aqir) sel.value = aqir.id;
+    }
+
+    function drawChart(s) {
+      const c = byId('chart');
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      const series = [
+        { name: 'waveHeight', color: '#5ec8ff', v: Number(s && s.stormglass_values && s.stormglass_values.waveHeight || 0) },
+        { name: 'windSpeed', color: '#8bff9f', v: Number(s && s.stormglass_values && s.stormglass_values.windSpeed || 0) },
+        { name: 'currentSpeed', color: '#ffc670', v: Number(s && s.stormglass_values && s.stormglass_values.currentSpeed || 0) },
+        { name: 'seaLevel', color: '#ff94e1', v: Number(s && s.stormglass_values && s.stormglass_values.seaLevel || 0) },
+        { name: 'agreement', color: '#ffffff', v: Number(s && s.source_agreement_score || 0) / 10 }
+      ];
+      const max = Math.max(1, ...series.map(x => x.v));
+      const w = c.width - 80;
+      const h = c.height - 60;
+      series.forEach((p, i) => {
+        const x = 50 + (i * (w / series.length)) + 10;
+        const bh = (p.v / max) * h;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(x, c.height - 30 - bh, 80, bh);
+        ctx.fillStyle = '#dce9ff';
+        ctx.font = '12px Arial';
+        ctx.fillText(p.name, x, c.height - 10);
+      });
+    }
+
+    function renderSnapshot(s) {
+      latest = s;
+      byId('agreementScore').textContent = fmt(s.source_agreement_score, '%');
+      byId('traitScore').textContent = fmt(s.dur_trait_match_score, '%');
+      byId('windVal').textContent = fmt(s.open_meteo_values.windSpeed, 'km/h');
+      byId('waveVal').textContent = fmt(s.open_meteo_values.waveHeight, 'm');
+      byId('currentVal').textContent = fmt(s.open_meteo_values.currentSpeed, 'm/s');
+
+      const anomalies = Array.isArray(s.anomalies) ? s.anomalies : [];
+      byId('anomaliesList').innerHTML = anomalies.map((a) => '<li>' + (a.message || (a.metric + ': ' + (a.delta || ''))) + '</li>').join('');
+
+      const rows = [
+        ['windSpeed', s.open_meteo_values.windSpeed, s.stormglass_values.windSpeed],
+        ['windDirection', s.open_meteo_values.windDirection, s.stormglass_values.windDirection],
+        ['airTemperature', s.open_meteo_values.airTemperature, s.stormglass_values.airTemperature],
+        ['waveHeight', s.open_meteo_values.waveHeight, s.stormglass_values.waveHeight],
+        ['currentSpeed', s.open_meteo_values.currentSpeed, s.stormglass_values.currentSpeed],
+        ['waterTemperature', s.open_meteo_values.waterTemperature, s.stormglass_values.waterTemperature],
+        ['seaLevel', null, s.stormglass_values.seaLevel]
+      ];
+      byId('cmpBody').innerHTML = rows.map((r) => '<tr><td>' + r[0] + '</td><td>' + fmt(r[1]) + '</td><td>' + fmt(r[2]) + '</td></tr>').join('');
+      drawChart(s);
+
+      if (s.validation_status === 'stormglass_unavailable') {
+        setStatus('Stormglass غير متاح، تم عرض بيانات NAVIDUR/Open-Meteo فقط.', true);
+      } else {
+        setStatus('تم التحديث بنجاح: ' + (s.generated_at || ''), false);
+      }
+    }
+
+    async function refresh() {
+      const stationId = byId('stationSelect').value;
+      const date = byId('dateInput').value;
+      if (!stationId || !date) return;
+      setStatus('جاري التحديث...', false);
+      const url = '/api?route=admin&path=monitoring-snapshot&station_id=' + encodeURIComponent(stationId) + '&date=' + encodeURIComponent(date) + '&source=sg';
+      const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) throw new Error('admin_required');
+        throw new Error('snapshot_failed_' + res.status);
+      }
+      const json = await res.json();
+      renderSnapshot(json);
+    }
+
+    byId('refreshBtn').addEventListener('click', function () {
+      refresh().catch((e) => setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true));
+    });
+
+    (async function init() {
+      byId('dateInput').value = new Date().toISOString().slice(0, 10);
+      try {
+        await loadStations();
+        await refresh();
+      } catch (e) {
+        setStatus('هذه الصفحة إدارية فقط. سجّل الدخول من لوحة الإدارة أولاً.', true);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 const { readJsonFile, writeJsonFile } = require('./data-store');
 const { cleanString, toNumber } = require('./security');
 const stormglass = require('./stormglass-tide-provider');
+const sgMonitoring = require('./stormglass-monitoring-provider');
 
 /** Shown when sky/condition cannot be derived (UI only; analysis still uses numeric fallbacks). */
 var WEATHER_UNAVAILABLE_AR = 'الحالة الجوية غير متاحة حالياً';
@@ -785,6 +786,13 @@ async function fetchWeatherAndMarineInputs(station, body) {
   if (!asOf) {
     asOf = asOfInstant.slice(0, 10);
   }
+  var sourceHint = cleanString(body && (body.source || body.params_source), 20).toLowerCase();
+  if (sourceHint === 'sg') {
+    var sgPack = await getStormglassLiveInputs(station, asOf, asOfInstant);
+    if (sgPack) {
+      return sgPack;
+    }
+  }
   var pack = await getWeatherData(station, asOf, asOfInstant);
   var cacheKey = weatherCacheKeyByDate(station, asOf);
   var li = pack.live_inputs || {
@@ -820,6 +828,69 @@ async function fetchWeatherAndMarineInputs(station, body) {
     },
     tide_series: pack.tide_series != null ? pack.tide_series : null
   };
+}
+
+async function getStormglassLiveInputs(station, asOfDate, asOfInstant) {
+  try {
+    var start = String(asOfDate) + 'T00:00:00Z';
+    var end = String(asOfDate) + 'T23:59:59Z';
+    var weather = await sgMonitoring.getStormglassWeatherPoint(station.lat, station.lon, start, end);
+    var marine = await sgMonitoring.getStormglassMarinePoint(station.lat, station.lon, start, end);
+    if (!weather.ok || !marine.ok) return null;
+    var merged = {};
+    (Array.isArray(weather.hours) ? weather.hours : []).forEach(function (row) {
+      var t = String(row && row.time || '');
+      if (!t) return;
+      merged[t] = Object.assign({}, row);
+    });
+    (Array.isArray(marine.hours) ? marine.hours : []).forEach(function (row) {
+      var t = String(row && row.time || '');
+      if (!t) return;
+      merged[t] = Object.assign({}, merged[t] || {}, row);
+    });
+    var rows = Object.keys(merged).sort().map(function (k) { return merged[k]; });
+    if (!rows.length) return null;
+    var targetMs = Date.parse(String(asOfInstant || ''));
+    if (Number.isNaN(targetMs)) targetMs = Date.now();
+    var best = rows[0];
+    var bestDiff = Infinity;
+    for (var i = 0; i < rows.length; i += 1) {
+      var ts = Date.parse(String(rows[i].time || ''));
+      if (Number.isNaN(ts)) continue;
+      var d = Math.abs(ts - targetMs);
+      if (d < bestDiff) {
+        best = rows[i];
+        bestDiff = d;
+      }
+    }
+    return {
+      live_inputs: {
+        temp_c: toNumber(best && (best.waterTemperature != null ? best.waterTemperature : best.airTemperature)),
+        wind_speed_kmh: toNumber(best && best.windSpeed),
+        wind_direction_deg: toNumber(best && best.windDirection),
+        wave_height_m: toNumber(best && best.waveHeight),
+        current_speed_ms: toNumber(best && best.currentSpeed),
+        relative_humidity_2m: null,
+        weather_code: null,
+        tide: { state: null, height_m: toNumber(best && best.seaLevel), trend: null }
+      },
+      weather_meta: {
+        from_cache: false,
+        from_defaults: false,
+        weather_status_ar: WEATHER_UNAVAILABLE_AR,
+        as_of: asOfDate || null,
+        humidity_pct: null,
+        no_marine_data_for_date: false,
+        cache_key: weatherCacheKeyByDate(station, asOfDate),
+        forecast_source: 'stormglass_point',
+        weather_fetch_date: asOfDate || null
+      },
+      tide_debug: { has_hourly: true, values_sample: [], computed_state: '', trend: '' },
+      tide_series: null
+    };
+  } catch (_e) {
+    return null;
+  }
 }
 
 async function loadReferenceData() {
