@@ -10,6 +10,9 @@ const EVENT_STORE_KEY = 'navidur_system_events';
 const EVENT_STORE_MAX = 500;
 const ALLOWED_TIDE_STATES = ['سقي', 'ثبر', 'خامل'];
 const GULF_BOUNDS = { latMin: 23, latMax: 31.5, lonMin: 47, lonMax: 57 };
+const RED_SEA_BOUNDS = { latMin: 12, latMax: 30, lonMin: 32, lonMax: 44 };
+const OMAN_SEA_BOUNDS = { latMin: 16, latMax: 27.5, lonMin: 55, lonMax: 63.5 };
+const ARABIAN_SEA_BOUNDS = { latMin: 5, latMax: 26, lonMin: 56, lonMax: 76 };
 
 function buildCheck(name) {
   return { name, status: 'ok', findings: [], metrics: {} };
@@ -47,6 +50,22 @@ function inGulf(lat, lon) {
   return lat >= GULF_BOUNDS.latMin && lat <= GULF_BOUNDS.latMax && lon >= GULF_BOUNDS.lonMin && lon <= GULF_BOUNDS.lonMax;
 }
 
+function inBounds(lat, lon, bounds) {
+  return lat >= bounds.latMin && lat <= bounds.latMax && lon >= bounds.lonMin && lon <= bounds.lonMax;
+}
+
+function detectSeaRegion(lat, lon) {
+  if (inBounds(lat, lon, GULF_BOUNDS)) return 'gulf';
+  if (inBounds(lat, lon, RED_SEA_BOUNDS)) return 'red_sea';
+  if (inBounds(lat, lon, OMAN_SEA_BOUNDS)) return 'oman_sea';
+  if (inBounds(lat, lon, ARABIAN_SEA_BOUNDS)) return 'arabian_sea';
+  return '';
+}
+
+function hasArabicText(value) {
+  return /[\u0600-\u06FF]/.test(String(value || ''));
+}
+
 function chooseStatus(checks) {
   let hasWarning = false;
   for (let i = 0; i < checks.length; i += 1) {
@@ -78,7 +97,7 @@ async function checkStationsIntegrity(ctx) {
   const idMap = new Map();
   const coordMap = new Map();
   const byId = new Map(stations.map((s) => [String(s && s.id || ''), s]));
-+
+
   stations.forEach(function (s) {
     const sid = String(s && s.id || '');
     if (!sid) {
@@ -90,19 +109,46 @@ async function checkStationsIntegrity(ctx) {
     const lon = finiteNum(s && (s.lon != null ? s.lon : s.lng));
     if (lat == null || lon == null) addFinding(check, 'critical', 'stations', 'station_missing_coordinates', sid);
     else {
-      if (!inGulf(lat, lon)) addFinding(check, 'warning', 'stations', 'station_outside_gulf_bounds', sid, { lat, lon });
+      const seaRegion = detectSeaRegion(lat, lon);
+      if (!seaRegion) addFinding(check, 'warning', 'stations', 'station_outside_gulf_bounds', sid, { lat, lon });
       const ck = lat.toFixed(6) + ',' + lon.toFixed(6);
       coordMap.set(ck, (coordMap.get(ck) || 0) + 1);
     }
-    if (!cleanString(s && s.name_ar, 120)) addFinding(check, 'warning', 'stations', 'station_missing_name_ar', sid);
+
+    const nameAr = cleanString(s && s.name_ar, 120);
+    const fallbackName = cleanString(s && s.name, 120);
+    const hasArabicName = !!nameAr || hasArabicText(fallbackName);
+    if (!hasArabicName) addFinding(check, 'warning', 'stations', 'station_missing_name_ar', sid);
+
     if (!cleanString(s && s.station_role_type, 40)) addFinding(check, 'warning', 'stations', 'station_role_type_missing', sid);
-    if (!cleanString(s && s.latitude_band_key, 80)) addFinding(check, 'warning', 'stations', 'latitude_band_key_missing', sid);
-    if (!cleanString(s && s.workbook_city_key, 80)) addFinding(check, 'warning', 'stations', 'workbook_city_key_missing', sid);
+
+    const rid = cleanString(s && s.reference_station_id, 80);
+    const ref = rid ? byId.get(rid) : null;
+    const ownLatBand = cleanString(s && s.latitude_band_key, 80);
+    const ownWorkbookKey = cleanString(s && s.workbook_city_key, 80);
+    const refLatBand = cleanString(ref && ref.latitude_band_key, 80);
+    const refWorkbookKey = cleanString(ref && ref.workbook_city_key, 80);
+
+    // Reduce false positives: operational station inherits these keys from a valid reference.
+    if (!ownLatBand) {
+      if (s && s.is_operational_station) {
+        if (!rid || !ref || !refLatBand) addFinding(check, 'warning', 'stations', 'latitude_band_key_missing', sid);
+      } else {
+        addFinding(check, 'warning', 'stations', 'latitude_band_key_missing', sid);
+      }
+    }
+    if (!ownWorkbookKey) {
+      if (s && s.is_operational_station) {
+        if (!rid || !ref || !refWorkbookKey) addFinding(check, 'warning', 'stations', 'workbook_city_key_missing', sid);
+      } else {
+        addFinding(check, 'warning', 'stations', 'workbook_city_key_missing', sid);
+      }
+    }
+
     if (s && s.is_operational_station && !cleanString(s.reference_station_id, 80)) {
       addFinding(check, 'warning', 'stations', 'operational_station_without_reference', sid);
     }
-    if (cleanString(s && s.reference_station_id, 80)) {
-      const ref = byId.get(cleanString(s.reference_station_id, 80));
+    if (rid) {
       if (!ref) addFinding(check, 'critical', 'stations', 'dead_reference_station_id', sid, { reference_station_id: s.reference_station_id });
       else if (!ref.is_reference_station) addFinding(check, 'warning', 'stations', 'reference_station_not_marked_reference', sid);
     }
