@@ -1987,7 +1987,7 @@
 
     async function loadRuntimeUiSettings() {
       try {
-        const res = await fetch('/api?route=admin-settings', { method: 'GET', cache: 'no-store' });
+        const res = await fetch('/api/admin-settings', { method: 'GET', cache: 'no-store' });
         if (!res.ok) throw new Error('settings_http_' + res.status);
         const payload = await res.json();
         runtimeUiSettings = normalizeRuntimeSettings(payload && payload.settings ? payload.settings : payload);

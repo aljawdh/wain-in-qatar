@@ -1,6 +1,6 @@
 (function () {
   var API_ENDPOINT = '/api?route=admin-analytics';
-  var SETTINGS_ENDPOINT = '/api?route=admin-settings';
+  var SETTINGS_ENDPOINT = '/api/admin-settings';
   var STATIONS_ENDPOINT = '/api?route=admin&path=stations';
   var ASTRO_DUR_ENDPOINT = '/api?route=astro-dur';
   var USERS_ENDPOINT = '/api?route=admin&path=users';
