@@ -3,53 +3,64 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NAVIDUR Operational Integrity Center</title>
+  <title>مركز سلامة تشغيل NAVIDUR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; background: #0b1324; color: #dbe9ff; }
+    body { font-family: "Tajawal", "Noto Sans Arabic", Arial, sans-serif; margin: 0; background: #0b1324; color: #dbe9ff; }
     .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
     .cards { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 12px; margin-bottom: 12px; }
     .card { background: #13213a; border: 1px solid #213760; border-radius: 12px; padding: 12px; }
-    .k { color: #8fb1de; font-size: 12px; }
+    .k { color: #8fb1de; font-size: 14px; }
     .v { font-size: 20px; font-weight: 700; margin-top: 4px; }
     .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
     #stationMap { height: 420px; border-radius: 12px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border-bottom: 1px solid #1e3358; padding: 8px; text-align: right; vertical-align: top; }
+    .table-wrap { overflow-x: auto; width: 100%; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 760px; }
+    th, td { border-bottom: 1px solid #1e3358; padding: 10px; text-align: right; vertical-align: top; white-space: nowrap; }
+    td.message-cell, td.hint-cell { white-space: normal; min-width: 230px; }
     .sev-critical { color: #ff6b6b; }
     .sev-warning { color: #ffd166; }
     .sev-ok { color: #7ae582; }
     button { background: #2150a4; border: 0; color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
-    .muted { color: #9bb3d3; font-size: 12px; }
+    .muted { color: #9bb3d3; font-size: 13px; }
+    @media (max-width: 980px) {
+      .cards { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
+      .grid { grid-template-columns: 1fr; }
+      #stationMap { height: 320px; }
+      table { font-size: 14px; min-width: 680px; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h2>NAVIDUR Operational Integrity Center</h2>
-    <div class="muted">Diagnostic center only. No runtime auto-fix.</div>
+    <h2>مركز سلامة تشغيل NAVIDUR</h2>
+    <div class="muted">منصة تشخيص فقط بدون أي إصلاح تلقائي صامت.</div>
     <div style="margin:12px 0;"><button id="reloadBtn">تحديث</button> <span id="generatedAt" class="muted"></span></div>
     <section class="cards">
-      <div class="card"><div class="k">الحالة</div><div id="status" class="v">—</div></div>
-      <div class="card"><div class="k">Critical</div><div id="critical" class="v">0</div></div>
-      <div class="card"><div class="k">Warnings</div><div id="warnings" class="v">0</div></div>
-      <div class="card"><div class="k">Runtime</div><div id="runtime" class="v">—</div></div>
+      <div class="card"><div class="k">الحالة العامة</div><div id="status" class="v">—</div></div>
+      <div class="card"><div class="k">أخطاء حرجة</div><div id="critical" class="v">0</div></div>
+      <div class="card"><div class="k">تحذيرات</div><div id="warnings" class="v">0</div></div>
+      <div class="card"><div class="k">سليم</div><div id="okCount" class="v">0</div></div>
     </section>
     <section class="grid">
       <div class="card">
-        <h3>Station Integrity Map</h3>
+        <h3>خريطة سلامة المحطات</h3>
         <div id="stationMap"></div>
       </div>
       <div class="card">
-        <h3>API Latency</h3>
-        <table id="latencyTable"><tbody></tbody></table>
+        <h3>زمن استجابة الخدمات</h3>
+        <div class="table-wrap"><table id="latencyTable"><tbody></tbody></table></div>
       </div>
     </section>
     <section class="card" style="margin-top:12px;">
-      <h3>Active Findings</h3>
-      <table id="findingsTable">
-        <thead><tr><th>Severity</th><th>Check</th><th>Station</th><th>Message</th><th>Time</th></tr></thead>
+      <h3>الملاحظات النشطة</h3>
+      <div class="table-wrap"><table id="findingsTable">
+        <thead><tr><th>الخطورة</th><th>النوع</th><th>المحطة</th><th>الرسالة</th><th>اقتراح الإصلاح</th><th>الوقت</th></tr></thead>
         <tbody></tbody>
-      </table>
+      </table></div>
     </section>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -58,6 +69,39 @@
     let stationById = {};
 
     function byId(id) { return document.getElementById(id); }
+    function tSeverity(sev) {
+      if (sev === 'critical') return 'حرج';
+      if (sev === 'warning') return 'تحذير';
+      return 'سليم';
+    }
+    function tIssue(msg) {
+      const m = String(msg || '').trim();
+      const map = {
+        operational_station_without_reference: 'محطة تشغيلية بدون مرجع',
+        orphan_operational_station: 'محطة تشغيلية يتيمة',
+        station_outside_gulf_bounds: 'محطة خارج نطاق الخليج',
+        station_missing_name_ar: 'اسم عربي مفقود',
+        station_role_type_missing: 'نوع دور المحطة مفقود',
+        latitude_band_key_missing: 'نطاق خط العرض مفقود',
+        workbook_city_key_missing: 'مفتاح المدينة المرجعية مفقود',
+        NAVIDUR_TIDE_FAILED: 'فشل بيانات المد والجزر'
+      };
+      return map[m] || m || 'غير معروف';
+    }
+    function fixHint(msg) {
+      const m = String(msg || '').trim();
+      const hints = {
+        operational_station_without_reference: 'حدّد reference_station_id صالح للمحطة التشغيلية.',
+        orphan_operational_station: 'راجع جدول المراجع واربط المحطة بمحطة مرجعية فعّالة.',
+        station_outside_gulf_bounds: 'تأكد من صحة الإحداثيات أو صنّف المحطة خارج النطاق التشغيلي.',
+        station_missing_name_ar: 'أضف name_ar للمحطة لعرض عربي صحيح.',
+        station_role_type_missing: 'أضف station_role_type (تشغيلية/مرجعية/عمق...).',
+        latitude_band_key_missing: 'أضف latitude_band_key المستخدم في الربط الوراثي.',
+        workbook_city_key_missing: 'أضف workbook_city_key المتوافق مع مرجع workbook.',
+        NAVIDUR_TIDE_FAILED: 'تحقق من endpoint Stormglass والاعتماد والمفاتيح والـ URL.'
+      };
+      return hints[m] || 'يلزم مراجعة السجل والبيانات المرتبطة بهذه المشكلة.';
+    }
     function colorBySeverity(sev) {
       if (sev === 'critical') return '#ef4444';
       if (sev === 'warning') return '#f59e0b';
@@ -103,7 +147,7 @@
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
         const sev = stationSeverityFromFindings(s.id, findings);
         L.circleMarker([lat, lon], { radius: 6, color: colorBySeverity(sev), fillOpacity: 0.9, weight: 1 })
-          .bindPopup((s.name_ar || s.name || s.id) + ' - ' + sev).addTo(map);
+          .bindPopup((s.name_ar || s.name || s.id) + ' - ' + tSeverity(sev)).addTo(map);
       });
     }
 
@@ -114,11 +158,11 @@
       const weather = report && report.checks && report.checks.checkWeatherIntegrity && report.checks.checkWeatherIntegrity.metrics
         ? report.checks.checkWeatherIntegrity.metrics : {};
       const rows = [
-        ['Stormglass', api.stormglass && api.stormglass.ms, api.stormglass && (api.stormglass.ok ? 'ok' : 'fail')],
-        ['Open-Meteo', weather.open_meteo && weather.open_meteo.ms, weather.open_meteo && (weather.open_meteo.ok ? 'ok' : 'fail')],
-        ['Marine Open-Meteo', weather.marine_open_meteo && weather.marine_open_meteo.ms, weather.marine_open_meteo && (weather.marine_open_meteo.ok ? 'ok' : 'fail')]
+        ['Stormglass', api.stormglass && api.stormglass.ms, api.stormglass && (api.stormglass.ok ? 'سليم' : 'فشل')],
+        ['Open-Meteo', weather.open_meteo && weather.open_meteo.ms, weather.open_meteo && (weather.open_meteo.ok ? 'سليم' : 'فشل')],
+        ['Marine Open-Meteo', weather.marine_open_meteo && weather.marine_open_meteo.ms, weather.marine_open_meteo && (weather.marine_open_meteo.ok ? 'سليم' : 'فشل')]
       ];
-      body.innerHTML = rows.map(r => '<tr><td>' + r[0] + '</td><td>' + (r[1] != null ? r[1] + ' ms' : '—') + '</td><td>' + (r[2] || '—') + '</td></tr>').join('');
+      body.innerHTML = rows.map(r => '<tr><td>' + r[0] + '</td><td>' + (r[1] != null ? r[1] + ' مللي ثانية' : '—') + '</td><td>' + (r[2] || '—') + '</td></tr>').join('');
     }
 
     function renderFindings(findings) {
@@ -126,11 +170,14 @@
       body.innerHTML = findings.slice(0, 120).map(f => {
         const s = stationById[String(f.station_id || '')];
         const sName = s ? (s.name_ar || s.name || s.id) : (f.station_id || '—');
+        const issueType = tIssue(f.message || f.type || f.check);
+        const hint = fixHint(f.message || f.type || f.check);
         return '<tr>'
-          + '<td class="sev-' + (f.severity || 'ok') + '">' + (f.severity || 'ok') + '</td>'
-          + '<td>' + (f.check || '—') + '</td>'
+          + '<td class="sev-' + (f.severity || 'ok') + '">' + tSeverity(f.severity || 'ok') + '</td>'
+          + '<td>' + issueType + '</td>'
           + '<td>' + sName + '</td>'
-          + '<td>' + (f.message || '—') + '</td>'
+          + '<td class="message-cell">' + (tIssue(f.message) || '—') + '</td>'
+          + '<td class="hint-cell">' + hint + '</td>'
           + '<td>' + (f.created_at || '—') + '</td>'
           + '</tr>';
       }).join('');
@@ -142,11 +189,11 @@
         fetch('/api/admin/system-integrity', { cache: 'no-store' }).then(r => r.json())
       ]);
       const findings = collectFindings(integrityRes);
-      byId('status').textContent = integrityRes.status || '—';
+      byId('status').textContent = tSeverity(integrityRes.status || 'ok');
       byId('status').className = 'v sev-' + (integrityRes.status || 'ok');
       byId('critical').textContent = integrityRes.summary ? integrityRes.summary.critical : '0';
       byId('warnings').textContent = integrityRes.summary ? integrityRes.summary.warnings : '0';
-      byId('runtime').textContent = integrityRes.runtime_version || '—';
+      byId('okCount').textContent = integrityRes.summary ? integrityRes.summary.ok : '0';
       byId('generatedAt').textContent = integrityRes.generated_at || '';
       renderLatency(integrityRes);
       renderFindings(findings);
@@ -154,7 +201,7 @@
     }
 
     byId('reloadBtn').addEventListener('click', refresh);
-    refresh().catch(err => alert('Failed to load integrity data: ' + (err && err.message ? err.message : err)));
+    refresh().catch(err => alert('تعذر تحميل بيانات السلامة: ' + (err && err.message ? err.message : err)));
   </script>
 </body>
 </html>
