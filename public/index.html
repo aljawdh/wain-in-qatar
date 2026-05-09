@@ -13,64 +13,336 @@
   <link rel="stylesheet" href="/css/components.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script>console.log("NAVIDUR_CSS_LOADED");</script>
+  <style>
+    .navidur-platform-blocker {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(165deg, #061018 0%, #0b1d2a 45%, #0e2436 100%);
+      color: #e8f4ff;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      text-align: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .navidur-platform-blocker__inner { max-width: 420px; }
+    .navidur-platform-blocker__logo {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    .navidur-platform-blocker__logo span { color: #27b3ff; }
+    .navidur-platform-blocker__msg { font-size: 0.95rem; opacity: 0.85; margin: 0; }
+    .navidur-platform-blocker--pulse .navidur-platform-blocker__msg {
+      animation: navidurBlockerPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes navidurBlockerPulse {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
+    }
+    .navidur-lock-root {
+      min-height: 100vh;
+      margin: 0;
+      background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(39, 179, 255, 0.12), transparent 55%),
+        linear-gradient(180deg, #061018 0%, #0b1d2a 40%, #081420 100%);
+      color: #e8f4ff;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    }
+    .navidur-lock-ocean {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 20px;
+      box-sizing: border-box;
+    }
+    .navidur-lock-card {
+      max-width: 520px;
+      width: 100%;
+      background: linear-gradient(145deg, rgba(18, 48, 72, 0.55), rgba(8, 22, 36, 0.75));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 36px 28px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      text-align: center;
+    }
+    .navidur-lock-logo {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .navidur-lock-logo .navidur-lock-v { color: #27b3ff; }
+    .navidur-lock-title {
+      margin: 0 0 16px 0;
+      font-size: 1.35rem;
+      font-weight: 700;
+      line-height: 1.45;
+      color: #f0f8ff;
+    }
+    .navidur-lock-message {
+      margin: 0 0 14px 0;
+      font-size: 1.05rem;
+      line-height: 1.85;
+      color: rgba(232, 244, 255, 0.92);
+    }
+    .navidur-lock-sub {
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: rgba(154, 190, 220, 0.88);
+    }
+  </style>
 </head>
 <body>
-  <div class="ocean-bg"></div>
-  <div class="wave-overlay"></div>
-
-  <div class="app-shell">
-    <header class="header glass-card">
-      <div class="brand-area">
-        <div class="brand-logo">NA<span class="v-accent">V</span>IDUR</div>
-        <div class="brand-subtitle">نظام بحري لاتخاذ القرار</div>
-      </div>
-      <div class="header-actions">
-        <div class="online-pill">متصل</div>
-        <select id="stationSelector" class="station-select" aria-label="اختيار المحطة"></select>
-      </div>
-    </header>
-
-    <section class="day-selector-wrap glass-card">
-      <div id="daySelector" class="day-selector" aria-label="اختيار اليوم"></div>
-      <div id="dayDataStatus" class="muted day-status"></div>
-    </section>
-
-    <main class="content-grid">
-      <section id="appContent" data-page-panel="dashboard"></section>
-      <section class="subpages">
-        <div id="pageMarine" data-page-panel="marine" class="hidden"></div>
-        <div id="pageFishing" data-page-panel="fishing" class="hidden"></div>
-        <div id="pageMap" data-page-panel="map" class="hidden"></div>
-      </section>
-    </main>
+  <div id="navidur-platform-blocker" class="navidur-platform-blocker navidur-platform-blocker--pulse" aria-busy="true">
+    <div class="navidur-platform-blocker__inner">
+      <div class="navidur-platform-blocker__logo">NA<span>V</span>IDUR</div>
+      <p class="navidur-platform-blocker__msg">جاري التحقق من حالة المنصة…</p>
+    </div>
   </div>
 
-  <nav class="bottom-nav">
-    <button class="nav-btn active" data-page="dashboard"><span>🏠</span><small>الرئيسية</small></button>
-    <button class="nav-btn" data-page="marine"><span>🌊</span><small>تحليل البحر</small></button>
-    <button class="nav-btn" data-page="fishing"><span>🎣</span><small>توصية الصيد</small></button>
-    <button class="nav-btn" data-page="map"><span>🗺️</span><small>الخريطة</small></button>
-  </nav>
+  <div id="navidur-app-shell" style="display: none;" aria-hidden="true">
+    <div class="ocean-bg"></div>
+    <div class="wave-overlay"></div>
 
-  <div id="locationModal" class="modal-backdrop">
-    <div class="modal glass-card">
-      <h3>تفعيل تحديد الموقع</h3>
-      <p class="muted">لتحليل البحر بدقة واختيار أقرب محطة، يحتاج NAVIDUR إلى معرفة موقعك الحالي.</p>
-      <p id="locationHint" class="muted"></p>
-      <div class="modal-actions">
-        <button id="locationEnableBtn" class="button primary">تفعيل الموقع</button>
-        <button id="locationSkipBtn" class="button">المتابعة بدون موقع</button>
+    <div class="app-shell">
+      <header class="header glass-card">
+        <div class="brand-area">
+          <div class="brand-logo">NA<span class="v-accent">V</span>IDUR</div>
+          <div class="brand-subtitle">نظام بحري لاتخاذ القرار</div>
+        </div>
+        <div class="header-actions">
+          <div class="online-pill">متصل</div>
+          <select id="stationSelector" class="station-select" aria-label="اختيار المحطة"></select>
+        </div>
+      </header>
+
+      <section class="day-selector-wrap glass-card">
+        <div id="daySelector" class="day-selector" aria-label="اختيار اليوم"></div>
+        <div id="dayDataStatus" class="muted day-status"></div>
+      </section>
+
+      <main class="content-grid">
+        <section id="appContent" data-page-panel="dashboard"></section>
+        <section class="subpages">
+          <div id="pageMarine" data-page-panel="marine" class="hidden"></div>
+          <div id="pageFishing" data-page-panel="fishing" class="hidden"></div>
+          <div id="pageMap" data-page-panel="map" class="hidden"></div>
+        </section>
+      </main>
+    </div>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" data-page="dashboard"><span>🏠</span><small>الرئيسية</small></button>
+      <button class="nav-btn" data-page="marine"><span>🌊</span><small>تحليل البحر</small></button>
+      <button class="nav-btn" data-page="fishing"><span>🎣</span><small>توصية الصيد</small></button>
+      <button class="nav-btn" data-page="map"><span>🗺️</span><small>الخريطة</small></button>
+    </nav>
+
+    <div id="locationModal" class="modal-backdrop">
+      <div class="modal glass-card">
+        <h3>تفعيل تحديد الموقع</h3>
+        <p class="muted">لتحليل البحر بدقة واختيار أقرب محطة، يحتاج NAVIDUR إلى معرفة موقعك الحالي.</p>
+        <p id="locationHint" class="muted"></p>
+        <div class="modal-actions">
+          <button id="locationEnableBtn" class="button primary">تفعيل الموقع</button>
+          <button id="locationSkipBtn" class="button">المتابعة بدون موقع</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <script src="/js/helpers.js"></script>
-  <script src="/js/components.js"></script>
-  <script src="/js/state-manager.js"></script>
-  <script src="/js/location-manager.js"></script>
-  <script src="/js/ui-renderer.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-  <script src="/js/main.js"></script>
+  <script>
+(function () {
+  'use strict';
+
+  var SETTINGS_URLS = ['/api/admin-settings', '/api?route=admin-settings'];
+  var SCRIPT_CHAIN = [
+    '/js/helpers.js',
+    '/js/components.js',
+    '/js/state-manager.js',
+    '/js/location-manager.js',
+    '/js/ui-renderer.js',
+    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+    'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js',
+    '/js/main.js'
+  ];
+
+  function normalizeSettings(raw) {
+    var src = raw && typeof raw === 'object' ? raw : {};
+    var out = {
+      site_mode: String(src.site_mode || 'live').toLowerCase().trim(),
+      maintenance_message: String(src.maintenance_message || '').trim(),
+      allow_admin_bypass: src.allow_admin_bypass !== false
+    };
+    if (out.site_mode !== 'live' && out.site_mode !== 'maintenance' && out.site_mode !== 'private_beta') {
+      out.site_mode = 'live';
+    }
+    return out;
+  }
+
+  function loadSettings() {
+    var attempt = function (i) {
+      if (i >= SETTINGS_URLS.length) {
+        return Promise.resolve(normalizeSettings({}));
+      }
+      return fetch(SETTINGS_URLS[i], { method: 'GET', cache: 'no-store', credentials: 'same-origin' })
+        .then(function (res) {
+          if (!res.ok) return attempt(i + 1);
+          return res.json().then(function (payload) {
+            var s = payload && payload.settings && typeof payload.settings === 'object' ? payload.settings : payload;
+            return normalizeSettings(s);
+          });
+        })
+        .catch(function () { return attempt(i + 1); });
+    };
+    return attempt(0);
+  }
+
+  function adminBypassAllowed(settings) {
+    if (!settings.allow_admin_bypass) return false;
+    try {
+      return !!localStorage.getItem('navidur_admin_token');
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function isLoggedInMember() {
+    try {
+      var tok = localStorage.getItem('navidur_member_token');
+      if (!tok) return false;
+      var u = JSON.parse(localStorage.getItem('navidur_member_user') || 'null');
+      return !!(u && typeof u === 'object' && u.role === 'member');
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function canBypassRestrictedMode(settings) {
+    return adminBypassAllowed(settings) || isLoggedInMember();
+  }
+
+  function shouldBlockPublic(settings) {
+    var m = settings.site_mode;
+    if (m === 'live') return false;
+    if (m === 'maintenance' || m === 'private_beta') return !canBypassRestrictedMode(settings);
+    return false;
+  }
+
+  function logModeTransition(settings) {
+    try {
+      var prev = sessionStorage.getItem('navidur_last_site_mode');
+      if (prev != null && prev !== settings.site_mode) {
+        console.info('NAVIDUR_PLATFORM_MODE_CHANGED', { from: prev, to: settings.site_mode });
+      }
+      sessionStorage.setItem('navidur_last_site_mode', settings.site_mode);
+    } catch (_e) { /* ignore */ }
+  }
+
+  function renderPlatformLock(settings) {
+    var mode = settings.site_mode;
+    var defaultMsg = mode === 'private_beta'
+      ? 'المنصة في وضع تجريبي مغلق. الوصول متاح للأعضاء المسجلين وفريق الإدارة فقط.'
+      : 'المنصة تحت الصيانة حالياً. نعتذر عن الإزعاج ونعود قريباً.';
+    var msg = settings.maintenance_message || defaultMsg;
+
+    document.body.innerHTML = '';
+    document.body.style.margin = '0';
+    document.body.removeAttribute('style');
+    document.body.style.margin = '0';
+
+    var root = document.createElement('div');
+    root.className = 'navidur-lock-root';
+    root.setAttribute('dir', 'rtl');
+
+    var ocean = document.createElement('div');
+    ocean.className = 'navidur-lock-ocean';
+
+    var card = document.createElement('div');
+    card.className = 'navidur-lock-card';
+
+    var logo = document.createElement('div');
+    logo.className = 'navidur-lock-logo';
+    logo.innerHTML = 'NA<span class="navidur-lock-v">V</span>IDUR';
+
+    var h1 = document.createElement('h1');
+    h1.className = 'navidur-lock-title';
+    h1.textContent = mode === 'private_beta' ? 'وضع تجريبي — وصول محدود' : 'المنصة مغلقة للصيانة';
+
+    var p = document.createElement('p');
+    p.className = 'navidur-lock-message';
+    p.textContent = msg;
+
+    var sub = document.createElement('p');
+    sub.className = 'navidur-lock-sub';
+    sub.textContent = mode === 'private_beta'
+      ? 'إذا كان لديك حساب عضو، سجّل الدخول ثم أعد تحميل هذه الصفحة.'
+      : 'شكراً لصبركم.';
+
+    card.appendChild(logo);
+    card.appendChild(h1);
+    card.appendChild(p);
+    card.appendChild(sub);
+    ocean.appendChild(card);
+    root.appendChild(ocean);
+    document.body.appendChild(root);
+
+    console.info('NAVIDUR_PLATFORM_LOCKED', { site_mode: mode });
+  }
+
+  function loadScriptSequential(urls, index) {
+    if (index >= urls.length) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = urls[index];
+      s.async = false;
+      s.onload = function () {
+        loadScriptSequential(urls, index + 1).then(resolve).catch(reject);
+      };
+      s.onerror = function () {
+        reject(new Error('navidur_script_failed:' + urls[index]));
+      };
+      document.body.appendChild(s);
+    });
+  }
+
+  function startApp(settings) {
+    logModeTransition(settings);
+    if (shouldBlockPublic(settings)) {
+      renderPlatformLock(settings);
+      return;
+    }
+
+    console.info('NAVIDUR_PLATFORM_LIVE', { site_mode: settings.site_mode });
+
+    var blocker = document.getElementById('navidur-platform-blocker');
+    if (blocker) blocker.remove();
+
+    var shell = document.getElementById('navidur-app-shell');
+    if (shell) {
+      shell.style.display = '';
+      shell.removeAttribute('aria-hidden');
+    }
+
+    loadScriptSequential(SCRIPT_CHAIN, 0).catch(function (err) {
+      console.error(err);
+      var shellEl = document.getElementById('navidur-app-shell');
+      if (shellEl) {
+        shellEl.innerHTML = '<div class="app-shell" style="padding:24px;color:#fff"><h2>تعذر تحميل التطبيق</h2><p class="muted">' + String(err && err.message || err) + '</p></div>';
+      }
+    });
+  }
+
+  loadSettings().then(startApp);
+})();
+  </script>
 </body>
 </html>

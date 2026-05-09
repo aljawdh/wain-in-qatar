@@ -235,8 +235,9 @@ module.exports = async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden domain' });
   }
 
+  let actor = null;
   if (req.method === 'POST') {
-    const actor = await requireRole('admin')(req, res);
+    actor = await requireRole('admin')(req, res);
     if (!actor) return;
   }
 
@@ -258,7 +259,22 @@ module.exports = async function handler(req, res) {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
       const incoming = body.settings && typeof body.settings === 'object' ? body.settings : body;
+      let previousSiteMode = null;
+      try {
+        const before = await readSettings();
+        previousSiteMode = before && before.site_mode ? String(before.site_mode) : null;
+      } catch (_readPrev) {
+        previousSiteMode = null;
+      }
       const saved = await writeSettings(incoming);
+      const nextMode = saved && saved.site_mode ? String(saved.site_mode) : null;
+      if (nextMode && nextMode !== previousSiteMode) {
+        console.info('NAVIDUR_PLATFORM_MODE_CHANGED', {
+          from: previousSiteMode,
+          to: nextMode,
+          actor: actor && actor.username ? actor.username : null
+        });
+      }
       return res.status(200).json({
         ok: true,
         key: SETTINGS_KEY,
