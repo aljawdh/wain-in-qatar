@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "description_ar": "مخطط قراءات المحطة الميدانية المستقبلية — لا يُستخدم كحقيقة أرضية قبل المعايرة.",
+  "schema": {
+    "station_id": "",
+    "timestamp": "",
+    "wind_speed": 0,
+    "wind_direction": 0,
+    "water_temp": 0,
+    "pressure": 0,
+    "tide_level": 0,
+    "battery": 0,
+    "signal_strength": 0,
+    "sensor_status": "healthy",
+    "verified": false,
+    "calibration_status": "pending",
+    "source": "field_station"
+  }
+}

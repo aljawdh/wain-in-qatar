@@ -45,7 +45,10 @@ const FILES = {
   trait_cycles: 'trait_cycles.json',
   trait_evidence: 'trait_evidence.json',
   navidur_system_events: 'navidur_system_events.json',
-  navidur_monitoring_snapshots: 'navidur_monitoring_snapshots.json'
+  navidur_monitoring_snapshots: 'navidur_monitoring_snapshots.json',
+  durur_trait_framework: 'durur_trait_framework.json',
+  navidur_seasonal_validation_history: 'navidur_seasonal_validation_history.json',
+  field_station_schema: 'field_station_schema.json'
 };
 
 // ─── KV keys for append-safe catch log storage ───────────────────────────────

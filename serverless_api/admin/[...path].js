@@ -16,6 +16,7 @@ const tfLookup = require('../../shared/true-final-station-reference-lookup');
 const { analyzeLiveStation } = require('../../shared/navidur-analysis-engine');
 const { normalizeRequestedStation, fetchWeatherAndMarineInputs, loadReferenceData } = require('../_lib/navidur-analysis-runtime');
 const sgMonitoring = require('../_lib/stormglass-monitoring-provider');
+const dururTraitMatching = require('../_lib/navidur-durur-trait-matching');
 
 /** Canonical 28 DUR names (admin manual edit + annual_flat_rows patch) — order fixed for UI. */
 const TRUE_FINAL_MANUAL_DUR_NAME_LIST = [
@@ -837,6 +838,98 @@ async function applyTraitLearningSupervisor(actor, body) {
   await writeJsonFile('trait_cycles', cyclesDoc);
   await writeAudit('trait_learning_supervisor_' + action, actor, { scope_key: key, trait_name: traitName });
   return { ok: true, scope_key: key, trait_name: traitName, status: row.status };
+}
+
+/**
+ * Shared Open-Meteo + analyzeLiveStation + optional Stormglass pack for admin monitoring routes.
+ * Does not write stores; callers persist snapshots or seasonal history.
+ */
+async function adminBuildMonitoringAnalysisPack(stationId, date, sourceHint) {
+  const referenceData = await loadReferenceData();
+  const station = normalizeRequestedStation({ station_id: stationId }, referenceData.stations || []);
+  if (!station || !station.id) {
+    const err = new Error('station_not_found');
+    err.code = 404;
+    throw err;
+  }
+  if (station.lat == null || station.lon == null) {
+    const err = new Error('station_coordinates_required');
+    err.code = 400;
+    throw err;
+  }
+  const src = cleanString(sourceHint, 20).toLowerCase();
+  const body = { analysis_date: date, datetime: date + 'T12:00:00Z', as_of_iso: date + 'T12:00:00Z', source: src === 'sg' ? 'sg' : '' };
+  const weatherPack = await fetchWeatherAndMarineInputs(station, body);
+  const liveInputs = weatherPack.live_inputs || {};
+  const dto = analyzeLiveStation({
+    station: station,
+    datetime: body.datetime,
+    reference_data: referenceData,
+    overrides: null,
+    live_inputs: liveInputs,
+    weather_meta: weatherPack.weather_meta || {},
+    tide_debug: weatherPack.tide_debug || null,
+    debug_log: false,
+    field_validation: null,
+    trait_calibration: await readJsonFile('trait_calibration', { version: 1, scopes: {} }),
+    request_depth_mode: 'coastal'
+  });
+  const start = date + 'T00:00:00Z';
+  const end = date + 'T23:59:59Z';
+  const sgWeather = await sgMonitoring.getStormglassWeatherPoint(station.lat, station.lon, start, end);
+  const sgMarine = await sgMonitoring.getStormglassMarinePoint(station.lat, station.lon, start, end);
+  const sgTideExtremes = await sgMonitoring.getStormglassTideExtremes(station.lat, station.lon, start, end);
+  const sgSeaLevel = await sgMonitoring.getStormglassTideSeaLevel(station.lat, station.lon, start, end);
+  const sgHoursMerged = mergeStormglassHours(sgWeather.hours || [], sgMarine.hours || []);
+  const sgCurrent = pickClosestHour(sgHoursMerged, body.datetime);
+  const sgSea = pickClosestHour(sgSeaLevel.seaLevel || [], body.datetime);
+  const sgValues = {
+    windSpeed: n(sgCurrent && sgCurrent.windSpeed),
+    windDirection: n(sgCurrent && sgCurrent.windDirection),
+    airTemperature: n(sgCurrent && sgCurrent.airTemperature),
+    waveHeight: n(sgCurrent && sgCurrent.waveHeight),
+    swellHeight: n(sgCurrent && sgCurrent.swellHeight),
+    swellDirection: n(sgCurrent && sgCurrent.swellDirection),
+    currentSpeed: n(sgCurrent && sgCurrent.currentSpeed),
+    currentDirection: n(sgCurrent && sgCurrent.currentDirection),
+    waterTemperature: n(sgCurrent && sgCurrent.waterTemperature),
+    seaLevel: n((sgCurrent && sgCurrent.seaLevel) != null ? sgCurrent.seaLevel : (sgSea && sgSea.seaLevel)),
+    tideExtremes: Array.isArray(sgTideExtremes.extremes) ? sgTideExtremes.extremes.slice(0, 10) : []
+  };
+  const validationStatus = (sgWeather.ok && sgMarine.ok && sgTideExtremes.ok && sgSeaLevel.ok)
+    ? 'stormglass_available'
+    : 'stormglass_unavailable';
+  const openMeteoValues = {
+    windSpeed: n(liveInputs.wind_speed_kmh),
+    windDirection: n(liveInputs.wind_direction_deg),
+    airTemperature: n(liveInputs.temp_c),
+    waveHeight: n(liveInputs.wave_height_m),
+    currentSpeed: n(liveInputs.current_speed_ms),
+    waterTemperature: n(liveInputs.temp_c),
+    tideState: dto && dto.tide ? dto.tide.state || null : null
+  };
+  const agreement = computeAgreement(openMeteoValues, sgValues);
+  return {
+    referenceData: referenceData,
+    station: station,
+    date: date,
+    body: body,
+    weatherPack: weatherPack,
+    dto: dto,
+    openMeteoValues: openMeteoValues,
+    sgValues: sgValues,
+    agreement: agreement,
+    validationStatus: validationStatus,
+    sgSeaLevel: sgSeaLevel,
+    sgTideExtremes: sgTideExtremes,
+    liveInputs: liveInputs,
+    sgDiagnostics: {
+      weather_ok: !!sgWeather.ok,
+      marine_ok: !!sgMarine.ok,
+      tide_extremes_ok: !!sgTideExtremes.ok,
+      sea_level_ok: !!sgSeaLevel.ok
+    }
+  };
 }
 
 module.exports = async function handler(req, res) {
@@ -2170,6 +2263,192 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, adjustments: Array.isArray(doc.adjustments) ? doc.adjustments : [] });
   }
 
+  if (root === 'monitoring-seasonal-bundle') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const q = req.query || {};
+      const date = cleanString(q.date, 20) || new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'date_invalid' });
+      }
+      const stationId = cleanString(q.station_id, 80);
+      if (!stationId) return res.status(400).json({ error: 'station_id_required' });
+      const source = cleanString(q.source, 20).toLowerCase();
+      const pack = await adminBuildMonitoringAnalysisPack(stationId, date, source);
+      await dururTraitMatching.ensureDururTraitFramework(readJsonFile, writeJsonFile, pack.referenceData);
+      const fwDoc = await readJsonFile('durur_trait_framework', { version: 1, traits: [] });
+      const durId = pack.dto && pack.dto.dur ? String(pack.dto.dur.period_id || '') : '';
+      const traits = dururTraitMatching.frameworkTraitsForDurId(fwDoc, durId);
+      const histDoc = await readJsonFile('navidur_seasonal_validation_history', { version: 1, entries: [] });
+      const entries = Array.isArray(histDoc.entries) ? histDoc.entries : [];
+      const region = cleanString(pack.station.region, 80) || '';
+      const filtered = dururTraitMatching.filterHistoryForComparison(entries, durId, String(pack.station.id), region, date);
+      const years = [2026, 2027, 2028];
+      const byYear = {};
+      let totalAcrossYears = 0;
+      for (let yi = 0; yi < years.length; yi += 1) {
+        const y = years[yi];
+        const arr = filtered.filter(function (e) {
+          return e && Number(e.year) === y;
+        });
+        byYear[String(y)] = arr;
+        totalAcrossYears += arr.length;
+      }
+      const yNow = new Date().getUTCFullYear();
+      const yearLog = filtered.filter(function (e) {
+        return e && Number(e.year) === yNow;
+      }).slice(0, 50);
+      const matchPreview = dururTraitMatching.matchDururTraitsWithMonitoringData({
+        dto: pack.dto,
+        openMeteoValues: pack.openMeteoValues,
+        frameworkTraits: traits,
+        station: pack.station
+      });
+      const confidencePreview = dururTraitMatching.computeSeasonalValidationConfidence({
+        weather_meta: pack.weatherPack.weather_meta || {},
+        trait_match_score: matchPreview.trait_match_score,
+        source_agreement_score: pack.agreement.score,
+        openMeteoValues: pack.openMeteoValues,
+        dto: pack.dto
+      });
+      const regionalNotes = traits
+        .map(function (t) {
+          const rv = t && t.regional_variation && typeof t.regional_variation === 'object' ? t.regional_variation : {};
+          const keys = Object.keys(rv);
+          if (!keys.length) return null;
+          return { trait_name: t.trait_name, regional_variation: rv };
+        })
+        .filter(Boolean);
+      return res.status(200).json({
+        ok: true,
+        date: pack.date,
+        station: {
+          id: String(pack.station.id),
+          name_ar: cleanString(pack.station.name_ar || pack.station.name, 120),
+          region: region || null
+        },
+        dur_id: durId || null,
+        dur_name_ar: cleanString(pack.dto && pack.dto.dur && pack.dto.dur.period_name, 120),
+        dur_snapshot: pack.dto && pack.dto.dur ? pack.dto.dur : null,
+        framework_traits: traits,
+        seasonal_match_preview: {
+          trait_match_score: matchPreview.trait_match_score,
+          matched_traits: matchPreview.matched_traits,
+          partial_traits: matchPreview.partial_traits,
+          failed_traits: matchPreview.failed_traits,
+          unknown_traits: matchPreview.unknown_traits,
+          anomalies: matchPreview.anomalies,
+          summary_ar: matchPreview.summary_ar
+        },
+        confidence_preview: confidencePreview,
+        year_comparison: byYear,
+        current_year_log: yearLog,
+        regional_trait_context: regionalNotes,
+        history_count_for_window: filtered.length,
+        insufficient_years_message:
+          totalAcrossYears < 2 ? 'لا توجد بيانات تاريخية كافية بعد.' : null
+      });
+    } catch (err) {
+      const code = err && err.code;
+      if (code === 404) return res.status(404).json({ error: 'station_not_found' });
+      if (code === 400) return res.status(400).json({ error: String(err && err.message ? err.message : err) });
+      return res.status(500).json({ error: 'monitoring_seasonal_bundle_failed', detail: String(err && err.message ? err.message : err) });
+    }
+  }
+
+  if (root === 'monitoring-seasonal-validation') {
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'method_not_allowed' });
+    }
+    try {
+      const body = parseBody(req);
+      const date = cleanString(body.date, 20) || new Date().toISOString().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: 'date_invalid' });
+      }
+      const stationId = cleanString(body.station_id, 80);
+      if (!stationId) return res.status(400).json({ error: 'station_id_required' });
+      const source = cleanString(body.source, 20).toLowerCase();
+      const pack = await adminBuildMonitoringAnalysisPack(stationId, date, source);
+      await dururTraitMatching.ensureDururTraitFramework(readJsonFile, writeJsonFile, pack.referenceData);
+      const fwDoc = await readJsonFile('durur_trait_framework', { version: 1, traits: [] });
+      const durId = pack.dto && pack.dto.dur ? String(pack.dto.dur.period_id || '') : '';
+      const traits = dururTraitMatching.frameworkTraitsForDurId(fwDoc, durId);
+      const match = dururTraitMatching.matchDururTraitsWithMonitoringData({
+        dto: pack.dto,
+        openMeteoValues: pack.openMeteoValues,
+        frameworkTraits: traits,
+        station: pack.station
+      });
+      const confidence = dururTraitMatching.computeSeasonalValidationConfidence({
+        weather_meta: pack.weatherPack.weather_meta || {},
+        trait_match_score: match.trait_match_score,
+        source_agreement_score: pack.agreement.score,
+        openMeteoValues: pack.openMeteoValues,
+        dto: pack.dto
+      });
+      const year = new Date(String(date) + 'T12:00:00Z').getUTCFullYear();
+      const region = cleanString(pack.station.region, 80) || '';
+      const record = {
+        year: year,
+        date: date,
+        station_id: String(pack.station.id),
+        station_name_ar: cleanString(pack.station.name_ar || pack.station.name, 120),
+        region: region || null,
+        dur_id: durId || null,
+        dur_name_ar: cleanString(pack.dto && pack.dto.dur && pack.dto.dur.period_name, 120),
+        source_used: 'open_meteo',
+        trait_match_score: match.trait_match_score,
+        matched_traits: match.matched_traits,
+        partial_traits: match.partial_traits,
+        failed_traits: match.failed_traits,
+        unknown_traits: match.unknown_traits,
+        anomalies: match.anomalies,
+        confidence: confidence,
+        created_at: nowIso()
+      };
+      await dururTraitMatching.appendSeasonalHistory(readJsonFile, writeJsonFile, record);
+      const fwUpdated = dururTraitMatching.updateFrameworkAfterRun(
+        JSON.parse(JSON.stringify(fwDoc)),
+        match,
+        pack.station,
+        year,
+        date,
+        region
+      );
+      await writeJsonFile('durur_trait_framework', fwUpdated);
+      await writeAudit('monitoring_seasonal_validation', actor, {
+        station_id: String(pack.station.id),
+        date: date,
+        dur_id: durId,
+        trait_match_score: match.trait_match_score
+      });
+      return res.status(200).json({
+        ok: true,
+        saved: true,
+        history_record: record,
+        trait_match_score: match.trait_match_score,
+        matched_traits: match.matched_traits,
+        partial_traits: match.partial_traits,
+        failed_traits: match.failed_traits,
+        unknown_traits: match.unknown_traits,
+        anomalies: match.anomalies,
+        summary_ar: match.summary_ar,
+        confidence: confidence,
+        observed_traits_debug: match._observed_traits_debug || []
+      });
+    } catch (err) {
+      const code = err && err.code;
+      if (code === 404) return res.status(404).json({ error: 'station_not_found' });
+      if (code === 400) return res.status(400).json({ error: String(err && err.message ? err.message : err) });
+      return res.status(500).json({ error: 'monitoring_seasonal_validation_failed', detail: String(err && err.message ? err.message : err) });
+    }
+  }
+
   if (root === 'monitoring-snapshot') {
     if (req.method !== 'GET') {
       res.setHeader('Allow', 'GET');
@@ -2185,84 +2464,36 @@ module.exports = async function handler(req, res) {
       if (!stationId) return res.status(400).json({ error: 'station_id_required' });
       const source = cleanString(q.source, 20).toLowerCase();
 
-      const referenceData = await loadReferenceData();
-      const station = normalizeRequestedStation({ station_id: stationId }, referenceData.stations || []);
-      if (!station || !station.id) return res.status(404).json({ error: 'station_not_found' });
-      if (station.lat == null || station.lon == null) return res.status(400).json({ error: 'station_coordinates_required' });
+      const pack = await adminBuildMonitoringAnalysisPack(stationId, date, source);
+      const station = pack.station;
+      const dto = pack.dto;
+      const openMeteoValues = pack.openMeteoValues;
+      const sgValues = pack.sgValues;
+      const agreement = pack.agreement;
+      const validationStatus = pack.validationStatus;
+      const sgTideExtremes = pack.sgTideExtremes;
+      const sgSeaLevel = pack.sgSeaLevel;
+      const sgDiag = pack.sgDiagnostics || {};
 
-      const body = { analysis_date: date, datetime: date + 'T12:00:00Z', as_of_iso: date + 'T12:00:00Z', source: source === 'sg' ? 'sg' : '' };
-      const weatherPack = await fetchWeatherAndMarineInputs(station, body);
-      const liveInputs = weatherPack.live_inputs || {};
-      const dto = analyzeLiveStation({
-        station: station,
-        datetime: body.datetime,
-        reference_data: referenceData,
-        overrides: null,
-        live_inputs: liveInputs,
-        weather_meta: weatherPack.weather_meta || {},
-        tide_debug: weatherPack.tide_debug || null,
-        debug_log: false,
-        field_validation: null,
-        trait_calibration: await readJsonFile('trait_calibration', { version: 1, scopes: {} }),
-        request_depth_mode: 'coastal'
-      });
-
-      const start = date + 'T00:00:00Z';
-      const end = date + 'T23:59:59Z';
-      const sgWeather = await sgMonitoring.getStormglassWeatherPoint(station.lat, station.lon, start, end);
-      const sgMarine = await sgMonitoring.getStormglassMarinePoint(station.lat, station.lon, start, end);
-      const sgTideExtremes = await sgMonitoring.getStormglassTideExtremes(station.lat, station.lon, start, end);
-      const sgSeaLevel = await sgMonitoring.getStormglassTideSeaLevel(station.lat, station.lon, start, end);
-
-      const sgHoursMerged = mergeStormglassHours(sgWeather.hours || [], sgMarine.hours || []);
-      const sgCurrent = pickClosestHour(sgHoursMerged, body.datetime);
-      const sgSea = pickClosestHour(sgSeaLevel.seaLevel || [], body.datetime);
-      const sgValues = {
-        windSpeed: n(sgCurrent && sgCurrent.windSpeed),
-        windDirection: n(sgCurrent && sgCurrent.windDirection),
-        airTemperature: n(sgCurrent && sgCurrent.airTemperature),
-        waveHeight: n(sgCurrent && sgCurrent.waveHeight),
-        swellHeight: n(sgCurrent && sgCurrent.swellHeight),
-        swellDirection: n(sgCurrent && sgCurrent.swellDirection),
-        currentSpeed: n(sgCurrent && sgCurrent.currentSpeed),
-        currentDirection: n(sgCurrent && sgCurrent.currentDirection),
-        waterTemperature: n(sgCurrent && sgCurrent.waterTemperature),
-        seaLevel: n((sgCurrent && sgCurrent.seaLevel) != null ? sgCurrent.seaLevel : (sgSea && sgSea.seaLevel)),
-        tideExtremes: Array.isArray(sgTideExtremes.extremes) ? sgTideExtremes.extremes.slice(0, 10) : []
-      };
-
-      const validationStatus = (sgWeather.ok && sgMarine.ok && sgTideExtremes.ok && sgSeaLevel.ok)
-        ? 'stormglass_available'
-        : 'stormglass_unavailable';
       if (validationStatus === 'stormglass_unavailable') {
         console.warn('NAVIDUR_STORMGLASS_MONITORING_FAILED', {
           station_id: station.id,
           date: date,
-          weather_ok: !!sgWeather.ok,
-          marine_ok: !!sgMarine.ok,
-          tide_extremes_ok: !!sgTideExtremes.ok,
-          sea_level_ok: !!sgSeaLevel.ok
+          weather_ok: !!sgDiag.weather_ok,
+          marine_ok: !!sgDiag.marine_ok,
+          tide_extremes_ok: !!sgDiag.tide_extremes_ok,
+          sea_level_ok: !!sgDiag.sea_level_ok
         });
       }
 
-      const openMeteoValues = {
-        windSpeed: n(liveInputs.wind_speed_kmh),
-        windDirection: n(liveInputs.wind_direction_deg),
-        airTemperature: n(liveInputs.temp_c),
-        waveHeight: n(liveInputs.wave_height_m),
-        currentSpeed: n(liveInputs.current_speed_ms),
-        waterTemperature: n(liveInputs.temp_c),
-        tideState: dto && dto.tide ? dto.tide.state || null : null
-      };
-      const agreement = computeAgreement(openMeteoValues, sgValues);
+      const traitMatch = computeTraitMatchScore(dto);
+      const anomalies = buildAnomalies(openMeteoValues, sgValues, validationStatus, agreement.pairs);
+
       console.info('NAVIDUR_SOURCE_AGREEMENT_COMPUTED', {
         station_id: station.id,
         date: date,
         score: agreement.score
       });
-
-      const traitMatch = computeTraitMatchScore(dto);
-      const anomalies = buildAnomalies(openMeteoValues, sgValues, validationStatus, agreement.pairs);
 
       const snapshot = {
         station_id: String(station.id),
@@ -2321,6 +2552,8 @@ module.exports = async function handler(req, res) {
         generated_at: nowIso()
       });
     } catch (err) {
+      if (err && err.code === 404) return res.status(404).json({ error: 'station_not_found' });
+      if (err && err.code === 400) return res.status(400).json({ error: String(err.message || err) });
       return res.status(500).json({ error: 'monitoring_snapshot_failed', detail: String(err && err.message ? err.message : err) });
     }
   }

@@ -10,38 +10,60 @@
     .top { display: grid; grid-template-columns: 1fr 220px 150px; gap: 10px; margin: 12px 0; }
     select, input, button { padding: 10px; border-radius: 8px; border: 1px solid #355280; background: #11203a; color: #dce9ff; }
     button { cursor: pointer; background: #1f4ea5; }
+    button.secondary { background: #2a5a8a; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
     .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
     .card { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 10px; }
     .k { color: #9fb7de; font-size: 12px; }
     .v { font-weight: 700; font-size: 18px; margin-top: 6px; }
     .row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 12px; }
-    .panel { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 10px; }
+    .panel { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 12px; margin-top: 12px; }
+    .panel h3 { margin: 0 0 10px 0; font-size: 16px; color: #b8d4ff; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { border-bottom: 1px solid #22375d; padding: 8px; text-align: right; }
     .muted { color: #94aecd; font-size: 12px; }
     .danger { color: #ff8b8b; }
     .ok { color: #7ef0a1; }
+    .warn { color: #ffd48a; }
     canvas { width: 100%; height: 320px; background: #0e1a2f; border-radius: 8px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; margin: 2px; background: #1a3358; }
+    .pill.matched { background: #1a4d32; color: #9fffc4; }
+    .pill.partial { background: #4d3f1a; color: #ffe6a8; }
+    .pill.failed { background: #4d1a1a; color: #ffb4b4; }
+    .pill.unknown { background: #333; color: #ccc; }
+    .year-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .year-box { background: #0e1a2f; border: 1px solid #2a4570; border-radius: 8px; padding: 10px; min-height: 80px; }
+    .conf-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .conf-item { background: #0e1a2f; border-radius: 8px; padding: 8px; text-align: center; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
     @media (max-width: 1000px) {
       .cards { grid-template-columns: repeat(2, 1fr); }
       .row, .top { grid-template-columns: 1fr; }
+      .year-grid, .conf-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h2>مركز الرصد البحري</h2>
-    <div class="muted">Stormglass للتحقق والمقارنة فقط - دون التأثير على قرار NAVIDUR.</div>
+    <h2>مركز الرصد البحري + التحقق الموسمي + أرشيف المعرفة</h2>
+    <div class="muted">
+      Open-Meteo يُستخدم حاليًا كرصد تجريبي لمقارنة فرضيات سمات الدر داخل هذا المركز فقط.
+      Stormglass للمقارنة المرجعية — دون اعتباره مصدر حقيقة وحيد — ودون أي تأثير على محرك القرار العام لـ NAVIDUR.
+    </div>
     <div class="top">
       <select id="stationSelect"></select>
       <input id="dateInput" type="date">
       <button id="refreshBtn">تحديث الرصد</button>
     </div>
+    <div class="toolbar">
+      <button type="button" class="secondary" id="updateDurBtn">تحديث بيانات الدر</button>
+      <span id="durBtnStatus" class="muted"></span>
+    </div>
     <div id="status" class="muted">جاهز.</div>
 
     <section class="cards">
       <div class="card"><div class="k">درجة اتفاق المصادر</div><div id="agreementScore" class="v">—</div></div>
-      <div class="card"><div class="k">مطابقة سمات الدر</div><div id="traitScore" class="v">—</div></div>
+      <div class="card"><div class="k">مطابقة سمات الدر (محرك التحقق الحالي)</div><div id="traitScore" class="v">—</div></div>
       <div class="card"><div class="k">سرعة الرياح (NAVIDUR/Open)</div><div id="windVal" class="v">—</div></div>
       <div class="card"><div class="k">ارتفاع الموج</div><div id="waveVal" class="v">—</div></div>
       <div class="card"><div class="k">سرعة التيار</div><div id="currentVal" class="v">—</div></div>
@@ -58,12 +80,62 @@
       </div>
     </section>
 
-    <section class="panel" style="margin-top:12px;">
+    <section class="panel">
       <h3>جدول المقارنة</h3>
       <table>
         <thead><tr><th>المؤشر</th><th>NAVIDUR/Open-Meteo</th><th>Stormglass</th></tr></thead>
         <tbody id="cmpBody"></tbody>
       </table>
+    </section>
+
+    <section class="panel" id="seasonalSection">
+      <h3>1) سمات الدر الحالية (إطار فرضيات — غير مؤكدة)</h3>
+      <div class="muted" id="durHeaderLine">—</div>
+      <table>
+        <thead><tr><th>السمة</th><th>الفئة</th><th>حالة الإطار</th><th>نسبة مطابقة تراكمية</th><th>شواهد</th></tr></thead>
+        <tbody id="durTraitsBody"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h3>2) نتيجة تحقق السمات (معاينة / آخر حفظ)</h3>
+      <p class="muted" id="traitValidationSummary">—</p>
+      <div id="traitPills"></div>
+      <h4 style="margin:12px 0 6px;font-size:14px;color:#9fb7de">الشذوذات الموسمية</h4>
+      <ul id="seasonalAnomalies"></ul>
+    </section>
+
+    <section class="panel">
+      <h3>3) نسبة تطابق الدر (تحقق موسمي — Open-Meteo)</h3>
+      <div class="cards" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px;">
+        <div class="card"><div class="k">معاينة فورية</div><div id="seasonalMatchPreview" class="v">—</div></div>
+        <div class="card"><div class="k">آخر سجل محفوظ</div><div id="lastSavedMatch" class="v">—</div></div>
+        <div class="card"><div class="k">تطابق المحرك الحالي (مرجع)</div><div id="engineTraitRef" class="v">—</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>4) سجل السنة الحالية</h3>
+      <table>
+        <thead><tr><th>التاريخ</th><th>درجة التطابق</th><th>ملخص</th></tr></thead>
+        <tbody id="yearLogBody"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h3>5) مقارنة السنوات (2026 — 2028)</h3>
+      <p class="muted" id="yearCompareHint">—</p>
+      <div class="year-grid" id="yearCompareGrid"></div>
+    </section>
+
+    <section class="panel">
+      <h3>6) مستوى الثقة (عرض إداري فقط — لا يؤثر على توصية الصيد)</h3>
+      <div class="conf-grid" id="confidenceGrid"></div>
+    </section>
+
+    <section class="panel">
+      <h3>7) الفروقات الإقليمية (من إطار السمات)</h3>
+      <ul id="regionalList"></ul>
     </section>
   </div>
 
@@ -71,6 +143,7 @@
     const token = localStorage.getItem('navidur_admin_token') || '';
     const byId = (id) => document.getElementById(id);
     let latest = null;
+    let latestBundle = null;
 
     function authHeaders() {
       const h = { 'Cache-Control': 'no-store' };
@@ -155,6 +228,105 @@
       }
     }
 
+    function pillClass(st) {
+      if (st === 'matched') return 'matched';
+      if (st === 'partial') return 'partial';
+      if (st === 'failed') return 'failed';
+      return 'unknown';
+    }
+
+    function renderTraitPills(title, list) {
+      if (!list || !list.length) return '';
+      return '<div style="margin:6px 0"><span class="muted">' + title + ': </span>' +
+        list.map(function (x) {
+          return '<span class="pill ' + pillClass(x.status) + '">' + (x.trait_name || '') + '</span>';
+        }).join('') + '</div>';
+    }
+
+    function renderSeasonalBundle(b) {
+      latestBundle = b;
+      const durName = b.dur_name_ar || '—';
+      const durId = b.dur_id || '—';
+      byId('durHeaderLine').textContent = 'الدر: ' + durName + ' — المعرف: ' + durId + ' — المنطقة: ' + (b.station && b.station.region ? b.station.region : '—');
+
+      const traits = Array.isArray(b.framework_traits) ? b.framework_traits : [];
+      byId('durTraitsBody').innerHTML = traits.length ? traits.map(function (t) {
+        return '<tr><td>' + (t.trait_name || '') + '</td><td>' + (t.trait_category || '') + '</td><td>' +
+          (t.validation_status || t.status || '') + '</td><td>' + (t.match_rate != null ? t.match_rate + '%' : '—') + '</td><td>' +
+          (t.evidence_count != null ? t.evidence_count : '0') + '</td></tr>';
+      }).join('') : '<tr><td colspan="5">لا توجد سمات في الإطار لهذا الدر بعد — استخدم زر تحديث بيانات الدر لتهيئة الإطار من المرجع.</td></tr>';
+
+      const prev = b.seasonal_match_preview || {};
+      byId('traitValidationSummary').textContent = prev.summary_ar || '—';
+      let pillsHtml = '';
+      pillsHtml += renderTraitPills('مطابقة', prev.matched_traits);
+      pillsHtml += renderTraitPills('جزئية', prev.partial_traits);
+      pillsHtml += renderTraitPills('غير مطابقة', prev.failed_traits);
+      pillsHtml += renderTraitPills('غير محددة', prev.unknown_traits);
+      byId('traitPills').innerHTML = pillsHtml || '<span class="muted">—</span>';
+
+      const sa = Array.isArray(prev.anomalies) ? prev.anomalies : [];
+      byId('seasonalAnomalies').innerHTML = sa.length ? sa.map(function (a) {
+        return '<li>' + (a.message_ar || a.type || '') + '</li>';
+      }).join('') : '<li class="muted">لا شيء</li>';
+
+      byId('seasonalMatchPreview').textContent = prev.trait_match_score != null ? prev.trait_match_score + '%' : '—';
+
+      const yc = b.year_comparison || {};
+      const yNow = new Date().getUTCFullYear();
+      const curLog = Array.isArray(b.current_year_log) ? b.current_year_log : [];
+      const lastSaved = curLog[0];
+      byId('lastSavedMatch').textContent = lastSaved && lastSaved.trait_match_score != null ? lastSaved.trait_match_score + '%' : '—';
+
+      byId('engineTraitRef').textContent = latest && latest.dur_trait_match_score != null ? latest.dur_trait_match_score + '%' : '—';
+
+      byId('yearLogBody').innerHTML = curLog.length ? curLog.map(function (r) {
+        return '<tr><td>' + (r.date || '') + '</td><td>' + (r.trait_match_score != null ? r.trait_match_score + '%' : '—') + '</td><td>' +
+          (r.matched_traits ? r.matched_traits.length : 0) + ' مطابقة / ' + (r.failed_traits ? r.failed_traits.length : 0) + ' غير مطابقة</td></tr>';
+      }).join('') : '<tr><td colspan="3" class="muted">لا سجلات لهذه السنة بعد. اضغط «تحديث بيانات الدر» لتسجيل أول تحقق.</td></tr>';
+
+      byId('yearCompareHint').textContent = b.insufficient_years_message || ('سجلات في نافذة نفس اليوم والشهر: ' + (b.history_count_for_window || 0));
+
+      const years = [2026, 2027, 2028];
+      byId('yearCompareGrid').innerHTML = years.map(function (y) {
+        const arr = Array.isArray(yc[String(y)]) ? yc[String(y)] : [];
+        const avg = arr.length ? Math.round(arr.reduce(function (s, x) {
+          return s + (Number(x.trait_match_score) || 0);
+        }, 0) / arr.length) : null;
+        return '<div class="year-box"><strong>' + y + '</strong><div class="muted" style="margin-top:6px">عدد السجلات: ' + arr.length + '</div>' +
+          (avg != null ? '<div class="ok" style="margin-top:6px">متوسط التطابق: ' + avg + '%</div>' : '<div class="muted" style="margin-top:6px">لا بيانات</div>') + '</div>';
+      }).join('');
+
+      const conf = b.confidence_preview || {};
+      const keys = [
+        ['source_confidence', 'ثقة المصدر'],
+        ['dur_confidence', 'ثقة الدر'],
+        ['trait_confidence', 'ثقة السمات'],
+        ['environmental_confidence', 'ثقة البيئة الرقمية'],
+        ['validation_confidence', 'ثقة التحقق']
+      ];
+      byId('confidenceGrid').innerHTML = keys.map(function (kv) {
+        const val = conf[kv[0]];
+        return '<div class="conf-item"><div class="k">' + kv[1] + '</div><div class="v" style="font-size:20px">' + (val != null ? val : '—') + '</div></div>';
+      }).join('');
+
+      const reg = Array.isArray(b.regional_trait_context) ? b.regional_trait_context : [];
+      byId('regionalList').innerHTML = reg.length ? reg.map(function (r) {
+        return '<li><strong>' + (r.trait_name || '') + '</strong>: ' + JSON.stringify(r.regional_variation || {}) + '</li>';
+      }).join('') : '<li class="muted">لا توجد حقول إقليمية مذكورة في الإطار.</li>';
+    }
+
+    async function loadSeasonalBundle() {
+      const stationId = byId('stationSelect').value;
+      const date = byId('dateInput').value;
+      if (!stationId || !date) return;
+      const url = '/api?route=admin&path=monitoring-seasonal-bundle&station_id=' + encodeURIComponent(stationId) + '&date=' + encodeURIComponent(date) + '&source=sg';
+      const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) throw new Error('seasonal_bundle_' + res.status);
+      const json = await res.json();
+      renderSeasonalBundle(json);
+    }
+
     async function refresh() {
       const stationId = byId('stationSelect').value;
       const date = byId('dateInput').value;
@@ -168,10 +340,39 @@
       }
       const json = await res.json();
       renderSnapshot(json);
+      await loadSeasonalBundle();
+    }
+
+    async function updateDurData() {
+      const stationId = byId('stationSelect').value;
+      const date = byId('dateInput').value;
+      if (!stationId || !date) return;
+      const btn = byId('updateDurBtn');
+      const st = byId('durBtnStatus');
+      btn.disabled = true;
+      st.textContent = 'جاري الحفظ...';
+      try {
+        const res = await fetch('/api?route=admin&path=monitoring-seasonal-validation', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+          body: JSON.stringify({ station_id: stationId, date: date, source: 'sg' })
+        });
+        if (!res.ok) throw new Error('save_' + res.status);
+        const json = await res.json();
+        st.textContent = 'تم الحفظ: ' + (json.summary_ar || '') + ' — درجة التطابق ' + (json.trait_match_score != null ? json.trait_match_score + '%' : '');
+        await loadSeasonalBundle();
+      } catch (e) {
+        st.textContent = 'فشل: ' + (e && e.message ? e.message : e);
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     byId('refreshBtn').addEventListener('click', function () {
       refresh().catch((e) => setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true));
+    });
+    byId('updateDurBtn').addEventListener('click', function () {
+      updateDurData();
     });
 
     (async function init() {
