@@ -3,57 +3,118 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>/admin/monitoring - مركز الرصد البحري</title>
+  <title>مركز الرصد البحري والتحقق الموسمي</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #0b1324; color: #dce9ff; }
-    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
-    .top { display: grid; grid-template-columns: 1fr 220px 150px; gap: 10px; margin: 12px 0; }
-    select, input, button { padding: 10px; border-radius: 8px; border: 1px solid #355280; background: #11203a; color: #dce9ff; }
-    button { cursor: pointer; background: #1f4ea5; }
-    button.secondary { background: #2a5a8a; }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
-    .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 10px; }
-    .card { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 10px; }
-    .k { color: #9fb7de; font-size: 12px; }
-    .v { font-weight: 700; font-size: 18px; margin-top: 6px; }
-    .row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 12px; }
-    .panel { background: #12213b; border: 1px solid #243b63; border-radius: 10px; padding: 12px; margin-top: 12px; }
-    .panel h3 { margin: 0 0 10px 0; font-size: 16px; color: #b8d4ff; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { border-bottom: 1px solid #22375d; padding: 8px; text-align: right; }
-    .muted { color: #94aecd; font-size: 12px; }
-    .danger { color: #ff8b8b; }
-    .ok { color: #7ef0a1; }
-    .warn { color: #ffd48a; }
-    canvas { width: 100%; height: 320px; background: #0e1a2f; border-radius: 8px; }
-    .pill { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; margin: 2px; background: #1a3358; }
-    .pill.matched { background: #1a4d32; color: #9fffc4; }
+    :root {
+      --bg: #0a1020;
+      --panel: #121f38;
+      --border: #2a4570;
+      --text: #e8f0ff;
+      --muted: #94a8c8;
+      --accent: #2d6cdf;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Arabic Typesetting", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px 14px 48px; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; font-weight: 700; }
+    .lead { color: var(--muted); font-size: 0.95rem; max-width: 52em; margin-bottom: 16px; }
+    .top { display: grid; grid-template-columns: 1fr minmax(140px, 180px) auto; gap: 10px; margin-bottom: 8px; }
+    select, input, button {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.95rem;
+      width: 100%;
+    }
+    button { cursor: pointer; background: var(--accent); border-color: #3a6ec4; font-weight: 600; }
+    button.secondary { background: #355a9e; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+    .k { color: var(--muted); font-size: 0.78rem; }
+    .v { font-weight: 700; font-size: 1.15rem; margin-top: 6px; }
+    .row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; margin-top: 12px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 14px;
+    }
+    .panel h2 { margin: 0 0 10px; font-size: 1.05rem; color: #b8d4ff; font-weight: 700; }
+    .panel h3 { margin: 14px 0 8px; font-size: 0.92rem; color: var(--muted); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { border-bottom: 1px solid #22375d; padding: 10px 8px; text-align: right; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .muted { color: var(--muted); font-size: 0.88rem; }
+    .danger { color: #ff9a9a; }
+    .ok { color: #8ef0b0; }
+    .chart-wrap { position: relative; min-height: 200px; }
+    canvas { width: 100%; max-height: 280px; background: #0e1a2f; border-radius: 10px; display: block; }
+    .chart-placeholder {
+      min-height: 200px;
+      display: flex; align-items: center; justify-content: center;
+      background: #0e1a2f;
+      border-radius: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 20px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      margin: 3px;
+      background: #1a3358;
+    }
+    .pill.matched { background: #1a4d32; color: #b8ffd4; }
     .pill.partial { background: #4d3f1a; color: #ffe6a8; }
-    .pill.failed { background: #4d1a1a; color: #ffb4b4; }
-    .pill.unknown { background: #333; color: #ccc; }
-    .year-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .year-box { background: #0e1a2f; border: 1px solid #2a4570; border-radius: 8px; padding: 10px; min-height: 80px; }
-    .conf-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-    .conf-item { background: #0e1a2f; border-radius: 8px; padding: 8px; text-align: center; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
-    @media (max-width: 1000px) {
-      .cards { grid-template-columns: repeat(2, 1fr); }
-      .row, .top { grid-template-columns: 1fr; }
-      .year-grid, .conf-grid { grid-template-columns: 1fr; }
+    .pill.failed { background: #4d1a1a; color: #ffc4c4; }
+    .pill.unknown { background: #333; color: #ddd; }
+    .year-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .year-box { background: #0e1a2f; border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+    .conf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+    .conf-item { background: #0e1a2f; border-radius: 10px; padding: 10px; text-align: center; }
+    .trait-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #0e1a2f;
+    }
+    .trait-card p { margin: 4px 0; }
+    .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
+    .field-row { padding: 8px 10px; background: #0e1a2f; border-radius: 8px; border: 1px solid #22375d; }
+    body.no-stormglass .sg-only { display: none !important; }
+    .notice { font-size: 0.82rem; color: var(--muted); margin-top: 8px; padding: 8px 10px; background: #0e1a2f; border-radius: 8px; }
+    @media (max-width: 768px) {
+      .row { grid-template-columns: 1fr; }
+      .top { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h2>مركز الرصد البحري + التحقق الموسمي + أرشيف المعرفة</h2>
-    <div class="muted">
-      Open-Meteo يُستخدم حاليًا كرصد تجريبي لمقارنة فرضيات سمات الدر داخل هذا المركز فقط.
-      Stormglass للمقارنة المرجعية — دون اعتباره مصدر حقيقة وحيد — ودون أي تأثير على محرك القرار العام لـ NAVIDUR.
-    </div>
+    <h1>مركز الرصد البحري والتحقق الموسمي</h1>
+    <p class="lead">
+      يقارن المركز بيانات الرصد الحالية مع سمات الدرور الموسمية، ويحفظ نتائج التحقق لبناء أرشيف معرفي بحري عبر السنوات.
+    </p>
+
     <div class="top">
-      <select id="stationSelect"></select>
-      <input id="dateInput" type="date">
-      <button id="refreshBtn">تحديث الرصد</button>
+      <select id="stationSelect" aria-label="المحطة"></select>
+      <input id="dateInput" type="date" aria-label="التاريخ">
+      <button type="button" id="refreshBtn">تحديث الرصد</button>
     </div>
     <div class="toolbar">
       <button type="button" class="secondary" id="updateDurBtn">تحديث بيانات الدر</button>
@@ -61,92 +122,158 @@
     </div>
     <div id="status" class="muted">جاهز.</div>
 
-    <section class="cards">
-      <div class="card"><div class="k">درجة اتفاق المصادر</div><div id="agreementScore" class="v">—</div></div>
-      <div class="card"><div class="k">مطابقة سمات الدر (محرك التحقق الحالي)</div><div id="traitScore" class="v">—</div></div>
-      <div class="card"><div class="k">سرعة الرياح (NAVIDUR/Open)</div><div id="windVal" class="v">—</div></div>
-      <div class="card"><div class="k">ارتفاع الموج</div><div id="waveVal" class="v">—</div></div>
-      <div class="card"><div class="k">سرعة التيار</div><div id="currentVal" class="v">—</div></div>
-    </section>
+    <section class="cards" id="topCards"></section>
 
     <section class="row">
       <div class="panel">
-        <h3>رسم المقارنة</h3>
-        <canvas id="chart" width="760" height="320"></canvas>
+        <h2>مخطط المؤشرات</h2>
+        <div class="chart-wrap">
+          <canvas id="chart" width="720" height="260" hidden></canvas>
+          <div id="chartPlaceholder" class="chart-placeholder">لا توجد بيانات كافية للرسم البياني بعد.</div>
+        </div>
       </div>
       <div class="panel">
-        <h3>Anomalies</h3>
-        <ul id="anomaliesList"></ul>
+        <h2>الملاحظات غير المعتادة</h2>
+        <ul id="anomaliesList" style="margin:0;padding-right:18px;"></ul>
       </div>
     </section>
 
     <section class="panel">
-      <h3>جدول المقارنة</h3>
-      <table>
-        <thead><tr><th>المؤشر</th><th>NAVIDUR/Open-Meteo</th><th>Stormglass</th></tr></thead>
+      <h2>جدول المؤشرات</h2>
+      <table class="cmp-table">
+        <thead id="cmpHead"><tr><th>المؤشر</th><th>نافيدور / الرصد الحالي</th></tr></thead>
         <tbody id="cmpBody"></tbody>
       </table>
     </section>
 
-    <section class="panel" id="seasonalSection">
-      <h3>1) سمات الدر الحالية (إطار فرضيات — غير مؤكدة)</h3>
-      <div class="muted" id="durHeaderLine">—</div>
-      <table>
-        <thead><tr><th>السمة</th><th>الفئة</th><th>حالة الإطار</th><th>نسبة مطابقة تراكمية</th><th>شواهد</th></tr></thead>
-        <tbody id="durTraitsBody"></tbody>
-      </table>
+    <section class="panel">
+      <h2>سمات الدر الحالية</h2>
+      <p class="muted" id="durHeaderLine">—</p>
+      <div id="durTraitsCards"></div>
     </section>
 
     <section class="panel">
-      <h3>2) نتيجة تحقق السمات (معاينة / آخر حفظ)</h3>
-      <p class="muted" id="traitValidationSummary">—</p>
+      <h2>نتيجة تحقق سمات الدر</h2>
+      <div id="traitValidationStats" class="muted" style="margin-bottom:10px;"></div>
+      <p id="traitValidationSummary" class="muted" style="margin-bottom:8px;">—</p>
       <div id="traitPills"></div>
-      <h4 style="margin:12px 0 6px;font-size:14px;color:#9fb7de">الشذوذات الموسمية</h4>
-      <ul id="seasonalAnomalies"></ul>
+      <h3>ملاحظات التحقق</h3>
+      <ul id="seasonalAnomalies" style="margin:0;padding-right:18px;"></ul>
     </section>
 
     <section class="panel">
-      <h3>3) نسبة تطابق الدر (تحقق موسمي — Open-Meteo)</h3>
-      <div class="cards" style="grid-template-columns:1fr 1fr 1fr;margin-top:8px;">
-        <div class="card"><div class="k">معاينة فورية</div><div id="seasonalMatchPreview" class="v">—</div></div>
-        <div class="card"><div class="k">آخر سجل محفوظ</div><div id="lastSavedMatch" class="v">—</div></div>
-        <div class="card"><div class="k">تطابق المحرك الحالي (مرجع)</div><div id="engineTraitRef" class="v">—</div></div>
-      </div>
+      <h2>نسبة تطابق الدر</h2>
+      <div class="cards" id="matchCards" style="margin-top:8px;"></div>
     </section>
 
     <section class="panel">
-      <h3>4) سجل السنة الحالية</h3>
+      <h2>سجل السنة الحالية</h2>
       <table>
-        <thead><tr><th>التاريخ</th><th>درجة التطابق</th><th>ملخص</th></tr></thead>
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>المحطة</th>
+            <th>الدر</th>
+            <th>نسبة التحقق</th>
+            <th>الملخص</th>
+          </tr>
+        </thead>
         <tbody id="yearLogBody"></tbody>
       </table>
     </section>
 
     <section class="panel">
-      <h3>5) مقارنة السنوات (2026 — 2028)</h3>
+      <h2>مقارنة السنوات</h2>
       <p class="muted" id="yearCompareHint">—</p>
       <div class="year-grid" id="yearCompareGrid"></div>
     </section>
 
     <section class="panel">
-      <h3>6) مستوى الثقة (عرض إداري فقط — لا يؤثر على توصية الصيد)</h3>
-      <div class="conf-grid" id="confidenceGrid"></div>
+      <h2>مستوى الثقة</h2>
+      <p class="notice">هذه القيم للعرض الإداري فقط ولا تؤثر على توصية الصيد الحالية.</p>
+      <div class="conf-grid" id="confidenceGrid" style="margin-top:10px;"></div>
     </section>
 
     <section class="panel">
-      <h3>7) الفروقات الإقليمية (من إطار السمات)</h3>
-      <ul id="regionalList"></ul>
+      <h2>الفروقات الإقليمية</h2>
+      <ul id="regionalList" style="margin:0;padding-right:18px;"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>محطة الرصد الميدانية</h2>
+      <p class="muted">تهيئة مستقبلية لربط المحطات الحية مع مركز الرصد.</p>
+      <p><strong>الحالة:</strong> غير مفعّلة حاليًا</p>
+      <h3>الحقول المستقبلية</h3>
+      <div class="field-grid">
+        <div class="field-row">اسم المحطة —</div>
+        <div class="field-row">معرّف المحطة —</div>
+        <div class="field-row">الإحداثيات —</div>
+        <div class="field-row">آخر قراءة —</div>
+        <div class="field-row">حالة الحساسات —</div>
+        <div class="field-row">البطارية —</div>
+        <div class="field-row">قوة الإشارة —</div>
+        <div class="field-row">حالة المعايرة —</div>
+        <div class="field-row">مصدر القراءة: محطة ميدانية</div>
+      </div>
+      <div style="margin-top:14px;">
+        <button type="button" id="fieldStationBtn" disabled>إنشاء محطة ميدانية</button>
+        <p class="muted" style="margin-top:8px;">سيتم تفعيل هذا القسم بعد تجهيز العتاد الميداني وبرمجة الربط.</p>
+      </div>
     </section>
   </div>
 
   <script>
-    const token = localStorage.getItem('navidur_admin_token') || '';
-    const byId = (id) => document.getElementById(id);
-    let latest = null;
-    let latestBundle = null;
+    /**
+     * عند التفعيل لاحقًا: إظهار مقارنة المصدر الخارجي في الواجهة (الكود الخلفي يبقى كما هو).
+     */
+    var STORMGLASS_MONITORING_ENABLED = false;
+
+    var token = localStorage.getItem('navidur_admin_token') || '';
+    var byId = function (id) { return document.getElementById(id); };
+    var latest = null;
+    var latestBundle = null;
+
+    var METRIC_LABELS = {
+      windSpeed: 'سرعة الرياح',
+      windDirection: 'اتجاه الرياح',
+      airTemperature: 'حرارة الهواء',
+      waveHeight: 'ارتفاع الموج',
+      currentSpeed: 'سرعة التيار',
+      waterTemperature: 'حرارة الماء',
+      seaLevel: 'مستوى البحر'
+    };
+
+    var CATEGORY_AR = { general: 'عام', weather: 'طقس', marine: 'بحري', fish: 'أسماك' };
+
+    var FRAMEWORK_STATUS_AR = {
+      supported: 'متحقق',
+      mixed: 'مختلط',
+      challenged: 'غير مؤكد',
+      pending: 'قيد الاختبار',
+      unverified: 'غير متحقق'
+    };
+
+    var PILL_STATUS_AR = { matched: 'متحقق', partial: 'تحقق جزئي', failed: 'غير متحقق', unknown: 'غير معروف' };
+
+    if (!STORMGLASS_MONITORING_ENABLED) {
+      document.body.classList.add('no-stormglass');
+    }
+
+    async function loadStations() {
+      var res = await fetch('/api?route=admin&path=stations', { headers: authHeaders() });
+      if (!res.ok) throw new Error('unauthorized_or_failed');
+      var json = await res.json();
+      var rows = Array.isArray(json.stations) ? json.stations : [];
+      var sel = byId('stationSelect');
+      sel.innerHTML = rows.map(function (s) {
+        return '<option value="' + s.id + '">' + (s.name_ar || s.name || s.id) + '</option>';
+      }).join('');
+      var aqir = rows.find(function (s) { return String(s.name_ar || '').indexOf('العقير 02') >= 0; }) || rows[0];
+      if (aqir) sel.value = aqir.id;
+    }
 
     function authHeaders() {
-      const h = { 'Cache-Control': 'no-store' };
+      var h = { 'Cache-Control': 'no-store' };
       if (token) h.Authorization = 'Bearer ' + token;
       return h;
     }
@@ -157,74 +284,155 @@
     }
 
     function setStatus(text, isErr) {
-      const el = byId('status');
+      var el = byId('status');
       el.textContent = text;
       el.className = isErr ? 'danger' : 'muted';
     }
 
-    async function loadStations() {
-      const res = await fetch('/api?route=admin&path=stations', { headers: authHeaders() });
-      if (!res.ok) throw new Error('unauthorized_or_failed');
-      const json = await res.json();
-      const rows = Array.isArray(json.stations) ? json.stations : [];
-      const sel = byId('stationSelect');
-      sel.innerHTML = rows.map((s) => '<option value="' + s.id + '">' + (s.name_ar || s.name || s.id) + '</option>').join('');
-      const aqir = rows.find((s) => String(s.name_ar || '').includes('العقير 02')) || rows[0];
-      if (aqir) sel.value = aqir.id;
+    function filterAnomaliesForDisplay(list) {
+      if (STORMGLASS_MONITORING_ENABLED) return Array.isArray(list) ? list : [];
+      var arr = Array.isArray(list) ? list : [];
+      return arr.filter(function (a) {
+        if (!a) return false;
+        var t = String(a.type || '');
+        if (t === 'stormglass_unavailable') return false;
+        if (t === 'source_mismatch') return false;
+        return true;
+      });
     }
 
-    function drawChart(s) {
-      const c = byId('chart');
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, c.width, c.height);
-      const series = [
-        { name: 'waveHeight', color: '#5ec8ff', v: Number(s && s.stormglass_values && s.stormglass_values.waveHeight || 0) },
-        { name: 'windSpeed', color: '#8bff9f', v: Number(s && s.stormglass_values && s.stormglass_values.windSpeed || 0) },
-        { name: 'currentSpeed', color: '#ffc670', v: Number(s && s.stormglass_values && s.stormglass_values.currentSpeed || 0) },
-        { name: 'seaLevel', color: '#ff94e1', v: Number(s && s.stormglass_values && s.stormglass_values.seaLevel || 0) },
-        { name: 'agreement', color: '#ffffff', v: Number(s && s.source_agreement_score || 0) / 10 }
+    function formatAnomalyLine(a) {
+      if (a.message) return String(a.message);
+      var key = a.metric && METRIC_LABELS[a.metric] ? METRIC_LABELS[a.metric] : String(a.metric || '');
+      if (a.delta != null && key) return key + ': فرق ' + String(a.delta);
+      return String(a.type || 'ملاحظة');
+    }
+
+    function renderTopCards(s) {
+      var parts = [];
+      if (STORMGLASS_MONITORING_ENABLED) {
+        parts.push('<div class="card sg-only"><div class="k">درجة التوافق بين المصادر</div><div class="v">' + fmt(s.source_agreement_score, '%') + '</div></div>');
+      }
+      parts.push('<div class="card"><div class="k">مطابقة سمات الدر (المحرك)</div><div class="v">' + fmt(s.dur_trait_match_score, '%') + '</div></div>');
+      parts.push('<div class="card"><div class="k">سرعة الرياح</div><div class="v">' + fmt(s.open_meteo_values && s.open_meteo_values.windSpeed, 'كم/س') + '</div></div>');
+      parts.push('<div class="card"><div class="k">ارتفاع الموج</div><div class="v">' + fmt(s.open_meteo_values && s.open_meteo_values.waveHeight, 'م') + '</div></div>');
+      parts.push('<div class="card"><div class="k">سرعة التيار</div><div class="v">' + fmt(s.open_meteo_values && s.open_meteo_values.currentSpeed, 'م/ث') + '</div></div>');
+      byId('topCards').innerHTML = parts.join('');
+    }
+
+    function drawChartFromOpenMeteo(s) {
+      var om = s && s.open_meteo_values ? s.open_meteo_values : {};
+      var series = [
+        { label: 'ارتفاع الموج', color: '#5ec8ff', v: Number(om.waveHeight) },
+        { label: 'سرعة الرياح', color: '#8bff9f', v: Number(om.windSpeed) },
+        { label: 'سرعة التيار', color: '#ffc670', v: Number(om.currentSpeed) },
+        { label: 'حرارة الماء', color: '#ff94e1', v: Number(om.waterTemperature != null ? om.waterTemperature : om.airTemperature) }
       ];
-      const max = Math.max(1, ...series.map(x => x.v));
-      const w = c.width - 80;
-      const h = c.height - 60;
-      series.forEach((p, i) => {
-        const x = 50 + (i * (w / series.length)) + 10;
-        const bh = (p.v / max) * h;
+      var hasData = series.some(function (x) { return Number.isFinite(x.v); });
+      var canvas = byId('chart');
+      var ph = byId('chartPlaceholder');
+      if (!hasData) {
+        canvas.hidden = true;
+        ph.style.display = 'flex';
+        ph.textContent = 'لا توجد بيانات كافية للرسم البياني بعد.';
+        return;
+      }
+      ph.style.display = 'none';
+      canvas.hidden = false;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      var max = Math.max(0.01, Math.max.apply(null, series.map(function (x) { return Math.abs(x.v) || 0; })));
+      var w = canvas.width - 70;
+      var h = canvas.height - 50;
+      series.forEach(function (p, i) {
+        var val = Number.isFinite(p.v) ? Math.abs(p.v) : 0;
+        var x = 40 + (i * (w / Math.max(1, series.length))) + 8;
+        var bh = (val / max) * h;
         ctx.fillStyle = p.color;
-        ctx.fillRect(x, c.height - 30 - bh, 80, bh);
+        ctx.fillRect(x, canvas.height - 36 - bh, 72, bh);
         ctx.fillStyle = '#dce9ff';
-        ctx.font = '12px Arial';
-        ctx.fillText(p.name, x, c.height - 10);
+        ctx.font = '11px "Segoe UI",Tahoma,sans-serif';
+        var words = p.label.split(' ');
+        var line = p.label.length > 10 ? p.label.slice(0, 9) + '…' : p.label;
+        ctx.fillText(line, x, canvas.height - 12);
+      });
+    }
+
+    function drawChartStormglass(s) {
+      var sg = s && s.stormglass_values ? s.stormglass_values : {};
+      var series = [
+        { label: 'ارتفاع الموج', color: '#5ec8ff', v: Number(sg.waveHeight) },
+        { label: 'سرعة الرياح', color: '#8bff9f', v: Number(sg.windSpeed) },
+        { label: 'سرعة التيار', color: '#ffc670', v: Number(sg.currentSpeed) },
+        { label: 'مستوى البحر', color: '#ff94e1', v: Number(sg.seaLevel) },
+        { label: 'درجة التوافق', color: '#ffffff', v: Number(s.source_agreement_score || 0) / 10 }
+      ];
+      var hasData = series.some(function (x) { return Number.isFinite(x.v); });
+      var canvas = byId('chart');
+      var ph = byId('chartPlaceholder');
+      if (!hasData) {
+        canvas.hidden = true;
+        ph.style.display = 'flex';
+        ph.textContent = 'لا توجد بيانات كافية للرسم البياني بعد.';
+        return;
+      }
+      ph.style.display = 'none';
+      canvas.hidden = false;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      var max = Math.max(0.01, Math.max.apply(null, series.map(function (x) { return Math.abs(x.v) || 0; })));
+      var w = canvas.width - 70;
+      var h = canvas.height - 50;
+      series.forEach(function (p, i) {
+        var val = Number.isFinite(p.v) ? Math.abs(p.v) : 0;
+        var x = 40 + (i * (w / series.length)) + 8;
+        var bh = (val / max) * h;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(x, canvas.height - 36 - bh, 72, bh);
+        ctx.fillStyle = '#dce9ff';
+        ctx.font = '11px "Segoe UI",Tahoma,sans-serif';
+        ctx.fillText(p.label.slice(0, 10), x, canvas.height - 12);
       });
     }
 
     function renderSnapshot(s) {
       latest = s;
-      byId('agreementScore').textContent = fmt(s.source_agreement_score, '%');
-      byId('traitScore').textContent = fmt(s.dur_trait_match_score, '%');
-      byId('windVal').textContent = fmt(s.open_meteo_values.windSpeed, 'km/h');
-      byId('waveVal').textContent = fmt(s.open_meteo_values.waveHeight, 'm');
-      byId('currentVal').textContent = fmt(s.open_meteo_values.currentSpeed, 'm/s');
+      renderTopCards(s);
+      var om = s.open_meteo_values || {};
+      var keys = ['windSpeed', 'windDirection', 'airTemperature', 'waveHeight', 'currentSpeed', 'waterTemperature'];
+      if (STORMGLASS_MONITORING_ENABLED) keys.push('seaLevel');
+      var head = STORMGLASS_MONITORING_ENABLED
+        ? '<tr><th>المؤشر</th><th>نافيدور / الرصد الحالي</th><th class="sg-only">مرجع خارجي</th></tr>'
+        : '<tr><th>المؤشر</th><th>نافيدور / الرصد الحالي</th></tr>';
+      byId('cmpHead').innerHTML = head;
+      byId('cmpBody').innerHTML = keys.map(function (k) {
+        var lab = METRIC_LABELS[k] || k;
+        var o = om[k];
+        var g = STORMGLASS_MONITORING_ENABLED && s.stormglass_values ? s.stormglass_values[k] : null;
+        var u = k === 'windSpeed' ? 'كم/س' : (k === 'waveHeight' || k === 'currentSpeed' ? 'م/ث' : (k === 'seaLevel' ? 'م' : '°م'));
+        if (k === 'windDirection') u = '°';
+        var row = '<tr><td>' + lab + '</td><td>' + fmt(o, k === 'windSpeed' ? 'كم/س' : (k === 'windDirection' ? '°' : (k === 'airTemperature' || k === 'waterTemperature' ? '°م' : (k === 'waveHeight' ? 'م' : (k === 'currentSpeed' ? 'م/ث' : (k === 'seaLevel' ? 'م' : ''))))) + '</td>';
+        if (STORMGLASS_MONITORING_ENABLED) {
+          row += '<td class="sg-only">' + fmt(g, u) + '</td>';
+        }
+        return row + '</tr>';
+      }).join('');
 
-      const anomalies = Array.isArray(s.anomalies) ? s.anomalies : [];
-      byId('anomaliesList').innerHTML = anomalies.map((a) => '<li>' + (a.message || (a.metric + ': ' + (a.delta || ''))) + '</li>').join('');
+      var anomalies = filterAnomaliesForDisplay(s.anomalies);
+      byId('anomaliesList').innerHTML = anomalies.length
+        ? anomalies.map(function (a) { return '<li>' + formatAnomalyLine(a) + '</li>'; }).join('')
+        : '<li class="muted">لا توجد ملاحظات غير معتادة في الرصد الحالي.</li>';
 
-      const rows = [
-        ['windSpeed', s.open_meteo_values.windSpeed, s.stormglass_values.windSpeed],
-        ['windDirection', s.open_meteo_values.windDirection, s.stormglass_values.windDirection],
-        ['airTemperature', s.open_meteo_values.airTemperature, s.stormglass_values.airTemperature],
-        ['waveHeight', s.open_meteo_values.waveHeight, s.stormglass_values.waveHeight],
-        ['currentSpeed', s.open_meteo_values.currentSpeed, s.stormglass_values.currentSpeed],
-        ['waterTemperature', s.open_meteo_values.waterTemperature, s.stormglass_values.waterTemperature],
-        ['seaLevel', null, s.stormglass_values.seaLevel]
-      ];
-      byId('cmpBody').innerHTML = rows.map((r) => '<tr><td>' + r[0] + '</td><td>' + fmt(r[1]) + '</td><td>' + fmt(r[2]) + '</td></tr>').join('');
-      drawChart(s);
-
-      if (s.validation_status === 'stormglass_unavailable') {
-        setStatus('Stormglass غير متاح، تم عرض بيانات NAVIDUR/Open-Meteo فقط.', true);
+      if (STORMGLASS_MONITORING_ENABLED) {
+        drawChartStormglass(s);
       } else {
-        setStatus('تم التحديث بنجاح: ' + (s.generated_at || ''), false);
+        drawChartFromOpenMeteo(s);
+      }
+
+      if (STORMGLASS_MONITORING_ENABLED && s.validation_status === 'stormglass_unavailable') {
+        setStatus('تعذر جلب جزء من بيانات المقارنة الخارجية؛ يُعرض الرصد الحالي فقط.', true);
+      } else {
+        setStatus('تم التحديث: ' + (s.generated_at || ''), false);
       }
     }
 
@@ -235,131 +443,249 @@
       return 'unknown';
     }
 
+    function pillGroupTitle(arTitle) { return arTitle; }
+
     function renderTraitPills(title, list) {
       if (!list || !list.length) return '';
-      return '<div style="margin:6px 0"><span class="muted">' + title + ': </span>' +
+      return '<div style="margin:8px 0"><span class="muted">' + title + ': </span>' +
         list.map(function (x) {
           return '<span class="pill ' + pillClass(x.status) + '">' + (x.trait_name || '') + '</span>';
         }).join('') + '</div>';
     }
 
+    function mapCategory(cat) {
+      var c = String(cat || '').toLowerCase();
+      return CATEGORY_AR[c] || (cat ? String(cat) : '—');
+    }
+
+    function mapFrameworkStatus(st) {
+      var k = String(st || '').toLowerCase();
+      return FRAMEWORK_STATUS_AR[k] || 'قيد الاختبار';
+    }
+
+    function renderTraitCards(traits, stationNameAr) {
+      if (!traits.length) {
+        return '<p class="muted">لا توجد سمات في الإطار لهذا الدر بعد. استخدم «تحديث بيانات الدر» لتهيئة الإطار من المرجع.</p>';
+      }
+      return traits.map(function (t) {
+        var name = String(t.trait_name || '—');
+        var cat = mapCategory(t.trait_category);
+        var st = mapFrameworkStatus(t.validation_status || t.status);
+        var rate = t.match_rate != null ? t.match_rate + '%' : '—';
+        var ev = t.evidence_count != null ? String(t.evidence_count) : '0';
+        return '<div class="trait-card">' +
+          '<p><strong>السمة:</strong> ' + name + '</p>' +
+          '<p><strong>التصنيف:</strong> ' + cat + '</p>' +
+          '<p><strong>الحالة:</strong> ' + st + '</p>' +
+          '<p><strong>نسبة المطابقة:</strong> ' + rate + '</p>' +
+          '<p><strong>الشواهد:</strong> ' + ev + '</p>' +
+          '</div>';
+      }).join('');
+    }
+
+    function buildRegionalNarrative(b, prev, stationNameAr) {
+      var lines = [];
+      var stName = stationNameAr || (b.station && (b.station.name_ar || b.station.name)) || 'المحطة المختارة';
+      if (b.insufficient_years_message) {
+        lines.push('لا توجد بيانات تاريخية كافية لاستخلاص فروقات إقليمية بعد.');
+        return lines;
+      }
+      var matched = (prev.matched_traits || []).map(function (x) { return x.trait_name; });
+      var partial = (prev.partial_traits || []).map(function (x) { return x.trait_name; });
+      var failed = (prev.failed_traits || []).map(function (x) { return x.trait_name; });
+      var pendingTraits = (b.framework_traits || []).filter(function (t) {
+        var vs = String(t.validation_status || t.status || '');
+        return (vs === 'pending' || vs === 'unverified') && (!t.evidence_count || t.evidence_count === 0);
+      });
+      pendingTraits.slice(0, 4).forEach(function (t) {
+        if (partial.indexOf(t.trait_name) < 0 && matched.indexOf(t.trait_name) < 0) {
+          lines.push('سمة «' + t.trait_name + '» لم تثبت بعد في ' + stName + '.');
+        }
+      });
+      partial.forEach(function (name) {
+        lines.push('سمة «' + name + '» ظهرت جزئيًا في الرصد الحالي.');
+      });
+      failed.slice(0, 3).forEach(function (name) {
+        lines.push('سمة «' + name + '» لا تتماشى مع الرصد الحالي بشكل واضح؛ تتطلب مزيد شواهد.');
+      });
+      if (!lines.length) {
+        lines.push('لا توجد بيانات كافية للحكم على اختلاف المنطقة بعد.');
+      }
+      return lines;
+    }
+
+    function buildTraitValidationNarrative(prev, totalTraits) {
+      var m = (prev.matched_traits || []).length;
+      var p = (prev.partial_traits || []).length;
+      var f = (prev.failed_traits || []).length;
+      var u = (prev.unknown_traits || []).length;
+      var tot = totalTraits > 0 ? totalTraits : (m + p + f + u);
+      var score = prev.trait_match_score != null ? prev.trait_match_score : 0;
+      var stats = 'عدد السمات المتحققة: ' + m + ' — التحقق الجزئي: ' + p + ' — غير المتحققة: ' + f + ' — غير المعروفة: ' + u + ' — نسبة التطابق العامة: ' + score + '%';
+      var ar = 'تطابق الرصد الحالي مع ' + m + ' من أصل ' + tot + ' سمة. درجة التحقق الحالية: ' + score + '%.';
+      if (score < 45) {
+        ar += ' معظم السمات ما زالت تحت الاختبار وتحتاج تراكمًا زمنيًا.';
+      } else if (score < 70) {
+        ar += ' هناك تقدم في التحقق؛ يُنصح بمواصلة التسجيل الموسمي.';
+      } else {
+        ar += ' التطابق جيد نسبيًا لهذه الجولة؛ يُستحسن تأكيده بمزيد من السنوات.';
+      }
+      return { stats: stats, summary: ar };
+    }
+
+    function yearStats(arr) {
+      if (!arr || !arr.length) return null;
+      var scores = arr.map(function (x) { return Number(x.trait_match_score); }).filter(function (n) { return !isNaN(n); });
+      if (!scores.length) return null;
+      var sum = scores.reduce(function (a, b) { return a + b; }, 0);
+      return {
+        count: arr.length,
+        avg: Math.round(sum / scores.length),
+        max: Math.max.apply(null, scores),
+        min: Math.min.apply(null, scores)
+      };
+    }
+
     function renderSeasonalBundle(b) {
       latestBundle = b;
-      const durName = b.dur_name_ar || '—';
-      const durId = b.dur_id || '—';
-      byId('durHeaderLine').textContent = 'الدر: ' + durName + ' — المعرف: ' + durId + ' — المنطقة: ' + (b.station && b.station.region ? b.station.region : '—');
+      var durName = b.dur_name_ar || '—';
+      var durId = b.dur_id || '—';
+      var reg = b.station && b.station.region ? b.station.region : '—';
+      byId('durHeaderLine').textContent = 'الدر: «' + durName + '» — رمز الدر في النظام: ' + durId + ' — المنطقة المسجّلة: ' + reg;
 
-      const traits = Array.isArray(b.framework_traits) ? b.framework_traits : [];
-      byId('durTraitsBody').innerHTML = traits.length ? traits.map(function (t) {
-        return '<tr><td>' + (t.trait_name || '') + '</td><td>' + (t.trait_category || '') + '</td><td>' +
-          (t.validation_status || t.status || '') + '</td><td>' + (t.match_rate != null ? t.match_rate + '%' : '—') + '</td><td>' +
-          (t.evidence_count != null ? t.evidence_count : '0') + '</td></tr>';
-      }).join('') : '<tr><td colspan="5">لا توجد سمات في الإطار لهذا الدر بعد — استخدم زر تحديث بيانات الدر لتهيئة الإطار من المرجع.</td></tr>';
+      var traits = Array.isArray(b.framework_traits) ? b.framework_traits : [];
+      var stName = b.station && (b.station.name_ar || b.station.name) ? String(b.station.name_ar || b.station.name) : '';
+      byId('durTraitsCards').innerHTML = renderTraitCards(traits, stName);
 
-      const prev = b.seasonal_match_preview || {};
-      byId('traitValidationSummary').textContent = prev.summary_ar || '—';
-      let pillsHtml = '';
-      pillsHtml += renderTraitPills('مطابقة', prev.matched_traits);
-      pillsHtml += renderTraitPills('جزئية', prev.partial_traits);
-      pillsHtml += renderTraitPills('غير مطابقة', prev.failed_traits);
-      pillsHtml += renderTraitPills('غير محددة', prev.unknown_traits);
+      var prev = b.seasonal_match_preview || {};
+      var narr = buildTraitValidationNarrative(prev, traits.length);
+      byId('traitValidationStats').textContent = narr.stats;
+      byId('traitValidationSummary').textContent = narr.summary;
+
+      var pillsHtml = '';
+      pillsHtml += renderTraitPills(pillGroupTitle('متحقق'), prev.matched_traits);
+      pillsHtml += renderTraitPills(pillGroupTitle('تحقق جزئي'), prev.partial_traits);
+      pillsHtml += renderTraitPills(pillGroupTitle('غير متحقق'), prev.failed_traits);
+      pillsHtml += renderTraitPills(pillGroupTitle('غير معروف'), prev.unknown_traits);
       byId('traitPills').innerHTML = pillsHtml || '<span class="muted">—</span>';
 
-      const sa = Array.isArray(prev.anomalies) ? prev.anomalies : [];
-      byId('seasonalAnomalies').innerHTML = sa.length ? sa.map(function (a) {
-        return '<li>' + (a.message_ar || a.type || '') + '</li>';
-      }).join('') : '<li class="muted">لا شيء</li>';
+      var sa = Array.isArray(prev.anomalies) ? prev.anomalies : [];
+      byId('seasonalAnomalies').innerHTML = sa.length
+        ? sa.map(function (a) { return '<li>' + (a.message_ar || '') + '</li>'; }).join('')
+        : '<li class="muted">لا توجد ملاحظات إضافية.</li>';
 
-      byId('seasonalMatchPreview').textContent = prev.trait_match_score != null ? prev.trait_match_score + '%' : '—';
+      var yNow = new Date().getUTCFullYear();
+      var curLog = Array.isArray(b.current_year_log) ? b.current_year_log : [];
+      var lastSaved = curLog[0];
+      var avgYear = yearStats(curLog);
+      var yc = b.year_comparison || {};
+      var prevPool = [];
+      [2026, 2027, 2028].forEach(function (y) {
+        if (y >= yNow) return;
+        (yc[String(y)] || []).forEach(function (e) { prevPool.push(e); });
+      });
+      var prevSt = yearStats(prevPool);
+      var prevAvg = prevSt ? prevSt.avg : null;
 
-      const yc = b.year_comparison || {};
-      const yNow = new Date().getUTCFullYear();
-      const curLog = Array.isArray(b.current_year_log) ? b.current_year_log : [];
-      const lastSaved = curLog[0];
-      byId('lastSavedMatch').textContent = lastSaved && lastSaved.trait_match_score != null ? lastSaved.trait_match_score + '%' : '—';
+      var matchHtml = '';
+      matchHtml += '<div class="card"><div class="k">نسبة اليوم</div><div class="v">' + (prev.trait_match_score != null ? prev.trait_match_score + '%' : '—') + '</div></div>';
+      matchHtml += '<div class="card"><div class="k">آخر متوسط محفوظ</div><div class="v">' + (lastSaved && lastSaved.trait_match_score != null ? lastSaved.trait_match_score + '%' : '—') + '</div></div>';
+      matchHtml += '<div class="card"><div class="k">متوسط السنة الحالية</div><div class="v">' + (avgYear ? avgYear.avg + '%' : '—') + '</div></div>';
+      if (prevAvg != null) {
+        matchHtml += '<div class="card"><div class="k">تطابق السنوات السابقة</div><div class="v">' + prevAvg + '%</div></div>';
+      } else {
+        matchHtml += '<div class="card"><div class="k">تطابق السنوات السابقة</div><div class="v muted" style="font-size:0.95rem;font-weight:400">لا توجد بيانات تاريخية كافية بعد.</div></div>';
+      }
+      byId('matchCards').innerHTML = matchHtml;
 
-      byId('engineTraitRef').textContent = latest && latest.dur_trait_match_score != null ? latest.dur_trait_match_score + '%' : '—';
+      byId('yearLogBody').innerHTML = curLog.length
+        ? curLog.map(function (r) {
+          var sum = (r.matched_traits ? r.matched_traits.length : 0) + ' متحقق، ' + (r.failed_traits ? r.failed_traits.length : 0) + ' غير متحقق';
+          return '<tr><td>' + (r.date || '—') + '</td><td>' + (r.station_name_ar || '—') + '</td><td>' + (r.dur_name_ar || '—') + '</td><td>' +
+            (r.trait_match_score != null ? r.trait_match_score + '%' : '—') + '</td><td>' + sum + '</td></tr>';
+        }).join('')
+        : '<tr><td colspan="5" class="muted">لا سجلات لهذه السنة بعد. اضغط «تحديث بيانات الدر» لتسجيل أول تحقق.</td></tr>';
 
-      byId('yearLogBody').innerHTML = curLog.length ? curLog.map(function (r) {
-        return '<tr><td>' + (r.date || '') + '</td><td>' + (r.trait_match_score != null ? r.trait_match_score + '%' : '—') + '</td><td>' +
-          (r.matched_traits ? r.matched_traits.length : 0) + ' مطابقة / ' + (r.failed_traits ? r.failed_traits.length : 0) + ' غير مطابقة</td></tr>';
-      }).join('') : '<tr><td colspan="3" class="muted">لا سجلات لهذه السنة بعد. اضغط «تحديث بيانات الدر» لتسجيل أول تحقق.</td></tr>';
+      byId('yearCompareHint').textContent = b.insufficient_years_message
+        ? b.insufficient_years_message
+        : ('عدد السجلات في نافذة نفس اليوم والشهر: ' + (b.history_count_for_window || 0));
 
-      byId('yearCompareHint').textContent = b.insufficient_years_message || ('سجلات في نافذة نفس اليوم والشهر: ' + (b.history_count_for_window || 0));
-
-      const years = [2026, 2027, 2028];
+      var years = [2026, 2027, 2028];
       byId('yearCompareGrid').innerHTML = years.map(function (y) {
-        const arr = Array.isArray(yc[String(y)]) ? yc[String(y)] : [];
-        const avg = arr.length ? Math.round(arr.reduce(function (s, x) {
-          return s + (Number(x.trait_match_score) || 0);
-        }, 0) / arr.length) : null;
-        return '<div class="year-box"><strong>' + y + '</strong><div class="muted" style="margin-top:6px">عدد السجلات: ' + arr.length + '</div>' +
-          (avg != null ? '<div class="ok" style="margin-top:6px">متوسط التطابق: ' + avg + '%</div>' : '<div class="muted" style="margin-top:6px">لا بيانات</div>') + '</div>';
+        var arr = Array.isArray(yc[String(y)]) ? yc[String(y)] : [];
+        var st = yearStats(arr);
+        if (!st) {
+          return '<div class="year-box"><strong>' + y + '</strong><p class="muted" style="margin:8px 0 0">لا توجد بيانات بعد.</p></div>';
+        }
+        return '<div class="year-box"><strong>' + y + '</strong>' +
+          '<p class="muted" style="margin:8px 0 4px">عدد السجلات: ' + st.count + '</p>' +
+          '<p>متوسط التحقق: ' + st.avg + '%</p>' +
+          '<p>أعلى تحقق: ' + st.max + '%</p>' +
+          '<p>أقل تحقق: ' + st.min + '%</p>' +
+          '</div>';
       }).join('');
 
-      const conf = b.confidence_preview || {};
-      const keys = [
+      var conf = b.confidence_preview || {};
+      var keys = [
         ['source_confidence', 'ثقة المصدر'],
         ['dur_confidence', 'ثقة الدر'],
         ['trait_confidence', 'ثقة السمات'],
-        ['environmental_confidence', 'ثقة البيئة الرقمية'],
+        ['environmental_confidence', 'ثقة البيئة'],
         ['validation_confidence', 'ثقة التحقق']
       ];
       byId('confidenceGrid').innerHTML = keys.map(function (kv) {
-        const val = conf[kv[0]];
-        return '<div class="conf-item"><div class="k">' + kv[1] + '</div><div class="v" style="font-size:20px">' + (val != null ? val : '—') + '</div></div>';
+        var val = conf[kv[0]];
+        return '<div class="conf-item"><div class="k">' + kv[1] + '</div><div class="v" style="font-size:1.1rem">' + (val != null ? val : '—') + '</div></div>';
       }).join('');
 
-      const reg = Array.isArray(b.regional_trait_context) ? b.regional_trait_context : [];
-      byId('regionalList').innerHTML = reg.length ? reg.map(function (r) {
-        return '<li><strong>' + (r.trait_name || '') + '</strong>: ' + JSON.stringify(r.regional_variation || {}) + '</li>';
-      }).join('') : '<li class="muted">لا توجد حقول إقليمية مذكورة في الإطار.</li>';
+      var regLines = buildRegionalNarrative(b, prev, stName);
+      byId('regionalList').innerHTML = regLines.map(function (line) { return '<li>' + line + '</li>'; }).join('');
     }
 
     async function loadSeasonalBundle() {
-      const stationId = byId('stationSelect').value;
-      const date = byId('dateInput').value;
+      var stationId = byId('stationSelect').value;
+      var date = byId('dateInput').value;
       if (!stationId || !date) return;
-      const url = '/api?route=admin&path=monitoring-seasonal-bundle&station_id=' + encodeURIComponent(stationId) + '&date=' + encodeURIComponent(date) + '&source=sg';
-      const res = await fetch(url, { headers: authHeaders() });
+      var url = '/api?route=admin&path=monitoring-seasonal-bundle&station_id=' + encodeURIComponent(stationId) + '&date=' + encodeURIComponent(date) + '&source=sg';
+      var res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) throw new Error('seasonal_bundle_' + res.status);
-      const json = await res.json();
+      var json = await res.json();
       renderSeasonalBundle(json);
     }
 
     async function refresh() {
-      const stationId = byId('stationSelect').value;
-      const date = byId('dateInput').value;
+      var stationId = byId('stationSelect').value;
+      var date = byId('dateInput').value;
       if (!stationId || !date) return;
       setStatus('جاري التحديث...', false);
-      const url = '/api?route=admin&path=monitoring-snapshot&station_id=' + encodeURIComponent(stationId) + '&date=' + encodeURIComponent(date) + '&source=sg';
-      const res = await fetch(url, { headers: authHeaders() });
+      var url = '/api?route=admin&path=monitoring-snapshot&station_id=' + encodeURIComponent(stationId) + '&date=' + encodeURIComponent(date) + '&source=sg';
+      var res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) throw new Error('admin_required');
         throw new Error('snapshot_failed_' + res.status);
       }
-      const json = await res.json();
+      var json = await res.json();
       renderSnapshot(json);
       await loadSeasonalBundle();
     }
 
     async function updateDurData() {
-      const stationId = byId('stationSelect').value;
-      const date = byId('dateInput').value;
+      var stationId = byId('stationSelect').value;
+      var date = byId('dateInput').value;
       if (!stationId || !date) return;
-      const btn = byId('updateDurBtn');
-      const st = byId('durBtnStatus');
+      var btn = byId('updateDurBtn');
+      var st = byId('durBtnStatus');
       btn.disabled = true;
       st.textContent = 'جاري الحفظ...';
       try {
-        const res = await fetch('/api?route=admin&path=monitoring-seasonal-validation', {
+        var res = await fetch('/api?route=admin&path=monitoring-seasonal-validation', {
           method: 'POST',
           headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
           body: JSON.stringify({ station_id: stationId, date: date, source: 'sg' })
         });
         if (!res.ok) throw new Error('save_' + res.status);
-        const json = await res.json();
-        st.textContent = 'تم الحفظ: ' + (json.summary_ar || '') + ' — درجة التطابق ' + (json.trait_match_score != null ? json.trait_match_score + '%' : '');
+        var json = await res.json();
+        st.textContent = 'تم الحفظ. درجة التطابق: ' + (json.trait_match_score != null ? json.trait_match_score + '%' : '—');
         await loadSeasonalBundle();
       } catch (e) {
         st.textContent = 'فشل: ' + (e && e.message ? e.message : e);
@@ -369,11 +695,9 @@
     }
 
     byId('refreshBtn').addEventListener('click', function () {
-      refresh().catch((e) => setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true));
+      refresh().catch(function (e) { setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true); });
     });
-    byId('updateDurBtn').addEventListener('click', function () {
-      updateDurData();
-    });
+    byId('updateDurBtn').addEventListener('click', function () { updateDurData(); });
 
     (async function init() {
       byId('dateInput').value = new Date().toISOString().slice(0, 10);
