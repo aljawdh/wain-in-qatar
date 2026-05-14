@@ -255,8 +255,9 @@
 
     var PILL_STATUS_AR = { matched: 'متحقق', partial: 'تحقق جزئي', failed: 'غير متحقق', unknown: 'غير معروف' };
 
-    var MONITORING_STATIONS_URL = '/api?route=admin&path=stations';
-    var MONITORING_STATIONS_FALLBACK_URL = '/api/admin/stations';
+    /** نفس مسار لوحة الإدارة؛ عند 401 لا يُعتمد على /api/admin/stations (يحتاج JWT أيضًا). */
+    var MONITORING_STATIONS_ADMIN_URL = '/api?route=admin&path=stations';
+    var MONITORING_STATIONS_PUBLIC_URLS = ['/api/stations', '/api?route=stations'];
 
     if (!STORMGLASS_MONITORING_ENABLED) {
       document.body.classList.add('no-stormglass');
@@ -277,26 +278,71 @@
       });
     }
 
+    function normalizeStationsPayload(json) {
+      if (json == null) return [];
+      if (typeof json === 'string') {
+        try {
+          json = JSON.parse(json);
+        } catch (_e) {
+          return [];
+        }
+      }
+      if (Array.isArray(json)) return json;
+      if (Array.isArray(json.stations)) return json.stations;
+      if (json.data != null) {
+        if (Array.isArray(json.data)) return json.data;
+        if (json.data && Array.isArray(json.data.stations)) return json.data.stations;
+      }
+      if (json.result && Array.isArray(json.result.stations)) return json.result.stations;
+      if (json.payload && Array.isArray(json.payload.stations)) return json.payload.stations;
+      if (json.stations && typeof json.stations === 'object' && !Array.isArray(json.stations)) {
+        return Object.keys(json.stations)
+          .map(function (k) {
+            return json.stations[k];
+          })
+          .filter(Boolean);
+      }
+      return [];
+    }
+
+    function stationRecordId(s) {
+      if (!s || typeof s !== 'object') return null;
+      if (s.id != null && String(s.id).trim() !== '') return String(s.id).trim();
+      if (s._id != null && String(s._id).trim() !== '') return String(s._id).trim();
+      return null;
+    }
+
+    function stationRecordLabel(s, id) {
+      var name = String((s && (s.name_ar || s.name)) || '').trim();
+      if (name) return name;
+      if (s && s.lat != null && (s.lon != null || s.lng != null)) {
+        return id + ' — ' + String(s.lat) + ',' + String(s.lon != null ? s.lon : s.lng);
+      }
+      return id;
+    }
+
     function fillStationSelectFromRows(rows) {
       var sel = byId('stationSelect');
       if (!sel) return false;
       sel.innerHTML = '';
       var list = Array.isArray(rows) ? rows : [];
       var valid = list.filter(function (s) {
-        return s && s.id != null && String(s.id).trim() !== '';
+        return stationRecordId(s) != null;
       });
       if (!valid.length) {
         var errOpt = document.createElement('option');
         errOpt.value = '';
-        errOpt.textContent = 'تعذر تحميل قائمة المحطات';
+        errOpt.textContent = 'تعذر تحميل المحطات — راجع Console';
         sel.appendChild(errOpt);
         console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'empty_list', count: 0 });
+        console.log('MONITORING_OPTIONS_AFTER_FILL', sel.options.length);
         return false;
       }
       valid.forEach(function (s) {
+        var sid = stationRecordId(s);
         var opt = document.createElement('option');
-        opt.value = String(s.id);
-        opt.textContent = String(s.name_ar || s.name || s.id);
+        opt.value = sid;
+        opt.textContent = stationRecordLabel(s, sid);
         sel.appendChild(opt);
       });
       var prefer =
@@ -314,50 +360,75 @@
           return String(s.name_ar || s.name || '').indexOf('الوكرة') >= 0;
         }) ||
         valid[0];
-      sel.value = String(prefer.id);
+      var preferId = stationRecordId(prefer);
+      sel.value = String(preferId);
+      console.log('MONITORING_OPTIONS_AFTER_FILL', sel.options.length);
       console.info('NAVIDUR_MONITORING_STATIONS_LOADED', {
         count: valid.length,
-        selected_id: String(prefer.id),
-        selected_label: String(prefer.name_ar || prefer.name || prefer.id)
+        selected_id: String(preferId),
+        selected_label: stationRecordLabel(prefer, preferId)
       });
       return true;
     }
 
     async function loadStations() {
-      var sel = byId('stationSelect');
-      if (!sel) {
+      var dup = document.querySelectorAll('#stationSelect').length;
+      if (dup !== 1) {
+        console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'unexpected_station_select_count', count: dup });
+      }
+      var stationSelect = byId('stationSelect');
+      console.log('MONITORING_SELECT_FOUND', !!stationSelect, stationSelect && stationSelect.id);
+      if (!stationSelect) {
         console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'missing_select' });
         return false;
       }
-      var urls = [MONITORING_STATIONS_URL, MONITORING_STATIONS_FALLBACK_URL];
+      var attempts = [{ url: MONITORING_STATIONS_ADMIN_URL, useAdminAuth: true }].concat(
+        MONITORING_STATIONS_PUBLIC_URLS.map(function (u) {
+          return { url: u, useAdminAuth: false };
+        })
+      );
       var lastStatus = null;
-      for (var ui = 0; ui < urls.length; ui += 1) {
+      var lastUrl = null;
+      for (var ui = 0; ui < attempts.length; ui += 1) {
+        var spec = attempts[ui];
+        lastUrl = spec.url;
         try {
-          var res = await fetchMonitoringJson(urls[ui]);
+          var headers = { 'Cache-Control': 'no-store' };
+          if (spec.useAdminAuth && token) headers.Authorization = 'Bearer ' + token;
+          var res = await fetch(spec.url, {
+            method: 'GET',
+            headers: headers,
+            credentials: 'include',
+            cache: 'no-store'
+          });
           lastStatus = res.status;
           if (!res.ok) continue;
           var json = await res.json();
-          var rows = Array.isArray(json.stations)
-            ? json.stations
-            : Array.isArray(json.data && json.data.stations)
-              ? json.data.stations
-              : Array.isArray(json)
-                ? json
-                : [];
+          if (typeof json === 'string') {
+            try {
+              json = JSON.parse(json);
+            } catch (_e2) {
+              continue;
+            }
+          }
+          var rows = normalizeStationsPayload(json);
+          console.log('MONITORING_STATIONS_RAW', rows.length, rows.slice(0, 3));
           if (fillStationSelectFromRows(rows)) {
+            console.info('NAVIDUR_MONITORING_STATIONS_SOURCE', { url: spec.url, http: res.status, rows: rows.length });
             return true;
           }
         } catch (err) {
           lastStatus = lastStatus || 'exception';
-          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { url: urls[ui], detail: String(err && err.message ? err.message : err) });
+          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { url: spec.url, detail: String(err && err.message ? err.message : err) });
         }
       }
-      sel.innerHTML = '';
+      stationSelect.innerHTML = '';
       var failOpt = document.createElement('option');
       failOpt.value = '';
-      failOpt.textContent = 'تعذر تحميل قائمة المحطات';
-      sel.appendChild(failOpt);
-      console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { last_http_status: lastStatus });
+      failOpt.textContent = 'تعذر تحميل المحطات — راجع Console';
+      stationSelect.appendChild(failOpt);
+      console.log('MONITORING_OPTIONS_AFTER_FILL', stationSelect.options.length);
+      console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { last_http_status: lastStatus, last_url: lastUrl });
       return false;
     }
 
@@ -779,39 +850,47 @@
       }
     }
 
-    byId('refreshBtn').addEventListener('click', function () {
-      refresh().catch(function (e) { setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true); });
-    });
-    byId('updateDurBtn').addEventListener('click', function () { updateDurData(); });
-    byId('stationSelect').addEventListener('change', function () {
-      var sel = byId('stationSelect');
-      console.info('NAVIDUR_MONITORING_SELECTED_STATION', {
-        station_id: sel.value,
-        label: sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : ''
+    function startMonitoringPage() {
+      byId('refreshBtn').addEventListener('click', function () {
+        refresh().catch(function (e) { setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true); });
       });
-    });
+      byId('updateDurBtn').addEventListener('click', function () { updateDurData(); });
+      byId('stationSelect').addEventListener('change', function () {
+        var sel = byId('stationSelect');
+        console.info('NAVIDUR_MONITORING_SELECTED_STATION', {
+          station_id: sel.value,
+          label: sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : ''
+        });
+      });
 
-    (async function init() {
-      byId('dateInput').value = new Date().toISOString().slice(0, 10);
-      var loaded = false;
-      try {
-        loaded = await loadStations();
-      } catch (e) {
-        console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'throw', detail: String(e && e.message ? e.message : e) });
-      }
-      if (!loaded) {
-        setStatus('تعذر تحميل قائمة المحطات', true);
-      }
-      try {
-        await refresh();
-      } catch (e2) {
-        if (!loaded) {
-          setStatus('تعذر تحميل قائمة المحطات — تحقق من تسجيل الدخول كمسؤول.', true);
-        } else {
-          setStatus('فشل تحديث الرصد: ' + (e2 && e2.message ? e2.message : e2), true);
+      (async function init() {
+        byId('dateInput').value = new Date().toISOString().slice(0, 10);
+        var loaded = false;
+        try {
+          loaded = await loadStations();
+        } catch (e) {
+          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'throw', detail: String(e && e.message ? e.message : e) });
         }
-      }
-    })();
+        if (!loaded) {
+          setStatus('تعذر تحميل قائمة المحطات — راجع Console', true);
+        }
+        try {
+          await refresh();
+        } catch (e2) {
+          if (!loaded) {
+            setStatus('تعذر تحميل قائمة المحطات — راجع Console', true);
+          } else {
+            setStatus('فشل تحديث الرصد: ' + (e2 && e2.message ? e2.message : e2), true);
+          }
+        }
+      })();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startMonitoringPage);
+    } else {
+      startMonitoringPage();
+    }
   </script>
 </body>
 </html>
