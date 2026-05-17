@@ -91,6 +91,15 @@ function keys() {
     },
     refRotation: function () {
       return INTEL_PREFIX + 'ref_rotation';
+    },
+    config: function () {
+      return INTEL_PREFIX + 'config';
+    },
+    cronAllowlist: function () {
+      return INTEL_PREFIX + 'cron_station_allowlist';
+    },
+    cronState: function () {
+      return INTEL_PREFIX + 'cron_state';
     }
   };
 }

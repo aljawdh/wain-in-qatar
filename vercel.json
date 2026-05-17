@@ -8,8 +8,8 @@
   "crons": [
     { "path": "/api/run-snapshots", "schedule": "0 0 * * *" },
     {
-      "path": "/api?route=run-intelligence-memory&reference_only=1&limit=1",
-      "schedule": "0 2 * * *"
+      "path": "/api?route=run-intelligence-memory&cron=1",
+      "schedule": "0 * * * *"
     }
   ],
   "redirects": [
@@ -17,6 +17,7 @@
     { "source": "/admin", "destination": "/admin.html", "permanent": false },
     { "source": "/admin/monitoring", "destination": "/admin/monitoring/index.html", "permanent": false },
     { "source": "/admin/intelligence", "destination": "/admin/intelligence/index.html", "permanent": false },
+    { "source": "/admin/intelligence/cron", "destination": "/admin/intelligence/cron.html", "permanent": false },
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [

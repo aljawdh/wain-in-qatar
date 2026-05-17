@@ -3,6 +3,7 @@
 var { setNoCache, isAllowedOrigin, parseBody, rateLimit, cleanString } = require('./_lib/security');
 var memory = require('./_lib/navidur-intelligence-memory');
 var guards = require('./_lib/navidur-intelligence-memory/guards');
+var cronConfig = require('./_lib/navidur-intelligence-memory/cron-config');
 
 async function handleRun(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -18,7 +19,27 @@ async function handleRun(req, res) {
 
   try {
     var body = req.method === 'POST' ? parseBody(req) : {};
-    var options = guards.parseRunOptions(req.query || {}, body);
+    var query = req.query || {};
+    var isCron = cronConfig.isCronRequest(query);
+    var options;
+
+    if (isCron && auth.mode === 'cron') {
+      var config = await cronConfig.getConfig();
+      if (!config.enabled) {
+        return res.status(200).json({
+          ok: true,
+          skipped: true,
+          reason: 'intelligence_cron_disabled',
+          config_enabled: false,
+          config_key: cronConfig.CONFIG_KEY
+        });
+      }
+      options = cronConfig.optionsFromConfig(config, {});
+      options.config_driven = true;
+    } else {
+      options = guards.parseRunOptions(query, body);
+    }
+
     if (!guards.assertWritableRun(options, res)) return;
     var result = await memory.runHourlyMemory(options);
     if (result && result.ok === false) {

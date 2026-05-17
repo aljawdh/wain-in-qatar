@@ -82,67 +82,123 @@ function parseRunOptions(query, body) {
   };
 }
 
+function applyExcludeList(stations, excludeIds) {
+  if (!excludeIds || !excludeIds.length) return stations;
+  var exclude = {};
+  excludeIds.forEach(function (id) {
+    exclude[String(id)] = true;
+  });
+  return stations.filter(function (s) {
+    return !exclude[String(s.id)];
+  });
+}
+
 async function selectEligibleStations(referenceData, options) {
   var refStations = require('./reference-stations');
+  var cronConfig = require('./cron-config');
+  var store = require('./store');
   var opts = options || {};
   var isEligible = preview.isPreviewEligibleStation;
+  var referenceTotal = refStations.listEligibleReferenceStations(referenceData, isEligible).length;
 
-  if (opts.reference_only) {
-    var references = refStations.listEligibleReferenceStations(referenceData, isEligible);
-    var referenceTotal = references.length;
-    var selectedIndex = null;
-    var strategy = 'reference_rotation';
-    var stations = [];
+  var pool;
+  var strategy = 'reference_rotation';
 
-    if (opts.station_id) {
-      stations = references.filter(function (s) {
-        return String(s.id) === opts.station_id;
+  if (opts.config_driven) {
+    pool = cronConfig.buildStationPool(referenceData, {
+      reference_only: opts.reference_only,
+      exclude_station_ids: opts.exclude_station_ids || [],
+      selected_station_ids: opts.selected_station_ids || [],
+      run_only_selected: opts.run_only_selected
+    }, isEligible);
+    strategy = opts.run_only_selected ? 'selected_rotation' : (opts.reference_only ? 'reference_rotation' : 'pool_rotation');
+  } else if (opts.reference_only) {
+    pool = refStations.listEligibleReferenceStations(referenceData, isEligible);
+    pool = applyExcludeList(pool, opts.exclude_station_ids);
+    if (opts.run_only_selected && opts.selected_station_ids && opts.selected_station_ids.length) {
+      var pick = {};
+      opts.selected_station_ids.forEach(function (id) {
+        pick[String(id)] = true;
       });
-      strategy = 'explicit_reference_station';
-      if (stations.length) {
-        selectedIndex = references.findIndex(function (s) {
-          return String(s.id) === opts.station_id;
-        });
-      }
-    } else {
-      var rotation = await refStations.selectReferenceRotationBatch(
-        references,
-        opts,
-        opts.limit,
-        !opts.dry_run
-      );
-      stations = rotation.stations;
-      selectedIndex = rotation.selected_station_index;
-      strategy = rotation.selected_station_strategy;
+      pool = pool.filter(function (s) {
+        return pick[String(s.id)];
+      });
+      strategy = 'selected_rotation';
     }
-
-    return {
-      stations: stations.slice(0, opts.limit),
-      eligible_total: referenceTotal,
-      reference_only: true,
-      reference_total: referenceTotal,
-      selected_station_strategy: strategy,
-      selected_station_index: selectedIndex
-    };
+  } else {
+    pool = (referenceData.stations || []).filter(isEligible);
+    pool.sort(function (a, b) {
+      return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+    });
+    pool = applyExcludeList(pool, opts.exclude_station_ids);
+    if (opts.run_only_selected && opts.selected_station_ids && opts.selected_station_ids.length) {
+      var pick2 = {};
+      opts.selected_station_ids.forEach(function (id) {
+        pick2[String(id)] = true;
+      });
+      pool = pool.filter(function (s) {
+        return pick2[String(s.id)];
+      });
+      strategy = 'selected_rotation';
+    } else {
+      strategy = 'first_n';
+    }
   }
 
-  var eligible = (referenceData.stations || []).filter(isEligible);
-  eligible.sort(function (a, b) {
-    return Number(a.sort_order || 0) - Number(b.sort_order || 0);
-  });
+  var stations = [];
+  var selectedIndex = null;
+
   if (opts.station_id) {
-    eligible = eligible.filter(function (s) {
+    stations = pool.filter(function (s) {
       return String(s.id) === opts.station_id;
     });
+    strategy = 'explicit_station';
+    if (stations.length) {
+      selectedIndex = pool.findIndex(function (s) {
+        return String(s.id) === opts.station_id;
+      });
+    }
+  } else if (opts.rotation_enabled !== false && pool.length) {
+    var rotation = await refStations.selectReferenceRotationBatch(
+      pool,
+      opts,
+      opts.limit,
+      !opts.dry_run,
+      {
+        state_key: opts.config_driven ? store.keys().cronState() : store.keys().refRotation(),
+        pool_key: refStations.poolKeyFromIds(pool.map(function (s) {
+          return s.id;
+        })),
+        rotation_enabled: opts.rotation_enabled,
+        strategy: strategy
+      }
+    );
+    stations = rotation.stations;
+    selectedIndex = rotation.selected_station_index;
+    strategy = rotation.selected_station_strategy;
+  } else {
+    stations = pool.slice(0, opts.limit);
+    selectedIndex = 0;
   }
+
   return {
-    stations: eligible.slice(0, opts.limit),
-    eligible_total: eligible.length,
-    reference_only: false,
-    reference_total: refStations.listEligibleReferenceStations(referenceData, isEligible).length,
-    selected_station_strategy: opts.station_id ? 'explicit_station' : 'first_n',
-    selected_station_index: null
+    stations: stations.slice(0, opts.limit),
+    eligible_total: pool.length,
+    reference_only: Boolean(opts.reference_only),
+    reference_total: referenceTotal,
+    selected_station_strategy: strategy,
+    selected_station_index: selectedIndex,
+    pool_size: pool.length
   };
+}
+
+async function assertAdminOnly(req, res) {
+  var user = await getAuthUser(req);
+  if (isAdminActor(user)) {
+    return { mode: 'admin', user: user };
+  }
+  res.status(401).json({ ok: false, error: 'admin_auth_required' });
+  return null;
 }
 
 function assertWritableRun(options, res) {
@@ -165,6 +221,7 @@ module.exports = {
   DEFAULT_DRY_RUN_LIMIT: DEFAULT_DRY_RUN_LIMIT,
   MAX_STATIONS_CAP: MAX_STATIONS_CAP,
   assertMemoryAuthorized: assertMemoryAuthorized,
+  assertAdminOnly: assertAdminOnly,
   parseRunOptions: parseRunOptions,
   parseReferenceOnlyFlag: parseReferenceOnlyFlag,
   selectEligibleStations: selectEligibleStations,

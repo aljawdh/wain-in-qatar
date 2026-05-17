@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>إعدادات ذاكرة الذكاء البحري — NAVIDUR</title>
+  <style>
+    :root {
+      --bg: #0a1020;
+      --panel: #121f38;
+      --border: #2a4570;
+      --text: #e8f0ff;
+      --muted: #94a8c8;
+      --accent: #2d6cdf;
+      --ok: #8ef0b0;
+      --warn: #ffe6a8;
+      --danger: #ff9a9a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px 14px 48px; }
+    h1 { font-size: 1.35rem; margin: 0 0 6px; }
+    .lead { color: var(--muted); margin: 0 0 12px; }
+    .warn {
+      background: #3a2a10;
+      border: 1px solid #8a6a20;
+      color: var(--warn);
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin: 12px 0;
+    }
+    .auth-banner {
+      background: #3a1a1a;
+      border: 1px solid #7a3030;
+      color: #ffc4c4;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 14px;
+    }
+    .panel h2 { margin: 0 0 10px; font-size: 1.05rem; color: #b8d4ff; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+    label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+    input, select, button {
+      padding: 9px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0e1a2f;
+      color: var(--text);
+      font-size: 0.92rem;
+      width: 100%;
+    }
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      border-color: #3a6ec4;
+      font-weight: 600;
+      width: auto;
+    }
+    button.secondary { background: #355a9e; }
+    button.danger { background: #8a3030; border-color: #a04040; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+    .status { color: var(--muted); min-height: 1.4em; margin: 8px 0; }
+    .status.err { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { border-bottom: 1px solid #22375d; padding: 8px; text-align: right; vertical-align: middle; }
+    th { color: var(--muted); }
+    .hidden { display: none !important; }
+    .toggle-row { display: flex; align-items: center; gap: 8px; }
+    pre {
+      background: #0e1a2f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      overflow: auto;
+      max-height: 320px;
+      direction: ltr;
+      text-align: left;
+      font-size: 0.8rem;
+    }
+    a { color: #9ec5ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>إعدادات ذاكرة الذكاء البحري</h1>
+      <p class="lead">إدارة تشغيل Cron والمحطات المرجعية — الإعدادات في <code>navidur_intel_*</code> فقط.</p>
+      <p><a href="/admin/intelligence/index.html">← معاينة الذكاء البحري</a> · <a href="/admin.html">لوحة الإدارة</a></p>
+    </header>
+
+    <div id="authBanner" class="auth-banner hidden">
+      لا يوجد جلسة إدارية. <a href="/admin.html">سجّل الدخول</a> ثم ارجع هنا.
+    </div>
+
+    <div class="warn">
+      <strong>تنبيه:</strong> أي تشغيل فعلي (بدون dry_run) سيكتب في مفاتيح <code>navidur_intel_*</code> فقط — لا يمسّ <code>navidur_store_*</code>.
+      Cron على Vercel يستدعي <code>/api?route=run-intelligence-memory&amp;cron=1</code> ويقرأ الإعدادات من KV.
+    </div>
+
+    <div id="mainPanel" class="hidden">
+      <section class="panel">
+        <h2>الإعدادات العامة</h2>
+        <div class="grid">
+          <div class="toggle-row">
+            <input type="checkbox" id="enabledChk">
+            <label for="enabledChk" style="margin:0">تفعيل الذاكرة الساعية (Cron)</label>
+          </div>
+          <div>
+            <label for="modeSel">الوضع</label>
+            <select id="modeSel">
+              <option value="hourly">ساعي</option>
+              <option value="daily">يومي</option>
+            </select>
+          </div>
+          <div>
+            <label for="limitInp">limit</label>
+            <input id="limitInp" type="number" min="1" max="5" value="3">
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="referenceOnlyChk" checked>
+            <label for="referenceOnlyChk" style="margin:0">reference_only</label>
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="rotationChk" checked>
+            <label for="rotationChk" style="margin:0">rotation_enabled</label>
+          </div>
+          <div class="toggle-row">
+            <input type="checkbox" id="runOnlySelectedChk">
+            <label for="runOnlySelectedChk" style="margin:0">run_only_selected</label>
+          </div>
+        </div>
+        <p class="status" id="configMeta"></p>
+        <div class="toolbar">
+          <button type="button" id="saveBtn">حفظ الإعدادات</button>
+          <button type="button" id="dryRunBtn" class="secondary">تشغيل تجريبي (dry_run)</button>
+          <button type="button" id="runNowBtn" class="danger">تشغيل فعلي الآن</button>
+          <button type="button" id="reloadBtn" class="secondary">تحديث</button>
+        </div>
+        <p id="statusLine" class="status">جاهز.</p>
+      </section>
+
+      <section class="panel">
+        <h2>المحطات المرجعية</h2>
+        <p class="status" id="stationMeta"></p>
+        <div style="overflow:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>اختيار</th>
+                <th>استبعاد</th>
+                <th>المعرف</th>
+                <th>الاسم</th>
+                <th>المنطقة</th>
+                <th>الدولة</th>
+                <th>آخر snapshot</th>
+              </tr>
+            </thead>
+            <tbody id="stationBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>آخر 20 تشغيل</h2>
+        <pre id="runsPre">—</pre>
+      </section>
+
+      <section class="panel">
+        <h2>نتيجة آخر تشغيل</h2>
+        <pre id="runResultPre">—</pre>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var state = { config: null, stations: [] };
+
+      function token() {
+        try { return localStorage.getItem('navidur_admin_token') || ''; }
+        catch (_e) { return ''; }
+      }
+
+      function headers(json) {
+        var h = {};
+        var t = token();
+        if (t) h.Authorization = 'Bearer ' + t;
+        if (json) h['Content-Type'] = 'application/json';
+        return h;
+      }
+
+      function setStatus(msg, ok) {
+        var el = document.getElementById('statusLine');
+        el.textContent = msg || '';
+        el.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : '');
+      }
+
+      async function api(path, opts) {
+        var o = opts || {};
+        var url = '/api?route=' + encodeURIComponent(o.route || path);
+        if (o.qs) {
+          Object.keys(o.qs).forEach(function (k) {
+            url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(o.qs[k]);
+          });
+        }
+        var res = await fetch(url, {
+          method: o.method || 'GET',
+          headers: headers(o.body != null),
+          body: o.body != null ? JSON.stringify(o.body) : undefined
+        });
+        var j = null;
+        try { j = await res.json(); } catch (_e) {}
+        return { status: res.status, json: j };
+      }
+
+      function showAuth(required) {
+        document.getElementById('authBanner').classList.toggle('hidden', !required);
+        document.getElementById('mainPanel').classList.toggle('hidden', required);
+      }
+
+      function applyConfig(cfg) {
+        state.config = cfg;
+        document.getElementById('enabledChk').checked = !!cfg.enabled;
+        document.getElementById('modeSel').value = cfg.mode === 'daily' ? 'daily' : 'hourly';
+        document.getElementById('limitInp').value = cfg.limit || 3;
+        document.getElementById('limitInp').max = cfg.max_limit || 5;
+        document.getElementById('referenceOnlyChk').checked = cfg.reference_only !== false;
+        document.getElementById('rotationChk').checked = cfg.rotation_enabled !== false;
+        document.getElementById('runOnlySelectedChk').checked = !!cfg.run_only_selected;
+        document.getElementById('configMeta').textContent =
+          'مرجعية: ' + (window.__refCount || '—') + ' · مختارة: ' + (cfg.selected_station_ids || []).length
+          + ' · محدّث: ' + (cfg.updated_at || '—');
+      }
+
+      function renderStations(rows) {
+        state.stations = rows || [];
+        var selected = {};
+        var excluded = {};
+        (state.config && state.config.selected_station_ids || []).forEach(function (id) {
+          selected[String(id)] = true;
+        });
+        (state.config && state.config.exclude_station_ids || []).forEach(function (id) {
+          excluded[String(id)] = true;
+        });
+        var tbody = document.getElementById('stationBody');
+        tbody.innerHTML = '';
+        rows.forEach(function (row) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><input type="checkbox" data-sel="' + row.station_id + '"' + (selected[row.station_id] ? ' checked' : '') + '></td>' +
+            '<td><input type="checkbox" data-exc="' + row.station_id + '"' + (excluded[row.station_id] ? ' checked' : '') + '></td>' +
+            '<td>' + row.station_id + '</td>' +
+            '<td>' + (row.name || '—') + '</td>' +
+            '<td>' + (row.region || '—') + '</td>' +
+            '<td>' + (row.country || '—') + '</td>' +
+            '<td dir="ltr" style="text-align:left">' + (row.latest_snapshot_at || '—') + '</td>';
+          tbody.appendChild(tr);
+        });
+        document.getElementById('stationMeta').textContent = 'عدد المحطات المرجعية المعروضة: ' + rows.length;
+      }
+
+      function collectPayload() {
+        var selected = [];
+        var excluded = [];
+        document.querySelectorAll('[data-sel]').forEach(function (el) {
+          if (el.checked) selected.push(el.getAttribute('data-sel'));
+        });
+        document.querySelectorAll('[data-exc]').forEach(function (el) {
+          if (el.checked) excluded.push(el.getAttribute('data-exc'));
+        });
+        return {
+          enabled: document.getElementById('enabledChk').checked,
+          mode: document.getElementById('modeSel').value,
+          limit: Number(document.getElementById('limitInp').value) || 3,
+          reference_only: document.getElementById('referenceOnlyChk').checked,
+          rotation_enabled: document.getElementById('rotationChk').checked,
+          run_only_selected: document.getElementById('runOnlySelectedChk').checked,
+          selected_station_ids: selected,
+          exclude_station_ids: excluded
+        };
+      }
+
+      async function loadAll() {
+        if (!token()) { showAuth(true); return; }
+        showAuth(false);
+        setStatus('جاري التحميل…');
+        var cfgRes = await api('intelligence-cron-config');
+        if (cfgRes.status === 401) { showAuth(true); return; }
+        if (!cfgRes.json || !cfgRes.json.ok) {
+          setStatus('فشل تحميل الإعدادات', false);
+          return;
+        }
+        window.__refCount = cfgRes.json.reference_station_count;
+        applyConfig(cfgRes.json.config);
+        var stRes = await api('intelligence-cron-stations');
+        if (stRes.json && stRes.json.ok) renderStations(stRes.json.stations);
+        var runs = await api('intelligence-memory-runs', { route: 'intelligence-memory-runs', qs: { limit: 20 } });
+        if (runs.json && runs.json.runs) {
+          document.getElementById('runsPre').textContent = JSON.stringify(runs.json.runs, null, 2);
+        }
+        setStatus('تم التحميل.', true);
+      }
+
+      async function saveConfig() {
+        setStatus('جاري الحفظ…');
+        var res = await api('intelligence-cron-config', { method: 'PUT', body: collectPayload() });
+        if (res.status === 401) { showAuth(true); return; }
+        if (!res.json || !res.json.ok) {
+          setStatus('فشل الحفظ: ' + (res.json && res.json.error || res.status), false);
+          return;
+        }
+        applyConfig(res.json.config);
+        setStatus('تم حفظ الإعدادات.', true);
+        await loadAll();
+      }
+
+      async function testRun(dry) {
+        setStatus(dry ? 'تشغيل تجريبي…' : 'تشغيل فعلي…');
+        if (!dry && !window.confirm('تشغيل فعلي الآن؟ سيكتب في navidur_intel_* فقط.')) return;
+        await saveConfig();
+        var res = await api('intelligence-cron-test-run', {
+          method: 'POST',
+          qs: { dry_run: dry ? '1' : '0' }
+        });
+        document.getElementById('runResultPre').textContent = JSON.stringify(res.json || res, null, 2);
+        if (res.json && res.json.ok) setStatus(dry ? 'انتهى التشغيل التجريبي.' : 'انتهى التشغيل الفعلي.', true);
+        else setStatus('فشل التشغيل.', false);
+        var runs = await api('intelligence-memory-runs', { route: 'intelligence-memory-runs', qs: { limit: 20 } });
+        if (runs.json && runs.json.runs) {
+          document.getElementById('runsPre').textContent = JSON.stringify(runs.json.runs, null, 2);
+        }
+      }
+
+      document.getElementById('saveBtn').addEventListener('click', saveConfig);
+      document.getElementById('reloadBtn').addEventListener('click', loadAll);
+      document.getElementById('dryRunBtn').addEventListener('click', function () { testRun(true); });
+      document.getElementById('runNowBtn').addEventListener('click', function () { testRun(false); });
+      loadAll();
+    })();
+  </script>
+</body>
+</html>

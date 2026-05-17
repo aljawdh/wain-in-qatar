@@ -53,45 +53,76 @@ function hourBucketIndex(dateCtx) {
   return dayNum * 24 + hour;
 }
 
-async function resolveRotationIndex(referenceTotal, dateCtx, advance) {
+function poolKeyFromIds(ids) {
+  return (ids || []).map(function (id) {
+    return String(id);
+  }).join('|');
+}
+
+async function resolveRotationIndex(referenceTotal, dateCtx, advance, stateKey, poolKey) {
   var n = referenceTotal;
   if (n < 1) return { index: 0, strategy: 'reference_rotation' };
 
-  var state = await store.intelGet(store.keys().refRotation());
+  var key = stateKey || store.keys().refRotation();
+  var state = await store.intelGet(key);
   var index;
-  if (state && Number.isFinite(Number(state.last_index))) {
+  if (
+    state
+    && Number.isFinite(Number(state.last_index))
+    && (!poolKey || String(state.pool_key || '') === String(poolKey))
+  ) {
     index = advance
       ? (Math.floor(Number(state.last_index)) + 1) % n
       : Math.floor(Number(state.last_index)) % n;
   } else {
     index = hourBucketIndex(dateCtx) % n;
   }
-  return { index: index, strategy: 'reference_rotation', previous: state || null };
+  return { index: index, strategy: 'reference_rotation', previous: state || null, state_key: key };
 }
 
-async function persistRotationState(station, index, referenceTotal) {
-  await store.intelSet(store.keys().refRotation(), {
+async function persistRotationState(station, index, referenceTotal, stateKey, poolKey) {
+  var key = stateKey || store.keys().refRotation();
+  await store.intelSet(key, {
     last_station_id: String(station.id),
     last_index: index,
     reference_total: referenceTotal,
+    pool_key: poolKey || '',
     updated_at: new Date().toISOString()
   });
 }
 
-async function selectReferenceRotationBatch(referenceList, dateCtx, limit, advance) {
+async function selectReferenceRotationBatch(referenceList, dateCtx, limit, advance, rotationOpts) {
+  var opts = rotationOpts || {};
   var refs = referenceList || [];
   var n = refs.length;
+  var stateKey = opts.state_key || store.keys().refRotation();
+  var poolKey = opts.pool_key || poolKeyFromIds(refs.map(function (s) {
+    return s.id;
+  }));
+  var strategy = opts.strategy || 'reference_rotation';
+
   if (!n) {
     return {
       stations: [],
       reference_total: 0,
       selected_station_index: null,
-      selected_station_strategy: 'reference_rotation',
-      rotation_state_key: store.keys().refRotation()
+      selected_station_strategy: strategy,
+      rotation_state_key: stateKey
     };
   }
 
-  var resolved = await resolveRotationIndex(n, dateCtx, advance);
+  if (opts.rotation_enabled === false) {
+    var staticPick = refs.slice(0, Math.min(Math.max(limit, 1), n));
+    return {
+      stations: staticPick,
+      reference_total: n,
+      selected_station_index: 0,
+      selected_station_strategy: 'static_first_n',
+      rotation_state_key: stateKey
+    };
+  }
+
+  var resolved = await resolveRotationIndex(n, dateCtx, advance, stateKey, poolKey);
   var picked = [];
   var idx = resolved.index;
   var max = Math.min(Math.max(limit, 1), n);
@@ -101,15 +132,15 @@ async function selectReferenceRotationBatch(referenceList, dateCtx, limit, advan
 
   if (advance && picked.length && !dateCtx.dry_run) {
     var lastIdx = (idx + picked.length - 1) % n;
-    await persistRotationState(picked[picked.length - 1], lastIdx, n);
+    await persistRotationState(picked[picked.length - 1], lastIdx, n, stateKey, poolKey);
   }
 
   return {
     stations: picked,
     reference_total: n,
     selected_station_index: idx,
-    selected_station_strategy: resolved.strategy,
-    rotation_state_key: store.keys().refRotation()
+    selected_station_strategy: strategy,
+    rotation_state_key: stateKey
   };
 }
 
@@ -118,5 +149,6 @@ module.exports = {
   isOperationalStation: isOperationalStation,
   listEligibleReferenceStations: listEligibleReferenceStations,
   selectReferenceRotationBatch: selectReferenceRotationBatch,
-  hourBucketIndex: hourBucketIndex
+  hourBucketIndex: hourBucketIndex,
+  poolKeyFromIds: poolKeyFromIds
 };
