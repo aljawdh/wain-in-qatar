@@ -148,6 +148,35 @@
     }
     .hidden { display: none !important; }
     .no-print { }
+    .trend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .trend-card {
+      background: #0e1a2f;
+      border: 1px solid #2a4570;
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .trend-card .t-label { color: var(--muted); font-size: 0.78rem; }
+    .trend-card .t-val { font-weight: 700; margin: 6px 0 4px; }
+    .trend-card .t-sum { color: #c8daf8; font-size: 0.82rem; }
+    .timeline-list { margin: 0; padding: 0; list-style: none; }
+    .timeline-list li {
+      padding: 8px 10px;
+      border-right: 3px solid #4a7ec4;
+      margin: 6px 0;
+      background: #0e1a2f;
+      border-radius: 8px;
+    }
+    .chart-wrap {
+      position: relative;
+      height: 280px;
+      max-width: 100%;
+    }
+    .sig-traits { margin: 8px 0 0; padding-right: 18px; }
+    .sig-traits li { margin: 4px 0; }
     @media (max-width: 900px) {
       .top, .period-bar .row { grid-template-columns: 1fr; }
     }
@@ -179,19 +208,26 @@
       ثم ارجع إلى هذه الصفحة.
     </div>
 
-    <section class="period-bar no-print" aria-label="تقرير الفترة (قريبًا)">
+    <section class="period-bar no-print" aria-label="فترة الذاكرة البحرية">
       <div class="row">
         <div>
+          <label class="field-lbl" for="trendDaysSelect">فترة الذاكرة البحرية</label>
+          <select id="trendDaysSelect" aria-label="فترة الاتجاهات">
+            <option value="1">آخر 24 ساعة</option>
+            <option value="3">آخر 3 أيام</option>
+            <option value="7">آخر 7 أيام</option>
+          </select>
+        </div>
+        <div>
           <label class="field-lbl" for="periodFrom">من تاريخ</label>
-          <input id="periodFrom" type="date" disabled aria-disabled="true">
+          <input id="periodFrom" type="date" disabled aria-disabled="true" title="قريبًا">
         </div>
         <div>
           <label class="field-lbl" for="periodTo">إلى تاريخ</label>
-          <input id="periodTo" type="date" disabled aria-disabled="true">
+          <input id="periodTo" type="date" disabled aria-disabled="true" title="قريبًا">
         </div>
-        <button type="button" id="periodReportBtn" disabled>تقرير الفترة</button>
       </div>
-      <p class="period-note">تقارير الفترة تحتاج تفعيل التخزين الساعي للذكاء البحري. سيتم دعمها في المرحلة القادمة.</p>
+      <p class="period-note">الاتجاهات والرسوم والخط الزمني تعتمد على لقطات الذاكرة البحرية الساعية (navidur_intel_*).</p>
     </section>
 
     <div class="top no-print">
@@ -255,6 +291,27 @@
         <h2>جودة البيانات</h2>
         <div id="dataQualityBlock"></div>
       </section>
+      <section class="panel" id="trendsPanel">
+        <h2 id="trendsPanelTitle">اتجاهات آخر 24 ساعة</h2>
+        <p id="trendsNotice" class="muted"></p>
+        <div id="trendsBlock" class="trend-grid"></div>
+      </section>
+      <section class="panel" id="chartsPanel">
+        <h2>الرسم البياني</h2>
+        <p id="chartsNotice" class="muted"></p>
+        <div class="chart-wrap">
+          <canvas id="trendChart" aria-label="رسم بياني للذاكرة البحرية"></canvas>
+        </div>
+      </section>
+      <section class="panel" id="timelinePanel">
+        <h2>الخط الزمني البحري</h2>
+        <p id="timelineNotice" class="muted"></p>
+        <ul id="timelineBlock" class="timeline-list"></ul>
+      </section>
+      <section class="panel" id="signaturePanel">
+        <h2>البصمة البيئية للمحطة</h2>
+        <div id="signatureBlock"></div>
+      </section>
       <section class="panel no-print">
         <h2>تفاصيل تقنية للمطورين</h2>
         <button type="button" id="devToggleBtn" class="ghost">إظهار التفاصيل التقنية</button>
@@ -269,8 +326,13 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script>
     var latestPayload = null;
+    var latestTrendsPayload = null;
+    var latestTimelinePayload = null;
+    var latestSignaturePayload = null;
+    var trendChartInstance = null;
     var devVisible = false;
 
     var labelMap = {
@@ -671,6 +733,150 @@
       return apiPath('/api?' + q);
     }
 
+    function getTrendDays() {
+      return String(byId('trendDaysSelect').value || '1');
+    }
+
+    function buildTrendApiUrl(route, stationId) {
+      return apiPath('/api?route=' + encodeURIComponent(route) + '&station_id=' + encodeURIComponent(stationId) + '&days=' + encodeURIComponent(getTrendDays()));
+    }
+
+    function trendDirectionAr(dir) {
+      var map = {
+        improving: 'متحسن',
+        declining: 'متراجع',
+        stable: 'مستقر',
+        increasing: 'مرتفع',
+        decreasing: 'منخفض',
+        unknown: 'غير متوفر'
+      };
+      return map[String(dir || '').toLowerCase()] || 'غير متوفر';
+    }
+
+    var TREND_UI_KEYS = [
+      'sea_surface_temperature',
+      'current_speed',
+      'wave_height',
+      'wave_period',
+      'wind_speed',
+      'tide_level',
+      'marine_condition_score',
+      'confidence'
+    ];
+
+    function renderTrendsBlock(payload) {
+      var trends = payload && payload.trends ? payload.trends : [];
+      var map = {};
+      trends.forEach(function (t) { map[t.key] = t; });
+      var html = TREND_UI_KEYS.map(function (key) {
+        var t = map[key];
+        if (!t) return '';
+        var cur = t.current != null ? t.current : '—';
+        var delta = t.delta != null ? (t.delta > 0 ? '+' : '') + t.delta : '—';
+        return '<div class="trend-card"><div class="t-label">' + esc(t.label) + '</div>' +
+          '<div class="t-val">' + esc(String(cur)) + ' <span class="muted">(' + esc(trendDirectionAr(t.direction)) + ')</span></div>' +
+          '<div class="t-sum">' + esc(t.summary_ar || '') + '</div></div>';
+      }).join('');
+      byId('trendsBlock').innerHTML = html || '<p class="muted">لا توجد اتجاهات.</p>';
+    }
+
+    function renderTrendChart(series) {
+      var canvas = byId('trendChart');
+      if (!canvas || typeof Chart === 'undefined') return;
+      if (!series || !series.length) {
+        byId('chartsNotice').textContent = 'لا توجد بيانات كافية للرسم.';
+        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        return;
+      }
+      byId('chartsNotice').textContent = '';
+      var labels = series.map(function (p) {
+        var h = p.hour != null ? String(p.hour).padStart(2, '0') : '?';
+        return h + ':00';
+      });
+      if (trendChartInstance) trendChartInstance.destroy();
+      trendChartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'حرارة سطح البحر °C', data: series.map(function (p) { return p.sea_surface_temperature; }), borderColor: '#ff8a65', tension: 0.2 },
+            { label: 'الحالة البحرية', data: series.map(function (p) { return p.marine_condition_score; }), borderColor: '#7eb6ff', tension: 0.2 },
+            { label: 'ارتفاع الموج م', data: series.map(function (p) { return p.wave_height; }), borderColor: '#8ef0b0', tension: 0.2 },
+            { label: 'سرعة الرياح', data: series.map(function (p) { return p.wind_speed; }), borderColor: '#ffe6a8', tension: 0.2 }
+          ]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#c8daf8' } } },
+          scales: {
+            x: { ticks: { color: '#94a8c8' }, grid: { color: '#22375d' } },
+            y: { ticks: { color: '#94a8c8' }, grid: { color: '#22375d' } }
+          }
+        }
+      });
+    }
+
+    function renderTimelineBlock(payload) {
+      var events = payload && payload.events ? payload.events : [];
+      if (!events.length) {
+        byId('timelineBlock').innerHTML = '<li class="muted">لا توجد أحداث زمنية.</li>';
+        return;
+      }
+      byId('timelineBlock').innerHTML = events.map(function (ev) {
+        return '<li><strong>' + esc(ev.time || '—') + '</strong> — ' + esc(ev.message_ar || '') + '</li>';
+      }).join('');
+    }
+
+    function renderSignatureBlock(payload) {
+      if (!payload) {
+        byId('signatureBlock').innerHTML = '<p class="muted">لا توجد بصمة.</p>';
+        return;
+      }
+      var traits = payload.traits || [];
+      byId('signatureBlock').innerHTML = tableFromRows([
+        ['عدد الأدلة', payload.evidence_count != null ? esc(payload.evidence_count) : '—'],
+        ['الثقة', payload.confidence != null ? esc(payload.confidence) + '%' : '—'],
+        ['السمات', traits.length ? '<ul class="sig-traits">' + traits.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' : '—'],
+        ['الملخص', esc(payload.summary_ar || '—')]
+      ]);
+    }
+
+    function loadTrendsData(stationId) {
+      var days = getTrendDays();
+      byId('trendsPanelTitle').textContent = days === '1' ? 'اتجاهات آخر 24 ساعة' : ('اتجاهات آخر ' + days + ' أيام');
+      byId('trendsNotice').textContent = 'جاري تحميل الاتجاهات…';
+      byId('timelineNotice').textContent = '';
+      byId('chartsNotice').textContent = '';
+      return Promise.all([
+        fetch(buildTrendApiUrl('intelligence-trends', stationId), { headers: authHeaders(), cache: 'no-store' })
+          .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); }),
+        fetch(buildTrendApiUrl('intelligence-timeline', stationId), { headers: authHeaders(), cache: 'no-store' })
+          .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); }),
+        fetch(buildTrendApiUrl('intelligence-signature', stationId), { headers: authHeaders(), cache: 'no-store' })
+          .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
+      ]).then(function (out) {
+        if (out[0].status === 401 || out[1].status === 401 || out[2].status === 401) {
+          byId('trendsNotice').textContent = 'يلزم تسجيل دخول مدير.';
+          return;
+        }
+        latestTrendsPayload = out[0].j;
+        latestTimelinePayload = out[1].j;
+        latestSignaturePayload = out[2].j;
+        var msg = (latestTrendsPayload && latestTrendsPayload.message_ar) || '';
+        byId('trendsNotice').textContent = msg;
+        byId('timelineNotice').textContent = (latestTimelinePayload && latestTimelinePayload.message_ar) || '';
+        byId('chartsNotice').textContent = msg;
+        renderTrendsBlock(latestTrendsPayload);
+        renderTrendChart(latestTrendsPayload && latestTrendsPayload.series ? latestTrendsPayload.series : []);
+        renderTimelineBlock(latestTimelinePayload);
+        renderSignatureBlock(latestSignaturePayload);
+      }).catch(function (err) {
+        byId('trendsNotice').textContent = 'خطأ: ' + (err && err.message ? err.message : err);
+      });
+    }
+
     function card(k, v) {
       return '<div class="card"><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div></div>';
     }
@@ -955,6 +1161,7 @@
             return;
           }
           renderReport(out.j);
+          loadTrendsData(stationId);
           setStatus('تم تحميل المعاينة بنجاح.', 'ok');
         })
         .catch(function (err) {
@@ -1056,6 +1263,30 @@
         ['تفاصيل التحذيرات', (dq.warnings || []).map(tReason).join('، ') || 'لا توجد تحذيرات']
       ]).sheet, 'جودة البيانات');
 
+      if (latestTrendsPayload && latestTrendsPayload.trends && latestTrendsPayload.trends.length) {
+        var trendRows = [['المتغير', 'الحالي', 'السابق', 'الفرق', 'الاتجاه', 'الملخص']];
+        latestTrendsPayload.trends.forEach(function (t) {
+          trendRows.push([t.label, t.current, t.previous, t.delta, trendDirectionAr(t.direction), t.summary_ar]);
+        });
+        XLSX.utils.book_append_sheet(wb, sheetFromAoa('الاتجاهات', trendRows).sheet, 'الاتجاهات');
+      }
+      if (latestTimelinePayload && latestTimelinePayload.events && latestTimelinePayload.events.length) {
+        var tlRows = [['الوقت', 'النوع', 'المستوى', 'الوصف']];
+        latestTimelinePayload.events.forEach(function (ev) {
+          tlRows.push([ev.time, ev.type, ev.level, ev.message_ar]);
+        });
+        XLSX.utils.book_append_sheet(wb, sheetFromAoa('الخط الزمني', tlRows).sheet, 'الخط الزمني');
+      }
+      if (latestSignaturePayload) {
+        XLSX.utils.book_append_sheet(wb, sheetFromAoa('البصمة البيئية', [
+          ['البند', 'القيمة'],
+          ['عدد الأدلة', latestSignaturePayload.evidence_count],
+          ['الثقة', latestSignaturePayload.confidence],
+          ['السمات', (latestSignaturePayload.traits || []).join('، ')],
+          ['الملخص', latestSignaturePayload.summary_ar]
+        ]).sheet, 'البصمة البيئية');
+      }
+
       var fname = 'navidur-intel-' + (st.id || 'station') + '-' + (byId('dateInput').value || new Date().toISOString().slice(0, 10)) + '.xlsx';
       XLSX.writeFile(wb, fname);
       setStatus('تم تصدير ' + fname, 'ok');
@@ -1072,6 +1303,10 @@
       byId('printBtn').addEventListener('click', function () { window.print(); });
       byId('excelBtn').addEventListener('click', exportExcel);
       byId('devToggleBtn').addEventListener('click', toggleDevPanel);
+      byId('trendDaysSelect').addEventListener('change', function () {
+        var sid = byId('stationSelect').value;
+        if (sid && !byId('reportRoot').classList.contains('hidden')) loadTrendsData(sid);
+      });
     }
 
     if (document.readyState === 'loading') {

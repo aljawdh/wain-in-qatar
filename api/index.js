@@ -22,6 +22,7 @@ const astroDurApiHandler = require('../serverless_api/astro-dur-api');
 const intelligencePreviewHandler = require('../serverless_api/navidur-intelligence-preview');
 const runIntelligenceMemoryHandler = require('../serverless_api/run-intelligence-memory');
 const intelligenceCronAdminHandler = require('../serverless_api/intelligence-cron-admin');
+const intelligenceTrendsHandler = require('../serverless_api/navidur-intelligence-trends');
 
 function normalizeRoute(value) {
   return String(value || '').trim().toLowerCase();
@@ -80,6 +81,9 @@ module.exports = async function handler(req, res) {
   if (route === 'intelligence-memory-runs') {
     req.query._memory_route = 'intelligence-memory-runs';
     return runIntelligenceMemoryHandler(req, res);
+  }
+  if (route === 'intelligence-trends' || route === 'intelligence-timeline' || route === 'intelligence-signature') {
+    return intelligenceTrendsHandler(req, res);
   }
   if (route === 'capture-snapshot' || route === 'snapshot-capture') return snapshotHandler(req, res);
   if (route === 'run-snapshots') return runSnapshotsHandler(req, res);
