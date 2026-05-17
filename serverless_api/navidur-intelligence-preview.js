@@ -1,7 +1,13 @@
 'use strict';
 
 var { setNoCache, isAllowedOrigin } = require('./_lib/security');
+var { getAuthUser, ROLE_ORDER } = require('./_lib/auth');
 var preview = require('./_lib/navidur-intelligence-preview');
+
+function isAdminActor(user) {
+  if (!user || !ROLE_ORDER[user.role]) return false;
+  return ROLE_ORDER[user.role] >= ROLE_ORDER.admin;
+}
 
 module.exports = async function handler(req, res) {
   setNoCache(res);
@@ -9,6 +15,11 @@ module.exports = async function handler(req, res) {
 
   if (!isAllowedOrigin(req)) {
     return res.status(403).json({ ok: false, error: 'forbidden_domain' });
+  }
+
+  var actor = await getAuthUser(req);
+  if (!isAdminActor(actor)) {
+    return res.status(401).json({ ok: false, error: 'admin_auth_required' });
   }
 
   if (req.method !== 'GET') {
