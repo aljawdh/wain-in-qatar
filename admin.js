@@ -5423,6 +5423,7 @@
     }
     updateStAnalyticsAsOfRowVisibility();
     initTraitReviewPanel();
+    initMarineGenomePanel();
 
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
@@ -6814,8 +6815,255 @@
   }
 
   function matchStatusLabelAr(code) {
-    var map = { matched: 'مطابق', partial: 'جزئي', mismatch: 'غير مطابق', unknown: 'غير معروف' };
+    var map = {
+      matched: 'مطابق',
+      partial: 'مطابق جزئياً',
+      mismatch: 'غير مطابق',
+      unknown: 'غير معروف',
+      unavailable: 'غير متوفر',
+      needs_human_review: 'يحتاج رصد بشري',
+      needs_field_station: 'يحتاج محطة ميدانية'
+    };
     return map[String(code || '')] || 'غير معروف';
+  }
+
+  var stMarineGenomeState = {
+    matrix: [],
+    categories: {},
+    drafts: {},
+    activeTraitKey: null,
+    context: null
+  };
+
+  function genomeCategoryLabelAr(id) {
+    return stMarineGenomeState.categories[id] || id || '—';
+  }
+
+  function expectedStatusLabelAr(code) {
+    var map = {
+      expected: 'متوقع',
+      not_expected: 'غير متوقع',
+      conditional: 'مشروط',
+      unknown: 'غير معروف'
+    };
+    return map[String(code || '')] || String(code || '—');
+  }
+
+  function setMarineGenomeMsg(text, ok) {
+    var el = getEl('stMarineGenomeMsg');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = ok === true ? '#b8ffd4' : ok === false ? '#ffb3b3' : '#9fc1d7';
+  }
+
+  function renderMarineGenomeTable() {
+    var tbody = getEl('stMarineGenomeBody');
+    if (!tbody) return;
+    var rows = stMarineGenomeState.matrix || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="padding:10px;color:#9fc1d7">اختر محطة وحدّث التحليل لعرض الجين البحري.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function (row) {
+      var obs = row.observed_value == null || row.observed_value === '' ? '—' : String(row.observed_value);
+      var src = (row.source_used || []).join(' · ') || '—';
+      return '<tr data-trait-key="' + escapeHtml(row.trait_key) + '">' +
+        '<td style="padding:8px 6px">' + escapeHtml(row.label_ar || row.trait_key) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(genomeCategoryLabelAr(row.category)) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(expectedStatusLabelAr(row.expected_status)) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(obs) + '</td>' +
+        '<td style="padding:8px 6px" title="' + escapeHtml(row.reason_ar || '') + '">' + escapeHtml(matchStatusLabelAr(row.match_status)) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(String(row.confidence != null ? row.confidence : 0)) + '%</td>' +
+        '<td style="padding:8px 6px;font-size:.75rem">' + escapeHtml(src) + '</td>' +
+        '<td style="padding:8px 6px"><button type="button" class="small-btn st-genome-review-open" data-trait-key="' + escapeHtml(row.trait_key) + '">مراجعة</button></td>' +
+        '<td style="padding:8px 6px"><button type="button" class="small-btn st-genome-review-save" data-trait-key="' + escapeHtml(row.trait_key) + '">حفظ</button></td>' +
+        '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.st-genome-review-open').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openMarineGenomeModal(btn.getAttribute('data-trait-key'));
+      });
+    });
+    tbody.querySelectorAll('.st-genome-review-save').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        void saveMarineGenomeReview(btn.getAttribute('data-trait-key'));
+      });
+    });
+  }
+
+  async function loadMarineGenomeMatrix() {
+    var ctx = stMarineGenomeState.context || stTraitReviewState.context;
+    if (!ctx || !ctx.station_id) {
+      stMarineGenomeState.matrix = [];
+      renderMarineGenomeTable();
+      return;
+    }
+    if (!isAdminMode()) return;
+    setMarineGenomeMsg('جاري تحميل الجين البحري…');
+    var qs = 'station_id=' + encodeURIComponent(ctx.station_id) +
+      '&reference_station_id=' + encodeURIComponent(ctx.reference_station_id || ctx.station_id);
+    if (ctx.dur_name) qs += '&dur_name=' + encodeURIComponent(ctx.dur_name);
+    if (ctx.dur_day != null) qs += '&dur_day=' + encodeURIComponent(String(ctx.dur_day));
+    try {
+      var res = await apiFetch('/api?route=marine-genome-match&' + qs);
+      var json = await res.json();
+      if (!res.ok || !json || !json.ok) {
+        setMarineGenomeMsg('تعذر التحميل: ' + (json && json.error || res.status), false);
+        return;
+      }
+      stMarineGenomeState.matrix = json.matrix || [];
+      setMarineGenomeMsg(
+        'إجمالي ' + (json.summary && json.summary.total != null ? json.summary.total : stMarineGenomeState.matrix.length) +
+        ' سمة — مطابق: ' + (json.summary && json.summary.matched != null ? json.summary.matched : 0) +
+        ' · غير متوفر: ' + (json.summary && json.summary.unavailable != null ? json.summary.unavailable : 0),
+        true
+      );
+      renderMarineGenomeTable();
+    } catch (err) {
+      setMarineGenomeMsg(clientErrorForHttp(err), false);
+    }
+  }
+
+  async function loadMarineGenomeCategories() {
+    if (!isAdminMode() || Object.keys(stMarineGenomeState.categories).length) return;
+    try {
+      var res = await apiFetch('/api?route=marine-genome');
+      var json = await res.json();
+      if (json && json.ok && Array.isArray(json.trait_categories)) {
+        json.trait_categories.forEach(function (c) {
+          if (c && c.id) stMarineGenomeState.categories[c.id] = c.label_ar || c.id;
+        });
+      }
+    } catch (_e) { /* optional */ }
+  }
+
+  function openMarineGenomeModal(traitKey) {
+    var modal = getEl('stMarineGenomeModal');
+    var row = (stMarineGenomeState.matrix || []).find(function (r) { return r.trait_key === traitKey; });
+    if (!modal || !row) return;
+    stMarineGenomeState.activeTraitKey = traitKey;
+    var draft = stMarineGenomeState.drafts[traitKey] || {};
+    setTextIfEl('stMarineGenomeModalTitle',
+      (row.label_ar || traitKey) + ' — ' + expectedStatusLabelAr(row.expected_status) + ' · ' + matchStatusLabelAr(row.match_status));
+    var decEl = getEl('stMarineGenomeDecision');
+    if (decEl) decEl.value = draft.reviewer_decision || 'watch';
+    var noteEl = getEl('stMarineGenomeNote');
+    if (noteEl) noteEl.value = draft.review_note || '';
+    var confEl = getEl('stMarineGenomeConfidence');
+    if (confEl) confEl.value = draft.manual_confidence != null ? draft.manual_confidence : (row.confidence || 70);
+    var evEl = getEl('stMarineGenomeEvidence');
+    if (evEl) evEl.checked = draft.approved_as_evidence !== false;
+    modal.style.display = 'flex';
+  }
+
+  function closeMarineGenomeModal() {
+    var modal = getEl('stMarineGenomeModal');
+    if (modal) modal.style.display = 'none';
+    stMarineGenomeState.activeTraitKey = null;
+  }
+
+  function syncMarineGenomeDraftFromModal() {
+    var key = stMarineGenomeState.activeTraitKey;
+    if (!key) return null;
+    stMarineGenomeState.drafts[key] = {
+      reviewer_decision: getEl('stMarineGenomeDecision') ? getEl('stMarineGenomeDecision').value : 'watch',
+      review_note: getEl('stMarineGenomeNote') ? getEl('stMarineGenomeNote').value : '',
+      manual_confidence: getEl('stMarineGenomeConfidence') ? Number(getEl('stMarineGenomeConfidence').value) : 70,
+      approved_as_evidence: getEl('stMarineGenomeEvidence') ? getEl('stMarineGenomeEvidence').checked : true
+    };
+    return stMarineGenomeState.drafts[key];
+  }
+
+  async function saveMarineGenomeReview(traitKey) {
+    var ctx = stMarineGenomeState.context || stTraitReviewState.context;
+    var row = (stMarineGenomeState.matrix || []).find(function (r) { return r.trait_key === traitKey; });
+    if (!ctx || !row) {
+      setMarineGenomeMsg('اختر محطة ودراً أولاً.', false);
+      return;
+    }
+    if (!isAdminMode()) {
+      setMarineGenomeMsg('يتطلب تسجيل دخول إداري.', false);
+      return;
+    }
+    var draft = stMarineGenomeState.drafts[traitKey];
+    if (stMarineGenomeState.activeTraitKey === traitKey) {
+      draft = syncMarineGenomeDraftFromModal();
+    }
+    if (!draft || !draft.reviewer_decision) {
+      openMarineGenomeModal(traitKey);
+      setMarineGenomeMsg('حدّد قرار المراجعة ثم احفظ.', false);
+      return;
+    }
+    setMarineGenomeMsg('جاري الحفظ…');
+    var payload = {
+      station_id: ctx.station_id,
+      reference_station_id: ctx.reference_station_id,
+      station_name: ctx.station_name,
+      dur_name: ctx.dur_name,
+      dur_day: ctx.dur_day,
+      trait_key: row.trait_key,
+      trait_label_ar: row.label_ar,
+      category: row.category,
+      expected_status: row.expected_status,
+      expected_value: expectedStatusLabelAr(row.expected_status),
+      observed_value: row.observed_value != null ? String(row.observed_value) : '',
+      match_status: row.match_status,
+      reviewer_decision: draft.reviewer_decision,
+      manual_confidence: draft.manual_confidence,
+      auto_confidence: row.confidence,
+      review_note: draft.review_note || '',
+      approved_as_evidence: draft.approved_as_evidence !== false,
+      genome_version: 'v1',
+      source: 'marine_knowledge_genome'
+    };
+    try {
+      var res = await apiFetch('/api?route=marine-genome-trait-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var json = await res.json();
+      if (!res.ok || !json || !json.ok) {
+        setMarineGenomeMsg('فشل الحفظ: ' + (json && json.error || res.status), false);
+        return;
+      }
+      setMarineGenomeMsg('تم حفظ مراجعة الجين البحري.', true);
+      closeMarineGenomeModal();
+      await loadTraitReviewData();
+    } catch (err) {
+      setMarineGenomeMsg(clientErrorForHttp(err), false);
+    }
+  }
+
+  function refreshMarineGenomeFromValidation(dto) {
+    stMarineGenomeState.context = dto ? resolveTraitReviewContext(dto, getEl('stId') && getEl('stId').value) : null;
+    void loadMarineGenomeCategories();
+    void loadMarineGenomeMatrix();
+  }
+
+  function clearMarineGenomePanel() {
+    stMarineGenomeState.matrix = [];
+    stMarineGenomeState.context = null;
+    renderMarineGenomeTable();
+    setMarineGenomeMsg('');
+  }
+
+  function initMarineGenomePanel() {
+    var cancel = getEl('stMarineGenomeCancel');
+    var confirm = getEl('stMarineGenomeConfirm');
+    var modal = getEl('stMarineGenomeModal');
+    if (cancel) cancel.addEventListener('click', closeMarineGenomeModal);
+    if (confirm) {
+      confirm.addEventListener('click', function () {
+        syncMarineGenomeDraftFromModal();
+        void saveMarineGenomeReview(stMarineGenomeState.activeTraitKey);
+      });
+    }
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeMarineGenomeModal();
+      });
+    }
   }
 
   function decisionLabelAr(code) {
@@ -7163,6 +7411,7 @@
     stTraitReviewState.rows = buildTraitReviewRows(dto, observedTraitsOverride);
     stTraitReviewState.context = dto ? resolveTraitReviewContext(dto, getEl('stId') && getEl('stId').value) : null;
     void loadTraitReviewData();
+    refreshMarineGenomeFromValidation(dto);
   }
 
   function clearTraitReviewPanels() {
@@ -7173,6 +7422,7 @@
     renderTraitReviewTable();
     renderTraitLearnPanel(null);
     setTraitReviewMsg('');
+    clearMarineGenomePanel();
   }
 
   function initTraitReviewPanel() {

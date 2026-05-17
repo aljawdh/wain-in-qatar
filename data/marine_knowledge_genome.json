@@ -1,0 +1,4337 @@
+{
+  "version": "v1",
+  "created_at": "2026-05-17T22:44:15.882Z",
+  "scope": "all_reference_stations",
+  "description_ar": "الجين البحري المركزي للدرور والمحطات في NAVIDUR",
+  "trait_categories": [
+    {
+      "id": "marine_core",
+      "label_ar": "السمات البحرية الأساسية",
+      "description_ar": "موج، تيار، حرارة سطح البحر، حالة البحر"
+    },
+    {
+      "id": "weather_surface",
+      "label_ar": "الرياح والطقس السطحي",
+      "description_ar": "رياح، ضغط، رطوبة، غبار"
+    },
+    {
+      "id": "tide_lunar",
+      "label_ar": "المد والجزر والقمر",
+      "description_ar": "حمل، فساد، مستوى المد، تأثير قمري"
+    },
+    {
+      "id": "heritage_seasonal",
+      "label_ar": "التراث والموسم",
+      "description_ar": "انتقالات الدر والنوافذ الموسمية"
+    },
+    {
+      "id": "fish_behavior",
+      "label_ar": "سلوك مجموعات الأسماك",
+      "description_ar": "نشاط ساحلي، قاعي، لاحم، صيد"
+    },
+    {
+      "id": "habitat_environment",
+      "label_ar": "البيئة والموائل",
+      "description_ar": "عمق، قاع، خور، فشت، عكام"
+    },
+    {
+      "id": "field_observation",
+      "label_ar": "الرصد الميداني والبشري",
+      "description_ar": "تقارير صيادين، غواصين، مراجعة بشرية"
+    },
+    {
+      "id": "safety_risk",
+      "label_ar": "السلامة والمخاطر",
+      "description_ar": "مخاطر قوارب، غوص، شاطئ"
+    },
+    {
+      "id": "anomaly_intelligence",
+      "label_ar": "الشذوذ والذكاء",
+      "description_ar": "انحرافات غير اعتيادية"
+    },
+    {
+      "id": "station_signature",
+      "label_ar": "بصمة المحطة",
+      "description_ar": "أنماط ثابتة للمحطة المرجعية"
+    },
+    {
+      "id": "data_quality",
+      "label_ar": "جودة البيانات",
+      "description_ar": "اكتمال المصدر والثقة"
+    }
+  ],
+  "traits": [
+    {
+      "trait_key": "sea_surface_temperature",
+      "label_ar": "حرارة سطح البحر",
+      "category": "marine_core",
+      "subcategory": "temperature",
+      "description_ar": "سمة من الجين البحري: حرارة سطح البحر",
+      "expected_value_type": "range",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.sea_surface_temperature",
+        "operator": "between",
+        "value": [
+          18,
+          34
+        ],
+        "unit": "c"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.85,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "temperature_rising",
+      "label_ar": "ارتفاع حرارة الماء",
+      "category": "marine_core",
+      "subcategory": "temperature",
+      "description_ar": "سمة من الجين البحري: ارتفاع حرارة الماء",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.sea_surface_temperature",
+        "operator": ">=",
+        "value": 28,
+        "unit": "c"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "temperature_dropping",
+      "label_ar": "انخفاض حرارة الماء",
+      "category": "marine_core",
+      "subcategory": "temperature",
+      "description_ar": "سمة من الجين البحري: انخفاض حرارة الماء",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.sea_surface_temperature",
+        "operator": "<=",
+        "value": 22,
+        "unit": "c"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "temperature_stable",
+      "label_ar": "استقرار حرارة الماء",
+      "category": "marine_core",
+      "subcategory": "temperature",
+      "description_ar": "سمة من الجين البحري: استقرار حرارة الماء",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "low",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_height_low",
+      "label_ar": "انخفاض ارتفاع الموج",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: انخفاض ارتفاع الموج",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": "<=",
+        "value": 0.5,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.9,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_height_medium",
+      "label_ar": "موج متوسط",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: موج متوسط",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": "between",
+        "value": [
+          0.5,
+          1.5
+        ],
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_height_high",
+      "label_ar": "ارتفاع موج مرتفع",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: ارتفاع موج مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": ">=",
+        "value": 1.5,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_period_short",
+      "label_ar": "دورة موج قصيرة",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: دورة موج قصيرة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_period",
+        "operator": "<=",
+        "value": 5,
+        "unit": "s"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_period_medium",
+      "label_ar": "دورة موج متوسطة",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: دورة موج متوسطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_period",
+        "operator": "between",
+        "value": [
+          5,
+          9
+        ],
+        "unit": "s"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_period_long",
+      "label_ar": "دورة موج طويلة",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: دورة موج طويلة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_period",
+        "operator": ">=",
+        "value": 9,
+        "unit": "s"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_direction_expected",
+      "label_ar": "اتجاه موج متوقع",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: اتجاه موج متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_direction",
+        "operator": "exists",
+        "value": true,
+        "unit": ""
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_direction_shift",
+      "label_ar": "انزياح اتجاه الموج",
+      "category": "marine_core",
+      "subcategory": "waves",
+      "description_ar": "سمة من الجين البحري: انزياح اتجاه الموج",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "current_speed_light",
+      "label_ar": "تيار خفيف",
+      "category": "marine_core",
+      "subcategory": "current",
+      "description_ar": "سمة من الجين البحري: تيار خفيف",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.current_speed",
+        "operator": "<=",
+        "value": 0.45,
+        "unit": "m/s"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "current_speed_medium",
+      "label_ar": "تيار متوسط",
+      "category": "marine_core",
+      "subcategory": "current",
+      "description_ar": "سمة من الجين البحري: تيار متوسط",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.current_speed",
+        "operator": "between",
+        "value": [
+          0.45,
+          0.8
+        ],
+        "unit": "m/s"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "current_speed_strong",
+      "label_ar": "تيار قوي",
+      "category": "marine_core",
+      "subcategory": "current",
+      "description_ar": "سمة من الجين البحري: تيار قوي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.current_speed",
+        "operator": ">=",
+        "value": 0.8,
+        "unit": "m/s"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "current_direction_expected",
+      "label_ar": "اتجاه تيار متوقع",
+      "category": "marine_core",
+      "subcategory": "current",
+      "description_ar": "سمة من الجين البحري: اتجاه تيار متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.current_direction",
+        "operator": "exists",
+        "value": true,
+        "unit": ""
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "current_direction_shift",
+      "label_ar": "انزياح اتجاه التيار",
+      "category": "marine_core",
+      "subcategory": "current",
+      "description_ar": "سمة من الجين البحري: انزياح اتجاه التيار",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "sea_state_calm",
+      "label_ar": "بحر هادئ",
+      "category": "marine_core",
+      "subcategory": "sea_state",
+      "description_ar": "سمة من الجين البحري: بحر هادئ",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": "<=",
+        "value": 0.7,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "sea_state_moderate",
+      "label_ar": "بحر معتدل",
+      "category": "marine_core",
+      "subcategory": "sea_state",
+      "description_ar": "سمة من الجين البحري: بحر معتدل",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": "between",
+        "value": [
+          0.7,
+          1.5
+        ],
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "sea_state_rough",
+      "label_ar": "بحر مضطرب",
+      "category": "marine_core",
+      "subcategory": "sea_state",
+      "description_ar": "سمة من الجين البحري: بحر مضطرب",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": ">=",
+        "value": 1.5,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "water_clarity_good",
+      "label_ar": "وضوح ماء جيد",
+      "category": "marine_core",
+      "subcategory": "marine_core",
+      "description_ar": "سمة من الجين البحري: وضوح ماء جيد",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "water_clarity_poor",
+      "label_ar": "عكامة/وضوح ضعيف",
+      "category": "marine_core",
+      "subcategory": "marine_core",
+      "description_ar": "سمة من الجين البحري: عكامة/وضوح ضعيف",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "surface_disturbance_low",
+      "label_ar": "اضطراب سطحي منخفض",
+      "category": "marine_core",
+      "subcategory": "marine_core",
+      "description_ar": "سمة من الجين البحري: اضطراب سطحي منخفض",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": "<=",
+        "value": 0.6,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "surface_disturbance_high",
+      "label_ar": "اضطراب سطحي مرتفع",
+      "category": "marine_core",
+      "subcategory": "marine_core",
+      "description_ar": "سمة من الجين البحري: اضطراب سطحي مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": ">=",
+        "value": 1.2,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wind_speed_light",
+      "label_ar": "رياح خفيفة",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: رياح خفيفة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wind_speed",
+        "operator": "<=",
+        "value": 18,
+        "unit": "km/h"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wind_speed_medium",
+      "label_ar": "رياح متوسطة",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: رياح متوسطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wind_speed",
+        "operator": "between",
+        "value": [
+          18,
+          30
+        ],
+        "unit": "km/h"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wind_speed_strong",
+      "label_ar": "رياح قوية",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: رياح قوية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wind_speed",
+        "operator": ">=",
+        "value": 30,
+        "unit": "km/h"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wind_direction_expected",
+      "label_ar": "اتجاه رياح متوقع",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: اتجاه رياح متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wind_direction",
+        "operator": "exists",
+        "value": true,
+        "unit": ""
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wind_direction_shift",
+      "label_ar": "انزياح اتجاه الرياح",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: انزياح اتجاه الرياح",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "northwest_wind_presence",
+      "label_ar": "رياح شمال غربية",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: رياح شمال غربية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "humidity_high",
+      "label_ar": "رطوبة عالية",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: رطوبة عالية",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "pressure_stable",
+      "label_ar": "ضغط جوي مستقر",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: ضغط جوي مستقر",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "pressure_drop",
+      "label_ar": "انخفاض ضغط جوي",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: انخفاض ضغط جوي",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "dust_or_haze_presence",
+      "label_ar": "غبار أو ضبابية",
+      "category": "weather_surface",
+      "subcategory": "weather_surface",
+      "description_ar": "سمة من الجين البحري: غبار أو ضبابية",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "hamal_expected",
+      "label_ar": "حمل متوقع",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: حمل متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.tide_state",
+        "operator": "eq",
+        "value": "hamal",
+        "unit": ""
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fasad_expected",
+      "label_ar": "فساد متوقع",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: فساد متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.tide_state",
+        "operator": "eq",
+        "value": "fasad",
+        "unit": ""
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "tide_level_high",
+      "label_ar": "مد مرتفع",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: مد مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.tide_level",
+        "operator": ">=",
+        "value": 2,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "tide_level_low",
+      "label_ar": "مد منخفض",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: مد منخفض",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.tide_level",
+        "operator": "<=",
+        "value": 0.5,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "tide_transition_active",
+      "label_ar": "مرحلة انتقال مد",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: مرحلة انتقال مد",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "lunar_phase_effect",
+      "label_ar": "تأثير طور قمري",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: تأثير طور قمري",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "spring_tide_window",
+      "label_ar": "نافذة مد جزرية كبيرة",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: نافذة مد جزرية كبيرة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "neap_tide_window",
+      "label_ar": "نافذة مد جزرية صغرى",
+      "category": "tide_lunar",
+      "subcategory": "tide_lunar",
+      "description_ar": "سمة من الجين البحري: نافذة مد جزرية صغرى",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "dur_transition_early",
+      "label_ar": "بداية الدر",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: بداية الدر",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "navidur_memory",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "dur_transition_middle",
+      "label_ar": "منتصف الدر",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: منتصف الدر",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "dur_transition_late",
+      "label_ar": "نهاية الدر",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: نهاية الدر",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "expected_seasonal_calm",
+      "label_ar": "هدوء موسمي متوقع",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: هدوء موسمي متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "expected_seasonal_wind",
+      "label_ar": "رياح موسمية متوقعة",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: رياح موسمية متوقعة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "expected_temperature_shift",
+      "label_ar": "تحول حراري موسمي",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: تحول حراري موسمي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "expected_water_color_change",
+      "label_ar": "تغير لون الماء المتوقع",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: تغير لون الماء المتوقع",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "expected_visibility_shift",
+      "label_ar": "تغير وضوح متوقع",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: تغير وضوح متوقع",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "expected_fishing_window",
+      "label_ar": "نافذة صيد متوقعة",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: نافذة صيد متوقعة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "coastal_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "prediction"
+    },
+    {
+      "trait_key": "expected_diving_window",
+      "label_ar": "نافذة غوص متوقعة",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: نافذة غوص متوقعة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "diving"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "heritage_match_score",
+      "label_ar": "درجة مطابقة تراثية",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: درجة مطابقة تراثية",
+      "expected_value_type": "score",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "heritage_mismatch_score",
+      "label_ar": "درجة عدم مطابقة تراثية",
+      "category": "heritage_seasonal",
+      "subcategory": "heritage_seasonal",
+      "description_ar": "سمة من الجين البحري: درجة عدم مطابقة تراثية",
+      "expected_value_type": "score",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "coastal_fish_activity_high",
+      "label_ar": "نشاط أسماك ساحلية مرتفع",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك ساحلية مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "coastal_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "coastal_fish_activity_low",
+      "label_ar": "نشاط أسماك ساحلية منخفض",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك ساحلية منخفض",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "coastal_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "bottom_fish_activity_high",
+      "label_ar": "نشاط أسماك قاعية مرتفع",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك قاعية مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "bottom_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "bottom_fish_activity_low",
+      "label_ar": "نشاط أسماك قاعية منخفض",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك قاعية منخفض",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "bottom_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "pelagic_fish_activity_high",
+      "label_ar": "نشاط أسماك لاحمية مرتفع",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك لاحمية مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "pelagic_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "pelagic_fish_activity_low",
+      "label_ar": "نشاط أسماك لاحمية منخفض",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك لاحمية منخفض",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "pelagic_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "reef_fish_activity_high",
+      "label_ar": "نشاط أسماك الشعاب مرتفع",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك الشعاب مرتفع",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "reef_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "reef_fish_activity_low",
+      "label_ar": "نشاط أسماك الشعاب منخفض",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط أسماك الشعاب منخفض",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [
+        "reef_fish"
+      ],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fish_nearshore_movement",
+      "label_ar": "تحرك سمك نحو الساحل",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: تحرك سمك نحو الساحل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fish_offshore_movement",
+      "label_ar": "تحرك سمك نحو العمق",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: تحرك سمك نحو العمق",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fish_surface_activity",
+      "label_ar": "نشاط سطحي للأسماك",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط سطحي للأسماك",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fish_bottom_activity",
+      "label_ar": "نشاط قاعي للأسماك",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط قاعي للأسماك",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "feeding_window_active",
+      "label_ar": "نافذة تغذية نشطة",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نافذة تغذية نشطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "prediction"
+    },
+    {
+      "trait_key": "feeding_window_weak",
+      "label_ar": "نافذة تغذية ضعيفة",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نافذة تغذية ضعيفة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "prediction"
+    },
+    {
+      "trait_key": "night_activity_possible",
+      "label_ar": "نشاط ليلي محتمل",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط ليلي محتمل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "dawn_activity_possible",
+      "label_ar": "نشاط الفجر محتمل",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: نشاط الفجر محتمل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "migration_signal_possible",
+      "label_ar": "إشارة هجرة محتملة",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: إشارة هجرة محتملة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "schooling_behavior_possible",
+      "label_ar": "سلوك تجمّع محتمل",
+      "category": "fish_behavior",
+      "subcategory": "fish_behavior",
+      "description_ar": "سمة من الجين البحري: سلوك تجمّع محتمل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "shallow_habitat_influence",
+      "label_ar": "تأثير موطئ ضحل",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير موطئ ضحل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "reef_or_rock_habitat_influence",
+      "label_ar": "تأثير شعاب/صخور",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير شعاب/صخور",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "sandy_bottom_influence",
+      "label_ar": "تأثير قاع رملي",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير قاع رملي",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "muddy_bottom_influence",
+      "label_ar": "تأثير قاع طيني",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير قاع طيني",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "seagrass_presence",
+      "label_ar": "وجود عشب بحري",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: وجود عشب بحري",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": true,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "khor_influence",
+      "label_ar": "تأثير خور",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير خور",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fasht_influence",
+      "label_ar": "تأثير فشت",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير فشت",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "island_coast_influence",
+      "label_ar": "تأثير ساحل جزيرة",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير ساحل جزيرة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "open_water_influence",
+      "label_ar": "تأثير مياه مفتوحة",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تأثير مياه مفتوحة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "depth_transition_zone",
+      "label_ar": "منطقة انتقال عمق",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: منطقة انتقال عمق",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "thermal_layer_possible",
+      "label_ar": "طبقة حرارية محتملة",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: طبقة حرارية محتملة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "chlorophyll_signal_possible",
+      "label_ar": "إشارة كلوروفيل",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: إشارة كلوروفيل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "turbidity_possible",
+      "label_ar": "عكامة محتملة",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: عكامة محتملة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "salinity_shift_possible",
+      "label_ar": "تحول ملوحة محتمل",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: تحول ملوحة محتمل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "oxygen_stress_possible",
+      "label_ar": "إجهاد أكسجين محتمل",
+      "category": "habitat_environment",
+      "subcategory": "habitat_environment",
+      "description_ar": "سمة من الجين البحري: إجهاد أكسجين محتمل",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "fisherman_report_available",
+      "label_ar": "تقرير صياد متوفر",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: تقرير صياد متوفر",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "diver_report_available",
+      "label_ar": "تقرير غواص متوفر",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: تقرير غواص متوفر",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "boat_report_available",
+      "label_ar": "تقرير قارب متوفر",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: تقرير قارب متوفر",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "catch_success_reported",
+      "label_ar": "صيد ناجح مُبلّغ",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: صيد ناجح مُبلّغ",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "catch_failure_reported",
+      "label_ar": "فشل صيد مُبلّغ",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: فشل صيد مُبلّغ",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "visibility_reported",
+      "label_ar": "وضوح مُبلّغ",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: وضوح مُبلّغ",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "water_color_reported",
+      "label_ar": "لون ماء مُبلّغ",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: لون ماء مُبلّغ",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "unusual_behavior_reported",
+      "label_ar": "سلوك غير اعتيادي مُبلّغ",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: سلوك غير اعتيادي مُبلّغ",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "human_review_required",
+      "label_ar": "مراجعة بشرية مطلوبة",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: مراجعة بشرية مطلوبة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "field_station_required",
+      "label_ar": "محطة ميدانية مطلوبة",
+      "category": "field_observation",
+      "subcategory": "field_observation",
+      "description_ar": "سمة من الجين البحري: محطة ميدانية مطلوبة",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": true,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "boating_risk_low",
+      "label_ar": "مخاطر قوارب منخفضة",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر قوارب منخفضة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "boating"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "boating_risk_medium",
+      "label_ar": "مخاطر قوارب متوسطة",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر قوارب متوسطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "boating"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "boating_risk_high",
+      "label_ar": "مخاطر قوارب عالية",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر قوارب عالية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "boating"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "shore_activity_risk_low",
+      "label_ar": "مخاطر شاطئ منخفضة",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر شاطئ منخفضة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "shore_activity"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "shore_activity_risk_medium",
+      "label_ar": "مخاطر شاطئ متوسطة",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر شاطئ متوسطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "shore_activity"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "shore_activity_risk_high",
+      "label_ar": "مخاطر شاطئ عالية",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر شاطئ عالية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "shore_activity"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "diving_risk_low",
+      "label_ar": "مخاطر غوص منخفضة",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر غوص منخفضة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "diving"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "diving_risk_medium",
+      "label_ar": "مخاطر غوص متوسطة",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر غوص متوسطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "diving"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "diving_risk_high",
+      "label_ar": "مخاطر غوص عالية",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر غوص عالية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [
+        "diving"
+      ],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "current_risk_high",
+      "label_ar": "مخاطر تيار عالية",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر تيار عالية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "wave_risk_high",
+      "label_ar": "مخاطر أمواج عالية",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر أمواج عالية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": {
+        "variable": "marine_variables.wave_height",
+        "operator": ">=",
+        "value": 1.8,
+        "unit": "m"
+      },
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "night_activity_risk",
+      "label_ar": "مخاطر نشاط ليلي",
+      "category": "safety_risk",
+      "subcategory": "safety_risk",
+      "description_ar": "سمة من الجين البحري: مخاطر نشاط ليلي",
+      "expected_value_type": "boolean",
+      "observable_now": false,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "human_review",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "abnormal_temperature_spike",
+      "label_ar": "قفزة حرارية غير طبيعية",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: قفزة حرارية غير طبيعية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "abnormal_temperature_drop",
+      "label_ar": "انخفاض حراري غير طبيعي",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: انخفاض حراري غير طبيعي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "abnormal_current_shift",
+      "label_ar": "انزياح تيار غير طبيعي",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: انزياح تيار غير طبيعي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "abnormal_wave_jump",
+      "label_ar": "قفزة موج غير طبيعية",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: قفزة موج غير طبيعية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "abnormal_wind_shift",
+      "label_ar": "انزياح رياح غير طبيعي",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: انزياح رياح غير طبيعي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "abnormal_activity_drop",
+      "label_ar": "انخفاض نشاط غير طبيعي",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: انخفاض نشاط غير طبيعي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "abnormal_activity_rise",
+      "label_ar": "ارتفاع نشاط غير طبيعي",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: ارتفاع نشاط غير طبيعي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "heritage_behavior_mismatch",
+      "label_ar": "عدم مطابقة سلوك تراثي",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: عدم مطابقة سلوك تراثي",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "station_behavior_drift",
+      "label_ar": "انجراف سلوك المحطة",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: انجراف سلوك المحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "regional_mismatch",
+      "label_ar": "عدم مطابقة إقليمية",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: عدم مطابقة إقليمية",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "repeated_unmatched_trait",
+      "label_ar": "سمة غير مطابقة متكررة",
+      "category": "anomaly_intelligence",
+      "subcategory": "anomaly_intelligence",
+      "description_ar": "سمة من الجين البحري: سمة غير مطابقة متكررة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "alert"
+    },
+    {
+      "trait_key": "station_thermal_stability",
+      "label_ar": "استقرار حراري للمحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: استقرار حراري للمحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "station_wave_stability",
+      "label_ar": "استقرار أمواج للمحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: استقرار أمواج للمحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "station_current_stability",
+      "label_ar": "استقرار تيار للمحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: استقرار تيار للمحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "station_fish_activity_pattern",
+      "label_ar": "نمط نشاط سمك للمحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: نمط نشاط سمك للمحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "station_risk_pattern",
+      "label_ar": "نمط مخاطر للمحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: نمط مخاطر للمحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "station_seasonal_personality",
+      "label_ar": "شخصية موسمية للمحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: شخصية موسمية للمحطة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "station_reference_reliability",
+      "label_ar": "موثوقية مرجع المحطة",
+      "category": "station_signature",
+      "subcategory": "station_signature",
+      "description_ar": "سمة من الجين البحري: موثوقية مرجع المحطة",
+      "expected_value_type": "score",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "signature"
+    },
+    {
+      "trait_key": "data_complete",
+      "label_ar": "بيانات مكتملة",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: بيانات مكتملة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "rule_based",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "data_missing_partial",
+      "label_ar": "بيانات ناقصة جزئياً",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: بيانات ناقصة جزئياً",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "data_missing_critical",
+      "label_ar": "بيانات ناقصة حرجة",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: بيانات ناقصة حرجة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "source_confidence_high",
+      "label_ar": "ثقة مصدر عالية",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: ثقة مصدر عالية",
+      "expected_value_type": "score",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "source_confidence_medium",
+      "label_ar": "ثقة مصدر متوسطة",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: ثقة مصدر متوسطة",
+      "expected_value_type": "score",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "source_confidence_low",
+      "label_ar": "ثقة مصدر منخفضة",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: ثقة مصدر منخفضة",
+      "expected_value_type": "score",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "enough_history_available",
+      "label_ar": "تاريخ كافٍ متوفر",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: تاريخ كافٍ متوفر",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "navidur_memory"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "insufficient_history",
+      "label_ar": "تاريخ غير كافٍ",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: تاريخ غير كافٍ",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "navidur_memory"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "medium",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": false,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    },
+    {
+      "trait_key": "manual_review_needed",
+      "label_ar": "مراجعة يدوية مطلوبة",
+      "category": "data_quality",
+      "subcategory": "data_quality",
+      "description_ar": "سمة من الجين البحري: مراجعة يدوية مطلوبة",
+      "expected_value_type": "boolean",
+      "observable_now": true,
+      "observable_sources": [
+        "open_meteo_marine",
+        "navidur_memory",
+        "human_review"
+      ],
+      "primary_source": "open_meteo_marine",
+      "validation_rule": null,
+      "match_logic": "manual",
+      "confidence_weight": 0.7,
+      "importance": "high",
+      "applies_to": [
+        "all_reference_stations"
+      ],
+      "dur_applicability": "all",
+      "dur_names": [],
+      "fish_group_relations": [],
+      "risk_relations": [],
+      "requires_human_review": true,
+      "requires_field_station": false,
+      "status": "active",
+      "future_use": "trend"
+    }
+  ]
+}

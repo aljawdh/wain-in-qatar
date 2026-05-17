@@ -4,7 +4,10 @@ var { cleanString } = require('./security');
 var store = require('./trait-review-store');
 
 var DECISIONS = ['correct', 'incorrect', 'watch', 'insufficient'];
-var MATCH_STATUSES = ['matched', 'partial', 'mismatch', 'unknown'];
+var MATCH_STATUSES = [
+  'matched', 'partial', 'mismatch', 'unknown',
+  'unavailable', 'needs_human_review', 'needs_field_station'
+];
 var MINIMUM_REVIEWS_FOR_ADOPTION = 10;
 
 function slugTraitKey(label) {
@@ -156,7 +159,10 @@ async function saveReview(body, actor) {
     approved_as_evidence: body.approved_as_evidence !== false && body.approved_as_evidence !== 0 && String(body.approved_as_evidence).toLowerCase() !== 'false',
     reviewed_by: cleanString(actor, 80) || 'admin',
     reviewed_at: now,
-    source: cleanString(body.source, 80) || 'station_verification_panel'
+    source: cleanString(body.source, 80) || 'station_verification_panel',
+    genome_version: cleanString(body.genome_version, 20) || null,
+    category: cleanString(body.category, 80) || null,
+    expected_status: cleanString(body.expected_status, 40) || null
   };
   await store.appendReview(record);
   return record;
