@@ -15,52 +15,67 @@
       --ok: #8ef0b0;
       --warn: #ffe6a8;
       --danger: #ff9a9a;
+      --info: #9ec5ff;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      font-family: "Segoe UI", Tahoma, "Arabic Typesetting", Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.5;
+      line-height: 1.55;
       font-size: 15px;
     }
-    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px 14px 48px; }
-    h1 { font-size: 1.35rem; margin: 0 0 6px; }
-    .lead { color: var(--muted); margin: 0 0 12px; }
-    .warn {
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 18px 16px 56px; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; }
+    .lead { color: var(--muted); margin: 0 0 14px; max-width: 52em; }
+    .warn-box {
       background: #3a2a10;
       border: 1px solid #8a6a20;
-      color: var(--warn);
-      padding: 12px 14px;
-      border-radius: 10px;
-      margin: 12px 0;
+      color: #ffe6a8;
+      padding: 14px 16px;
+      border-radius: 12px;
+      margin: 14px 0;
     }
+    .warn-box p { margin: 6px 0; }
     .auth-banner {
       background: #3a1a1a;
       border: 1px solid #7a3030;
       color: #ffc4c4;
-      padding: 12px 14px;
+      padding: 12px 16px;
       border-radius: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .panel {
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 14px 16px;
-      margin-top: 14px;
+      padding: 16px 18px;
+      margin-top: 16px;
     }
-    .panel h2 { margin: 0 0 10px; font-size: 1.05rem; color: #b8d4ff; }
+    .panel h2 { margin: 0 0 12px; font-size: 1.05rem; color: #b8d4ff; }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      background: #0e1a2f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .stat-card .k { color: var(--muted); font-size: 0.78rem; margin-bottom: 6px; }
+    .stat-card .v { font-weight: 700; font-size: 1rem; }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
       align-items: end;
     }
-    label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+    label.field-lbl { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; }
     input, select, button {
-      padding: 9px 11px;
+      padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--border);
       background: #0e1a2f;
@@ -76,104 +91,197 @@
       width: auto;
     }
     button.secondary { background: #355a9e; }
+    button.ghost { background: #1a3358; border-color: #2a4570; }
     button.danger { background: #8a3030; border-color: #a04040; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-    .status { color: var(--muted); min-height: 1.4em; margin: 8px 0; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .status { color: var(--muted); min-height: 1.4em; margin: 10px 0 4px; }
     .status.err { color: var(--danger); }
     .status.ok { color: var(--ok); }
-    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-    th, td { border-bottom: 1px solid #22375d; padding: 8px; text-align: right; vertical-align: middle; }
-    th { color: var(--muted); }
+    .table-wrap { overflow-x: auto; margin-top: 12px; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 720px; }
+    th, td { border-bottom: 1px solid #22375d; padding: 10px 8px; text-align: right; vertical-align: middle; }
+    th { color: var(--muted); font-weight: 600; white-space: nowrap; }
     .hidden { display: none !important; }
-    .toggle-row { display: flex; align-items: center; gap: 8px; }
-    pre {
+    .toggle-row { display: flex; align-items: center; gap: 10px; min-height: 42px; }
+    .toggle-row label { margin: 0; color: var(--text); font-size: 0.9rem; }
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge.ok { background: #1a4d32; color: #b8ffd4; }
+    .badge.warn { background: #4d3f1a; color: #ffe6a8; }
+    .badge.err { background: #4d1a1a; color: #ffc4c4; }
+    .badge.info { background: #1a3358; color: #9ec5ff; }
+    .badge.muted { background: #1a2a44; color: var(--muted); }
+    .run-cards { display: grid; gap: 12px; margin-top: 12px; }
+    .run-card {
       background: #0e1a2f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .run-card-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .run-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px 14px;
+      font-size: 0.88rem;
+    }
+    .run-card-grid .rk { color: var(--muted); }
+    .station-tools {
+      display: grid;
+      grid-template-columns: 1fr repeat(auto-fit, minmax(140px, auto));
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+    .station-counts { display: flex; flex-wrap: wrap; gap: 10px; }
+    .count-pill {
+      background: #0e1a2f;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+    .dev-panel {
+      background: #0e1a2f;
+      border: 1px dashed #4a6088;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+    pre.dev-pre {
+      background: #081018;
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 10px;
       overflow: auto;
-      max-height: 320px;
+      max-height: 280px;
       direction: ltr;
       text-align: left;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      margin: 8px 0 0;
     }
     a { color: #9ec5ff; }
+    .no-print { }
+    @media (max-width: 700px) {
+      .wrap { padding: 12px 10px 40px; }
+      .panel { padding: 14px 12px; }
+      table { min-width: 640px; font-size: 0.82rem; }
+    }
+    @media print {
+      body { background: #fff; color: #111; }
+      .no-print, .dev-only, .run-dev-toggle, .run-dev-detail, .run-dev-pre, .dev-pre { display: none !important; }
+      .panel { break-inside: avoid; border-color: #ccc; background: #fff; }
+      .warn-box { border-color: #999; color: #333; background: #f9f9f9; }
+      .badge { border: 1px solid #999; color: #000 !important; background: #eee !important; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
+    <header class="no-print">
       <h1>إعدادات ذاكرة الذكاء البحري</h1>
-      <p class="lead">إدارة تشغيل Cron والمحطات المرجعية — الإعدادات في <code>navidur_intel_*</code> فقط.</p>
-      <p><a href="/admin/intelligence/index.html">← معاينة الذكاء البحري</a> · <a href="/admin.html">لوحة الإدارة</a></p>
+      <p class="lead">لوحة تشغيل الذاكرة البحرية الساعية — إدارة الإعدادات والمحطات المرجعية وتشغيل الحفظ.</p>
+      <p style="margin:0"><a href="/admin/intelligence/index.html">← معاينة الذكاء البحري</a> · <a href="/admin.html">لوحة الإدارة</a></p>
     </header>
 
-    <div id="authBanner" class="auth-banner hidden">
+    <div id="authBanner" class="auth-banner hidden no-print">
       لا يوجد جلسة إدارية. <a href="/admin.html">سجّل الدخول</a> ثم ارجع هنا.
     </div>
 
-    <div class="warn">
-      <strong>تنبيه:</strong> أي تشغيل فعلي (بدون dry_run) سيكتب في مفاتيح <code>navidur_intel_*</code> فقط — لا يمسّ <code>navidur_store_*</code>.
-      Cron على Vercel يستدعي <code>/api?route=run-intelligence-memory&amp;cron=1</code> ويقرأ الإعدادات من KV.
+    <div class="warn-box no-print" id="userWarnBox">
+      <p><strong>تنبيه مهم:</strong> أي تشغيل فعلي سيقوم بحفظ لقطات الذاكرة البحرية للمحطات المحددة فقط.</p>
+      <p>لا يتم تعديل بيانات التحليل الأساسية أو بيانات المحطات.</p>
+      <button type="button" class="ghost" id="warnTechToggle" style="margin-top:8px">إظهار التفاصيل التقنية</button>
+      <div id="warnTechPanel" class="dev-panel hidden" style="margin-top:10px">
+        <ul style="margin:0;padding-right:18px;color:var(--muted);font-size:0.88rem">
+          <li>مفاتيح الكتابة: <code>navidur_intel_*</code> فقط</li>
+          <li>لا يتم المساس بـ <code>navidur_store_*</code></li>
+          <li>مسار Cron: <code>/api?route=run-intelligence-memory&amp;cron=1</code></li>
+        </ul>
+      </div>
     </div>
 
     <div id="mainPanel" class="hidden">
+      <section class="panel" id="systemStatusPanel">
+        <h2>حالة نظام الذاكرة البحرية</h2>
+        <div id="systemStatusBody" class="status-grid"></div>
+        <p id="systemStatusNote" class="status muted" style="margin-top:10px"></p>
+      </section>
+
       <section class="panel">
         <h2>الإعدادات العامة</h2>
         <div class="grid">
           <div class="toggle-row">
             <input type="checkbox" id="enabledChk">
-            <label for="enabledChk" style="margin:0">تفعيل الذاكرة الساعية (Cron)</label>
+            <label for="enabledChk">تفعيل الذاكرة البحرية (Cron)</label>
           </div>
           <div>
-            <label for="modeSel">الوضع</label>
+            <label class="field-lbl" for="modeSel">وضع التشغيل</label>
             <select id="modeSel">
-              <option value="hourly">ساعي</option>
-              <option value="daily">يومي</option>
+              <option value="hourly">تشغيل كل ساعة</option>
+              <option value="daily">تشغيل يومي</option>
             </select>
           </div>
           <div>
-            <label for="limitInp">limit</label>
+            <label class="field-lbl" for="limitInp">عدد المحطات في كل تشغيل</label>
             <input id="limitInp" type="number" min="1" max="5" value="3">
           </div>
           <div class="toggle-row">
             <input type="checkbox" id="referenceOnlyChk" checked>
-            <label for="referenceOnlyChk" style="margin:0">reference_only</label>
+            <label for="referenceOnlyChk">المحطات المرجعية فقط</label>
           </div>
           <div class="toggle-row">
             <input type="checkbox" id="rotationChk" checked>
-            <label for="rotationChk" style="margin:0">rotation_enabled</label>
+            <label for="rotationChk">تدوير المحطات تلقائيًا</label>
           </div>
           <div class="toggle-row">
             <input type="checkbox" id="runOnlySelectedChk">
-            <label for="runOnlySelectedChk" style="margin:0">run_only_selected</label>
+            <label for="runOnlySelectedChk">تشغيل المحطات المختارة فقط</label>
           </div>
         </div>
         <p class="status" id="configMeta"></p>
-        <div class="toolbar">
-          <button type="button" id="saveBtn">حفظ الإعدادات</button>
-          <button type="button" id="dryRunBtn" class="secondary">تشغيل تجريبي (dry_run)</button>
-          <button type="button" id="runNowBtn" class="danger">تشغيل فعلي الآن</button>
-          <button type="button" id="reloadBtn" class="secondary">تحديث</button>
+        <div class="toolbar no-print">
+          <button type="button" id="saveBtn">حفظ إعدادات الذاكرة</button>
+          <button type="button" id="dryRunBtn" class="secondary">تشغيل تجريبي بدون حفظ</button>
+          <button type="button" id="runNowBtn" class="danger">تشغيل فعلي وحفظ البيانات</button>
+          <button type="button" id="reloadBtn" class="ghost">تحديث الحالة</button>
         </div>
-        <p id="statusLine" class="status">جاهز.</p>
+        <p id="statusLine" class="status no-print">جاهز.</p>
       </section>
 
       <section class="panel">
         <h2>المحطات المرجعية</h2>
-        <p class="status" id="stationMeta"></p>
-        <div style="overflow:auto">
+        <div class="station-tools no-print">
+          <div>
+            <label class="field-lbl" for="stationSearch">بحث سريع</label>
+            <input id="stationSearch" type="search" placeholder="اسم، معرف، دولة، منطقة…" autocomplete="off">
+          </div>
+          <div class="station-counts" id="stationCounts"></div>
+        </div>
+        <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>اختيار</th>
-                <th>استبعاد</th>
-                <th>المعرف</th>
-                <th>الاسم</th>
+                <th>#</th>
+                <th>معرف المحطة</th>
+                <th>اسم المحطة</th>
                 <th>المنطقة</th>
                 <th>الدولة</th>
-                <th>آخر snapshot</th>
+                <th>آخر Snapshot</th>
+                <th>اختيار</th>
+                <th>استبعاد</th>
               </tr>
             </thead>
             <tbody id="stationBody"></tbody>
@@ -182,20 +290,57 @@
       </section>
 
       <section class="panel">
-        <h2>آخر 20 تشغيل</h2>
-        <pre id="runsPre">—</pre>
+        <h2>آخر التشغيلات</h2>
+        <div id="runsCards" class="run-cards"></div>
+        <p id="runsEmpty" class="status muted hidden">لا توجد بيانات تشغيل كافية بعد.</p>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="lastRunPanel">
         <h2>نتيجة آخر تشغيل</h2>
-        <pre id="runResultPre">—</pre>
+        <div id="lastRunCard"></div>
+        <p id="lastRunEmpty" class="status muted">لم يُنفَّذ تشغيل بعد.</p>
+      </section>
+
+      <section class="panel no-print">
+        <h2>تفاصيل تقنية للمطورين</h2>
+        <button type="button" class="ghost" id="devToggleBtn">إظهار التفاصيل التقنية</button>
+        <div id="devPanel" class="dev-only hidden">
+          <h3 style="color:var(--muted);font-size:0.9rem;margin:14px 0 6px">بادئات KV</h3>
+          <ul style="margin:0;padding-right:18px;color:var(--muted);font-size:0.88rem">
+            <li>كتابة الذاكرة: <code>navidur_intel_*</code></li>
+            <li>لا يُستخدم: <code>navidur_store_*</code></li>
+            <li>مسار Cron: <code>/api?route=run-intelligence-memory&amp;cron=1</code></li>
+          </ul>
+          <h3 style="color:var(--muted);font-size:0.9rem;margin:14px 0 6px">الإعدادات الخام (JSON)</h3>
+          <pre id="devConfigPre" class="dev-pre">—</pre>
+          <h3 style="color:var(--muted);font-size:0.9rem;margin:14px 0 6px">آخر التشغيلات (JSON)</h3>
+          <pre id="devRunsPre" class="dev-pre">—</pre>
+          <h3 style="color:var(--muted);font-size:0.9rem;margin:14px 0 6px">نتيجة آخر تشغيل (JSON)</h3>
+          <pre id="devLastRunPre" class="dev-pre">—</pre>
+        </div>
       </section>
     </div>
   </div>
 
   <script>
     (function () {
-      var state = { config: null, stations: [] };
+      var state = {
+        config: null,
+        stations: [],
+        runs: [],
+        lastRun: null,
+        searchQuery: ''
+      };
+
+      function byId(id) { return document.getElementById(id); }
+
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
 
       function token() {
         try { return localStorage.getItem('navidur_admin_token') || ''; }
@@ -203,7 +348,7 @@
       }
 
       function headers(json) {
-        var h = {};
+        var h = { Accept: 'application/json' };
         var t = token();
         if (t) h.Authorization = 'Bearer ' + t;
         if (json) h['Content-Type'] = 'application/json';
@@ -211,9 +356,10 @@
       }
 
       function setStatus(msg, ok) {
-        var el = document.getElementById('statusLine');
+        var el = byId('statusLine');
+        if (!el) return;
         el.textContent = msg || '';
-        el.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : '');
+        el.className = 'status no-print' + (ok === true ? ' ok' : ok === false ? ' err' : '');
       }
 
       async function api(path, opts) {
@@ -235,22 +381,247 @@
       }
 
       function showAuth(required) {
-        document.getElementById('authBanner').classList.toggle('hidden', !required);
-        document.getElementById('mainPanel').classList.toggle('hidden', required);
+        byId('authBanner').classList.toggle('hidden', !required);
+        byId('mainPanel').classList.toggle('hidden', required);
+      }
+
+      function strategyLabelAr(code) {
+        var map = {
+          selected_rotation: 'تدوير المحطات المختارة',
+          reference_rotation: 'تدوير المحطات المرجعية',
+          hour_bucket: 'تدوير حسب الساعة',
+          config_selected: 'المحطات المختارة في الإعدادات'
+        };
+        return map[String(code || '')] || (code ? String(code) : '—');
+      }
+
+      function formatTime(iso) {
+        if (!iso) return '—';
+        try {
+          var d = new Date(iso);
+          if (Number.isNaN(d.getTime())) return String(iso);
+          return d.toLocaleString('ar-QA', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
+        } catch (_e) {
+          return String(iso);
+        }
+      }
+
+      function formatDuration(ms) {
+        var n = Number(ms);
+        if (!Number.isFinite(n) || n < 0) return '—';
+        if (n < 1000) return n + ' مللي ثانية';
+        return (Math.round(n / 100) / 10) + ' ثانية';
+      }
+
+      function runStatusBadge(run) {
+        if (!run) return '<span class="badge muted">—</span>';
+        if (run.skipped || run.reason === 'intelligence_cron_disabled') {
+          return '<span class="badge warn">تم التجاوز</span>';
+        }
+        if (run.ok === false || (run.failed && run.failed > 0 && !run.saved)) {
+          return '<span class="badge err">فشل</span>';
+        }
+        return '<span class="badge ok">ناجح</span>';
+      }
+
+      function runTypeBadge(dry) {
+        return dry
+          ? '<span class="badge warn">تجريبي</span>'
+          : '<span class="badge ok">فعلي</span>';
+      }
+
+      function renderRunCard(run, opts) {
+        opts = opts || {};
+        var time = formatTime(run.finished_at || run.started_at);
+        var html = '<div class="run-card">';
+        html += '<div class="run-card-head">';
+        html += '<div><strong>' + esc(time) + '</strong> ' + runTypeBadge(!!run.dry_run) + ' ' + runStatusBadge(run) + '</div>';
+        if (opts.showDevToggle) {
+          html += '<button type="button" class="ghost run-dev-toggle" data-run-dev="1">إظهار التفاصيل التقنية</button>';
+        }
+        html += '</div>';
+        html += '<div class="run-card-grid">';
+        html += '<div><span class="rk">المحطات المعالجة:</span> ' + esc(run.processed != null ? run.processed : '—') + '</div>';
+        html += '<div><span class="rk">تم حفظها:</span> ' + esc(run.saved != null ? run.saved : '—') + '</div>';
+        html += '<div><span class="rk">فشلت:</span> ' + esc(run.failed != null ? run.failed : '—') + '</div>';
+        html += '<div><span class="rk">مكررة وتم تجاوزها:</span> ' + esc(run.skipped_duplicates != null ? run.skipped_duplicates : '—') + '</div>';
+        html += '<div><span class="rk">مدة التنفيذ:</span> ' + esc(formatDuration(run.duration_ms)) + '</div>';
+        html += '<div><span class="rk">المحطات المؤهلة:</span> ' + esc(run.eligible_total != null ? run.eligible_total : '—') + '</div>';
+        html += '</div>';
+        if (opts.showDevToggle) {
+          html += '<div class="dev-panel hidden run-dev-detail">';
+          html += '<p style="margin:0 0 6px;font-size:0.85rem;color:var(--muted)"><strong>معرف التشغيل:</strong> ' + esc(run.run_id || '—') + '</p>';
+          html += '<p style="margin:0 0 6px;font-size:0.85rem;color:var(--muted)"><strong>طريقة اختيار المحطات:</strong> ' + esc(strategyLabelAr(run.selected_station_strategy) + (run.selected_station_strategy ? ' (' + run.selected_station_strategy + ')' : '')) + '</p>';
+          html += '<p style="margin:0 0 6px;font-size:0.85rem;color:var(--muted)"><strong>فهرس المحطة المختارة:</strong> ' + esc(run.selected_station_index != null ? run.selected_station_index : '—') + '</p>';
+          html += '<p style="margin:0 0 6px;font-size:0.85rem;color:var(--muted)"><strong>مفتاح التدوير:</strong> ' + esc(run.pool_key || '—') + '</p>';
+          html += '<p style="margin:0 0 6px;font-size:0.85rem;color:var(--muted)"><strong>عمليات الحفظ:</strong></p>';
+          html += '<pre class="dev-pre" style="max-height:120px;margin:0 0 8px">' + esc(JSON.stringify(run.writes || {}, null, 2)) + '</pre>';
+          html += '<p style="margin:0 0 4px;font-size:0.85rem;color:var(--muted)"><strong>JSON خام:</strong></p>';
+          html += '<pre class="dev-pre run-dev-pre" style="margin:0">' + esc(JSON.stringify(run, null, 2)) + '</pre>';
+          html += '</div>';
+        }
+        html += '</div>';
+        return html;
+      }
+
+      function renderRunsList(runs) {
+        state.runs = runs || [];
+        byId('devRunsPre').textContent = JSON.stringify(state.runs, null, 2);
+        var container = byId('runsCards');
+        var empty = byId('runsEmpty');
+        if (!state.runs.length) {
+          container.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        container.innerHTML = state.runs.map(function (run) {
+          return renderRunCard(run, { showDevToggle: true });
+        }).join('');
+        container.querySelectorAll('.run-dev-toggle').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var detail = btn.closest('.run-card').querySelector('.run-dev-detail');
+            if (!detail) return;
+            var show = detail.classList.contains('hidden');
+            detail.classList.toggle('hidden', !show);
+            btn.textContent = show ? 'إخفاء التفاصيل التقنية' : 'إظهار التفاصيل التقنية';
+          });
+        });
+      }
+
+      function renderLastRun(run) {
+        state.lastRun = run;
+        byId('devLastRunPre').textContent = run ? JSON.stringify(run, null, 2) : '—';
+        var card = byId('lastRunCard');
+        var empty = byId('lastRunEmpty');
+        if (!run) {
+          card.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        card.innerHTML = renderRunCard(run, { showDevToggle: true });
+        var btn = card.querySelector('.run-dev-toggle');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            var detail = card.querySelector('.run-dev-detail');
+            if (!detail) return;
+            var show = detail.classList.contains('hidden');
+            detail.classList.toggle('hidden', !show);
+            btn.textContent = show ? 'إخفاء التفاصيل التقنية' : 'إظهار التفاصيل التقنية';
+          });
+        }
+      }
+
+      function countSnapshotsToday(runs) {
+        var today = new Date().toISOString().slice(0, 10);
+        var total = 0;
+        (runs || []).forEach(function (run) {
+          var d = run.finished_at ? String(run.finished_at).slice(0, 10) : '';
+          if (d === today && run.saved) total += Number(run.saved) || 0;
+        });
+        return total;
+      }
+
+      function latestSnapshotAmongStations(rows) {
+        var best = null;
+        (rows || []).forEach(function (row) {
+          if (!row.latest_snapshot_at) return;
+          if (!best || String(row.latest_snapshot_at) > String(best)) best = row.latest_snapshot_at;
+        });
+        return best;
+      }
+
+      function lastSuccessfulRun(runs) {
+        for (var i = 0; i < (runs || []).length; i += 1) {
+          var r = runs[i];
+          if (r && r.ok !== false && !r.skipped && (r.saved > 0 || r.processed > 0)) return r;
+        }
+        return runs && runs[0] ? runs[0] : null;
+      }
+
+      function renderSystemStatus() {
+        var cfg = state.config || {};
+        var runs = state.runs || [];
+        var stations = state.stations || [];
+        var lastOk = lastSuccessfulRun(runs);
+        var lastSnap = latestSnapshotAmongStations(stations);
+        var selectedN = (cfg.selected_station_ids || []).length;
+        var excludedN = (cfg.exclude_station_ids || []).length;
+        var refN = window.__refCount != null ? window.__refCount : stations.length;
+
+        var memoryState = cfg.enabled
+          ? '<span class="badge ok">مفعّلة</span>'
+          : '<span class="badge err">متوقفة</span>';
+        var modeState = cfg.mode === 'daily'
+          ? '<span class="badge info">تشغيل يومي</span>'
+          : '<span class="badge info">تشغيل كل ساعة</span>';
+        var cronState = cfg.enabled
+          ? '<span class="badge ok">مجدول — يعمل</span>'
+          : '<span class="badge warn">مجدول — متوقف</span>';
+
+        var cards = [
+          { k: 'حالة الذاكرة', v: memoryState },
+          { k: 'وضع التشغيل', v: modeState },
+          { k: 'آخر تشغيل ناجح', v: lastOk ? formatTime(lastOk.finished_at) : '—' },
+          { k: 'آخر Snapshot محفوظ', v: lastSnap ? formatTime(lastSnap) : '—' },
+          { k: 'عدد المحطات المرجعية', v: esc(refN) },
+          { k: 'عدد المحطات المختارة', v: esc(selectedN) },
+          { k: 'عدد المحطات المستبعدة', v: esc(excludedN) },
+          { k: 'لقطات محفوظة اليوم', v: esc(countSnapshotsToday(runs)) },
+          { k: 'حالة Cron', v: cronState }
+        ];
+
+        byId('systemStatusBody').innerHTML = cards.map(function (c) {
+          return '<div class="stat-card"><div class="k">' + c.k + '</div><div class="v">' + c.v + '</div></div>';
+        }).join('');
+
+        var note = byId('systemStatusNote');
+        if (!runs.length && !lastSnap) {
+          note.textContent = 'لا توجد بيانات تشغيل كافية بعد.';
+        } else {
+          note.textContent = '';
+        }
       }
 
       function applyConfig(cfg) {
         state.config = cfg;
-        document.getElementById('enabledChk').checked = !!cfg.enabled;
-        document.getElementById('modeSel').value = cfg.mode === 'daily' ? 'daily' : 'hourly';
-        document.getElementById('limitInp').value = cfg.limit || 3;
-        document.getElementById('limitInp').max = cfg.max_limit || 5;
-        document.getElementById('referenceOnlyChk').checked = cfg.reference_only !== false;
-        document.getElementById('rotationChk').checked = cfg.rotation_enabled !== false;
-        document.getElementById('runOnlySelectedChk').checked = !!cfg.run_only_selected;
-        document.getElementById('configMeta').textContent =
-          'مرجعية: ' + (window.__refCount || '—') + ' · مختارة: ' + (cfg.selected_station_ids || []).length
-          + ' · محدّث: ' + (cfg.updated_at || '—');
+        byId('enabledChk').checked = !!cfg.enabled;
+        byId('modeSel').value = cfg.mode === 'daily' ? 'daily' : 'hourly';
+        byId('limitInp').value = cfg.limit || 3;
+        byId('limitInp').max = cfg.max_limit || 5;
+        byId('referenceOnlyChk').checked = cfg.reference_only !== false;
+        byId('rotationChk').checked = cfg.rotation_enabled !== false;
+        byId('runOnlySelectedChk').checked = !!cfg.run_only_selected;
+        byId('configMeta').textContent =
+          'آخر تحديث للإعدادات: ' + (cfg.updated_at ? formatTime(cfg.updated_at) : '—');
+        byId('devConfigPre').textContent = JSON.stringify(cfg, null, 2);
+        renderSystemStatus();
+        updateStationCounts();
+      }
+
+      function stationMatchesSearch(row, q) {
+        if (!q) return true;
+        var hay = [
+          row.station_id,
+          row.name,
+          row.region,
+          row.country
+        ].join(' ').toLowerCase();
+        return hay.indexOf(q) >= 0;
+      }
+
+      function updateStationCounts() {
+        var rows = state.stations || [];
+        var selected = (state.config && state.config.selected_station_ids || []).length;
+        var excluded = (state.config && state.config.exclude_station_ids || []).length;
+        byId('stationCounts').innerHTML =
+          '<span class="count-pill">المحطات المرجعية: <strong>' + rows.length + '</strong></span>' +
+          '<span class="count-pill">مختارة: <strong>' + selected + '</strong></span>' +
+          '<span class="count-pill">مستبعدة: <strong>' + excluded + '</strong></span>' +
+          '<span class="count-pill">معروضة: <strong id="visibleStationCount">' + rows.filter(function (r) {
+            return stationMatchesSearch(r, state.searchQuery);
+          }).length + '</strong></span>';
       }
 
       function renderStations(rows) {
@@ -263,21 +634,28 @@
         (state.config && state.config.exclude_station_ids || []).forEach(function (id) {
           excluded[String(id)] = true;
         });
-        var tbody = document.getElementById('stationBody');
+        var tbody = byId('stationBody');
         tbody.innerHTML = '';
-        rows.forEach(function (row) {
+        var visible = 0;
+        rows.forEach(function (row, idx) {
+          if (!stationMatchesSearch(row, state.searchQuery)) return;
+          visible += 1;
           var tr = document.createElement('tr');
           tr.innerHTML =
-            '<td><input type="checkbox" data-sel="' + row.station_id + '"' + (selected[row.station_id] ? ' checked' : '') + '></td>' +
-            '<td><input type="checkbox" data-exc="' + row.station_id + '"' + (excluded[row.station_id] ? ' checked' : '') + '></td>' +
-            '<td>' + row.station_id + '</td>' +
-            '<td>' + (row.name || '—') + '</td>' +
-            '<td>' + (row.region || '—') + '</td>' +
-            '<td>' + (row.country || '—') + '</td>' +
-            '<td dir="ltr" style="text-align:left">' + (row.latest_snapshot_at || '—') + '</td>';
+            '<td>' + visible + '</td>' +
+            '<td>' + esc(row.station_id) + '</td>' +
+            '<td>' + esc(row.name || '—') + '</td>' +
+            '<td>' + esc(row.region || '—') + '</td>' +
+            '<td>' + esc(row.country || '—') + '</td>' +
+            '<td>' + esc(row.latest_snapshot_at ? formatTime(row.latest_snapshot_at) : '—') + '</td>' +
+            '<td><input type="checkbox" data-sel="' + esc(row.station_id) + '"' + (selected[row.station_id] ? ' checked' : '') + ' aria-label="اختيار"></td>' +
+            '<td><input type="checkbox" data-exc="' + esc(row.station_id) + '"' + (excluded[row.station_id] ? ' checked' : '') + ' aria-label="استبعاد"></td>';
           tbody.appendChild(tr);
         });
-        document.getElementById('stationMeta').textContent = 'عدد المحطات المرجعية المعروضة: ' + rows.length;
+        var visEl = document.getElementById('visibleStationCount');
+        if (visEl) visEl.textContent = String(visible);
+        updateStationCounts();
+        renderSystemStatus();
       }
 
       function collectPayload() {
@@ -290,12 +668,12 @@
           if (el.checked) excluded.push(el.getAttribute('data-exc'));
         });
         return {
-          enabled: document.getElementById('enabledChk').checked,
-          mode: document.getElementById('modeSel').value,
-          limit: Number(document.getElementById('limitInp').value) || 3,
-          reference_only: document.getElementById('referenceOnlyChk').checked,
-          rotation_enabled: document.getElementById('rotationChk').checked,
-          run_only_selected: document.getElementById('runOnlySelectedChk').checked,
+          enabled: byId('enabledChk').checked,
+          mode: byId('modeSel').value,
+          limit: Number(byId('limitInp').value) || 3,
+          reference_only: byId('referenceOnlyChk').checked,
+          rotation_enabled: byId('rotationChk').checked,
+          run_only_selected: byId('runOnlySelectedChk').checked,
           selected_station_ids: selected,
           exclude_station_ids: excluded
         };
@@ -317,9 +695,13 @@
         if (stRes.json && stRes.json.ok) renderStations(stRes.json.stations);
         var runs = await api('intelligence-memory-runs', { route: 'intelligence-memory-runs', qs: { limit: 20 } });
         if (runs.json && runs.json.runs) {
-          document.getElementById('runsPre').textContent = JSON.stringify(runs.json.runs, null, 2);
+          renderRunsList(runs.json.runs);
+          if (!state.lastRun && runs.json.runs[0]) renderLastRun(runs.json.runs[0]);
+        } else {
+          renderRunsList([]);
         }
-        setStatus('تم التحميل.', true);
+        renderSystemStatus();
+        setStatus('تم تحديث الحالة.', true);
       }
 
       async function saveConfig() {
@@ -331,31 +713,61 @@
           return;
         }
         applyConfig(res.json.config);
-        setStatus('تم حفظ الإعدادات.', true);
+        setStatus('تم حفظ إعدادات الذاكرة.', true);
         await loadAll();
       }
 
       async function testRun(dry) {
-        setStatus(dry ? 'تشغيل تجريبي…' : 'تشغيل فعلي…');
-        if (!dry && !window.confirm('تشغيل فعلي الآن؟ سيكتب في navidur_intel_* فقط.')) return;
+        setStatus(dry ? 'جاري التشغيل التجريبي…' : 'جاري التشغيل الفعلي…');
+        if (!dry && !window.confirm('تشغيل فعلي وحفظ البيانات؟ سيتم حفظ لقطات الذاكرة البحرية للمحطات المحددة فقط.')) return;
         await saveConfig();
         var res = await api('intelligence-cron-test-run', {
           method: 'POST',
           qs: { dry_run: dry ? '1' : '0' }
         });
-        document.getElementById('runResultPre').textContent = JSON.stringify(res.json || res, null, 2);
-        if (res.json && res.json.ok) setStatus(dry ? 'انتهى التشغيل التجريبي.' : 'انتهى التشغيل الفعلي.', true);
-        else setStatus('فشل التشغيل.', false);
-        var runs = await api('intelligence-memory-runs', { route: 'intelligence-memory-runs', qs: { limit: 20 } });
-        if (runs.json && runs.json.runs) {
-          document.getElementById('runsPre').textContent = JSON.stringify(runs.json.runs, null, 2);
+        if (res.status === 401) { showAuth(true); return; }
+        var payload = res.json || { ok: false, error: res.status };
+        renderLastRun(payload);
+        if (payload && payload.ok) {
+          setStatus(dry ? 'انتهى التشغيل التجريبي بدون حفظ.' : 'انتهى التشغيل الفعلي وحفظ البيانات.', true);
+        } else {
+          setStatus('فشل التشغيل.', false);
         }
+        var runs = await api('intelligence-memory-runs', { route: 'intelligence-memory-runs', qs: { limit: 20 } });
+        if (runs.json && runs.json.runs) renderRunsList(runs.json.runs);
+        renderSystemStatus();
       }
 
-      document.getElementById('saveBtn').addEventListener('click', saveConfig);
-      document.getElementById('reloadBtn').addEventListener('click', loadAll);
-      document.getElementById('dryRunBtn').addEventListener('click', function () { testRun(true); });
-      document.getElementById('runNowBtn').addEventListener('click', function () { testRun(false); });
+      byId('saveBtn').addEventListener('click', saveConfig);
+      byId('reloadBtn').addEventListener('click', loadAll);
+      byId('dryRunBtn').addEventListener('click', function () { testRun(true); });
+      byId('runNowBtn').addEventListener('click', function () { testRun(false); });
+
+      byId('stationSearch').addEventListener('input', function () {
+        state.searchQuery = String(byId('stationSearch').value || '').trim().toLowerCase();
+        renderStations(state.stations);
+      });
+
+      byId('warnTechToggle').addEventListener('click', function () {
+        var p = byId('warnTechPanel');
+        var show = p.classList.contains('hidden');
+        p.classList.toggle('hidden', !show);
+        byId('warnTechToggle').textContent = show ? 'إخفاء التفاصيل التقنية' : 'إظهار التفاصيل التقنية';
+      });
+
+      byId('devToggleBtn').addEventListener('click', function () {
+        var p = byId('devPanel');
+        var show = p.classList.contains('hidden');
+        p.classList.toggle('hidden', !show);
+        byId('devToggleBtn').textContent = show ? 'إخفاء التفاصيل التقنية' : 'إظهار التفاصيل التقنية';
+      });
+
+      document.querySelectorAll('[data-sel],[data-exc]').forEach(function () {});
+
+      byId('stationBody').addEventListener('change', function () {
+        updateStationCounts();
+      });
+
       loadAll();
     })();
   </script>
