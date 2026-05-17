@@ -661,7 +661,8 @@
         var g = STORMGLASS_MONITORING_ENABLED && s.stormglass_values ? s.stormglass_values[k] : null;
         var u = k === 'windSpeed' ? 'كم/س' : (k === 'waveHeight' || k === 'currentSpeed' ? 'م/ث' : (k === 'seaLevel' ? 'م' : '°م'));
         if (k === 'windDirection') u = '°';
-        var row = '<tr><td>' + lab + '</td><td>' + fmt(o, k === 'windSpeed' ? 'كم/س' : (k === 'windDirection' ? '°' : (k === 'airTemperature' || k === 'waterTemperature' ? '°م' : (k === 'waveHeight' ? 'م' : (k === 'currentSpeed' ? 'م/ث' : (k === 'seaLevel' ? 'م' : ''))))) + '</td>';
+        var unitOm = k === 'windSpeed' ? 'كم/س' : (k === 'windDirection' ? '°' : (k === 'airTemperature' || k === 'waterTemperature' ? '°م' : (k === 'waveHeight' ? 'م' : (k === 'currentSpeed' ? 'م/ث' : (k === 'seaLevel' ? 'م' : '')))));
+        var row = '<tr><td>' + lab + '</td><td>' + fmt(o, unitOm) + '</td>';
         if (STORMGLASS_MONITORING_ENABLED) {
           row += '<td class="sg-only">' + fmt(g, u) + '</td>';
         }
