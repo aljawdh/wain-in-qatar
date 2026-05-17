@@ -112,7 +112,9 @@
     </p>
 
     <div class="top">
-      <select id="stationSelect" aria-label="المحطة"></select>
+      <select id="stationSelect" aria-label="المحطة">
+        <option value="">جاري تحميل المحطات…</option>
+      </select>
       <input id="dateInput" type="date" aria-label="التاريخ">
       <button type="button" id="refreshBtn">تحديث الرصد</button>
     </div>
@@ -228,7 +230,13 @@
      */
     var STORMGLASS_MONITORING_ENABLED = false;
 
-    var token = localStorage.getItem('navidur_admin_token') || '';
+    function getMonitoringToken() {
+      try {
+        return localStorage.getItem('navidur_admin_token') || '';
+      } catch (_e) {
+        return '';
+      }
+    }
     var byId = function (id) { return document.getElementById(id); };
     var latest = null;
     var latestBundle = null;
@@ -264,9 +272,41 @@
     }
 
     function authHeaders() {
-      var h = { 'Cache-Control': 'no-store' };
-      if (token) h.Authorization = 'Bearer ' + token;
+      var h = { Accept: 'application/json', 'Cache-Control': 'no-store' };
+      var t = getMonitoringToken();
+      if (t) h.Authorization = 'Bearer ' + t;
       return h;
+    }
+
+    async function fetchStationsJson(spec) {
+      var headers = { Accept: 'application/json', 'Cache-Control': 'no-store' };
+      if (spec.useAdminAuth) {
+        var t = getMonitoringToken();
+        if (t) headers.Authorization = 'Bearer ' + t;
+      }
+      var res = await fetch(spec.url, {
+        method: 'GET',
+        headers: headers,
+        credentials: spec.useAdminAuth ? 'include' : 'omit',
+        cache: 'no-store'
+      });
+      var ct = String(res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok) {
+        return { ok: false, status: res.status, rows: [], url: spec.url };
+      }
+      if (ct.indexOf('application/json') < 0 && ct.indexOf('+json') < 0) {
+        return { ok: false, status: 'not_json', rows: [], url: spec.url };
+      }
+      var json = await res.json();
+      if (typeof json === 'string') {
+        try {
+          json = JSON.parse(json);
+        } catch (_e3) {
+          return { ok: false, status: 'parse_error', rows: [], url: spec.url };
+        }
+      }
+      var rows = normalizeStationsPayload(json);
+      return { ok: rows.length > 0, status: res.status, rows: rows, url: spec.url };
     }
 
     function fetchMonitoringJson(url) {
@@ -382,39 +422,26 @@
         console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'missing_select' });
         return false;
       }
-      var attempts = [{ url: MONITORING_STATIONS_ADMIN_URL, useAdminAuth: true }].concat(
-        MONITORING_STATIONS_PUBLIC_URLS.map(function (u) {
-          return { url: u, useAdminAuth: false };
-        })
-      );
+      /** عام أولًا (لا يحتاج JWT) ثم إداري كامل مع كوكي/توكن */
+      var attempts = MONITORING_STATIONS_PUBLIC_URLS.map(function (u) {
+        return { url: u, useAdminAuth: false };
+      }).concat([{ url: MONITORING_STATIONS_ADMIN_URL, useAdminAuth: true }]);
       var lastStatus = null;
       var lastUrl = null;
       for (var ui = 0; ui < attempts.length; ui += 1) {
         var spec = attempts[ui];
         lastUrl = spec.url;
         try {
-          var headers = { 'Cache-Control': 'no-store' };
-          if (spec.useAdminAuth && token) headers.Authorization = 'Bearer ' + token;
-          var res = await fetch(spec.url, {
-            method: 'GET',
-            headers: headers,
-            credentials: 'include',
-            cache: 'no-store'
-          });
-          lastStatus = res.status;
-          if (!res.ok) continue;
-          var json = await res.json();
-          if (typeof json === 'string') {
-            try {
-              json = JSON.parse(json);
-            } catch (_e2) {
-              continue;
-            }
-          }
-          var rows = normalizeStationsPayload(json);
-          console.log('MONITORING_STATIONS_RAW', rows.length, rows.slice(0, 3));
-          if (fillStationSelectFromRows(rows)) {
-            console.info('NAVIDUR_MONITORING_STATIONS_SOURCE', { url: spec.url, http: res.status, rows: rows.length });
+          var result = await fetchStationsJson(spec);
+          lastStatus = result.status;
+          console.log('MONITORING_STATIONS_RAW', result.rows.length, result.rows.slice(0, 3));
+          if (result.ok && fillStationSelectFromRows(result.rows)) {
+            console.info('NAVIDUR_MONITORING_STATIONS_SOURCE', {
+              url: result.url,
+              http: result.status,
+              rows: result.rows.length,
+              admin_auth: spec.useAdminAuth
+            });
             return true;
           }
         } catch (err) {
@@ -872,7 +899,7 @@
           console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'throw', detail: String(e && e.message ? e.message : e) });
         }
         if (!loaded) {
-          setStatus('تعذر تحميل قائمة المحطات — راجع Console', true);
+          setStatus('تعذر تحميل المحطات — افتح الصفحة من navidur.app وسجّل دخولك من /admin ثم حدّث (Ctrl+F5)', true);
         }
         try {
           await refresh();
