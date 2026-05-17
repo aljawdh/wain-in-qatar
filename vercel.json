@@ -9,7 +9,7 @@
     { "path": "/api/run-snapshots", "schedule": "0 0 * * *" },
     {
       "path": "/api?route=run-intelligence-memory&reference_only=1&limit=1",
-      "schedule": "0 * * * *"
+      "schedule": "0 2 * * *"
     }
   ],
   "redirects": [
