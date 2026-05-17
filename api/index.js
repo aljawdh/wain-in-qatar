@@ -19,6 +19,7 @@ const vercelAnalyticsHandler = require('../serverless_api/vercel-analytics');
 const runtimeStoreHandler = require('../serverless_api/runtime-store');
 const storeHandler = require('../serverless_api/_store');
 const astroDurApiHandler = require('../serverless_api/astro-dur-api');
+const intelligencePreviewHandler = require('../serverless_api/navidur-intelligence-preview');
 
 function normalizeRoute(value) {
   return String(value || '').trim().toLowerCase();
@@ -65,6 +66,7 @@ module.exports = async function handler(req, res) {
     return fishingEngineHandler(req, res);
   }
   if (route === 'analysis') return analysisHandler(req, res);
+  if (route === 'intelligence-preview') return intelligencePreviewHandler(req, res);
   if (route === 'capture-snapshot' || route === 'snapshot-capture') return snapshotHandler(req, res);
   if (route === 'run-snapshots') return runSnapshotsHandler(req, res);
   if (route === 'admin-settings') return adminSettingsHandler(req, res);
