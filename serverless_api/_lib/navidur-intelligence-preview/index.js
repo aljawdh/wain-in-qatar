@@ -6,6 +6,7 @@ var { analyzeLiveStation } = require('../../../shared/navidur-analysis-engine');
 var {
   normalizeRequestedStation,
   fetchWeatherAndMarineInputs,
+  buildNormalizedMarineInputs,
   loadReferenceData
 } = require('../navidur-analysis-runtime');
 
@@ -45,12 +46,16 @@ async function buildLiveDto(station, referenceData, dateCtx) {
     datetime: dateCtx.datetime
   };
   var weatherPack = await fetchWeatherAndMarineInputs(station, body);
-  var weatherMeta = {
-    forecast_source: weatherPack.forecast_source || '',
-    from_cache: !!weatherPack.from_cache,
-    from_defaults: !!weatherPack.from_defaults,
-    no_data_for_date: !!weatherPack.no_data_for_date
-  };
+  var weatherMeta = Object.assign({}, weatherPack.weather_meta || {}, {
+    forecast_source: (weatherPack.weather_meta && weatherPack.weather_meta.forecast_source) || '',
+    from_cache: !!(weatherPack.weather_meta && weatherPack.weather_meta.from_cache),
+    from_defaults: !!(weatherPack.weather_meta && weatherPack.weather_meta.from_defaults),
+    no_data_for_date: !!(weatherPack.weather_meta && weatherPack.weather_meta.no_data_for_date),
+    normalized_marine: weatherPack.normalized_marine || buildNormalizedMarineInputs(
+      weatherPack.live_inputs,
+      weatherPack.weather_meta
+    )
+  });
   var traitCalibDoc = await readJsonFile('trait_calibration', { version: 1, scopes: {} });
   var dto = analyzeLiveStation({
     station: station,

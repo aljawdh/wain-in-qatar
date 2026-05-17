@@ -380,13 +380,27 @@
 
     var sourceMap = {
       open_meteo_hourly: 'متوفر من مصدر بحري',
+      open_meteo_marine: 'متوفر من مصدر بحري',
       derived_tide: 'محسوب من حالة المد',
+      not_available: 'غير متوفر',
       missing_in_dto: 'غير متوفر حاليًا',
       not_in_current_dto: 'غير متوفر في البيانات الحالية',
       missing: 'غير متوفر',
       cache: 'من ذاكرة مؤقتة',
       defaults: 'قيم افتراضية',
       unknown: 'مصدر داخلي'
+    };
+
+    var DEGREE_ARROW_LABELS = {
+      0: '↑ شمال',
+      45: '↗ شمال شرقي',
+      90: '→ شرق',
+      135: '↘ جنوب شرقي',
+      180: '↓ جنوب',
+      225: '↙ جنوب غربي',
+      270: '← غرب',
+      315: '↖ شمال غربي',
+      360: '↑ شمال'
     };
 
     var COMPASS_ARROWS = {
@@ -667,10 +681,20 @@
       return esc(String(v)) + (unit ? ' ' + unit : '');
     }
 
+    function formatDirectionDegrees(deg) {
+      var n = Number(deg);
+      if (!Number.isFinite(n)) return null;
+      var norm = Math.round(((n % 360) + 360) % 360);
+      var snapped = Math.round(norm / 45) * 45 % 360;
+      var arrow = DEGREE_ARROW_LABELS[snapped] || DEGREE_ARROW_LABELS[0];
+      return esc(arrow) + ' — ' + esc(String(Math.round(norm))) + '°';
+    }
+
     function formatDirection(code) {
       if (isNullish(code)) return 'غير متوفر';
+      if (typeof code === 'number' && Number.isFinite(code)) return formatDirectionDegrees(code);
       var c = String(code).trim();
-      if (/^-?\d+(\.\d+)?$/.test(c)) return esc(c) + '° — اتجاه رقمي';
+      if (/^-?\d+(\.\d+)?$/.test(c)) return formatDirectionDegrees(c);
       var upper = c.toUpperCase();
       if (COMPASS_ARROWS[upper]) return esc(COMPASS_ARROWS[upper]);
       if (/[\u0600-\u06FF]/.test(c)) return esc(c);
@@ -693,8 +717,8 @@
       mv = mv || {};
       disp = disp || {};
       if (key === 'tide_state') return formatTideState(disp.tide_state || mv.tide_state);
-      if (key === 'current_direction') return formatDirection(mv.current_direction || disp.current_direction);
-      if (key === 'wave_direction') return formatDirection(mv.wave_direction || disp.wave_direction);
+      if (key === 'current_direction') return formatDirection(mv.current_direction != null ? mv.current_direction : disp.current_direction);
+      if (key === 'wave_direction') return formatDirection(mv.wave_direction != null ? mv.wave_direction : disp.wave_direction);
       if (key === 'wind_direction') return formatDirection(mv.wind_direction || disp.wind_direction);
       var v = disp[key] != null ? disp[key] : mv[key];
       var units = {

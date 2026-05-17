@@ -496,7 +496,14 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
     var marineUrl = new URL('https://marine-api.open-meteo.com/v1/marine');
     marineUrl.searchParams.set('latitude', String(la));
     marineUrl.searchParams.set('longitude', String(lo));
-    marineUrl.searchParams.set('hourly', 'sea_surface_temperature,ocean_current_velocity,wave_height,sea_level_height_msl');
+    marineUrl.searchParams.set(
+      'hourly',
+      'sea_surface_temperature,ocean_current_velocity,ocean_current_direction,wave_height,wave_direction,wave_period,sea_level_height_msl'
+    );
+    marineUrl.searchParams.set(
+      'current',
+      'sea_surface_temperature,ocean_current_velocity,ocean_current_direction,wave_height,wave_direction,wave_period'
+    );
     marineUrl.searchParams.set('timezone', 'GMT');
     if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
       marineUrl.searchParams.set('start_date', String(asOfDate));
@@ -542,7 +549,10 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
         wind_speed_kmh: null,
         wind_direction_deg: null,
         wave_height_m: null,
+        wave_direction_deg: null,
+        wave_period_s: null,
         current_speed_ms: null,
+        current_direction_deg: null,
         relative_humidity_2m: null,
         weather_code: null,
         tide: { state: null, height_m: null, trend: null }
@@ -578,10 +588,22 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       var arr = Array.isArray(weatherDaily.sunset) ? weatherDaily.sunset : [];
       return arr.length ? String(arr[0]) : '';
     })();
+    var marinePayloadCurrent = marinePayload && marinePayload.current ? marinePayload.current : {};
+    function pickMarineField(hourlyKey, currentKey) {
+      var fromHourly = pickHourlyValueByInstant(marineTimeArray, marineHourly[hourlyKey], instantMs);
+      if (fromHourly != null && fromHourly !== '') return fromHourly;
+      if (marinePayloadCurrent[currentKey] != null && marinePayloadCurrent[currentKey] !== '') {
+        return marinePayloadCurrent[currentKey];
+      }
+      return null;
+    }
     var marineCurrent = {
-      sea_surface_temperature: pickHourlyValueByInstant(marineTimeArray, marineHourly.sea_surface_temperature, instantMs),
-      wave_height: pickHourlyValueByInstant(marineTimeArray, marineHourly.wave_height, instantMs),
-      ocean_current_velocity: pickHourlyValueByInstant(marineTimeArray, marineHourly.ocean_current_velocity, instantMs)
+      sea_surface_temperature: pickMarineField('sea_surface_temperature', 'sea_surface_temperature'),
+      wave_height: pickMarineField('wave_height', 'wave_height'),
+      wave_direction: pickMarineField('wave_direction', 'wave_direction'),
+      wave_period: pickMarineField('wave_period', 'wave_period'),
+      ocean_current_velocity: pickMarineField('ocean_current_velocity', 'ocean_current_velocity'),
+      ocean_current_direction: pickMarineField('ocean_current_direction', 'ocean_current_direction')
     };
 
     var li = {
@@ -589,7 +611,10 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       wind_speed_kmh: toNumber(weatherCurrent.wind_speed_10m),
       wind_direction_deg: toNumber(weatherCurrent.wind_direction_10m),
       wave_height_m: toNumber(marineCurrent.wave_height),
+      wave_direction_deg: toNumber(marineCurrent.wave_direction),
+      wave_period_s: toNumber(marineCurrent.wave_period),
       current_speed_ms: toNumber(marineCurrent.ocean_current_velocity),
+      current_direction_deg: toNumber(marineCurrent.ocean_current_direction),
       relative_humidity_2m: toNumber(weatherCurrent.relative_humidity_2m),
       weather_code: toNumber(weatherCurrent.weather_code),
       tide: tidePack.tide
@@ -693,7 +718,10 @@ async function getWeatherData(station, asOfDate, asOfInstantIso) {
       wind_speed_kmh: null,
       wind_direction_deg: null,
       wave_height_m: null,
+      wave_direction_deg: null,
+      wave_period_s: null,
       current_speed_ms: null,
+      current_direction_deg: null,
       relative_humidity_2m: null,
       weather_code: null,
       tide: { state: null, height_m: null, trend: null }
@@ -745,15 +773,19 @@ async function fetchWeatherAndMarineInputs(station, body) {
     return {
       live_inputs: explicitPack.live_inputs,
       weather_meta: explicitPack.weather_meta,
+      normalized_marine: buildNormalizedMarineInputs(explicitPack.live_inputs, explicitPack.weather_meta),
       tide_series: explicitPack.tide_series
     };
   }
   if (station.lat == null || station.lon == null) {
+    var defaultLi = Object.assign({}, DEFAULT_LIVE, {
+      tide: { state: null, height_m: null, trend: null }
+    });
+    var defaultMeta = { from_defaults: true, weather_status_ar: WEATHER_UNAVAILABLE_AR, humidity_pct: null };
     return {
-      live_inputs: Object.assign({}, DEFAULT_LIVE, {
-        tide: { state: null, height_m: null, trend: null }
-      }),
-      weather_meta: { from_defaults: true, weather_status_ar: WEATHER_UNAVAILABLE_AR, humidity_pct: null },
+      live_inputs: defaultLi,
+      weather_meta: defaultMeta,
+      normalized_marine: buildNormalizedMarineInputs(defaultLi, defaultMeta),
       tide_debug: {
         has_hourly: false,
         values_sample: [],
@@ -807,19 +839,21 @@ async function fetchWeatherAndMarineInputs(station, body) {
     await saveWeatherCacheEntry(cacheKey, li, pack.weather_status_ar);
   }
   var hum = toNumber(li.relative_humidity_2m);
+  var weatherMeta = {
+    from_cache: !!pack.from_cache,
+    from_defaults: !!pack.from_defaults,
+    weather_status_ar: cleanString(pack.weather_status_ar, 200) || '',
+    as_of: asOf || null,
+    humidity_pct: hum != null ? hum : null,
+    no_marine_data_for_date: !!pack.no_data_for_date,
+    cache_key: cacheKey,
+    forecast_source: pack.forecast_source || '',
+    weather_fetch_date: asOf || null
+  };
   return {
     live_inputs: li,
-    weather_meta: {
-      from_cache: !!pack.from_cache,
-      from_defaults: !!pack.from_defaults,
-      weather_status_ar: cleanString(pack.weather_status_ar, 200) || '',
-      as_of: asOf || null,
-      humidity_pct: hum != null ? hum : null,
-      no_marine_data_for_date: !!pack.no_data_for_date,
-      cache_key: cacheKey,
-      forecast_source: pack.forecast_source || '',
-      weather_fetch_date: asOf || null
-    },
+    weather_meta: weatherMeta,
+    normalized_marine: buildNormalizedMarineInputs(li, weatherMeta),
     tide_debug: pack.tide_debug || {
       has_hourly: false,
       values_sample: [],
@@ -893,6 +927,56 @@ async function getStormglassLiveInputs(station, asOfDate, asOfInstant) {
   }
 }
 
+function mapLiveTideStateHamalFasad(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  if (!s) return 'unknown';
+  var upper = s.toUpperCase();
+  if (upper === 'LOAD' || upper === 'HAMAL' || s === 'سقي' || upper === 'RISING') return 'hamal';
+  if (upper === 'FASAD' || s === 'ثبر' || upper === 'FALLING') return 'fasad';
+  if (upper === 'IDLE' || upper === 'STABLE' || s === 'خامل' || upper === 'UNKNOWN') return 'unknown';
+  return 'unknown';
+}
+
+/**
+ * Normalized marine scalars for intelligence preview / memory (no raw API payload).
+ */
+function buildNormalizedMarineInputs(liveInputs, meta) {
+  var li = liveInputs && typeof liveInputs === 'object' ? liveInputs : {};
+  var tide = li.tide && typeof li.tide === 'object' ? li.tide : {};
+  return {
+    sea_surface_temperature: toNumber(li.temp_c),
+    current_speed: toNumber(li.current_speed_ms),
+    current_direction: toNumber(li.current_direction_deg != null ? li.current_direction_deg : li.ocean_current_direction_deg),
+    wave_height: toNumber(li.wave_height_m),
+    wave_direction: toNumber(li.wave_direction_deg),
+    wave_period: toNumber(li.wave_period_s),
+    wind_speed: toNumber(li.wind_speed_kmh),
+    wind_direction: toNumber(li.wind_direction_deg),
+    tide_state: mapLiveTideStateHamalFasad(tide.state),
+    tide_level: toNumber(tide.height_m)
+  };
+}
+
+function buildOpenMeteoMarineUrl(lat, lon, asOfDate) {
+  var marineUrl = new URL('https://marine-api.open-meteo.com/v1/marine');
+  marineUrl.searchParams.set('latitude', String(lat));
+  marineUrl.searchParams.set('longitude', String(lon));
+  marineUrl.searchParams.set(
+    'hourly',
+    'sea_surface_temperature,ocean_current_velocity,ocean_current_direction,wave_height,wave_direction,wave_period,sea_level_height_msl'
+  );
+  marineUrl.searchParams.set(
+    'current',
+    'sea_surface_temperature,ocean_current_velocity,ocean_current_direction,wave_height,wave_direction,wave_period'
+  );
+  marineUrl.searchParams.set('timezone', 'GMT');
+  if (asOfDate && /^\d{4}-\d{2}-\d{2}$/.test(String(asOfDate))) {
+    marineUrl.searchParams.set('start_date', String(asOfDate));
+    marineUrl.searchParams.set('end_date', String(asOfDate));
+  }
+  return marineUrl.toString();
+}
+
 async function loadReferenceData() {
   var rows = await Promise.all([
     readJsonFile('stations', []),
@@ -936,5 +1020,7 @@ module.exports = {
   deriveWaterTraits: deriveWaterTraits,
   getWeatherData: getWeatherData,
   fetchWeatherAndMarineInputs: fetchWeatherAndMarineInputs,
+  buildNormalizedMarineInputs: buildNormalizedMarineInputs,
+  buildOpenMeteoMarineUrl: buildOpenMeteoMarineUrl,
   loadReferenceData: loadReferenceData
 };
