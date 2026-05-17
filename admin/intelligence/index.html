@@ -29,6 +29,21 @@
     .wrap { max-width: 1180px; margin: 0 auto; padding: 16px 14px 48px; }
     h1 { font-size: 1.35rem; margin: 0 0 8px; }
     .lead { color: var(--muted); font-size: 0.95rem; max-width: 56em; margin-bottom: 14px; }
+    .period-bar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .period-bar .row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+    }
+    .period-note { color: var(--muted); font-size: 0.85rem; margin-top: 10px; }
+    label.field-lbl { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
     .top {
       display: grid;
       grid-template-columns: 1fr minmax(140px, 180px) auto auto auto;
@@ -95,9 +110,28 @@
       margin: 2px;
       background: #1a3358;
     }
-    .pill.excellent, .pill.high, .pill.low { background: #1a4d32; color: #b8ffd4; }
-    .pill.good, .pill.medium { background: #4d3f1a; color: #ffe6a8; }
-    .pill.poor, .pill.dangerous, .pill.high-risk { background: #4d1a1a; color: #ffc4c4; }
+    .pill.pos { background: #1a4d32; color: #b8ffd4; }
+    .pill.mid { background: #4d3f1a; color: #ffe6a8; }
+    .pill.neg { background: #4d1a1a; color: #ffc4c4; }
+    .reason-line { margin: 3px 0; color: #c8daf8; font-size: 0.88rem; }
+    .muted { color: var(--muted); }
+    .dev-panel {
+      background: #0e1a2f;
+      border: 1px dashed #4a6088;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.8rem;
+      direction: ltr;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 420px;
+      overflow: auto;
+    }
+    .dev-codes { margin-top: 8px; }
+    .dev-codes li { margin: 2px 0; direction: ltr; text-align: left; }
     .summary-box {
       background: #0e1a2f;
       border: 1px solid var(--border);
@@ -115,11 +149,12 @@
     .hidden { display: none !important; }
     .no-print { }
     @media (max-width: 900px) {
-      .top { grid-template-columns: 1fr; }
+      .top, .period-bar .row { grid-template-columns: 1fr; }
     }
     @media print {
       body { background: #fff; color: #111; font-size: 11pt; }
-      .no-print { display: none !important; }
+      .no-print, .dev-only { display: none !important; }
+      body.dev-print-on .dev-only { display: block !important; }
       .wrap { max-width: none; padding: 0; }
       .panel, .card { break-inside: avoid; border-color: #ccc; background: #fff; }
       .auth-banner, .status { display: none !important; }
@@ -131,27 +166,42 @@
 <body>
   <div class="wrap" style="display:block">
     <header class="no-print">
-      <h1>معاينة الذكاء البحري (NAVIDUR Intelligence Preview)</h1>
-      <p class="lead">
-        صفحة إدارية داخلية — قراءة فقط عبر <code>route=intelligence-preview</code>.
-        تتطلب جلسة مدير (نفس توكن لوحة الإدارة).
-      </p>
+      <h1>معاينة الذكاء البحري — NAVIDUR</h1>
+      <p class="lead">لوحة إدارية داخلية — قراءة فقط. تتطلب تسجيل دخول مدير.</p>
     </header>
 
     <div id="authBanner" class="auth-banner no-print hidden" style="display:none">
-      لا يوجد توكن إداري. سجّل الدخول من
+      لا يوجد جلسة إدارية. سجّل الدخول من
       <a href="/admin.html">لوحة الإدارة</a>
       ثم ارجع إلى هذه الصفحة.
     </div>
+
+    <section class="period-bar no-print" aria-label="تقرير الفترة (قريبًا)">
+      <div class="row">
+        <div>
+          <label class="field-lbl" for="periodFrom">من تاريخ</label>
+          <input id="periodFrom" type="date" disabled aria-disabled="true">
+        </div>
+        <div>
+          <label class="field-lbl" for="periodTo">إلى تاريخ</label>
+          <input id="periodTo" type="date" disabled aria-disabled="true">
+        </div>
+        <button type="button" id="periodReportBtn" disabled>تقرير الفترة</button>
+      </div>
+      <p class="period-note">تقارير الفترة تحتاج تفعيل التخزين الساعي للذكاء البحري. سيتم دعمها في المرحلة القادمة.</p>
+    </section>
 
     <div class="top no-print">
       <select id="stationSelect" aria-label="المحطة">
         <option value="">جاري تحميل المحطات…</option>
       </select>
-      <input id="dateInput" type="date" aria-label="تاريخ التحليل">
+      <div>
+        <label class="field-lbl" for="dateInput">تاريخ التحليل</label>
+        <input id="dateInput" type="date" aria-label="تاريخ التحليل">
+      </div>
       <button type="button" id="loadBtn">تحميل المعاينة</button>
-      <button type="button" id="printBtn" class="secondary" disabled>Print Report</button>
-      <button type="button" id="excelBtn" class="ghost" disabled>Export Excel</button>
+      <button type="button" id="printBtn" class="secondary" disabled>طباعة التقرير</button>
+      <button type="button" id="excelBtn" class="ghost" disabled>تصدير Excel</button>
     </div>
 
     <p id="statusLine" class="status no-print" role="status">جاهز.</p>
@@ -159,7 +209,7 @@
     <section id="reportRoot" class="hidden" aria-live="polite">
       <div class="cards" id="summaryCards"></div>
       <section class="panel">
-        <h2>ملخص عربي</h2>
+        <h2>ملخص تنفيذي</h2>
         <div id="summaryAr" class="summary-box"></div>
       </section>
       <section class="panel">
@@ -171,7 +221,7 @@
         <div id="marineBlock"></div>
       </section>
       <section class="panel">
-        <h2>الطبقة التقليدية (الدر / الحمل / الفساد)</h2>
+        <h2>الطبقة التقليدية البحرية</h2>
         <div id="traditionalBlock"></div>
       </section>
       <section class="panel">
@@ -179,7 +229,7 @@
         <div id="fishBlock"></div>
       </section>
       <section class="panel">
-        <h2>المخاطر</h2>
+        <h2>المخاطر البحرية</h2>
         <div id="riskBlock"></div>
       </section>
       <section class="panel">
@@ -187,12 +237,22 @@
         <div id="comparisonBlock"></div>
       </section>
       <section class="panel">
-        <h2>شذوذات (Anomalies)</h2>
+        <h2>الشذوذات</h2>
         <div id="anomaliesBlock"></div>
       </section>
       <section class="panel">
         <h2>جودة البيانات</h2>
         <div id="dataQualityBlock"></div>
+      </section>
+      <section class="panel no-print">
+        <h2>تفاصيل تقنية للمطورين</h2>
+        <button type="button" id="devToggleBtn" class="ghost">إظهار التفاصيل التقنية</button>
+        <div id="devPanel" class="dev-only hidden">
+          <h3 style="color:var(--muted);font-size:0.9rem;margin:12px 0 6px">مفاتيح وأسباب خام</h3>
+          <ul id="devCodes" class="dev-codes"></ul>
+          <h3 style="color:var(--muted);font-size:0.9rem;margin:12px 0 6px">JSON خام</h3>
+          <pre id="devJson" class="dev-panel"></pre>
+        </div>
       </section>
     </section>
   </div>
@@ -200,32 +260,226 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     var latestPayload = null;
+    var devVisible = false;
 
-    var ZONE_AR = {
+    var labelMap = {
       coast: 'ساحل',
-      shallow: 'ضحل / فشوت',
+      shallow: 'مياه ضحلة',
       island_coast: 'ساحل جزيرة',
-      reef_or_rock: 'شعاب / صخور',
+      reef_or_rock: 'شعاب أو قاع صخري',
       open_water: 'مياه مفتوحة',
-      deep_future: 'أعماق (مستقبلي)',
-      unknown: 'غير معروف'
+      deep_future: 'أعماق مستقبلًا',
+      unknown: 'غير معروف',
+      excellent: 'ممتاز',
+      good: 'جيد',
+      medium: 'متوسط',
+      poor: 'ضعيف',
+      dangerous: 'خطر',
+      high: 'مرتفع',
+      low: 'منخفض',
+      stable: 'مستقر',
+      declining: 'متراجع',
+      improving: 'متحسن',
+      up: 'متحسن',
+      down: 'متراجع',
+      hamal: 'حمل',
+      fasad: 'فساد',
+      boating: 'القوارب',
+      shore_activity: 'النشاط الساحلي',
+      diving: 'الغوص',
+      motion: 'حركة البحر',
+      coastal_fish: 'الأسماك الساحلية',
+      bottom_fish: 'الأسماك القاعية',
+      pelagic_fish: 'الأسماك السطحية / المهاجرة',
+      reef_fish: 'أسماك الشعاب والقاع الصخري',
+      vs_previous: 'مقارنة بآخر قراءة',
+      vs_24h: 'مقارنة بآخر 24 ساعة',
+      vs_7d: 'مقارنة بآخر 7 أيام'
     };
 
-    var LABEL_AR = {
-      excellent: 'ممتاز', good: 'جيد', medium: 'متوسط', poor: 'ضعيف', dangerous: 'خطير', unknown: 'غير معروف',
-      high: 'مرتفع', low: 'منخفض',
-      hamal: 'حمل', fasad: 'فساد',
-      improving: 'تحسّن', stable: 'مستقر', declining: 'تراجع'
+    var reasonMap = {
+      current_light: 'التيار خفيف',
+      current_moderate: 'التيار متوسط',
+      current_strong: 'التيار قوي',
+      wave_low: 'الموج منخفض',
+      wave_moderate: 'الموج متوسط',
+      wave_high: 'الموج مرتفع',
+      wind_light: 'الرياح خفيفة',
+      wind_moderate: 'الرياح متوسطة',
+      wind_strong: 'الرياح قوية',
+      marine_excellent: 'الحالة البحرية ممتازة',
+      marine_good: 'الحالة البحرية جيدة',
+      marine_medium: 'الحالة البحرية متوسطة',
+      marine_poor: 'الحالة البحرية ضعيفة',
+      operational_coastal_default: 'تصنيف ساحلي افتراضي للمحطة التشغيلية',
+      dur_name_present: 'اسم الدر متوفر',
+      dur_day_present: 'يوم الدر متوفر',
+      tide_fasad: 'حالة المد: فساد',
+      tide_hamal: 'حالة المد: حمل',
+      tide_state_unknown: 'حالة المد غير معروفة',
+      dur_timing_source_true_final_station_reference: 'توقيت الدر من مرجع المحطة المعتمد',
+      tide_load_hamal: 'حالة المد: حمل',
+      tide_ar_hamal: 'حالة المد: حمل',
+      tide_ar_fasad: 'حالة المد: فساد',
+      marine_metrics_all_missing: 'بيانات بحرية ناقصة بالكامل',
+      boating_medium: 'مخاطر القوارب: متوسطة',
+      boating_high: 'مخاطر القوارب: مرتفعة',
+      boating_low: 'مخاطر القوارب: منخفضة',
+      shore_low: 'النشاط الساحلي: منخفض المخاطر',
+      shore_medium: 'النشاط الساحلي: متوسط المخاطر',
+      shore_high: 'النشاط الساحلي: مرتفع المخاطر',
+      motion_low: 'حركة البحر: منخفضة',
+      motion_medium: 'حركة البحر: متوسطة',
+      motion_high: 'حركة البحر: مرتفعة',
+      coastal_fish_high: 'نشاط الأسماك الساحلية: مرتفع',
+      coastal_fish_medium: 'نشاط الأسماك الساحلية: متوسط',
+      coastal_fish_low: 'نشاط الأسماك الساحلية: منخفض',
+      coastal_fish_derived_from_marine_context: 'تقدير نشاط الأسماك الساحلية من السياق البحري',
+      bottom_fish_high: 'نشاط الأسماك القاعية: مرتفع',
+      bottom_fish_medium: 'نشاط الأسماك القاعية: متوسط',
+      bottom_fish_low: 'نشاط الأسماك القاعية: منخفض',
+      bottom_fish_derived_from_marine_context: 'تقدير نشاط الأسماك القاعية من السياق البحري',
+      pelagic_fish_high: 'نشاط الأسماك السطحية: مرتفع',
+      pelagic_fish_medium: 'نشاط الأسماك السطحية: متوسط',
+      pelagic_fish_low: 'نشاط الأسماك السطحية: منخفض',
+      pelagic_fish_derived_from_marine_context: 'تقدير نشاط الأسماك السطحية من السياق البحري',
+      reef_fish_high: 'نشاط أسماك الشعاب: مرتفع',
+      reef_fish_medium: 'نشاط أسماك الشعاب: متوسط',
+      reef_fish_low: 'نشاط أسماك الشعاب: منخفض',
+      reef_fish_derived_from_marine_context: 'تقدير نشاط أسماك الشعاب من السياق البحري',
+      no_marine_data_for_date: 'لا توجد بيانات بحرية لهذا التاريخ',
+      no_station_snapshots: 'لا توجد لقطات تاريخية للمحطة',
+      wave_height_m: 'ارتفاع الموج',
+      wind_speed_kmh: 'سرعة الرياح',
+      tide_state: 'حالة المد',
+      dur_name: 'اسم الدر',
+      station: 'بيانات المحطة',
+      data_quality_low: 'جودة البيانات منخفضة',
+      marine_dangerous: 'ظروف بحرية خطرة',
+      fasad_favorable_marine: 'فساد مد مع ظروف بحرية ملائمة'
     };
+
+    var keyMap = labelMap;
+    var FISH_ORDER = ['coastal_fish', 'bottom_fish', 'pelagic_fish', 'reef_fish'];
+    var CMP_KEYS = [
+      { key: 'vs_previous', label: 'مقارنة بآخر قراءة' },
+      { key: 'vs_24h', label: 'مقارنة بآخر 24 ساعة' },
+      { key: 'vs_7d', label: 'مقارنة بآخر 7 أيام' }
+    ];
 
     function byId(id) { return document.getElementById(id); }
 
-    function getAdminToken() {
-      try {
-        return localStorage.getItem('navidur_admin_token') || '';
-      } catch (_e) {
-        return '';
+    function tLabel(key) {
+      if (key == null || key === '') return '—';
+      var k = String(key);
+      return labelMap[k] || keyMap[k] || reasonMap[k] || k;
+    }
+
+    function tReason(code) {
+      if (!code) return 'سبب فني غير مصنف';
+      var c = String(code);
+      if (reasonMap[c]) return reasonMap[c];
+      if (labelMap[c]) return labelMap[c];
+      return 'سبب فني غير مصنف';
+    }
+
+    function tDirection(dir) {
+      if (!dir) return 'غير متوفر';
+      var d = String(dir).toLowerCase();
+      if (d === 'improving' || d === 'up') return 'متحسن';
+      if (d === 'stable') return 'مستقر';
+      if (d === 'declining' || d === 'down') return 'متراجع';
+      if (d === 'unknown') return 'غير متوفر';
+      return tLabel(d);
+    }
+
+    function pillClassForLabel(label) {
+      var l = String(label || '').toLowerCase();
+      if (['excellent', 'good', 'low', 'improving', 'up', 'hamal'].indexOf(l) >= 0) return 'pos';
+      if (['medium', 'stable', 'moderate'].indexOf(l) >= 0) return 'mid';
+      if (['poor', 'dangerous', 'high', 'declining', 'down', 'fasad'].indexOf(l) >= 0) return 'neg';
+      return '';
+    }
+
+    function pillText(label) {
+      return '<span class="pill ' + pillClassForLabel(label) + '">' + esc(tLabel(label)) + '</span>';
+    }
+
+    function reasonsHtml(arr) {
+      if (!arr || !arr.length) return '<span class="muted">—</span>';
+      return arr.map(function (r) {
+        return '<div class="reason-line">• ' + esc(tReason(r)) + '</div>';
+      }).join('');
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function tableFromRows(rows) {
+      var html = '<table><tbody>';
+      rows.forEach(function (row) {
+        html += '<tr><th style="width:34%">' + esc(row[0]) + '</th><td>' + row[1] + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function comparisonTrendForBlock(block) {
+      if (!block || typeof block !== 'object') return 'غير متوفر';
+      var dirs = [];
+      Object.keys(block).forEach(function (metric) {
+        var m = block[metric];
+        if (m && m.direction) dirs.push(String(m.direction).toLowerCase());
+      });
+      if (!dirs.length) return 'غير متوفر';
+      if (dirs.indexOf('up') >= 0 || dirs.indexOf('improving') >= 0) return 'متحسن';
+      if (dirs.indexOf('down') >= 0 || dirs.indexOf('declining') >= 0) return 'متراجع';
+      if (dirs.every(function (d) { return d === 'stable'; })) return 'مستقر';
+      return tDirection(dirs[0]);
+    }
+
+    function renderComparison(cmp) {
+      if (!cmp || !cmp.has_history) {
+        return '<p class="muted">لا توجد بيانات تاريخية كافية لهذه الفترة.</p>';
       }
+      var rows = [['الاتجاه العام', pillText(cmp.trend || 'unknown')]];
+      CMP_KEYS.forEach(function (item) {
+        rows.push([item.label, esc(comparisonTrendForBlock(cmp[item.key]))]);
+      });
+      return tableFromRows(rows);
+    }
+
+    function collectDevCodes(data) {
+      var codes = [];
+      function pushUnique(c) {
+        if (c && codes.indexOf(c) < 0) codes.push(c);
+      }
+      var st = data.station || {};
+      var intel = data.intelligence || {};
+      var cls = st.classification || {};
+      (cls.reasons || []).forEach(pushUnique);
+      (intel.marine_condition && intel.marine_condition.reasons || []).forEach(pushUnique);
+      (intel.traditional_layer && intel.traditional_layer.reasons || []).forEach(pushUnique);
+      var fish = intel.fish_activity_groups || {};
+      Object.keys(fish).forEach(function (k) {
+        pushUnique(k);
+        ((fish[k] || {}).reasons || []).forEach(pushUnique);
+      });
+      (intel.risk && intel.risk.reasons || []).forEach(pushUnique);
+      (data.data_quality && data.data_quality.missing || []).forEach(pushUnique);
+      (data.data_quality && data.data_quality.warnings || []).forEach(pushUnique);
+      (intel.anomalies || []).forEach(function (a) { pushUnique(a.type); });
+      return codes;
+    }
+
+    function getAdminToken() {
+      try { return localStorage.getItem('navidur_admin_token') || ''; }
+      catch (_e) { return ''; }
     }
 
     function apiPath(path) {
@@ -251,44 +505,12 @@
       el.className = 'status no-print' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
     }
 
-    function esc(s) {
-      return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    function labelAr(key) {
-      return LABEL_AR[key] || key || '—';
-    }
-
-    function pill(label, cls) {
-      return '<span class="pill ' + esc(cls || label) + '">' + esc(labelAr(label)) + '</span>';
-    }
-
-    function reasonsList(arr) {
-      if (!arr || !arr.length) return '<span class="muted">—</span>';
-      return arr.map(function (r) { return '<span class="pill">' + esc(r) + '</span>'; }).join(' ');
-    }
-
-    function tableFromRows(rows) {
-      var html = '<table><tbody>';
-      rows.forEach(function (row) {
-        html += '<tr><th style="width:32%">' + esc(row[0]) + '</th><td>' + row[1] + '</td></tr>';
-      });
-      html += '</tbody></table>';
-      return html;
-    }
-
     function updateAuthUi() {
       var has = !!getAdminToken();
       var banner = byId('authBanner');
       banner.classList.toggle('hidden', has);
       banner.style.display = has ? 'none' : 'block';
-      if (!has) {
-        setStatus('مطلوب توكن مدير — سجّل الدخول من لوحة الإدارة.', 'err');
-      }
+      if (!has) setStatus('مطلوب تسجيل دخول مدير من لوحة الإدارة.', 'err');
     }
 
     function normalizeStationsPayload(data) {
@@ -309,27 +531,18 @@
           return;
         }
         fetch(apiPath(urls[idx]), { headers: { Accept: 'application/json' }, cache: 'no-store' })
-          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (r) { return r.json().then(function (j) { return { j: j }; }); })
           .then(function (out) {
             var list = normalizeStationsPayload(out.j).filter(function (s) { return s && s.id; });
-            if (!list.length) {
-              idx += 1;
-              tryNext();
-              return;
-            }
-            list.sort(function (a, b) {
-              return Number(a.sort_order || 0) - Number(b.sort_order || 0);
-            });
+            if (!list.length) { idx += 1; tryNext(); return; }
+            list.sort(function (a, b) { return Number(a.sort_order || 0) - Number(b.sort_order || 0); });
             sel.innerHTML = '<option value="">— اختر محطة —</option>' + list.map(function (s) {
               var name = s.name_ar || s.name || s.id;
-              return '<option value="' + esc(s.id) + '">' + esc(name) + ' (' + esc(s.id) + ')</option>';
+              return '<option value="' + esc(s.id) + '">' + esc(name) + '</option>';
             }).join('');
             if (list.length) sel.value = list[0].id;
           })
-          .catch(function () {
-            idx += 1;
-            tryNext();
-          });
+          .catch(function () { idx += 1; tryNext(); });
       }
       tryNext();
     }
@@ -339,6 +552,10 @@
       var d = byId('dateInput').value;
       if (d) q += '&analysis_date=' + encodeURIComponent(d);
       return apiPath('/api?' + q);
+    }
+
+    function card(k, v) {
+      return '<div class="card"><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div></div>';
     }
 
     function renderReport(data) {
@@ -359,111 +576,94 @@
       byId('excelBtn').disabled = typeof XLSX === 'undefined';
 
       byId('summaryCards').innerHTML =
-        card('المحطة', st.name || st.id) +
-        card('التصنيف البحري', (ZONE_AR[cls.zone] || cls.zone) + ' (' + (cls.confidence != null ? cls.confidence + '%' : '—') + ')') +
-        card('الحالة البحرية', labelAr(marine.label) + ' · ' + (marine.score != null ? marine.score + '/100' : '—')) +
-        card('الدر', trad.dur || '—') +
-        card('حمل/فساد', labelAr(trad.hamal_fasad)) +
+        card('المحطة', esc(st.name || st.id)) +
+        card('التصنيف البحري', esc(tLabel(cls.zone)) + (cls.confidence != null ? ' · ' + cls.confidence + '%' : '')) +
+        card('الحالة البحرية', esc(tLabel(marine.label)) + (marine.score != null ? ' · ' + marine.score + '/100' : '')) +
+        card('الدر الحالي', esc(trad.dur || '—')) +
+        card('حمل / فساد', pillText(trad.hamal_fasad || 'unknown')) +
         card('الثقة', conf != null ? conf + '%' : '—') +
         card('جودة البيانات', dq.score != null ? dq.score + '/100' : '—');
 
       byId('summaryAr').textContent = intel.summary_ar || '—';
 
       byId('stationBlock').innerHTML = tableFromRows([
-        ['المعرّف', esc(st.id)],
-        ['الاسم', esc(st.name)],
-        ['الإحداثيات', esc(st.lat) + ' , ' + esc(st.lon)],
-        ['محطة مرجعية', esc(st.reference_station_id || '—')],
-        ['المنطقة', esc(ZONE_AR[cls.zone] || cls.zone)],
-        ['ثقة التصنيف', esc(cls.confidence)],
-        ['أسباب التصنيف', reasonsList(cls.reasons)]
+        ['اسم المحطة', esc(st.name || '—')],
+        ['المنطقة البحرية', esc(tLabel(cls.zone))],
+        ['ثقة التصنيف', cls.confidence != null ? esc(cls.confidence) + '%' : '—'],
+        ['أسباب التصنيف', reasonsHtml(cls.reasons)]
       ]);
 
       byId('marineBlock').innerHTML = tableFromRows([
-        ['التسمية', pill(marine.label, marine.label)],
-        ['الدرجة', esc(marine.score)],
-        ['الأسباب', reasonsList(marine.reasons)]
+        ['التقييم', pillText(marine.label)],
+        ['الدرجة', marine.score != null ? esc(marine.score) + ' / 100' : '—'],
+        ['عوامل التقييم', reasonsHtml(marine.reasons)]
       ]);
 
       byId('traditionalBlock').innerHTML = tableFromRows([
         ['الدر الحالي', esc(trad.dur || '—')],
-        ['يوم الدر', esc(trad.dur_day != null ? trad.dur_day : '—')],
-        ['حمل / فساد', pill(trad.hamal_fasad, trad.hamal_fasad)],
-        ['ثقة الطبقة', esc(trad.confidence)],
-        ['الأسباب', reasonsList(trad.reasons)]
+        ['يوم الدر', trad.dur_day != null ? esc(trad.dur_day) : '—'],
+        ['حمل / فساد', pillText(trad.hamal_fasad || 'unknown')],
+        ['ثقة الطبقة', trad.confidence != null ? esc(trad.confidence) + '%' : '—'],
+        ['ملاحظات', reasonsHtml(trad.reasons)]
       ]);
 
-      var fishRows = [['المجموعة', 'الدرجة', 'التسمية', 'أسباب']];
-      Object.keys(fish).forEach(function (k) {
-        var g = fish[k] || {};
-        fishRows.push([
-          esc(k),
-          esc(g.score),
-          pill(g.label, g.label),
-          reasonsList(g.reasons)
-        ]);
+      var fishBody = '';
+      FISH_ORDER.forEach(function (key) {
+        if (!fish[key]) return;
+        var g = fish[key];
+        fishBody += '<tr><td>' + esc(tLabel(key)) + '</td><td>' + esc(g.score != null ? g.score : '—') + '</td><td>' + pillText(g.label) + '</td><td>' + reasonsHtml(g.reasons) + '</td></tr>';
       });
-      byId('fishBlock').innerHTML = '<table><thead><tr><th>المجموعة</th><th>الدرجة</th><th>التسمية</th><th>أسباب</th></tr></thead><tbody>' +
-        fishRows.slice(1).map(function (r) {
-          return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>';
-        }).join('') + '</tbody></table>';
+      byId('fishBlock').innerHTML = fishBody
+        ? '<table><thead><tr><th>المجموعة</th><th>الدرجة</th><th>المستوى</th><th>ملاحظات</th></tr></thead><tbody>' + fishBody + '</tbody></table>'
+        : '<p class="muted">لا توجد بيانات لمجموعات الأسماك.</p>';
 
       byId('riskBlock').innerHTML = tableFromRows([
-        ['قوارب', pill(risk.boating, risk.boating === 'high' ? 'high-risk' : risk.boating)],
-        ['نشاط ساحلي', pill(risk.shore_activity, risk.shore_activity)],
-        ['غوص', pill(risk.diving, risk.diving === 'high' ? 'high-risk' : risk.diving)],
-        ['أسباب', reasonsList(risk.reasons)]
+        ['القوارب', pillText(risk.boating)],
+        ['النشاط الساحلي', pillText(risk.shore_activity)],
+        ['الغوص', pillText(risk.diving)],
+        ['ملاحظات', reasonsHtml(risk.reasons)]
       ]);
 
-      var cmpRows = [
-        ['يوجد سجل', cmp.has_history ? 'نعم' : 'لا'],
-        ['الاتجاه', pill(cmp.trend, cmp.trend)]
-      ];
-      ['vs_previous', 'vs_24h', 'vs_7d'].forEach(function (key) {
-        var block = cmp[key];
-        if (!block) return;
-        cmpRows.push([key, esc(JSON.stringify(block))]);
-      });
-      byId('comparisonBlock').innerHTML = tableFromRows(cmpRows);
+      byId('comparisonBlock').innerHTML = renderComparison(cmp);
 
       var anomalies = Array.isArray(intel.anomalies) ? intel.anomalies : [];
       byId('anomaliesBlock').innerHTML = anomalies.length
         ? anomalies.map(function (a) {
-          return '<div class="anomaly"><strong>' + esc(a.type) + '</strong><br>' + esc(a.message_ar) + '</div>';
+          return '<div class="anomaly">' + esc(a.message_ar || 'تنبيه بحري') + '</div>';
         }).join('')
         : '<p class="muted">لا توجد شذوذات مسجّلة.</p>';
 
       byId('dataQualityBlock').innerHTML = tableFromRows([
-        ['الدرجة', esc(dq.score)],
-        ['ناقص', esc((dq.missing || []).join(', ') || '—')],
-        ['تحذيرات', esc((dq.warnings || []).join(', ') || '—')]
+        ['درجة الجودة', dq.score != null ? esc(dq.score) + ' / 100' : '—'],
+        ['بيانات ناقصة', dq.missing && dq.missing.length ? dq.missing.map(function (m) { return esc(tLabel(m)); }).join('، ') : 'لا يوجد'],
+        ['تحذيرات', dq.warnings && dq.warnings.length ? dq.warnings.map(function (w) { return esc(tReason(w)); }).join('، ') : 'لا يوجد']
       ]);
+
+      var codes = collectDevCodes(data);
+      byId('devCodes').innerHTML = codes.map(function (c) {
+        return '<li><code>' + esc(c) + '</code> → ' + esc(tReason(c)) + '</li>';
+      }).join('');
+      byId('devJson').textContent = JSON.stringify(data, null, 2);
     }
 
-    function card(k, v) {
-      return '<div class="card"><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div></div>';
+    function toggleDevPanel() {
+      devVisible = !devVisible;
+      byId('devPanel').classList.toggle('hidden', !devVisible);
+      byId('devToggleBtn').textContent = devVisible ? 'إخفاء التفاصيل التقنية' : 'إظهار التفاصيل التقنية';
+      document.body.classList.toggle('dev-print-on', devVisible);
     }
 
     function loadPreview() {
-      var token = getAdminToken();
-      if (!token) {
-        updateAuthUi();
-        return;
-      }
+      if (!getAdminToken()) { updateAuthUi(); return; }
       var stationId = byId('stationSelect').value;
-      if (!stationId) {
-        setStatus('اختر محطة أولاً.', 'err');
-        return;
-      }
+      if (!stationId) { setStatus('اختر محطة أولاً.', 'err'); return; }
       setStatus('جاري تحميل المعاينة…');
       byId('loadBtn').disabled = true;
       fetch(buildIntelUrl(stationId), { headers: authHeaders(), cache: 'no-store' })
-        .then(function (r) {
-          return r.json().then(function (j) { return { status: r.status, j: j }; });
-        })
+        .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
         .then(function (out) {
           if (out.status === 401 || out.status === 403 || (out.j && out.j.error === 'admin_auth_required')) {
-            setStatus('رفض الخادم: admin_auth_required — تحقق من التوكن.', 'err');
+            setStatus('يلزم تسجيل دخول مدير صالح.', 'err');
             byId('reportRoot').classList.add('hidden');
             return;
           }
@@ -477,17 +677,17 @@
         .catch(function (err) {
           setStatus('خطأ شبكة: ' + (err && err.message ? err.message : err), 'err');
         })
-        .finally(function () {
-          byId('loadBtn').disabled = false;
-        });
+        .finally(function () { byId('loadBtn').disabled = false; });
     }
 
     function sheetFromAoa(name, rows) {
       var ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = rows[0] ? rows[0].map(function (_, i) {
-        return { wch: i === 0 ? 28 : 42 };
-      }) : [];
+      ws['!cols'] = rows[0] ? rows[0].map(function (_, i) { return { wch: i === 0 ? 30 : 44 }; }) : [];
       return { name: name, sheet: ws };
+    }
+
+    function reasonsRows(arr) {
+      return (arr || []).map(function (r) { return ['سبب', tReason(r)]; });
     }
 
     function exportExcel() {
@@ -504,69 +704,74 @@
       var risk = intel.risk || {};
       var dq = d.data_quality || {};
       var cls = st.classification || {};
-
+      var cmp = intel.comparison || {};
       var wb = XLSX.utils.book_new();
 
-      var s1 = sheetFromAoa('Summary', [
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('الملخص', [
         ['الحقل', 'القيمة'],
-        ['station_id', st.id],
-        ['station_name', st.name],
-        ['zone', cls.zone],
-        ['marine_label', marine.label],
-        ['marine_score', marine.score],
-        ['dur', trad.dur],
-        ['dur_day', trad.dur_day],
-        ['hamal_fasad', trad.hamal_fasad],
-        ['confidence', intel.confidence],
-        ['data_quality_score', dq.score],
-        ['summary_ar', intel.summary_ar],
-        ['mode', d.mode]
-      ]);
-      XLSX.utils.book_append_sheet(wb, s1.sheet, s1.name);
+        ['المحطة', st.name || st.id],
+        ['المنطقة', tLabel(cls.zone)],
+        ['الحالة البحرية', tLabel(marine.label)],
+        ['درجة الحالة', marine.score],
+        ['الدر', trad.dur],
+        ['يوم الدر', trad.dur_day],
+        ['حمل/فساد', tLabel(trad.hamal_fasad)],
+        ['الثقة', intel.confidence],
+        ['جودة البيانات', dq.score],
+        ['الملخص', intel.summary_ar]
+      ]).sheet, 'الملخص');
 
-      var s2 = sheetFromAoa('Marine Condition', [
-        ['metric', 'value'],
-        ['label', marine.label],
-        ['score', marine.score]
-      ].concat((marine.reasons || []).map(function (r) { return ['reason', r]; })));
-      XLSX.utils.book_append_sheet(wb, s2.sheet, s2.name);
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('الحالة البحرية', [
+        ['البند', 'القيمة'],
+        ['التقييم', tLabel(marine.label)],
+        ['الدرجة', marine.score]
+      ].concat(reasonsRows(marine.reasons))).sheet, 'الحالة البحرية');
 
-      var s3 = sheetFromAoa('Traditional Layer', [
-        ['metric', 'value'],
-        ['dur', trad.dur],
-        ['dur_day', trad.dur_day],
-        ['hamal_fasad', trad.hamal_fasad],
-        ['confidence', trad.confidence]
-      ].concat((trad.reasons || []).map(function (r) { return ['reason', r]; })));
-      XLSX.utils.book_append_sheet(wb, s3.sheet, s3.name);
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('الطبقة التقليدية', [
+        ['البند', 'القيمة'],
+        ['الدر', trad.dur],
+        ['يوم الدر', trad.dur_day],
+        ['حمل/فساد', tLabel(trad.hamal_fasad)],
+        ['الثقة', trad.confidence]
+      ].concat(reasonsRows(trad.reasons))).sheet, 'الطبقة التقليدية');
 
-      var fishRows = [['group', 'score', 'label']];
-      Object.keys(fish).forEach(function (k) {
-        var g = fish[k] || {};
-        fishRows.push([k, g.score, g.label]);
+      var fishRows = [['المجموعة', 'الدرجة', 'المستوى']];
+      FISH_ORDER.forEach(function (k) {
+        if (!fish[k]) return;
+        fishRows.push([tLabel(k), fish[k].score, tLabel(fish[k].label)]);
       });
-      XLSX.utils.book_append_sheet(wb, sheetFromAoa('Fish Activity Groups', fishRows).sheet, 'Fish Activity Groups');
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('نشاط الأسماك', fishRows).sheet, 'نشاط الأسماك');
 
-      var s5 = sheetFromAoa('Risk', [
-        ['domain', 'level'],
-        ['boating', risk.boating],
-        ['shore_activity', risk.shore_activity],
-        ['motion/diving', risk.diving]
-      ].concat((risk.reasons || []).map(function (r) { return ['reason', r]; })));
-      XLSX.utils.book_append_sheet(wb, s5.sheet, s5.name);
+      var cmpRows = [['الفترة', 'الاتجاه']];
+      if (cmp && cmp.has_history) {
+        CMP_KEYS.forEach(function (item) {
+          cmpRows.push([item.label, comparisonTrendForBlock(cmp[item.key])]);
+        });
+        cmpRows.push(['الاتجاه العام', tDirection(cmp.trend)]);
+      } else {
+        cmpRows.push(['—', 'لا توجد بيانات تاريخية كافية']);
+      }
 
-      var s6 = sheetFromAoa('Data Quality', [
-        ['metric', 'value'],
-        ['score', dq.score],
-        ['missing', (dq.missing || []).join(', ')],
-        ['warnings', (dq.warnings || []).join(', ')]
-      ]);
-      XLSX.utils.book_append_sheet(wb, s6.sheet, s6.name);
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('المخاطر', [
+        ['المجال', 'المستوى'],
+        ['القوارب', tLabel(risk.boating)],
+        ['النشاط الساحلي', tLabel(risk.shore_activity)],
+        ['الغوص', tLabel(risk.diving)]
+      ].concat(reasonsRows(risk.reasons))).sheet, 'المخاطر');
 
-      var s7 = sheetFromAoa('Raw JSON', [['json'], [JSON.stringify(d, null, 2)]]);
-      XLSX.utils.book_append_sheet(wb, s7.sheet, s7.name);
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('جودة البيانات', [
+        ['البند', 'القيمة'],
+        ['الدرجة', dq.score],
+        ['ناقص', (dq.missing || []).map(tLabel).join('، ')],
+        ['تحذيرات', (dq.warnings || []).map(tReason).join('، ')]
+      ]).sheet, 'جودة البيانات');
 
-      var fname = 'navidur-intelligence-' + (st.id || 'station') + '-' + (byId('dateInput').value || new Date().toISOString().slice(0, 10)) + '.xlsx';
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('التفاصيل التقنية', [
+        ['json'],
+        [JSON.stringify(d, null, 2)]
+      ]).sheet, 'التفاصيل التقنية');
+
+      var fname = 'navidur-intel-' + (st.id || 'station') + '-' + (byId('dateInput').value || new Date().toISOString().slice(0, 10)) + '.xlsx';
       XLSX.writeFile(wb, fname);
       setStatus('تم تصدير ' + fname, 'ok');
     }
@@ -574,11 +779,14 @@
     function init() {
       var today = new Date().toISOString().slice(0, 10);
       byId('dateInput').value = today;
+      byId('periodFrom').value = today;
+      byId('periodTo').value = today;
       updateAuthUi();
       loadStations();
       byId('loadBtn').addEventListener('click', loadPreview);
       byId('printBtn').addEventListener('click', function () { window.print(); });
       byId('excelBtn').addEventListener('click', exportExcel);
+      byId('devToggleBtn').addEventListener('click', toggleDevPanel);
     }
 
     if (document.readyState === 'loading') {
