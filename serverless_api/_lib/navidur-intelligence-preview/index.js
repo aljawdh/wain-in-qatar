@@ -232,5 +232,6 @@ async function buildIntelligencePreview(query) {
 module.exports = {
   buildIntelligencePreview: buildIntelligencePreview,
   buildIntelligencePreviewForStation: buildIntelligencePreviewForStation,
-  resolveBatchLimit: resolveBatchLimit
+  resolveBatchLimit: resolveBatchLimit,
+  isPreviewEligibleStation: isPreviewEligibleStation
 };
