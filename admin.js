@@ -5422,6 +5422,7 @@
       });
     }
     updateStAnalyticsAsOfRowVisibility();
+    initTraitReviewPanel();
 
     updateStationCoordPreview(NaN, NaN);
     setStationPlaceSuggestion('الموقع المختار: --');
@@ -6749,6 +6750,7 @@
       if (obsCountEl) obsCountEl.textContent = String(obsOnly.length) + ' سمة';
       if (sc) sc.textContent = '—';
       if (st) st.textContent = 'لا مرجع للمقارنة';
+      refreshTraitReviewFromValidation(dto, obsOnly);
       return;
     }
     var dur = dto && dto.dur ? dto.dur : {};
@@ -6789,6 +6791,405 @@
     } else {
       if (sc) sc.textContent = '—';
       if (st) st.textContent = 'بانتظار البيانات';
+    }
+    refreshTraitReviewFromValidation(dto, observedTraitsOverride);
+  }
+
+
+  var stTraitReviewState = {
+    rows: [],
+    latestByTrait: {},
+    traitStats: [],
+    drafts: {},
+    context: null,
+    activeTraitKey: null
+  };
+
+  function slugTraitKeyForReview(label) {
+    return String(label || '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^\w\u0600-\u06FF-]+/g, '')
+      .slice(0, 120) || 'trait_unknown';
+  }
+
+  function matchStatusLabelAr(code) {
+    var map = { matched: 'مطابق', partial: 'جزئي', mismatch: 'غير مطابق', unknown: 'غير معروف' };
+    return map[String(code || '')] || 'غير معروف';
+  }
+
+  function decisionLabelAr(code) {
+    var map = {
+      correct: 'صحيح',
+      incorrect: 'غير صحيح',
+      watch: 'يحتاج مراقبة',
+      insufficient: 'غير كافٍ للحكم'
+    };
+    return map[String(code || '')] || '—';
+  }
+
+  function reliabilityStatusLabelAr(percent, totalReviews) {
+    var total = Number(totalReviews) || 0;
+    var pct = Number(percent) || 0;
+    if (total >= 10 && pct >= 90) return 'السمة مستقرة ومعتمدة';
+    if (pct >= 90 && total < 10) return 'نتيجة أولية — تحتاج مراجعات إضافية';
+    if (pct >= 70) return 'السمة جيدة وتحتاج مراقبة';
+    return 'السمة تحتاج إعادة ضبط';
+  }
+
+  function autoConfidenceForMatch(status, dto) {
+    var base = dto && dto.fishing && dto.fishing.confidence_score != null
+      ? Number(dto.fishing.confidence_score)
+      : 70;
+    if (!Number.isFinite(base)) base = 70;
+    if (status === 'matched') return Math.min(100, Math.round(base));
+    if (status === 'partial') return Math.min(100, Math.round(base * 0.75));
+    if (status === 'mismatch') return Math.max(0, Math.round(base * 0.35));
+    return 0;
+  }
+
+  function collectExpectedObservedForReview(dto, observedTraitsOverride) {
+    if (dto && (dto.comparison_mode === 'no_reference' || (dto.validation && dto.validation.mode === 'no_reference'))) {
+      var obsOnly = uniqueNonEmptyValues(
+        Array.isArray(observedTraitsOverride) && observedTraitsOverride.length
+          ? observedTraitsOverride
+          : deriveObservedTraitsFromAnalysis(dto)
+      );
+      return { expected: [], observed: obsOnly };
+    }
+    var dur = dto && dto.dur ? dto.dur : {};
+    var ref = dur.reference || {};
+    var phase = dur.active_phase_reference || {};
+    var expected;
+    if (Array.isArray(dur.unified_expected_traits) && dur.unified_expected_traits.length) {
+      expected = uniqueNonEmptyValues(dur.unified_expected_traits);
+    } else {
+      expected = uniqueNonEmptyValues([]
+        .concat(ref.general_traits || [])
+        .concat(ref.weather_traits || [])
+        .concat(ref.marine_traits || [])
+        .concat(phase.general_traits || [])
+        .concat(phase.weather_traits || [])
+        .concat(phase.marine_traits || [])
+        .concat(phase.fish_traits || []));
+    }
+    var observed = uniqueNonEmptyValues(
+      Array.isArray(observedTraitsOverride) ? observedTraitsOverride : deriveObservedTraitsFromAnalysis(dto)
+    );
+    return { expected: expected, observed: observed };
+  }
+
+  function buildTraitReviewRows(dto, observedTraitsOverride) {
+    var pair = collectExpectedObservedForReview(dto, observedTraitsOverride);
+    var expected = pair.expected;
+    var observed = pair.observed;
+    var keys = {};
+    var rows = [];
+    function addRow(label, exp, obs, status, source) {
+      var key = slugTraitKeyForReview(label);
+      if (keys[key]) return;
+      keys[key] = true;
+      rows.push({
+        trait_key: key,
+        trait_label_ar: label,
+        expected_value: exp || '—',
+        observed_value: obs || '—',
+        match_status: status,
+        auto_confidence: autoConfidenceForMatch(status, dto),
+        source: source || 'station_verification_panel'
+      });
+    }
+    expected.forEach(function (trait) {
+      var inObs = observed.indexOf(trait) >= 0;
+      addRow(trait, trait, inObs ? trait : '—', inObs ? 'matched' : 'mismatch', 'expected');
+    });
+    observed.forEach(function (trait) {
+      if (expected.indexOf(trait) >= 0) return;
+      addRow(trait, '—', trait, 'partial', 'observed');
+    });
+    return rows;
+  }
+
+  function resolveTraitReviewContext(dto, stationId) {
+    var d = dto && dto.dur ? dto.dur : {};
+    var sid = stationId || (dto && dto.station_id) || '';
+    var station = stationsCache.find(function (s) { return s && String(s.id) === String(sid); }) || null;
+    var durName = (d.period_name && String(d.period_name).trim()) || (getEl('stAnalyticsDurName') && getEl('stAnalyticsDurName').textContent) || '';
+    durName = String(durName || '').trim();
+    var refId = (dto && dto.reference_station_id) || (station && station.reference_station_id) || sid;
+    return {
+      station_id: String(sid),
+      reference_station_id: String(refId || sid),
+      station_name: station ? (station.name_ar || station.name || '') : '',
+      dur_name: durName,
+      dur_day: d.day_in_period != null && d.day_in_period !== '' ? Number(d.day_in_period) : null
+    };
+  }
+
+  function setTraitReviewMsg(text, ok) {
+    var el = getEl('stTraitReviewMsg');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = ok === true ? '#b8ffd4' : ok === false ? '#ffb3b3' : '#9fc1d7';
+  }
+
+  function renderTraitLearnPanel(summary) {
+    var panel = getEl('stTraitLearnPanel');
+    var stableEl = getEl('stTraitStableList');
+    var tuneEl = getEl('stTraitTuneList');
+    if (!panel) return;
+    if (!summary || !summary.ok) {
+      panel.innerHTML = '<span style="color:#9fc1d7">لا توجد مراجعات محفوظة بعد لهذا الدر.</span>';
+      if (stableEl) stableEl.textContent = '';
+      if (tuneEl) tuneEl.textContent = '';
+      return;
+    }
+    var adoption;
+    if (summary.dur_adoption_90_reached) {
+      adoption = '<span style="color:#b8ffd4">نعم — وصل الدر إلى 90% اعتماد</span>';
+    } else if (summary.adoption_status === 'insufficient_reviews' && summary.adoption_message_ar) {
+      adoption = '<span style="color:#ffe7aa">' + escapeHtml(summary.adoption_message_ar) + '</span>';
+    } else {
+      adoption = '<span style="color:#ffe7aa">لم يصل بعد إلى 90% اعتماد</span>';
+    }
+    var reviewsNeeded = summary.reviews_needed_for_adoption != null
+      ? String(summary.reviews_needed_for_adoption)
+      : '—';
+    panel.innerHTML =
+      '<div><strong style="color:#9fc1d7">سمات تمت مراجعتها</strong><br>' + escapeHtml(String(summary.traits_reviewed_count || 0)) + '</div>' +
+      '<div><strong style="color:#9fc1d7">إجمالي المراجعات</strong><br>' + escapeHtml(String(summary.total_reviews || 0)) + '</div>' +
+      '<div><strong style="color:#9fc1d7">الحد الأدنى للاعتماد</strong><br>' + escapeHtml(String(summary.minimum_reviews_for_adoption != null ? summary.minimum_reviews_for_adoption : 10)) + '</div>' +
+      '<div><strong style="color:#9fc1d7">مراجعات متبقية للاعتماد</strong><br>' + escapeHtml(reviewsNeeded) + '</div>' +
+      '<div><strong style="color:#9fc1d7">نسبة اعتماد الدر</strong><br>' + escapeHtml(String(summary.overall_reliability_percent != null ? summary.overall_reliability_percent : 0) + '%') + '</div>' +
+      '<div><strong style="color:#9fc1d7">متوسط الثقة</strong><br>' + escapeHtml(String(summary.confidence_average != null ? summary.confidence_average : '—')) + '</div>' +
+      '<div><strong style="color:#9fc1d7">صحيح / غير صحيح / مراقبة</strong><br>' +
+        escapeHtml(String(summary.correct_percent || 0) + '% / ' + String(summary.incorrect_percent || 0) + '% / ' + String(summary.watch_percent || 0) + '%') + '</div>' +
+      '<div><strong style="color:#9fc1d7">اعتماد 90%</strong><br>' + adoption + '</div>' +
+      '<div><strong style="color:#9fc1d7">آخر مراجعة</strong><br>' + escapeHtml(summary.last_reviewed_at ? new Date(summary.last_reviewed_at).toLocaleString('ar-QA') : '—') + '</div>';
+    if (stableEl) {
+      var stable = (summary.stable_traits || []).map(function (t) { return t.trait_label_ar; });
+      stableEl.innerHTML = stable.length
+        ? '<strong>سمات مستقرة:</strong> ' + escapeHtml(stable.join(' · '))
+        : '';
+    }
+    if (tuneEl) {
+      var tune = (summary.traits_needing_tune || []).map(function (t) {
+        return (t.trait_label_ar || t.trait_key) + ' (' + t.reliability_percent + '%)';
+      });
+      tuneEl.innerHTML = tune.length
+        ? '<strong>سمات تحتاج ضبط:</strong> ' + escapeHtml(tune.join(' · '))
+        : '';
+    }
+  }
+
+  function renderTraitReviewTable() {
+    var tbody = getEl('stTraitReviewBody');
+    if (!tbody) return;
+    var rows = stTraitReviewState.rows || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="padding:10px;color:#9fc1d7">لا توجد سمات للمراجعة — اختر محطة وحدّث التحليل.</td></tr>';
+      return;
+    }
+    var statsMap = {};
+    (stTraitReviewState.traitStats || []).forEach(function (s) {
+      statsMap[s.trait_key] = s;
+    });
+    tbody.innerHTML = rows.map(function (row) {
+      var latest = stTraitReviewState.latestByTrait[row.trait_key] || null;
+      var draft = stTraitReviewState.drafts[row.trait_key] || null;
+      var decision = (draft && draft.reviewer_decision) || (latest && latest.reviewer_decision) || '';
+      var stat = statsMap[row.trait_key];
+      var rel = stat ? stat.reliability_percent : null;
+      var statusText = stat
+        ? (stat.reliability_label || reliabilityStatusLabelAr(stat.reliability_percent, stat.total_reviews))
+        : 'بانتظار مراجعة';
+      return '<tr data-trait-key="' + escapeHtml(row.trait_key) + '">' +
+        '<td style="padding:8px 6px">' + escapeHtml(row.trait_label_ar) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(row.expected_value) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(row.observed_value) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(matchStatusLabelAr(row.match_status)) + '</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(String(row.auto_confidence)) + '%</td>' +
+        '<td style="padding:8px 6px">' + escapeHtml(decision ? decisionLabelAr(decision) : '—') + '</td>' +
+        '<td style="padding:8px 6px;font-size:.78rem">' + escapeHtml(statusText) + (rel != null ? ' (' + rel + '%)' : '') + '</td>' +
+        '<td style="padding:8px 6px"><button type="button" class="small-btn st-trait-review-open" data-trait-key="' + escapeHtml(row.trait_key) + '">مراجعة</button></td>' +
+        '<td style="padding:8px 6px"><button type="button" class="small-btn st-trait-review-save" data-trait-key="' + escapeHtml(row.trait_key) + '">حفظ</button></td>' +
+        '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.st-trait-review-open').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openTraitReviewModal(btn.getAttribute('data-trait-key'));
+      });
+    });
+    tbody.querySelectorAll('.st-trait-review-save').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        void saveTraitReviewForKey(btn.getAttribute('data-trait-key'));
+      });
+    });
+  }
+
+  function openTraitReviewModal(traitKey) {
+    var modal = getEl('stTraitReviewModal');
+    var row = (stTraitReviewState.rows || []).find(function (r) { return r.trait_key === traitKey; });
+    if (!modal || !row) return;
+    stTraitReviewState.activeTraitKey = traitKey;
+    var latest = stTraitReviewState.latestByTrait[traitKey] || null;
+    var draft = stTraitReviewState.drafts[traitKey] || {};
+    setTextIfEl('stTraitReviewModalTitle', row.trait_label_ar + ' — متوقع: ' + row.expected_value + ' · مرصود: ' + row.observed_value);
+    var decEl = getEl('stTraitReviewDecision');
+    if (decEl) decEl.value = draft.reviewer_decision || (latest && latest.reviewer_decision) || 'watch';
+    var noteEl = getEl('stTraitReviewNote');
+    if (noteEl) noteEl.value = draft.review_note || (latest && latest.review_note) || '';
+    var confEl = getEl('stTraitReviewConfidence');
+    if (confEl) {
+      confEl.value = draft.manual_confidence != null ? draft.manual_confidence
+        : (latest && latest.manual_confidence != null ? latest.manual_confidence : row.auto_confidence);
+    }
+    var evEl = getEl('stTraitReviewEvidence');
+    if (evEl) {
+      evEl.checked = draft.approved_as_evidence != null
+        ? !!draft.approved_as_evidence
+        : (latest ? latest.approved_as_evidence !== false : true);
+    }
+    modal.style.display = 'flex';
+  }
+
+  function closeTraitReviewModal() {
+    var modal = getEl('stTraitReviewModal');
+    if (modal) modal.style.display = 'none';
+    stTraitReviewState.activeTraitKey = null;
+  }
+
+  function syncTraitReviewDraftFromModal() {
+    var key = stTraitReviewState.activeTraitKey;
+    if (!key) return null;
+    stTraitReviewState.drafts[key] = {
+      reviewer_decision: getEl('stTraitReviewDecision') ? getEl('stTraitReviewDecision').value : 'watch',
+      review_note: getEl('stTraitReviewNote') ? getEl('stTraitReviewNote').value : '',
+      manual_confidence: getEl('stTraitReviewConfidence') ? Number(getEl('stTraitReviewConfidence').value) : 70,
+      approved_as_evidence: getEl('stTraitReviewEvidence') ? getEl('stTraitReviewEvidence').checked : true
+    };
+    return stTraitReviewState.drafts[key];
+  }
+
+  async function loadTraitReviewData() {
+    var ctx = stTraitReviewState.context;
+    if (!ctx || !ctx.station_id || !ctx.dur_name) {
+      stTraitReviewState.latestByTrait = {};
+      stTraitReviewState.traitStats = [];
+      renderTraitReviewTable();
+      renderTraitLearnPanel(null);
+      return;
+    }
+    if (!isAdminMode()) return;
+    var qs = 'station_id=' + encodeURIComponent(ctx.station_id) +
+      '&reference_station_id=' + encodeURIComponent(ctx.reference_station_id) +
+      '&dur_name=' + encodeURIComponent(ctx.dur_name);
+    try {
+      var listRes = await apiFetch('/api?route=trait-review-list&' + qs);
+      var listJson = await listRes.json();
+      if (listJson && listJson.ok) {
+        stTraitReviewState.latestByTrait = listJson.latest_by_trait || {};
+        stTraitReviewState.traitStats = listJson.trait_stats || [];
+      }
+      var sumRes = await apiFetch('/api?route=trait-review-summary&dur_name=' + encodeURIComponent(ctx.dur_name) +
+        '&station_id=' + encodeURIComponent(ctx.station_id));
+      var sumJson = await sumRes.json();
+      renderTraitLearnPanel(sumJson && sumJson.ok ? sumJson : null);
+    } catch (_e) {
+      renderTraitLearnPanel(null);
+    }
+    renderTraitReviewTable();
+  }
+
+  async function saveTraitReviewForKey(traitKey) {
+    var ctx = stTraitReviewState.context;
+    var row = (stTraitReviewState.rows || []).find(function (r) { return r.trait_key === traitKey; });
+    if (!ctx || !row) {
+      setTraitReviewMsg('اختر محطة ودراً أولاً.', false);
+      return;
+    }
+    if (!isAdminMode()) {
+      setTraitReviewMsg('يتطلب تسجيل دخول إداري.', false);
+      return;
+    }
+    var draft = stTraitReviewState.drafts[traitKey];
+    if (stTraitReviewState.activeTraitKey === traitKey) {
+      draft = syncTraitReviewDraftFromModal();
+    }
+    if (!draft || !draft.reviewer_decision) {
+      openTraitReviewModal(traitKey);
+      setTraitReviewMsg('حدّد قرار المراجعة ثم احفظ.', false);
+      return;
+    }
+    setTraitReviewMsg('جاري الحفظ…');
+    var payload = {
+      station_id: ctx.station_id,
+      reference_station_id: ctx.reference_station_id,
+      station_name: ctx.station_name,
+      dur_name: ctx.dur_name,
+      dur_day: ctx.dur_day,
+      trait_key: row.trait_key,
+      trait_label_ar: row.trait_label_ar,
+      expected_value: row.expected_value,
+      observed_value: row.observed_value,
+      match_status: row.match_status,
+      reviewer_decision: draft.reviewer_decision,
+      manual_confidence: draft.manual_confidence,
+      auto_confidence: row.auto_confidence,
+      review_note: draft.review_note || '',
+      approved_as_evidence: draft.approved_as_evidence !== false,
+      source: 'station_verification_panel'
+    };
+    try {
+      var res = await apiFetch('/api?route=trait-review-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var json = await res.json();
+      if (!res.ok || !json || !json.ok) {
+        setTraitReviewMsg('فشل الحفظ: ' + (json && json.error || res.status), false);
+        return;
+      }
+      setTraitReviewMsg('تم حفظ مراجعة السمة.', true);
+      closeTraitReviewModal();
+      await loadTraitReviewData();
+    } catch (err) {
+      setTraitReviewMsg(clientErrorForHttp(err), false);
+    }
+  }
+
+  function refreshTraitReviewFromValidation(dto, observedTraitsOverride) {
+    stTraitReviewState.rows = buildTraitReviewRows(dto, observedTraitsOverride);
+    stTraitReviewState.context = dto ? resolveTraitReviewContext(dto, getEl('stId') && getEl('stId').value) : null;
+    void loadTraitReviewData();
+  }
+
+  function clearTraitReviewPanels() {
+    stTraitReviewState.rows = [];
+    stTraitReviewState.latestByTrait = {};
+    stTraitReviewState.traitStats = [];
+    stTraitReviewState.context = null;
+    renderTraitReviewTable();
+    renderTraitLearnPanel(null);
+    setTraitReviewMsg('');
+  }
+
+  function initTraitReviewPanel() {
+    var cancel = getEl('stTraitReviewCancel');
+    var confirm = getEl('stTraitReviewConfirm');
+    var modal = getEl('stTraitReviewModal');
+    if (cancel) cancel.addEventListener('click', closeTraitReviewModal);
+    if (confirm) {
+      confirm.addEventListener('click', function () {
+        syncTraitReviewDraftFromModal();
+        void saveTraitReviewForKey(stTraitReviewState.activeTraitKey);
+      });
+    }
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeTraitReviewModal();
+      });
     }
   }
 
@@ -7631,6 +8032,7 @@
     }
     clearAnalyticsWeatherAndTraits();
     renderValidationExplanation(null, []);
+    clearTraitReviewPanels();
     setTextIfEl('stAnalyticsScore', '');
     setTextIfEl('stAnalyticsStatus', '');
     clearStationAnalysisSummary();

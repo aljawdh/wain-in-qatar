@@ -23,6 +23,7 @@ const intelligencePreviewHandler = require('../serverless_api/navidur-intelligen
 const runIntelligenceMemoryHandler = require('../serverless_api/run-intelligence-memory');
 const intelligenceCronAdminHandler = require('../serverless_api/intelligence-cron-admin');
 const intelligenceTrendsHandler = require('../serverless_api/navidur-intelligence-trends');
+const traitReviewAdminHandler = require('../serverless_api/trait-review-admin');
 
 function normalizeRoute(value) {
   return String(value || '').trim().toLowerCase();
@@ -84,6 +85,9 @@ module.exports = async function handler(req, res) {
   }
   if (route === 'intelligence-trends' || route === 'intelligence-timeline' || route === 'intelligence-signature') {
     return intelligenceTrendsHandler(req, res);
+  }
+  if (route === 'trait-review-list' || route === 'trait-review-save' || route === 'trait-review-summary') {
+    return traitReviewAdminHandler(req, res);
   }
   if (route === 'capture-snapshot' || route === 'snapshot-capture') return snapshotHandler(req, res);
   if (route === 'run-snapshots') return runSnapshotsHandler(req, res);

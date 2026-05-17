@@ -594,6 +594,57 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                     </div>
                   </div>
                 </div>
+                <div id="stTraitReviewSection" style="margin-top:12px;padding:12px;background:rgba(255,185,0,.06);border:1px solid rgba(255,185,0,.22);border-radius:10px">
+                  <h6 style="margin:0 0 10px;font-size:.88rem;color:#ffe7aa;font-weight:600">قائمة مراجعة السمات</h6>
+                  <div style="overflow-x:auto;margin-bottom:10px">
+                    <table id="stTraitReviewTable" style="width:100%;border-collapse:collapse;font-size:.8rem;min-width:880px">
+                      <thead>
+                        <tr style="color:#9fc1d7;text-align:right">
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">السمة</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">المتوقع</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">المرصود</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">المطابقة</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">الثقة</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">قرار المراجع</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">الحالة</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">مراجعة</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(255,185,0,.2)">حفظ</th>
+                        </tr>
+                      </thead>
+                      <tbody id="stTraitReviewBody"></tbody>
+                    </table>
+                  </div>
+                  <p id="stTraitReviewMsg" style="margin:0 0 10px;font-size:.8rem;color:#9fc1d7;min-height:1.2em"></p>
+                  <h6 style="margin:12px 0 10px;font-size:.88rem;color:#ffe7aa;font-weight:600">تعلّم الدر</h6>
+                  <div id="stTraitLearnPanel" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;font-size:.82rem"></div>
+                  <div id="stTraitStableList" style="margin-top:10px;font-size:.8rem;color:#b8ffd4"></div>
+                  <div id="stTraitTuneList" style="margin-top:6px;font-size:.8rem;color:#ffd8a8"></div>
+                </div>
+                <div id="stTraitReviewModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px">
+                  <div style="background:#121f38;border:1px solid rgba(255,185,0,.35);border-radius:12px;padding:16px;max-width:420px;width:100%;max-height:90vh;overflow:auto">
+                    <h6 style="margin:0 0 12px;color:#ffe7aa;font-size:.95rem">مراجعة السمة</h6>
+                    <p id="stTraitReviewModalTitle" style="margin:0 0 10px;font-size:.85rem;color:#c5d5e0"></p>
+                    <label style="display:block;font-size:.78rem;color:#9fc1d7;margin-bottom:4px">القرار</label>
+                    <select id="stTraitReviewDecision" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12)">
+                      <option value="correct">صحيح</option>
+                      <option value="incorrect">غير صحيح</option>
+                      <option value="watch">يحتاج مراقبة</option>
+                      <option value="insufficient">غير كافٍ للحكم</option>
+                    </select>
+                    <label style="display:block;font-size:.78rem;color:#9fc1d7;margin-bottom:4px">ملاحظة المراجع</label>
+                    <textarea id="stTraitReviewNote" rows="3" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12)"></textarea>
+                    <label style="display:block;font-size:.78rem;color:#9fc1d7;margin-bottom:4px">درجة الثقة اليدوية (0–100)</label>
+                    <input id="stTraitReviewConfidence" type="number" min="0" max="100" value="70" style="width:100%;margin-bottom:10px;padding:8px;border-radius:8px;background:var(--bg3);color:var(--txt);border:1px solid rgba(255,255,255,.12)">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:.85rem;color:#c5d5e0;margin-bottom:12px;cursor:pointer">
+                      <input id="stTraitReviewEvidence" type="checkbox" checked>
+                      اعتمادها كدليل للدر
+                    </label>
+                    <div style="display:flex;gap:8px;justify-content:flex-end">
+                      <button type="button" id="stTraitReviewCancel" class="small-btn">إلغاء</button>
+                      <button type="button" id="stTraitReviewConfirm" class="small-btn" style="background:rgba(38,194,129,.25);border-color:rgba(38,194,129,.45);color:#b8ffd4">حفظ المراجعة</button>
+                    </div>
+                  </div>
+                </div>
                 <div style="margin-top:12px;padding:12px;background:rgba(38,194,129,.08);border:1px solid rgba(38,194,129,.2);border-radius:10px">
                   <h5 style="margin:0 0 10px;font-size:.9rem;color:#26c281;font-weight:600">الحالة الجوية (الحية)</h5>
                   <div id="stWeatherStatusNote" style="font-size:.78rem;color:#ffb000;margin:0 0 8px;line-height:1.35;min-height:0"></div>
