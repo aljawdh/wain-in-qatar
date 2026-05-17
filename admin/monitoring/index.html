@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>مركز الرصد البحري والتحقق الموسمي</title>
   <style>
     :root {
@@ -278,35 +279,95 @@
       return h;
     }
 
-    async function fetchStationsJson(spec) {
+    function apiPath(path) {
+      if (!path) return '';
+      if (path.indexOf('http://') === 0 || path.indexOf('https://') === 0) return path;
+      var origin = window.location && window.location.origin;
+      if (!origin || origin === 'null' || origin.indexOf('file:') === 0) {
+        return 'https://navidur.app' + (path.charAt(0) === '/' ? path : '/' + path);
+      }
+      return origin + (path.charAt(0) === '/' ? path : '/' + path);
+    }
+
+    function fetchWithTimeout(url, options, ms) {
+      var timeoutMs = ms || 12000;
+      if (typeof AbortController === 'undefined') {
+        return fetch(url, options);
+      }
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () {
+        ctrl.abort();
+      }, timeoutMs);
+      var opts = Object.assign({}, options || {}, { signal: ctrl.signal });
+      return fetch(url, opts).then(
+        function (res) {
+          clearTimeout(timer);
+          return res;
+        },
+        function (err) {
+          clearTimeout(timer);
+          throw err;
+        }
+      );
+    }
+
+    function fetchStationsJson(spec) {
       var headers = { Accept: 'application/json', 'Cache-Control': 'no-store' };
       if (spec.useAdminAuth) {
         var t = getMonitoringToken();
         if (t) headers.Authorization = 'Bearer ' + t;
       }
-      var res = await fetch(spec.url, {
-        method: 'GET',
-        headers: headers,
-        credentials: spec.useAdminAuth ? 'include' : 'omit',
-        cache: 'no-store'
-      });
-      var ct = String(res.headers.get('content-type') || '').toLowerCase();
-      if (!res.ok) {
-        return { ok: false, status: res.status, rows: [], url: spec.url };
+      var url = apiPath(spec.url);
+      return fetchWithTimeout(
+        url,
+        {
+          method: 'GET',
+          headers: headers,
+          credentials: spec.useAdminAuth ? 'include' : 'omit',
+          cache: 'no-store'
+        },
+        12000
+      )
+        .then(function (res) {
+          if (!res.ok) {
+            return { ok: false, status: res.status, rows: [], url: url };
+          }
+          return res.text().then(function (text) {
+            var json;
+            try {
+              json = JSON.parse(text);
+            } catch (_e3) {
+              return { ok: false, status: 'parse_error', rows: [], url: url };
+            }
+            if (typeof json === 'string') {
+              try {
+                json = JSON.parse(json);
+              } catch (_e4) {
+                return { ok: false, status: 'parse_error', rows: [], url: url };
+              }
+            }
+            var rows = normalizeStationsPayload(json);
+            return { ok: rows.length > 0, status: res.status, rows: rows, url: url };
+          });
+        })
+        .catch(function (err) {
+          return {
+            ok: false,
+            status: err && err.name === 'AbortError' ? 'timeout' : 'network',
+            rows: [],
+            url: url,
+            detail: String(err && err.message ? err.message : err)
+          };
+        });
+    }
+
+    function arrayFindCompat(arr, fn) {
+      if (!Array.isArray(arr)) return null;
+      if (typeof arr.find === 'function') return arr.find(fn);
+      for (var i = 0; i < arr.length; i += 1) {
+        if (fn(arr[i], i, arr)) return arr[i];
       }
-      if (ct.indexOf('application/json') < 0 && ct.indexOf('+json') < 0) {
-        return { ok: false, status: 'not_json', rows: [], url: spec.url };
-      }
-      var json = await res.json();
-      if (typeof json === 'string') {
-        try {
-          json = JSON.parse(json);
-        } catch (_e3) {
-          return { ok: false, status: 'parse_error', rows: [], url: spec.url };
-        }
-      }
-      var rows = normalizeStationsPayload(json);
-      return { ok: rows.length > 0, status: res.status, rows: rows, url: spec.url };
+      return null;
     }
 
     function fetchMonitoringJson(url) {
@@ -386,17 +447,17 @@
         sel.appendChild(opt);
       });
       var prefer =
-        valid.find(function (s) {
+        arrayFindCompat(valid, function (s) {
           var n = String(s.name_ar || s.name || '');
           return n.indexOf('العقير 02') >= 0 || n.indexOf('العقير') >= 0;
         }) ||
-        valid.find(function (s) {
+        arrayFindCompat(valid, function (s) {
           return String(s.name_ar || s.name || '').indexOf('الدوحة') >= 0;
         }) ||
-        valid.find(function (s) {
+        arrayFindCompat(valid, function (s) {
           return String(s.name_ar || s.name || '').indexOf('الخور') >= 0;
         }) ||
-        valid.find(function (s) {
+        arrayFindCompat(valid, function (s) {
           return String(s.name_ar || s.name || '').indexOf('الوكرة') >= 0;
         }) ||
         valid[0];
@@ -411,7 +472,7 @@
       return true;
     }
 
-    async function loadStations() {
+    function loadStations() {
       var dup = document.querySelectorAll('#stationSelect').length;
       if (dup !== 1) {
         console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'unexpected_station_select_count', count: dup });
@@ -420,19 +481,32 @@
       console.log('MONITORING_SELECT_FOUND', !!stationSelect, stationSelect && stationSelect.id);
       if (!stationSelect) {
         console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'missing_select' });
-        return false;
+        return Promise.resolve(false);
       }
-      /** عام أولًا (لا يحتاج JWT) ثم إداري كامل مع كوكي/توكن */
+      if (typeof fetch !== 'function') {
+        fillStationSelectFromRows([]);
+        return Promise.resolve(false);
+      }
       var attempts = MONITORING_STATIONS_PUBLIC_URLS.map(function (u) {
         return { url: u, useAdminAuth: false };
       }).concat([{ url: MONITORING_STATIONS_ADMIN_URL, useAdminAuth: true }]);
       var lastStatus = null;
       var lastUrl = null;
-      for (var ui = 0; ui < attempts.length; ui += 1) {
-        var spec = attempts[ui];
+
+      function tryIndex(i) {
+        if (i >= attempts.length) {
+          stationSelect.innerHTML = '';
+          var failOpt = document.createElement('option');
+          failOpt.value = '';
+          failOpt.textContent = 'تعذر تحميل المحطات — راجع Console';
+          stationSelect.appendChild(failOpt);
+          console.log('MONITORING_OPTIONS_AFTER_FILL', stationSelect.options.length);
+          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { last_http_status: lastStatus, last_url: lastUrl });
+          return Promise.resolve(false);
+        }
+        var spec = attempts[i];
         lastUrl = spec.url;
-        try {
-          var result = await fetchStationsJson(spec);
+        return fetchStationsJson(spec).then(function (result) {
           lastStatus = result.status;
           console.log('MONITORING_STATIONS_RAW', result.rows.length, result.rows.slice(0, 3));
           if (result.ok && fillStationSelectFromRows(result.rows)) {
@@ -444,19 +518,14 @@
             });
             return true;
           }
-        } catch (err) {
-          lastStatus = lastStatus || 'exception';
-          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { url: spec.url, detail: String(err && err.message ? err.message : err) });
-        }
+          if (result.detail) {
+            console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { url: spec.url, detail: result.detail });
+          }
+          return tryIndex(i + 1);
+        });
       }
-      stationSelect.innerHTML = '';
-      var failOpt = document.createElement('option');
-      failOpt.value = '';
-      failOpt.textContent = 'تعذر تحميل المحطات — راجع Console';
-      stationSelect.appendChild(failOpt);
-      console.log('MONITORING_OPTIONS_AFTER_FILL', stationSelect.options.length);
-      console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { last_http_status: lastStatus, last_url: lastUrl });
-      return false;
+
+      return tryIndex(0);
     }
 
     function fmt(v, unit) {
@@ -877,46 +946,70 @@
       }
     }
 
-    function startMonitoringPage() {
-      byId('refreshBtn').addEventListener('click', function () {
-        refresh().catch(function (e) { setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true); });
-      });
-      byId('updateDurBtn').addEventListener('click', function () { updateDurData(); });
-      byId('stationSelect').addEventListener('change', function () {
-        var sel = byId('stationSelect');
-        console.info('NAVIDUR_MONITORING_SELECTED_STATION', {
-          station_id: sel.value,
-          label: sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : ''
-        });
-      });
-
-      (async function init() {
-        byId('dateInput').value = new Date().toISOString().slice(0, 10);
-        var loaded = false;
-        try {
-          loaded = await loadStations();
-        } catch (e) {
-          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'throw', detail: String(e && e.message ? e.message : e) });
-        }
-        if (!loaded) {
-          setStatus('تعذر تحميل المحطات — افتح الصفحة من navidur.app وسجّل دخولك من /admin ثم حدّث (Ctrl+F5)', true);
-        }
-        try {
-          await refresh();
-        } catch (e2) {
-          if (!loaded) {
-            setStatus('تعذر تحميل قائمة المحطات — راجع Console', true);
-          } else {
-            setStatus('فشل تحديث الرصد: ' + (e2 && e2.message ? e2.message : e2), true);
-          }
-        }
-      })();
+    function setDefaultDate() {
+      var di = byId('dateInput');
+      if (!di) return;
+      try {
+        di.value = new Date().toISOString().slice(0, 10);
+      } catch (_d) {
+        /* متصفحات قديمة */
+      }
     }
 
+    function bindMonitoringEvents() {
+      var refreshBtn = byId('refreshBtn');
+      var updateDurBtn = byId('updateDurBtn');
+      var stationSel = byId('stationSelect');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', function () {
+          refresh().catch(function (e) { setStatus('فشل التحديث: ' + (e && e.message ? e.message : e), true); });
+        });
+      }
+      if (updateDurBtn) {
+        updateDurBtn.addEventListener('click', function () { updateDurData(); });
+      }
+      if (stationSel) {
+        stationSel.addEventListener('change', function () {
+          console.info('NAVIDUR_MONITORING_SELECTED_STATION', {
+            station_id: stationSel.value,
+            label: stationSel.options[stationSel.selectedIndex] ? stationSel.options[stationSel.selectedIndex].textContent : ''
+          });
+        });
+      }
+    }
+
+    function bootMonitoringPage() {
+      setStatus('جاري تحميل المحطات…', false);
+      setDefaultDate();
+      bindMonitoringEvents();
+      loadStations()
+        .then(function (loaded) {
+          if (!loaded) {
+            setStatus('تعذر تحميل المحطات — افتح navidur.app/admin وسجّل الدخول ثم Ctrl+F5', true);
+            return;
+          }
+          setStatus('تم تحميل المحطات. جاري جلب الرصد…', false);
+          return refresh().catch(function (e2) {
+            setStatus('فشل تحديث الرصد: ' + (e2 && e2.message ? e2.message : e2), true);
+          });
+        })
+        .catch(function (e) {
+          console.warn('NAVIDUR_MONITORING_STATIONS_FAILED', { reason: 'boot', detail: String(e && e.message ? e.message : e) });
+          fillStationSelectFromRows([]);
+          setStatus('خطأ أثناء التحميل: ' + (e && e.message ? e.message : e), true);
+        });
+    }
+
+    window.addEventListener('error', function (ev) {
+      if (!ev || !ev.message) return;
+      console.error('MONITORING_PAGE_ERROR', ev.message);
+      setStatus('خطأ في الصفحة: ' + ev.message, true);
+    });
+
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', startMonitoringPage);
+      document.addEventListener('DOMContentLoaded', bootMonitoringPage);
     } else {
-      startMonitoringPage();
+      bootMonitoringPage();
     }
   </script>
 </body>
