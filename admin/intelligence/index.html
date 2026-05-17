@@ -223,6 +223,10 @@
         <h2>الحالة البحرية</h2>
         <div id="marineBlock"></div>
       </section>
+      <section class="panel" id="marineVarsPanel">
+        <h2>المتغيرات البحرية الأساسية</h2>
+        <div id="marineVarsBlock"></div>
+      </section>
       <section class="panel">
         <h2>الطبقة التقليدية البحرية</h2>
         <div id="traditionalBlock"></div>
@@ -561,6 +565,56 @@
       return '<div class="card"><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div></div>';
     }
 
+
+    var compassMap = {
+      N: 'شمال', NE: 'شمال شرقي', E: 'شرق', SE: 'جنوب شرقي', S: 'جنوب', SW: 'جنوب غربي', W: 'غرب', NW: 'شمال غربي'
+    };
+    function formatMarineVal(v, unit) {
+      if (v === null || v === undefined || v === '') return '—';
+      return esc(String(v)) + (unit ? ' ' + unit : '');
+    }
+    function formatDirection(code) {
+      if (!code) return '—';
+      var c = String(code).toUpperCase();
+      return compassMap[c] ? compassMap[c] + ' (' + c + ')' : esc(code);
+    }
+    function formatTideState(state) {
+      if (state === 'hamal') return 'حمل';
+      if (state === 'fasad') return 'فساد';
+      return 'غير معروف';
+    }
+    function qualityNote(q) {
+      if (!q || typeof q !== 'object') return '—';
+      var parts = [];
+      if (q.available) parts.push('متاح');
+      else parts.push('ناقص');
+      if (q.source) parts.push('المصدر: ' + esc(q.source));
+      return parts.join(' · ');
+    }
+    function renderMarineVariables(intel) {
+      var mv = intel && intel.marine_variables ? intel.marine_variables : {};
+      var disp = intel && intel.marine_variables_display ? intel.marine_variables_display : {};
+      var q = intel && intel.marine_variables_quality ? intel.marine_variables_quality : {};
+      var rows = [
+        ['حرارة سطح البحر', formatMarineVal(disp.sea_surface_temperature != null ? disp.sea_surface_temperature : mv.sea_surface_temperature, '°C'), qualityNote(q.sea_surface_temperature)],
+        ['سرعة التيار', formatMarineVal(mv.current_speed, 'م/ث'), qualityNote(q.current_speed)],
+        ['اتجاه التيار', mv.current_direction ? formatDirection(mv.current_direction) : esc(disp.current_direction || '—'), qualityNote(q.current_direction)],
+        ['ارتفاع الموج', formatMarineVal(mv.wave_height, 'م'), qualityNote(q.wave_height)],
+        ['اتجاه الموج', mv.wave_direction ? formatDirection(mv.wave_direction) : esc(disp.wave_direction || '—'), qualityNote(q.wave_direction)],
+        ['فترة الموج', formatMarineVal(mv.wave_period, 'ث'), qualityNote(q.wave_period)],
+        ['سرعة الرياح', formatMarineVal(mv.wind_speed, 'كم/س'), qualityNote(q.wind_speed)],
+        ['اتجاه الرياح', mv.wind_direction ? formatDirection(mv.wind_direction) : esc(disp.wind_direction || '—'), qualityNote(q.wind_direction)],
+        ['حالة المد', esc(disp.tide_state || formatTideState(mv.tide_state)), qualityNote(q.tide_state)],
+        ['مستوى المد', formatMarineVal(mv.tide_level, 'م'), qualityNote(q.tide_level)]
+      ];
+      byId('marineVarsBlock').innerHTML =
+        '<table><thead><tr><th>المتغير</th><th>القيمة</th><th>جودة البيانات</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td class="muted">' + r[2] + '</td></tr>';
+        }).join('') +
+        '</tbody></table>';
+    }
+
     function renderReport(data) {
       latestPayload = data;
       var st = data.station || {};
@@ -601,6 +655,8 @@
         ['الدرجة', marine.score != null ? esc(marine.score) + ' / 100' : '—'],
         ['عوامل التقييم', reasonsHtml(marine.reasons)]
       ]);
+
+      renderMarineVariables(intel);
 
       byId('traditionalBlock').innerHTML = tableFromRows([
         ['الدر الحالي', esc(trad.dur || '—')],
@@ -723,6 +779,22 @@
         ['جودة البيانات', dq.score],
         ['الملخص', intel.summary_ar]
       ]).sheet, 'الملخص');
+
+            var mv = intel.marine_variables || {};
+      var mvq = intel.marine_variables_quality || {};
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('المتغيرات البحرية', [
+        ['المتغير', 'القيمة', 'متاح', 'المصدر'],
+        ['حرارة سطح البحر', mv.sea_surface_temperature, mvq.sea_surface_temperature && mvq.sea_surface_temperature.available, mvq.sea_surface_temperature && mvq.sea_surface_temperature.source],
+        ['سرعة التيار', mv.current_speed, mvq.current_speed && mvq.current_speed.available, mvq.current_speed && mvq.current_speed.source],
+        ['اتجاه التيار', mv.current_direction, mvq.current_direction && mvq.current_direction.available, mvq.current_direction && mvq.current_direction.source],
+        ['ارتفاع الموج', mv.wave_height, mvq.wave_height && mvq.wave_height.available, mvq.wave_height && mvq.wave_height.source],
+        ['اتجاه الموج', mv.wave_direction, mvq.wave_direction && mvq.wave_direction.available, mvq.wave_direction && mvq.wave_direction.source],
+        ['فترة الموج', mv.wave_period, mvq.wave_period && mvq.wave_period.available, mvq.wave_period && mvq.wave_period.source],
+        ['سرعة الرياح', mv.wind_speed, mvq.wind_speed && mvq.wind_speed.available, mvq.wind_speed && mvq.wind_speed.source],
+        ['اتجاه الرياح', mv.wind_direction, mvq.wind_direction && mvq.wind_direction.available, mvq.wind_direction && mvq.wind_direction.source],
+        ['حالة المد', mv.tide_state, mvq.tide_state && mvq.tide_state.available, mvq.tide_state && mvq.tide_state.source],
+        ['مستوى المد', mv.tide_level, mvq.tide_level && mvq.tide_level.available, mvq.tide_level && mvq.tide_level.source]
+      ]).sheet, 'المتغيرات البحرية');
 
       XLSX.utils.book_append_sheet(wb, sheetFromAoa('الحالة البحرية', [
         ['البند', 'القيمة'],

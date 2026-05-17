@@ -14,6 +14,7 @@ var classifier = require('./station-classifier');
 var scoring = require('./scoring');
 var comparison = require('./comparison');
 var reportDto = require('./report-dto');
+var marineVars = require('./marine-variables');
 
 function resolvePreviewDate(query) {
   var q = query || {};
@@ -44,6 +45,12 @@ async function buildLiveDto(station, referenceData, dateCtx) {
     datetime: dateCtx.datetime
   };
   var weatherPack = await fetchWeatherAndMarineInputs(station, body);
+  var weatherMeta = {
+    forecast_source: weatherPack.forecast_source || '',
+    from_cache: !!weatherPack.from_cache,
+    from_defaults: !!weatherPack.from_defaults,
+    no_data_for_date: !!weatherPack.no_data_for_date
+  };
   var traitCalibDoc = await readJsonFile('trait_calibration', { version: 1, scopes: {} });
   var dto = analyzeLiveStation({
     station: station,
@@ -60,14 +67,19 @@ async function buildLiveDto(station, referenceData, dateCtx) {
   });
   dto.analysis_date = dateCtx.analysis_date;
   dto.as_of_iso = dateCtx.as_of_iso;
-  return dto;
+  return { dto: dto, weather_meta: weatherMeta };
 }
 
 async function buildIntelligencePreviewForStation(station, referenceData, dateCtx) {
   var classification = classifier.classifyStationZone(station);
   var dto;
+  var weatherMeta = {};
+  var marineLayer = marineVars.extractFromDto(null, {});
   try {
-    dto = await buildLiveDto(station, referenceData, dateCtx);
+    var livePack = await buildLiveDto(station, referenceData, dateCtx);
+    dto = livePack.dto;
+    weatherMeta = livePack.weather_meta || {};
+    marineLayer = marineVars.extractFromDto(dto, weatherMeta);
   } catch (err) {
     return reportDto.buildReportPayload(
       station,
@@ -80,7 +92,10 @@ async function buildIntelligencePreviewForStation(station, referenceData, dateCt
         comparison: { has_history: false, vs_previous: {}, vs_24h: {}, vs_7d: {}, trend: 'unknown' },
         anomalies: [{ type: 'analysis_error', message_ar: String(err && err.message ? err.message : err) }],
         summary_ar: 'تعذر توليد التحليل الحي لهذه المحطة.',
-        confidence: 0
+        confidence: 0,
+        marine_variables: marineLayer.marine_variables,
+        marine_variables_quality: marineLayer.marine_variables_quality,
+        marine_variables_display: marineLayer.marine_variables_display
       },
       { score: 0, missing: ['live_analysis'], warnings: ['analysis_failed'] }
     );
@@ -136,7 +151,10 @@ async function buildIntelligencePreviewForStation(station, referenceData, dateCt
     },
     anomalies: anomalies,
     summary_ar: summaryAr,
-    confidence: overallConf
+    confidence: overallConf,
+    marine_variables: marineLayer.marine_variables,
+    marine_variables_quality: marineLayer.marine_variables_quality,
+    marine_variables_display: marineLayer.marine_variables_display
   }, dataQuality);
 }
 

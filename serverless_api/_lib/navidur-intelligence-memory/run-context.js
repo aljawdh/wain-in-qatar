@@ -70,6 +70,12 @@ function buildSnapshotRecord(previewPayload, dateCtx) {
       hamal_fasad: trad.hamal_fasad != null ? String(trad.hamal_fasad) : 'unknown'
     },
     anomalies: Array.isArray(intel.anomalies) ? intel.anomalies.slice() : [],
+    marine_variables: intel.marine_variables && typeof intel.marine_variables === 'object'
+      ? Object.assign({}, intel.marine_variables)
+      : null,
+    marine_variables_quality: intel.marine_variables_quality && typeof intel.marine_variables_quality === 'object'
+      ? JSON.parse(JSON.stringify(intel.marine_variables_quality))
+      : null,
     meta: {
       engine_version: ENGINE_VERSION,
       read_only_analysis: false,
