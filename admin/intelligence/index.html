@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>معاينة الذكاء البحري — NAVIDUR</title>
+  <style>
+    :root {
+      --bg: #0a1020;
+      --panel: #121f38;
+      --border: #2a4570;
+      --text: #e8f0ff;
+      --muted: #94a8c8;
+      --accent: #2d6cdf;
+      --ok: #8ef0b0;
+      --warn: #ffe6a8;
+      --danger: #ff9a9a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, "Arabic Typesetting", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 16px 14px 48px; }
+    h1 { font-size: 1.35rem; margin: 0 0 8px; }
+    .lead { color: var(--muted); font-size: 0.95rem; max-width: 56em; margin-bottom: 14px; }
+    .top {
+      display: grid;
+      grid-template-columns: 1fr minmax(140px, 180px) auto auto auto;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    select, input, button {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.95rem;
+      width: 100%;
+    }
+    button { cursor: pointer; background: var(--accent); border-color: #3a6ec4; font-weight: 600; width: auto; white-space: nowrap; }
+    button.secondary { background: #355a9e; }
+    button.ghost { background: #1a3358; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 8px 0 12px; }
+    .status { font-size: 0.88rem; color: var(--muted); min-height: 1.4em; }
+    .status.err { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+    .auth-banner {
+      background: #3a1a1a;
+      border: 1px solid #7a3030;
+      color: #ffc4c4;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+    .auth-banner a { color: #ffd28a; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .card .k { color: var(--muted); font-size: 0.78rem; }
+    .card .v { font-weight: 700; font-size: 1.05rem; margin-top: 6px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 14px;
+    }
+    .panel h2 { margin: 0 0 10px; font-size: 1.05rem; color: #b8d4ff; }
+    .panel h3 { margin: 12px 0 8px; font-size: 0.9rem; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { border-bottom: 1px solid #22375d; padding: 9px 8px; text-align: right; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      margin: 2px;
+      background: #1a3358;
+    }
+    .pill.excellent, .pill.high, .pill.low { background: #1a4d32; color: #b8ffd4; }
+    .pill.good, .pill.medium { background: #4d3f1a; color: #ffe6a8; }
+    .pill.poor, .pill.dangerous, .pill.high-risk { background: #4d1a1a; color: #ffc4c4; }
+    .summary-box {
+      background: #0e1a2f;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 8px;
+    }
+    .anomaly {
+      border-right: 3px solid #ffb347;
+      padding: 8px 10px;
+      margin: 6px 0;
+      background: #0e1a2f;
+      border-radius: 8px;
+    }
+    .hidden { display: none !important; }
+    .no-print { }
+    @media (max-width: 900px) {
+      .top { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; color: #111; font-size: 11pt; }
+      .no-print { display: none !important; }
+      .wrap { max-width: none; padding: 0; }
+      .panel, .card { break-inside: avoid; border-color: #ccc; background: #fff; }
+      .auth-banner, .status { display: none !important; }
+      a { color: #000; text-decoration: none; }
+      .pill { border: 1px solid #999; color: #000 !important; background: #f5f5f5 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" style="display:block">
+    <header class="no-print">
+      <h1>معاينة الذكاء البحري (NAVIDUR Intelligence Preview)</h1>
+      <p class="lead">
+        صفحة إدارية داخلية — قراءة فقط عبر <code>route=intelligence-preview</code>.
+        تتطلب جلسة مدير (نفس توكن لوحة الإدارة).
+      </p>
+    </header>
+
+    <div id="authBanner" class="auth-banner no-print hidden" style="display:none">
+      لا يوجد توكن إداري. سجّل الدخول من
+      <a href="/admin.html">لوحة الإدارة</a>
+      ثم ارجع إلى هذه الصفحة.
+    </div>
+
+    <div class="top no-print">
+      <select id="stationSelect" aria-label="المحطة">
+        <option value="">جاري تحميل المحطات…</option>
+      </select>
+      <input id="dateInput" type="date" aria-label="تاريخ التحليل">
+      <button type="button" id="loadBtn">تحميل المعاينة</button>
+      <button type="button" id="printBtn" class="secondary" disabled>Print Report</button>
+      <button type="button" id="excelBtn" class="ghost" disabled>Export Excel</button>
+    </div>
+
+    <p id="statusLine" class="status no-print" role="status">جاهز.</p>
+
+    <section id="reportRoot" class="hidden" aria-live="polite">
+      <div class="cards" id="summaryCards"></div>
+      <section class="panel">
+        <h2>ملخص عربي</h2>
+        <div id="summaryAr" class="summary-box"></div>
+      </section>
+      <section class="panel">
+        <h2>التصنيف البحري والمحطة</h2>
+        <div id="stationBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>الحالة البحرية</h2>
+        <div id="marineBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>الطبقة التقليدية (الدر / الحمل / الفساد)</h2>
+        <div id="traditionalBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>نشاط مجموعات الأسماك</h2>
+        <div id="fishBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>المخاطر</h2>
+        <div id="riskBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>المقارنة التاريخية</h2>
+        <div id="comparisonBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>شذوذات (Anomalies)</h2>
+        <div id="anomaliesBlock"></div>
+      </section>
+      <section class="panel">
+        <h2>جودة البيانات</h2>
+        <div id="dataQualityBlock"></div>
+      </section>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    var latestPayload = null;
+
+    var ZONE_AR = {
+      coast: 'ساحل',
+      shallow: 'ضحل / فشوت',
+      island_coast: 'ساحل جزيرة',
+      reef_or_rock: 'شعاب / صخور',
+      open_water: 'مياه مفتوحة',
+      deep_future: 'أعماق (مستقبلي)',
+      unknown: 'غير معروف'
+    };
+
+    var LABEL_AR = {
+      excellent: 'ممتاز', good: 'جيد', medium: 'متوسط', poor: 'ضعيف', dangerous: 'خطير', unknown: 'غير معروف',
+      high: 'مرتفع', low: 'منخفض',
+      hamal: 'حمل', fasad: 'فساد',
+      improving: 'تحسّن', stable: 'مستقر', declining: 'تراجع'
+    };
+
+    function byId(id) { return document.getElementById(id); }
+
+    function getAdminToken() {
+      try {
+        return localStorage.getItem('navidur_admin_token') || '';
+      } catch (_e) {
+        return '';
+      }
+    }
+
+    function apiPath(path) {
+      if (!path) return '';
+      if (path.indexOf('http://') === 0 || path.indexOf('https://') === 0) return path;
+      var origin = window.location && window.location.origin;
+      if (!origin || origin === 'null' || origin.indexOf('file:') === 0) {
+        return 'https://navidur.app' + (path.charAt(0) === '/' ? path : '/' + path);
+      }
+      return origin + (path.charAt(0) === '/' ? path : '/' + path);
+    }
+
+    function authHeaders() {
+      var h = { Accept: 'application/json', 'Cache-Control': 'no-store' };
+      var t = getAdminToken();
+      if (t) h.Authorization = 'Bearer ' + t;
+      return h;
+    }
+
+    function setStatus(msg, kind) {
+      var el = byId('statusLine');
+      el.textContent = msg || '';
+      el.className = 'status no-print' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function labelAr(key) {
+      return LABEL_AR[key] || key || '—';
+    }
+
+    function pill(label, cls) {
+      return '<span class="pill ' + esc(cls || label) + '">' + esc(labelAr(label)) + '</span>';
+    }
+
+    function reasonsList(arr) {
+      if (!arr || !arr.length) return '<span class="muted">—</span>';
+      return arr.map(function (r) { return '<span class="pill">' + esc(r) + '</span>'; }).join(' ');
+    }
+
+    function tableFromRows(rows) {
+      var html = '<table><tbody>';
+      rows.forEach(function (row) {
+        html += '<tr><th style="width:32%">' + esc(row[0]) + '</th><td>' + row[1] + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+
+    function updateAuthUi() {
+      var has = !!getAdminToken();
+      var banner = byId('authBanner');
+      banner.classList.toggle('hidden', has);
+      banner.style.display = has ? 'none' : 'block';
+      if (!has) {
+        setStatus('مطلوب توكن مدير — سجّل الدخول من لوحة الإدارة.', 'err');
+      }
+    }
+
+    function normalizeStationsPayload(data) {
+      if (!data) return [];
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.stations)) return data.stations;
+      if (data.ok && Array.isArray(data.items)) return data.items;
+      return [];
+    }
+
+    function loadStations() {
+      var sel = byId('stationSelect');
+      var urls = ['/api/stations', '/api?route=stations'];
+      var idx = 0;
+      function tryNext() {
+        if (idx >= urls.length) {
+          sel.innerHTML = '<option value="">تعذر تحميل المحطات</option>';
+          return;
+        }
+        fetch(apiPath(urls[idx]), { headers: { Accept: 'application/json' }, cache: 'no-store' })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (out) {
+            var list = normalizeStationsPayload(out.j).filter(function (s) { return s && s.id; });
+            if (!list.length) {
+              idx += 1;
+              tryNext();
+              return;
+            }
+            list.sort(function (a, b) {
+              return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+            });
+            sel.innerHTML = '<option value="">— اختر محطة —</option>' + list.map(function (s) {
+              var name = s.name_ar || s.name || s.id;
+              return '<option value="' + esc(s.id) + '">' + esc(name) + ' (' + esc(s.id) + ')</option>';
+            }).join('');
+            if (list.length) sel.value = list[0].id;
+          })
+          .catch(function () {
+            idx += 1;
+            tryNext();
+          });
+      }
+      tryNext();
+    }
+
+    function buildIntelUrl(stationId) {
+      var q = 'route=intelligence-preview&station_id=' + encodeURIComponent(stationId);
+      var d = byId('dateInput').value;
+      if (d) q += '&analysis_date=' + encodeURIComponent(d);
+      return apiPath('/api?' + q);
+    }
+
+    function renderReport(data) {
+      latestPayload = data;
+      var st = data.station || {};
+      var intel = data.intelligence || {};
+      var cls = st.classification || {};
+      var marine = intel.marine_condition || {};
+      var trad = intel.traditional_layer || {};
+      var fish = intel.fish_activity_groups || {};
+      var risk = intel.risk || {};
+      var cmp = intel.comparison || {};
+      var dq = data.data_quality || {};
+      var conf = intel.confidence;
+
+      byId('reportRoot').classList.remove('hidden');
+      byId('printBtn').disabled = false;
+      byId('excelBtn').disabled = typeof XLSX === 'undefined';
+
+      byId('summaryCards').innerHTML =
+        card('المحطة', st.name || st.id) +
+        card('التصنيف البحري', (ZONE_AR[cls.zone] || cls.zone) + ' (' + (cls.confidence != null ? cls.confidence + '%' : '—') + ')') +
+        card('الحالة البحرية', labelAr(marine.label) + ' · ' + (marine.score != null ? marine.score + '/100' : '—')) +
+        card('الدر', trad.dur || '—') +
+        card('حمل/فساد', labelAr(trad.hamal_fasad)) +
+        card('الثقة', conf != null ? conf + '%' : '—') +
+        card('جودة البيانات', dq.score != null ? dq.score + '/100' : '—');
+
+      byId('summaryAr').textContent = intel.summary_ar || '—';
+
+      byId('stationBlock').innerHTML = tableFromRows([
+        ['المعرّف', esc(st.id)],
+        ['الاسم', esc(st.name)],
+        ['الإحداثيات', esc(st.lat) + ' , ' + esc(st.lon)],
+        ['محطة مرجعية', esc(st.reference_station_id || '—')],
+        ['المنطقة', esc(ZONE_AR[cls.zone] || cls.zone)],
+        ['ثقة التصنيف', esc(cls.confidence)],
+        ['أسباب التصنيف', reasonsList(cls.reasons)]
+      ]);
+
+      byId('marineBlock').innerHTML = tableFromRows([
+        ['التسمية', pill(marine.label, marine.label)],
+        ['الدرجة', esc(marine.score)],
+        ['الأسباب', reasonsList(marine.reasons)]
+      ]);
+
+      byId('traditionalBlock').innerHTML = tableFromRows([
+        ['الدر الحالي', esc(trad.dur || '—')],
+        ['يوم الدر', esc(trad.dur_day != null ? trad.dur_day : '—')],
+        ['حمل / فساد', pill(trad.hamal_fasad, trad.hamal_fasad)],
+        ['ثقة الطبقة', esc(trad.confidence)],
+        ['الأسباب', reasonsList(trad.reasons)]
+      ]);
+
+      var fishRows = [['المجموعة', 'الدرجة', 'التسمية', 'أسباب']];
+      Object.keys(fish).forEach(function (k) {
+        var g = fish[k] || {};
+        fishRows.push([
+          esc(k),
+          esc(g.score),
+          pill(g.label, g.label),
+          reasonsList(g.reasons)
+        ]);
+      });
+      byId('fishBlock').innerHTML = '<table><thead><tr><th>المجموعة</th><th>الدرجة</th><th>التسمية</th><th>أسباب</th></tr></thead><tbody>' +
+        fishRows.slice(1).map(function (r) {
+          return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>';
+        }).join('') + '</tbody></table>';
+
+      byId('riskBlock').innerHTML = tableFromRows([
+        ['قوارب', pill(risk.boating, risk.boating === 'high' ? 'high-risk' : risk.boating)],
+        ['نشاط ساحلي', pill(risk.shore_activity, risk.shore_activity)],
+        ['غوص', pill(risk.diving, risk.diving === 'high' ? 'high-risk' : risk.diving)],
+        ['أسباب', reasonsList(risk.reasons)]
+      ]);
+
+      var cmpRows = [
+        ['يوجد سجل', cmp.has_history ? 'نعم' : 'لا'],
+        ['الاتجاه', pill(cmp.trend, cmp.trend)]
+      ];
+      ['vs_previous', 'vs_24h', 'vs_7d'].forEach(function (key) {
+        var block = cmp[key];
+        if (!block) return;
+        cmpRows.push([key, esc(JSON.stringify(block))]);
+      });
+      byId('comparisonBlock').innerHTML = tableFromRows(cmpRows);
+
+      var anomalies = Array.isArray(intel.anomalies) ? intel.anomalies : [];
+      byId('anomaliesBlock').innerHTML = anomalies.length
+        ? anomalies.map(function (a) {
+          return '<div class="anomaly"><strong>' + esc(a.type) + '</strong><br>' + esc(a.message_ar) + '</div>';
+        }).join('')
+        : '<p class="muted">لا توجد شذوذات مسجّلة.</p>';
+
+      byId('dataQualityBlock').innerHTML = tableFromRows([
+        ['الدرجة', esc(dq.score)],
+        ['ناقص', esc((dq.missing || []).join(', ') || '—')],
+        ['تحذيرات', esc((dq.warnings || []).join(', ') || '—')]
+      ]);
+    }
+
+    function card(k, v) {
+      return '<div class="card"><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div></div>';
+    }
+
+    function loadPreview() {
+      var token = getAdminToken();
+      if (!token) {
+        updateAuthUi();
+        return;
+      }
+      var stationId = byId('stationSelect').value;
+      if (!stationId) {
+        setStatus('اختر محطة أولاً.', 'err');
+        return;
+      }
+      setStatus('جاري تحميل المعاينة…');
+      byId('loadBtn').disabled = true;
+      fetch(buildIntelUrl(stationId), { headers: authHeaders(), cache: 'no-store' })
+        .then(function (r) {
+          return r.json().then(function (j) { return { status: r.status, j: j }; });
+        })
+        .then(function (out) {
+          if (out.status === 401 || out.status === 403 || (out.j && out.j.error === 'admin_auth_required')) {
+            setStatus('رفض الخادم: admin_auth_required — تحقق من التوكن.', 'err');
+            byId('reportRoot').classList.add('hidden');
+            return;
+          }
+          if (!out.j || !out.j.ok) {
+            setStatus('فشل التحميل: ' + (out.j && out.j.error ? out.j.error : out.status), 'err');
+            return;
+          }
+          renderReport(out.j);
+          setStatus('تم تحميل المعاينة بنجاح.', 'ok');
+        })
+        .catch(function (err) {
+          setStatus('خطأ شبكة: ' + (err && err.message ? err.message : err), 'err');
+        })
+        .finally(function () {
+          byId('loadBtn').disabled = false;
+        });
+    }
+
+    function sheetFromAoa(name, rows) {
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = rows[0] ? rows[0].map(function (_, i) {
+        return { wch: i === 0 ? 28 : 42 };
+      }) : [];
+      return { name: name, sheet: ws };
+    }
+
+    function exportExcel() {
+      if (!latestPayload || typeof XLSX === 'undefined') {
+        setStatus('لا توجد بيانات للتصدير أو مكتبة Excel غير محمّلة.', 'err');
+        return;
+      }
+      var d = latestPayload;
+      var st = d.station || {};
+      var intel = d.intelligence || {};
+      var marine = intel.marine_condition || {};
+      var trad = intel.traditional_layer || {};
+      var fish = intel.fish_activity_groups || {};
+      var risk = intel.risk || {};
+      var dq = d.data_quality || {};
+      var cls = st.classification || {};
+
+      var wb = XLSX.utils.book_new();
+
+      var s1 = sheetFromAoa('Summary', [
+        ['الحقل', 'القيمة'],
+        ['station_id', st.id],
+        ['station_name', st.name],
+        ['zone', cls.zone],
+        ['marine_label', marine.label],
+        ['marine_score', marine.score],
+        ['dur', trad.dur],
+        ['dur_day', trad.dur_day],
+        ['hamal_fasad', trad.hamal_fasad],
+        ['confidence', intel.confidence],
+        ['data_quality_score', dq.score],
+        ['summary_ar', intel.summary_ar],
+        ['mode', d.mode]
+      ]);
+      XLSX.utils.book_append_sheet(wb, s1.sheet, s1.name);
+
+      var s2 = sheetFromAoa('Marine Condition', [
+        ['metric', 'value'],
+        ['label', marine.label],
+        ['score', marine.score]
+      ].concat((marine.reasons || []).map(function (r) { return ['reason', r]; })));
+      XLSX.utils.book_append_sheet(wb, s2.sheet, s2.name);
+
+      var s3 = sheetFromAoa('Traditional Layer', [
+        ['metric', 'value'],
+        ['dur', trad.dur],
+        ['dur_day', trad.dur_day],
+        ['hamal_fasad', trad.hamal_fasad],
+        ['confidence', trad.confidence]
+      ].concat((trad.reasons || []).map(function (r) { return ['reason', r]; })));
+      XLSX.utils.book_append_sheet(wb, s3.sheet, s3.name);
+
+      var fishRows = [['group', 'score', 'label']];
+      Object.keys(fish).forEach(function (k) {
+        var g = fish[k] || {};
+        fishRows.push([k, g.score, g.label]);
+      });
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('Fish Activity Groups', fishRows).sheet, 'Fish Activity Groups');
+
+      var s5 = sheetFromAoa('Risk', [
+        ['domain', 'level'],
+        ['boating', risk.boating],
+        ['shore_activity', risk.shore_activity],
+        ['motion/diving', risk.diving]
+      ].concat((risk.reasons || []).map(function (r) { return ['reason', r]; })));
+      XLSX.utils.book_append_sheet(wb, s5.sheet, s5.name);
+
+      var s6 = sheetFromAoa('Data Quality', [
+        ['metric', 'value'],
+        ['score', dq.score],
+        ['missing', (dq.missing || []).join(', ')],
+        ['warnings', (dq.warnings || []).join(', ')]
+      ]);
+      XLSX.utils.book_append_sheet(wb, s6.sheet, s6.name);
+
+      var s7 = sheetFromAoa('Raw JSON', [['json'], [JSON.stringify(d, null, 2)]]);
+      XLSX.utils.book_append_sheet(wb, s7.sheet, s7.name);
+
+      var fname = 'navidur-intelligence-' + (st.id || 'station') + '-' + (byId('dateInput').value || new Date().toISOString().slice(0, 10)) + '.xlsx';
+      XLSX.writeFile(wb, fname);
+      setStatus('تم تصدير ' + fname, 'ok');
+    }
+
+    function init() {
+      var today = new Date().toISOString().slice(0, 10);
+      byId('dateInput').value = today;
+      updateAuthUi();
+      loadStations();
+      byId('loadBtn').addEventListener('click', loadPreview);
+      byId('printBtn').addEventListener('click', function () { window.print(); });
+      byId('excelBtn').addEventListener('click', exportExcel);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>

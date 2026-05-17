@@ -12,6 +12,7 @@
     { "source": "/", "destination": "/public/index.html", "permanent": false },
     { "source": "/admin", "destination": "/admin.html", "permanent": false },
     { "source": "/admin/monitoring", "destination": "/admin/monitoring/index.html", "permanent": false },
+    { "source": "/admin/intelligence", "destination": "/admin/intelligence/index.html", "permanent": false },
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [
