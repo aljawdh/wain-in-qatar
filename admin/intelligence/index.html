@@ -227,6 +227,10 @@
         <h2>المتغيرات البحرية الأساسية</h2>
         <div id="marineVarsBlock"></div>
       </section>
+      <section class="panel" id="completenessPanel">
+        <h2>اكتمال البيانات</h2>
+        <div id="completenessBlock"></div>
+      </section>
       <section class="panel">
         <h2>الطبقة التقليدية البحرية</h2>
         <div id="traditionalBlock"></div>
@@ -374,7 +378,93 @@
       { key: 'vs_7d', label: 'مقارنة بآخر 7 أيام' }
     ];
 
+    var sourceMap = {
+      open_meteo_hourly: 'متوفر من مصدر بحري',
+      derived_tide: 'محسوب من حالة المد',
+      missing_in_dto: 'غير متوفر حاليًا',
+      not_in_current_dto: 'غير متوفر في البيانات الحالية',
+      missing: 'غير متوفر',
+      cache: 'من ذاكرة مؤقتة',
+      defaults: 'قيم افتراضية',
+      unknown: 'مصدر داخلي'
+    };
+
+    var COMPASS_ARROWS = {
+      N: '↑ شمال',
+      NE: '↗ شمال شرقي',
+      E: '→ شرق',
+      SE: '↘ جنوب شرقي',
+      S: '↓ جنوب',
+      SW: '↙ جنوب غربي',
+      W: '← غرب',
+      NW: '↖ شمال غربي'
+    };
+
+    var COMPLETENESS_FIELDS = [
+      { key: 'sea_surface_temperature', short: 'حرارة سطح البحر' },
+      { key: 'current_speed', short: 'التيار' },
+      { key: 'wave_height', short: 'الموج' },
+      { key: 'wind_speed', short: 'الرياح' },
+      { key: 'tide_state', short: 'حالة المد' },
+      { key: 'current_direction', short: 'اتجاه التيار' },
+      { key: 'wave_direction', short: 'اتجاه الموج' },
+      { key: 'wave_period', short: 'فترة الموج' },
+      { key: 'tide_level', short: 'مستوى المد' }
+    ];
+
     function byId(id) { return document.getElementById(id); }
+
+    function tSource(code) {
+      if (code == null || code === '') return '—';
+      var c = String(code).trim();
+      if (sourceMap[c]) return sourceMap[c];
+      if (/^[a-z][a-z0-9_]*$/i.test(c)) return 'مصدر داخلي';
+      return c;
+    }
+
+    function isNullish(v) {
+      return v === null || v === undefined || v === '';
+    }
+
+    function warningsSummaryText(warnings) {
+      var n = (warnings || []).length;
+      if (n === 0) return 'لا توجد تحذيرات';
+      if (n === 1) return 'توجد ملاحظة واحدة على جودة البيانات';
+      return 'توجد عدة ملاحظات على جودة البيانات';
+    }
+
+    function normalizeSummaryAr(text) {
+      if (!text) return '—';
+      var s = String(text);
+      var rules = [
+        [/الحالة البحرية:\s*excellent/gi, 'الحالة البحرية: ممتازة'],
+        [/الحالة البحرية:\s*good/gi, 'الحالة البحرية: جيدة'],
+        [/الحالة البحرية:\s*medium/gi, 'الحالة البحرية: متوسطة'],
+        [/الحالة البحرية:\s*poor/gi, 'الحالة البحرية: ضعيفة'],
+        [/الحالة البحرية:\s*dangerous/gi, 'الحالة البحرية: خطرة'],
+        [/الاتجاه مقارنة بالسجل:\s*declining/gi, 'الاتجاه مقارنة بالسجل: متراجع'],
+        [/الاتجاه مقارنة بالسجل:\s*improving/gi, 'الاتجاه مقارنة بالسجل: متحسن'],
+        [/الاتجاه مقارنة بالسجل:\s*stable/gi, 'الاتجاه مقارنة بالسجل: مستقر'],
+        [/الاتجاه مقارنة بالسجل:\s*up/gi, 'الاتجاه مقارنة بالسجل: متحسن'],
+        [/الاتجاه مقارنة بالسجل:\s*down/gi, 'الاتجاه مقارنة بالسجل: متراجع'],
+        [/\bgood\b/gi, 'جيد'],
+        [/\bexcellent\b/gi, 'ممتاز'],
+        [/\bmedium\b/gi, 'متوسط'],
+        [/\bpoor\b/gi, 'ضعيف'],
+        [/\bdangerous\b/gi, 'خطر'],
+        [/\bdeclining\b/gi, 'متراجع'],
+        [/\bimproving\b/gi, 'متحسن'],
+        [/\bstable\b/gi, 'مستقر'],
+        [/\bunknown\b/gi, 'غير معروف'],
+        [/\bhigh\b/gi, 'مرتفع'],
+        [/\blow\b/gi, 'منخفض']
+      ];
+      rules.forEach(function (pair) { s = s.replace(pair[0], pair[1]); });
+      if (/جيد[ة]?\s*[,،]\s*متراجع/.test(s) || /good\s*,\s*declining/i.test(String(text))) {
+        return 'الحالة جيدة، والاتجاه العام متراجع';
+      }
+      return s;
+    }
 
     function tLabel(key) {
       if (key == null || key === '') return '—';
@@ -451,14 +541,15 @@
     }
 
     function renderComparison(cmp) {
+      var note = '<p class="muted" style="margin-top:10px">المقارنات التفصيلية تحتاج تراكم بيانات الذاكرة البحرية.</p>';
       if (!cmp || !cmp.has_history) {
-        return '<p class="muted">لا توجد بيانات تاريخية كافية لهذه الفترة.</p>';
+        return '<p class="muted">لا توجد بيانات تاريخية كافية بعد.</p>' + note;
       }
-      var rows = [['الاتجاه العام', pillText(cmp.trend || 'unknown')]];
+      var rows = [];
       CMP_KEYS.forEach(function (item) {
         rows.push([item.label, esc(comparisonTrendForBlock(cmp[item.key]))]);
       });
-      return tableFromRows(rows);
+      return tableFromRows(rows) + note;
     }
 
     function collectDevCodes(data) {
@@ -481,6 +572,11 @@
       (data.data_quality && data.data_quality.missing || []).forEach(pushUnique);
       (data.data_quality && data.data_quality.warnings || []).forEach(pushUnique);
       (intel.anomalies || []).forEach(function (a) { pushUnique(a.type); });
+      var mvq = intel.marine_variables_quality || {};
+      Object.keys(mvq).forEach(function (k) {
+        var f = mvq[k];
+        if (f && f.source) pushUnique('mv:' + k + ':' + f.source);
+      });
       return codes;
     }
 
@@ -566,53 +662,144 @@
     }
 
 
-    var compassMap = {
-      N: 'شمال', NE: 'شمال شرقي', E: 'شرق', SE: 'جنوب شرقي', S: 'جنوب', SW: 'جنوب غربي', W: 'غرب', NW: 'شمال غربي'
-    };
     function formatMarineVal(v, unit) {
-      if (v === null || v === undefined || v === '') return '—';
+      if (isNullish(v)) return 'غير متوفر';
       return esc(String(v)) + (unit ? ' ' + unit : '');
     }
+
     function formatDirection(code) {
-      if (!code) return '—';
-      var c = String(code).toUpperCase();
-      return compassMap[c] ? compassMap[c] + ' (' + c + ')' : esc(code);
+      if (isNullish(code)) return 'غير متوفر';
+      var c = String(code).trim();
+      if (/^-?\d+(\.\d+)?$/.test(c)) return esc(c) + '° — اتجاه رقمي';
+      var upper = c.toUpperCase();
+      if (COMPASS_ARROWS[upper]) return esc(COMPASS_ARROWS[upper]);
+      if (/[\u0600-\u06FF]/.test(c)) return esc(c);
+      return esc(c);
     }
+
     function formatTideState(state) {
       if (state === 'hamal') return 'حمل';
       if (state === 'fasad') return 'فساد';
-      return 'غير معروف';
+      if (isNullish(state) || state === 'unknown') return 'غير متوفر';
+      return esc(String(state));
     }
-    function qualityNote(q) {
-      if (!q || typeof q !== 'object') return '—';
-      var parts = [];
-      if (q.available) parts.push('متاح');
-      else parts.push('ناقص');
-      if (q.source) parts.push('المصدر: ' + esc(q.source));
-      return parts.join(' · ');
+
+    function qualityStatusAr(q) {
+      if (!q || typeof q !== 'object') return 'غير متوفر';
+      return q.available ? 'متوفر' : 'غير متوفر';
     }
+
+    function marineVarDisplayValue(key, mv, disp) {
+      mv = mv || {};
+      disp = disp || {};
+      if (key === 'tide_state') return formatTideState(disp.tide_state || mv.tide_state);
+      if (key === 'current_direction') return formatDirection(mv.current_direction || disp.current_direction);
+      if (key === 'wave_direction') return formatDirection(mv.wave_direction || disp.wave_direction);
+      if (key === 'wind_direction') return formatDirection(mv.wind_direction || disp.wind_direction);
+      var v = disp[key] != null ? disp[key] : mv[key];
+      var units = {
+        sea_surface_temperature: '°C',
+        current_speed: 'م/ث',
+        wave_height: 'م',
+        wave_period: 'ث',
+        wind_speed: 'كم/س',
+        tide_level: 'م'
+      };
+      return formatMarineVal(v, units[key] || '');
+    }
+
+    function buildCompletenessData(intel) {
+      var q = (intel && intel.marine_variables_quality) || {};
+      var avail = [];
+      var missing = [];
+      COMPLETENESS_FIELDS.forEach(function (f) {
+        var field = q[f.key];
+        if (field && field.available) avail.push(f.short);
+        else missing.push(f.short);
+      });
+      return { available: avail, missing: missing };
+    }
+
+    function renderCompleteness(intel) {
+      var c = buildCompletenessData(intel);
+      byId('completenessBlock').innerHTML = tableFromRows([
+        ['المتوفر', c.available.length ? esc(c.available.join('، ')) : 'غير متوفر'],
+        ['الناقص', c.missing.length ? esc(c.missing.join('، ')) : 'لا يوجد'],
+        ['توصية', 'سيتم تحسين الدقة عند توفر هذه المتغيرات من المصدر البحري']
+      ]);
+    }
+
     function renderMarineVariables(intel) {
       var mv = intel && intel.marine_variables ? intel.marine_variables : {};
       var disp = intel && intel.marine_variables_display ? intel.marine_variables_display : {};
       var q = intel && intel.marine_variables_quality ? intel.marine_variables_quality : {};
-      var rows = [
-        ['حرارة سطح البحر', formatMarineVal(disp.sea_surface_temperature != null ? disp.sea_surface_temperature : mv.sea_surface_temperature, '°C'), qualityNote(q.sea_surface_temperature)],
-        ['سرعة التيار', formatMarineVal(mv.current_speed, 'م/ث'), qualityNote(q.current_speed)],
-        ['اتجاه التيار', mv.current_direction ? formatDirection(mv.current_direction) : esc(disp.current_direction || '—'), qualityNote(q.current_direction)],
-        ['ارتفاع الموج', formatMarineVal(mv.wave_height, 'م'), qualityNote(q.wave_height)],
-        ['اتجاه الموج', mv.wave_direction ? formatDirection(mv.wave_direction) : esc(disp.wave_direction || '—'), qualityNote(q.wave_direction)],
-        ['فترة الموج', formatMarineVal(mv.wave_period, 'ث'), qualityNote(q.wave_period)],
-        ['سرعة الرياح', formatMarineVal(mv.wind_speed, 'كم/س'), qualityNote(q.wind_speed)],
-        ['اتجاه الرياح', mv.wind_direction ? formatDirection(mv.wind_direction) : esc(disp.wind_direction || '—'), qualityNote(q.wind_direction)],
-        ['حالة المد', esc(disp.tide_state || formatTideState(mv.tide_state)), qualityNote(q.tide_state)],
-        ['مستوى المد', formatMarineVal(mv.tide_level, 'م'), qualityNote(q.tide_level)]
+      var defs = [
+        { key: 'sea_surface_temperature', label: 'حرارة سطح البحر' },
+        { key: 'current_speed', label: 'سرعة التيار' },
+        { key: 'current_direction', label: 'اتجاه التيار' },
+        { key: 'wave_height', label: 'ارتفاع الموج' },
+        { key: 'wave_direction', label: 'اتجاه الموج' },
+        { key: 'wave_period', label: 'فترة الموج' },
+        { key: 'wind_speed', label: 'سرعة الرياح' },
+        { key: 'wind_direction', label: 'اتجاه الرياح' },
+        { key: 'tide_state', label: 'حالة المد' },
+        { key: 'tide_level', label: 'مستوى المد' }
       ];
+      var rows = defs.map(function (d) {
+        return [d.label, marineVarDisplayValue(d.key, mv, disp), qualityStatusAr(q[d.key])];
+      });
       byId('marineVarsBlock').innerHTML =
-        '<table><thead><tr><th>المتغير</th><th>القيمة</th><th>جودة البيانات</th></tr></thead><tbody>' +
+        '<table><thead><tr><th>المتغير</th><th>القيمة</th><th>الحالة</th></tr></thead><tbody>' +
         rows.map(function (r) {
-          return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td class="muted">' + r[2] + '</td></tr>';
+          return '<tr><td>' + esc(r[0]) + '</td><td>' + r[1] + '</td><td class="muted">' + esc(r[2]) + '</td></tr>';
         }).join('') +
         '</tbody></table>';
+    }
+
+    function completenessSheetRows(intel) {
+      var c = buildCompletenessData(intel);
+      return [
+        ['البند', 'القيمة'],
+        ['المتوفر', c.available.join('، ') || '—'],
+        ['الناقص', c.missing.join('، ') || 'لا يوجد'],
+        ['توصية', 'سيتم تحسين الدقة عند توفر هذه المتغيرات من المصدر البحري']
+      ];
+    }
+
+    function htmlToPlain(s) {
+      return String(s || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"');
+    }
+
+    function marineVarsSheetRows(intel) {
+      var mv = intel.marine_variables || {};
+      var disp = intel.marine_variables_display || {};
+      var q = intel.marine_variables_quality || {};
+      var defs = [
+        { key: 'sea_surface_temperature', label: 'حرارة سطح البحر' },
+        { key: 'current_speed', label: 'سرعة التيار' },
+        { key: 'current_direction', label: 'اتجاه التيار' },
+        { key: 'wave_height', label: 'ارتفاع الموج' },
+        { key: 'wave_direction', label: 'اتجاه الموج' },
+        { key: 'wave_period', label: 'فترة الموج' },
+        { key: 'wind_speed', label: 'سرعة الرياح' },
+        { key: 'wind_direction', label: 'اتجاه الرياح' },
+        { key: 'tide_state', label: 'حالة المد' },
+        { key: 'tide_level', label: 'مستوى المد' }
+      ];
+      var rows = [['المتغير', 'القيمة', 'الحالة']];
+      defs.forEach(function (d) {
+        rows.push([
+          d.label,
+          htmlToPlain(marineVarDisplayValue(d.key, mv, disp)),
+          qualityStatusAr(q[d.key])
+        ]);
+      });
+      return rows;
     }
 
     function renderReport(data) {
@@ -639,9 +826,9 @@
         card('الدر الحالي', esc(trad.dur || '—')) +
         card('حمل / فساد', pillText(trad.hamal_fasad || 'unknown')) +
         card('الثقة', conf != null ? conf + '%' : '—') +
-        card('جودة البيانات', dq.score != null ? dq.score + '/100' : '—');
+        card('جودة البيانات', (dq.score != null ? dq.score + '/100' : '—') + '<div class="muted" style="font-size:0.78rem;font-weight:400;margin-top:4px">' + esc(warningsSummaryText(dq.warnings)) + '</div>');
 
-      byId('summaryAr').textContent = intel.summary_ar || '—';
+      byId('summaryAr').textContent = normalizeSummaryAr(intel.summary_ar);
 
       byId('stationBlock').innerHTML = tableFromRows([
         ['اسم المحطة', esc(st.name || '—')],
@@ -657,6 +844,7 @@
       ]);
 
       renderMarineVariables(intel);
+      renderCompleteness(intel);
 
       byId('traditionalBlock').innerHTML = tableFromRows([
         ['الدر الحالي', esc(trad.dur || '—')],
@@ -692,16 +880,28 @@
         }).join('')
         : '<p class="muted">لا توجد شذوذات مسجّلة.</p>';
 
+      var warnList = (dq.warnings || []).map(function (w) {
+        return '<div class="reason-line">• ' + esc(tReason(w)) + '</div>';
+      }).join('');
       byId('dataQualityBlock').innerHTML = tableFromRows([
         ['درجة الجودة', dq.score != null ? esc(dq.score) + ' / 100' : '—'],
+        ['ملخص التحذيرات', esc(warningsSummaryText(dq.warnings))],
         ['بيانات ناقصة', dq.missing && dq.missing.length ? dq.missing.map(function (m) { return esc(tLabel(m)); }).join('، ') : 'لا يوجد'],
-        ['تحذيرات', dq.warnings && dq.warnings.length ? dq.warnings.map(function (w) { return esc(tReason(w)); }).join('، ') : 'لا يوجد']
+        ['تفاصيل التحذيرات', warnList || '<span class="muted">لا توجد تحذيرات</span>']
       ]);
 
       var codes = collectDevCodes(data);
-      byId('devCodes').innerHTML = codes.map(function (c) {
-        return '<li><code>' + esc(c) + '</code> → ' + esc(tReason(c)) + '</li>';
+      var mvqDev = intel.marine_variables_quality || {};
+      var mvDevLines = Object.keys(mvqDev).map(function (k) {
+        var f = mvqDev[k];
+        if (!f) return '';
+        return '<li><code>' + esc(k) + '</code> → مصدر: <code>' + esc(f.source || '—') + '</code> (' + esc(tSource(f.source)) + ')</li>';
       }).join('');
+      byId('devCodes').innerHTML =
+        codes.map(function (c) {
+          return '<li><code>' + esc(c) + '</code> → ' + esc(tReason(c)) + '</li>';
+        }).join('') +
+        (mvDevLines ? '<li style="list-style:none;margin-top:8px;color:var(--muted)">— مصادر المتغيرات البحرية (خام) —</li>' + mvDevLines : '');
       byId('devJson').textContent = JSON.stringify(data, null, 2);
     }
 
@@ -777,24 +977,13 @@
         ['حمل/فساد', tLabel(trad.hamal_fasad)],
         ['الثقة', intel.confidence],
         ['جودة البيانات', dq.score],
-        ['الملخص', intel.summary_ar]
+        ['ملخص التحذيرات', warningsSummaryText(dq.warnings)],
+        ['الملخص', normalizeSummaryAr(intel.summary_ar)]
       ]).sheet, 'الملخص');
 
-            var mv = intel.marine_variables || {};
-      var mvq = intel.marine_variables_quality || {};
-      XLSX.utils.book_append_sheet(wb, sheetFromAoa('المتغيرات البحرية', [
-        ['المتغير', 'القيمة', 'متاح', 'المصدر'],
-        ['حرارة سطح البحر', mv.sea_surface_temperature, mvq.sea_surface_temperature && mvq.sea_surface_temperature.available, mvq.sea_surface_temperature && mvq.sea_surface_temperature.source],
-        ['سرعة التيار', mv.current_speed, mvq.current_speed && mvq.current_speed.available, mvq.current_speed && mvq.current_speed.source],
-        ['اتجاه التيار', mv.current_direction, mvq.current_direction && mvq.current_direction.available, mvq.current_direction && mvq.current_direction.source],
-        ['ارتفاع الموج', mv.wave_height, mvq.wave_height && mvq.wave_height.available, mvq.wave_height && mvq.wave_height.source],
-        ['اتجاه الموج', mv.wave_direction, mvq.wave_direction && mvq.wave_direction.available, mvq.wave_direction && mvq.wave_direction.source],
-        ['فترة الموج', mv.wave_period, mvq.wave_period && mvq.wave_period.available, mvq.wave_period && mvq.wave_period.source],
-        ['سرعة الرياح', mv.wind_speed, mvq.wind_speed && mvq.wind_speed.available, mvq.wind_speed && mvq.wind_speed.source],
-        ['اتجاه الرياح', mv.wind_direction, mvq.wind_direction && mvq.wind_direction.available, mvq.wind_direction && mvq.wind_direction.source],
-        ['حالة المد', mv.tide_state, mvq.tide_state && mvq.tide_state.available, mvq.tide_state && mvq.tide_state.source],
-        ['مستوى المد', mv.tide_level, mvq.tide_level && mvq.tide_level.available, mvq.tide_level && mvq.tide_level.source]
-      ]).sheet, 'المتغيرات البحرية');
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('المتغيرات البحرية', marineVarsSheetRows(intel)).sheet, 'المتغيرات البحرية');
+
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('اكتمال البيانات', completenessSheetRows(intel)).sheet, 'اكتمال البيانات');
 
       XLSX.utils.book_append_sheet(wb, sheetFromAoa('الحالة البحرية', [
         ['البند', 'القيمة'],
@@ -822,10 +1011,11 @@
         CMP_KEYS.forEach(function (item) {
           cmpRows.push([item.label, comparisonTrendForBlock(cmp[item.key])]);
         });
-        cmpRows.push(['الاتجاه العام', tDirection(cmp.trend)]);
       } else {
-        cmpRows.push(['—', 'لا توجد بيانات تاريخية كافية']);
+        cmpRows.push(['—', 'لا توجد بيانات تاريخية كافية بعد']);
       }
+      cmpRows.push(['ملاحظة', 'المقارنات التفصيلية تحتاج تراكم بيانات الذاكرة البحرية.']);
+      XLSX.utils.book_append_sheet(wb, sheetFromAoa('المقارنة التاريخية', cmpRows).sheet, 'المقارنة التاريخية');
 
       XLSX.utils.book_append_sheet(wb, sheetFromAoa('المخاطر', [
         ['المجال', 'المستوى'],
@@ -837,14 +1027,10 @@
       XLSX.utils.book_append_sheet(wb, sheetFromAoa('جودة البيانات', [
         ['البند', 'القيمة'],
         ['الدرجة', dq.score],
-        ['ناقص', (dq.missing || []).map(tLabel).join('، ')],
-        ['تحذيرات', (dq.warnings || []).map(tReason).join('، ')]
+        ['ملخص التحذيرات', warningsSummaryText(dq.warnings)],
+        ['ناقص', (dq.missing || []).map(tLabel).join('، ') || 'لا يوجد'],
+        ['تفاصيل التحذيرات', (dq.warnings || []).map(tReason).join('، ') || 'لا توجد تحذيرات']
       ]).sheet, 'جودة البيانات');
-
-      XLSX.utils.book_append_sheet(wb, sheetFromAoa('التفاصيل التقنية', [
-        ['json'],
-        [JSON.stringify(d, null, 2)]
-      ]).sheet, 'التفاصيل التقنية');
 
       var fname = 'navidur-intel-' + (st.id || 'station') + '-' + (byId('dateInput').value || new Date().toISOString().slice(0, 10)) + '.xlsx';
       XLSX.writeFile(wb, fname);
