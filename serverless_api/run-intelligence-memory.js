@@ -20,7 +20,7 @@ async function handleRun(req, res) {
   try {
     var body = req.method === 'POST' ? parseBody(req) : {};
     var query = req.query || {};
-    var isCron = cronConfig.isCronRequest(query);
+    var isCron = cronConfig.isCronRequest(query) || auth.mode === 'cron';
     var options;
 
     if (isCron && auth.mode === 'cron') {

@@ -186,7 +186,9 @@ function mergeAdminOverrides(config, query, body) {
 
 function isCronRequest(query) {
   var q = query || {};
-  return String(q.cron || '') === '1' || String(q.cron || '').toLowerCase() === 'true';
+  if (String(q.cron || '') === '1' || String(q.cron || '').toLowerCase() === 'true') return true;
+  var route = String(q.route || q._memory_route || '').toLowerCase();
+  return route === 'run-intelligence-memory-cron';
 }
 
 module.exports = {

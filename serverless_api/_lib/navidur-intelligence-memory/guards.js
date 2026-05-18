@@ -27,12 +27,43 @@ function extractCronSecret(req) {
   return cleanString(q.cron_secret, 200);
 }
 
+/** Vercel Cron invocations send x-vercel-cron: 1 (and optionally Authorization: Bearer CRON_SECRET). */
+function isVercelCronInvocation(req) {
+  var h = req.headers || {};
+  if (String(h['x-vercel-cron'] || '') === '1') return true;
+  var ua = String(h['user-agent'] || '').toLowerCase();
+  return ua.indexOf('vercel-cron') >= 0;
+}
+
+function isCronRouteRequest(req) {
+  var q = req.query || {};
+  if (String(q.cron || '') === '1' || String(q.cron || '').toLowerCase() === 'true') return true;
+  var route = String(q.route || q._memory_route || '').toLowerCase();
+  return route === 'run-intelligence-memory-cron';
+}
+
 async function assertMemoryAuthorized(req, res) {
   var expected = getCronSecret();
   var provided = extractCronSecret(req);
+  var cronRoute = isCronRouteRequest(req);
+  var vercelCron = isVercelCronInvocation(req);
+
   if (expected && provided && provided === expected) {
     return { mode: 'cron' };
   }
+
+  if (cronRoute && vercelCron && process.env.VERCEL) {
+    if (!expected || provided === expected) {
+      return { mode: 'cron' };
+    }
+    res.status(401).json({ ok: false, error: 'cron_secret_invalid' });
+    return null;
+  }
+
+  if (cronRoute && expected && provided && provided === expected) {
+    return { mode: 'cron' };
+  }
+
   var user = await getAuthUser(req);
   if (isAdminActor(user)) {
     return { mode: 'admin', user: user };

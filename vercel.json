@@ -8,7 +8,7 @@
   "crons": [
     { "path": "/api/run-snapshots", "schedule": "0 0 * * *" },
     {
-      "path": "/api?route=run-intelligence-memory&cron=1",
+      "path": "/api/run-intelligence-memory-cron",
       "schedule": "0 * * * *"
     }
   ],
@@ -31,6 +31,7 @@
     { "source": "/api/navidur-analysis", "destination": "/api?route=analysis" },
     { "source": "/api/admin-settings", "destination": "/api?route=admin-settings" },
     { "source": "/api/admin-analytics", "destination": "/api?route=admin-analytics" },
+    { "source": "/api/run-intelligence-memory-cron", "destination": "/api?route=run-intelligence-memory-cron" },
     { "source": "/api/fish-species", "destination": "/api?route=fish-species" },
     { "source": "/api/compute-decision", "destination": "/api?route=compute-decision" },
     { "source": "/api/log-catch", "destination": "/api?route=log-catch" },

@@ -73,6 +73,10 @@ module.exports = async function handler(req, res) {
   }
   if (route === 'analysis') return analysisHandler(req, res);
   if (route === 'intelligence-preview') return intelligencePreviewHandler(req, res);
+  if (route === 'run-intelligence-memory-cron') {
+    req.query = Object.assign({}, req.query, { route: 'run-intelligence-memory', cron: '1' });
+    return runIntelligenceMemoryHandler(req, res);
+  }
   if (route === 'run-intelligence-memory') return runIntelligenceMemoryHandler(req, res);
   if (route === 'intelligence-cron-config' || route === 'intelligence-cron-stations' || route === 'intelligence-cron-test-run') {
     return intelligenceCronAdminHandler(req, res);
