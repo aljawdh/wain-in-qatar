@@ -621,19 +621,37 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                   <div id="stTraitTuneList" style="margin-top:6px;font-size:.8rem;color:#ffd8a8"></div>
                 </div>
                 <div id="stMarineGenomeSection" style="margin-top:12px;padding:12px;background:rgba(92,225,255,.06);border:1px solid rgba(92,225,255,.22);border-radius:10px">
-                  <h6 style="margin:0 0 10px;font-size:.88rem;color:#9fe8ff;font-weight:600">الجين البحري للدر والمحطة</h6>
-                  <p style="margin:0 0 10px;font-size:.78rem;color:#9fc1d7;line-height:1.4">جميع السمات المركزية — المتوقع مقابل المرصود — بدون إخفاء السمات غير القابلة للقياس حالياً.</p>
+                  <h6 style="margin:0 0 6px;font-size:.88rem;color:#9fe8ff;font-weight:600">الجين البحري للدر والمحطة — مساعد المراجعة</h6>
+                  <p style="margin:0 0 10px;font-size:.78rem;color:#9fc1d7;line-height:1.4">ركّز على المراجعة العاجلة؛ المؤجلة تنتظر رصدًا ميدانيًا أو مصدر قياس. السمات المستقرة يمكن إخفاؤها أو اعتمادها دفعة واحدة.</p>
+                  <div id="stMarineGenomeSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin-bottom:12px;font-size:.78rem"></div>
+                  <p id="stMarineGenomeSummaryAr" style="margin:0 0 10px;font-size:.78rem;color:#b8e4ff;line-height:1.35"></p>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center">
+                    <input id="stMarineGenomeSearch" type="search" placeholder="بحث: اسم السمة أو التصنيف…" style="flex:1;min-width:180px;padding:7px 10px;border-radius:8px;background:var(--bg3);color:var(--txt);border:1px solid rgba(92,225,255,.25);font-size:.8rem"/>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:#9fc1d7;cursor:pointer;white-space:nowrap">
+                      <input id="stMarineGenomeHideStable" type="checkbox"/>
+                      إخفاء السمات المستقرة
+                    </label>
+                  </div>
+                  <div id="stMarineGenomeFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+                    <button type="button" id="stMarineGenomeBulkApprove" class="small-btn" style="background:rgba(38,194,129,.2);border-color:rgba(38,194,129,.4);color:#b8ffd4">اعتماد المطابق عالي الثقة</button>
+                    <button type="button" id="stMarineGenomeBulkWatch" class="small-btn">وضع غير المتوفر تحت المراقبة</button>
+                    <button type="button" id="stMarineGenomeBulkSave" class="small-btn" style="background:rgba(92,225,255,.15);border-color:rgba(92,225,255,.35);color:#9fe8ff">حفظ جميع الظاهرة</button>
+                  </div>
                   <div style="overflow-x:auto;margin-bottom:10px">
-                    <table id="stMarineGenomeTable" style="width:100%;border-collapse:collapse;font-size:.78rem;min-width:1040px">
+                    <table id="stMarineGenomeTable" style="width:100%;border-collapse:collapse;font-size:.78rem;min-width:1200px">
                       <thead>
                         <tr style="color:#9fc1d7;text-align:right">
+                          <th style="padding:8px 4px;border-bottom:1px solid rgba(92,225,255,.2);width:28px"><input id="stMarineGenomeSelectAll" type="checkbox" title="تحديد الظاهر"/></th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">الأولوية</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">السمة</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">التصنيف</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">المتوقع</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">المرصود</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">المطابقة</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">الثقة</th>
-                          <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">المصدر</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">مقترح</th>
+                          <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">سبب المراجعة</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">مراجعة</th>
                           <th style="padding:8px 6px;border-bottom:1px solid rgba(92,225,255,.2)">حفظ</th>
                         </tr>
@@ -641,6 +659,10 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                       <tbody id="stMarineGenomeBody"></tbody>
                     </table>
                   </div>
+                  <details style="margin-bottom:8px;font-size:.75rem;color:#7a9fb5">
+                    <summary style="cursor:pointer;color:#9fc1d7">تفاصيل تقنية (مفاتيح ومصادر)</summary>
+                    <pre id="stMarineGenomeTechDetails" style="margin:8px 0 0;padding:8px;background:rgba(0,0,0,.2);border-radius:6px;overflow:auto;max-height:160px;direction:ltr;text-align:left;font-size:.7rem"></pre>
+                  </details>
                   <p id="stMarineGenomeMsg" style="margin:0;font-size:.8rem;color:#9fc1d7;min-height:1.2em"></p>
                 </div>
                 <div id="stMarineGenomeModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px">

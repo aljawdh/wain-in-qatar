@@ -2,6 +2,7 @@
 
 var expectedTraits = require('./expected-traits');
 var store = require('./genome-store');
+var reviewAssistant = require('./review-assistant');
 
 function toNum(v) {
   var n = Number(v);
@@ -207,16 +208,7 @@ function buildMatchMatrix(ctx) {
   var rows = traits.map(function (trait) {
     return matchTrait(trait, ctx);
   });
-  var summary = {
-    total: rows.length,
-    matched: rows.filter(function (r) { return r.match_status === 'matched'; }).length,
-    partial: rows.filter(function (r) { return r.match_status === 'partial'; }).length,
-    mismatch: rows.filter(function (r) { return r.match_status === 'mismatch'; }).length,
-    unavailable: rows.filter(function (r) { return r.match_status === 'unavailable'; }).length,
-    needs_human_review: rows.filter(function (r) { return r.match_status === 'needs_human_review'; }).length,
-    needs_field_station: rows.filter(function (r) { return r.match_status === 'needs_field_station'; }).length
-  };
-  return {
+  var base = {
     ok: true,
     version: store.getGenome().version,
     station_id: ctx.station_id || null,
@@ -224,9 +216,9 @@ function buildMatchMatrix(ctx) {
     dur_name: ctx.dur_name || null,
     dur_day: ctx.dur_day != null ? ctx.dur_day : null,
     analysis_date: ctx.analysis_date || null,
-    summary: summary,
     matrix: rows
   };
+  return reviewAssistant.enrichMatchResult(base);
 }
 
 module.exports = {
