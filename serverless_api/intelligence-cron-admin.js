@@ -38,6 +38,9 @@ async function handlePutConfig(req, res, auth) {
     run_only_selected: body.run_only_selected
   };
   var current = await cronConfig.getConfig();
+  Object.keys(allowed).forEach(function (k) {
+    if (allowed[k] === undefined) delete allowed[k];
+  });
   var merged = Object.assign({}, current, allowed);
   var actor = (auth.user && (auth.user.username || auth.user.id)) || 'admin';
   var saved = await cronConfig.saveConfig(merged, actor);

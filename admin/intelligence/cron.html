@@ -173,6 +173,50 @@
       margin: 8px 0 0;
     }
     a { color: #9ec5ff; }
+    .collection-panel {
+      border: 2px solid var(--border);
+      background: linear-gradient(180deg, #152a4a 0%, var(--panel) 100%);
+    }
+    .collection-panel h2 { font-size: 1.15rem; color: #e8f4ff; }
+    .collection-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .btn-collection-toggle {
+      width: 100%;
+      max-width: 440px;
+      padding: 16px 22px;
+      font-size: 1.08rem;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+    button.btn-stop {
+      background: #8f2a2a;
+      border-color: #c44;
+      color: #ffe8e8;
+    }
+    button.btn-stop:hover { background: #a83333; }
+    button.btn-start {
+      background: #1a6b3a;
+      border-color: #3a9a5a;
+      color: #e8fff0;
+    }
+    button.btn-start:hover { background: #22804a; }
+    .collection-notice {
+      font-size: 0.88rem;
+      color: var(--muted);
+      max-width: 52em;
+      margin: 0;
+      line-height: 1.5;
+    }
+    .collection-status-line {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 4px 0 0;
+    }
     .no-print { }
     @media (max-width: 700px) {
       .wrap { padding: 12px 10px 40px; }
@@ -208,12 +252,23 @@
         <ul style="margin:0;padding-right:18px;color:var(--muted);font-size:0.88rem">
           <li>مفاتيح الكتابة: <code>navidur_intel_*</code> فقط</li>
           <li>لا يتم المساس بـ <code>navidur_store_*</code></li>
-          <li>مسار Cron: <code>/api?route=run-intelligence-memory&amp;cron=1</code></li>
+          <li>مسار Cron: <code>/api/run-intelligence-memory-cron</code></li>
         </ul>
       </div>
     </div>
 
     <div id="mainPanel" class="hidden">
+      <section class="panel collection-panel" id="collectionControlPanel">
+        <h2>حالة جمع البيانات البحرية</h2>
+        <div id="collectionStatusBody" class="status-grid"></div>
+        <p id="collectionStatusLine" class="collection-status-line"></p>
+        <div class="collection-actions no-print">
+          <button type="button" id="toggleCollectionBtn" class="btn-collection-toggle">—</button>
+          <p class="collection-notice">إيقاف الذاكرة لا يحذف البيانات السابقة. فقط يمنع حفظ لقطات جديدة.</p>
+        </div>
+        <p id="collectionToggleMsg" class="status no-print"></p>
+      </section>
+
       <section class="panel" id="systemStatusPanel">
         <h2>حالة نظام الذاكرة البحرية</h2>
         <div id="systemStatusBody" class="status-grid"></div>
@@ -309,7 +364,7 @@
           <ul style="margin:0;padding-right:18px;color:var(--muted);font-size:0.88rem">
             <li>كتابة الذاكرة: <code>navidur_intel_*</code></li>
             <li>لا يُستخدم: <code>navidur_store_*</code></li>
-            <li>مسار Cron: <code>/api?route=run-intelligence-memory&amp;cron=1</code></li>
+            <li>مسار Cron: <code>/api/run-intelligence-memory-cron</code></li>
           </ul>
           <h3 style="color:var(--muted);font-size:0.9rem;margin:14px 0 6px">الإعدادات الخام (JSON)</h3>
           <pre id="devConfigPre" class="dev-pre">—</pre>
@@ -357,6 +412,13 @@
 
       function setStatus(msg, ok) {
         var el = byId('statusLine');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.className = 'status no-print' + (ok === true ? ' ok' : ok === false ? ' err' : '');
+      }
+
+      function setCollectionToggleMsg(msg, ok) {
+        var el = byId('collectionToggleMsg');
         if (!el) return;
         el.textContent = msg || '';
         el.className = 'status no-print' + (ok === true ? ' ok' : ok === false ? ' err' : '');
@@ -540,6 +602,47 @@
         return runs && runs[0] ? runs[0] : null;
       }
 
+      function renderCollectionControlPanel() {
+        var cfg = state.config || {};
+        var runs = state.runs || [];
+        var stations = state.stations || [];
+        var lastOk = lastSuccessfulRun(runs);
+        var lastSnap = latestSnapshotAmongStations(stations);
+        var selectedN = (cfg.selected_station_ids || []).length;
+        var enabled = !!cfg.enabled;
+
+        var cards = [
+          { k: 'الحالة الحالية', v: enabled ? '<span class="badge ok">مفعّلة</span>' : '<span class="badge err">متوقفة</span>' },
+          { k: 'آخر تشغيل ناجح', v: esc(lastOk ? formatTime(lastOk.finished_at) : '—') },
+          { k: 'آخر Snapshot محفوظ', v: esc(lastSnap ? formatTime(lastSnap) : '—') },
+          { k: 'عدد المحطات المختارة', v: esc(selectedN) },
+          { k: 'لقطات اليوم', v: esc(countSnapshotsToday(runs)) }
+        ];
+        var body = byId('collectionStatusBody');
+        if (body) {
+          body.innerHTML = cards.map(function (c) {
+            return '<div class="stat-card"><div class="k">' + c.k + '</div><div class="v">' + c.v + '</div></div>';
+          }).join('');
+        }
+        var line = byId('collectionStatusLine');
+        if (line) {
+          line.innerHTML = enabled
+            ? 'جمع البيانات <span class="badge ok">مفعّل</span> — Cron سيعمل كل ساعة حسب الإعدادات.'
+            : 'جمع البيانات <span class="badge warn">متوقف</span> — Cron موجود لكنه يتجاوز الحفظ.';
+        }
+        var btn = byId('toggleCollectionBtn');
+        if (btn) {
+          if (enabled) {
+            btn.textContent = 'إيقاف جمع البيانات مؤقتًا';
+            btn.className = 'btn-collection-toggle btn-stop';
+          } else {
+            btn.textContent = 'تفعيل جمع البيانات';
+            btn.className = 'btn-collection-toggle btn-start';
+          }
+          btn.disabled = false;
+        }
+      }
+
       function renderSystemStatus() {
         var cfg = state.config || {};
         var runs = state.runs || [];
@@ -596,8 +699,46 @@
         byId('configMeta').textContent =
           'آخر تحديث للإعدادات: ' + (cfg.updated_at ? formatTime(cfg.updated_at) : '—');
         byId('devConfigPre').textContent = JSON.stringify(cfg, null, 2);
+        renderCollectionControlPanel();
         renderSystemStatus();
         updateStationCounts();
+      }
+
+      async function saveEnabledOnly(enabled, successMsg) {
+        byId('enabledChk').checked = !!enabled;
+        var payload = collectPayload();
+        payload.enabled = !!enabled;
+        setCollectionToggleMsg('جاري الحفظ…');
+        var btn = byId('toggleCollectionBtn');
+        if (btn) btn.disabled = true;
+        var res = await api('intelligence-cron-config', { method: 'PUT', body: payload });
+        if (btn) btn.disabled = false;
+        if (res.status === 401) { showAuth(true); return false; }
+        if (!res.json || !res.json.ok) {
+          setCollectionToggleMsg('فشل الحفظ: ' + (res.json && res.json.error || res.status), false);
+          return false;
+        }
+        applyConfig(res.json.config);
+        setCollectionToggleMsg(successMsg, true);
+        renderCollectionControlPanel();
+        renderSystemStatus();
+        return true;
+      }
+
+      async function toggleCollectionEnabled() {
+        var cfg = state.config || {};
+        var goingOff = !!cfg.enabled;
+        if (goingOff) {
+          if (!window.confirm('هل تريد إيقاف جمع بيانات الذاكرة البحرية مؤقتًا؟ سيبقى Cron موجودًا، لكنه سيتجاوز التشغيل ولن يحفظ لقطات جديدة.')) {
+            return;
+          }
+          await saveEnabledOnly(false, 'تم إيقاف جمع البيانات مؤقتًا. لن تُحفظ لقطات جديدة حتى التفعيل مجددًا.');
+        } else {
+          if (!window.confirm('هل تريد تفعيل جمع بيانات الذاكرة البحرية؟ سيتم حفظ لقطات جديدة حسب الإعدادات الحالية.')) {
+            return;
+          }
+          await saveEnabledOnly(true, 'تم تفعيل جمع البيانات. سيبدأ Cron بالحفظ في الموعد المجدول — لم يُشغَّل تشغيل فوري.');
+        }
       }
 
       function stationMatchesSearch(row, q) {
@@ -655,6 +796,7 @@
         var visEl = document.getElementById('visibleStationCount');
         if (visEl) visEl.textContent = String(visible);
         updateStationCounts();
+        renderCollectionControlPanel();
         renderSystemStatus();
       }
 
@@ -700,6 +842,7 @@
         } else {
           renderRunsList([]);
         }
+        renderCollectionControlPanel();
         renderSystemStatus();
         setStatus('تم تحديث الحالة.', true);
       }
@@ -735,10 +878,12 @@
         }
         var runs = await api('intelligence-memory-runs', { route: 'intelligence-memory-runs', qs: { limit: 20 } });
         if (runs.json && runs.json.runs) renderRunsList(runs.json.runs);
+        renderCollectionControlPanel();
         renderSystemStatus();
       }
 
       byId('saveBtn').addEventListener('click', saveConfig);
+      byId('toggleCollectionBtn').addEventListener('click', toggleCollectionEnabled);
       byId('reloadBtn').addEventListener('click', loadAll);
       byId('dryRunBtn').addEventListener('click', function () { testRun(true); });
       byId('runNowBtn').addEventListener('click', function () { testRun(false); });
