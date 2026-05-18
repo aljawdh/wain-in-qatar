@@ -6837,8 +6837,92 @@
     context: null,
     filter: 'all',
     search: '',
-    hideStable: false
+    hideStable: false,
+    reviewConfig: null
   };
+
+  var GENOME_REVIEW_ERROR_AR = {
+    genome_review_disabled: 'حفظ مراجعات الجين البحري متوقف حاليًا. يمكنك عرض النتائج فقط دون حفظ.',
+    station_not_enabled_for_genome_review: 'هذه المحطة غير مفعلة لحفظ مراجعات الجين البحري.',
+    station_excluded_from_genome_review: 'هذه المحطة مستبعدة من مراجعات الجين البحري.',
+    bulk_save_disabled: 'الحفظ الجماعي غير مسموح في إعدادات الجين البحري.'
+  };
+
+  async function loadGenomeReviewConfig() {
+    if (!isAdminMode()) return null;
+    try {
+      var res = await apiFetch('/api?route=genome-review-config');
+      var json = await res.json();
+      if (res.ok && json && json.ok && json.config) {
+        stMarineGenomeState.reviewConfig = json.config;
+        return json.config;
+      }
+    } catch (_e) { /* optional */ }
+    return stMarineGenomeState.reviewConfig;
+  }
+
+  function getGenomeReviewSaveGate(ctx) {
+    var cfg = stMarineGenomeState.reviewConfig;
+    if (!cfg) {
+      return { allowed: false, reason: 'genome_review_disabled', messageAr: GENOME_REVIEW_ERROR_AR.genome_review_disabled };
+    }
+    if (!cfg.enabled) {
+      return { allowed: false, reason: 'genome_review_disabled', messageAr: GENOME_REVIEW_ERROR_AR.genome_review_disabled };
+    }
+    var stationId = String((ctx && ctx.station_id) || '').trim();
+    var refId = String((ctx && ctx.reference_station_id) || stationId).trim();
+    var exclude = cfg.exclude_station_ids || [];
+    if (exclude.indexOf(stationId) >= 0 || (refId && exclude.indexOf(refId) >= 0)) {
+      return { allowed: false, reason: 'station_excluded_from_genome_review', messageAr: GENOME_REVIEW_ERROR_AR.station_excluded_from_genome_review };
+    }
+    if (cfg.run_only_selected !== false) {
+      var selected = cfg.selected_station_ids || [];
+      var ok = selected.indexOf(stationId) >= 0 || (refId && selected.indexOf(refId) >= 0);
+      if (!ok) {
+        return { allowed: false, reason: 'station_not_enabled_for_genome_review', messageAr: GENOME_REVIEW_ERROR_AR.station_not_enabled_for_genome_review };
+      }
+    }
+    return { allowed: true, reason: null, messageAr: '' };
+  }
+
+  function renderMarineGenomeReviewStatusBar() {
+    var el = getEl('stMarineGenomeReviewStatus');
+    if (!el) return;
+    var ctx = stMarineGenomeState.context || stTraitReviewState.context;
+    var gate = getGenomeReviewSaveGate(ctx);
+    if (!ctx || !ctx.station_id) {
+      el.style.display = 'none';
+      return;
+    }
+    if (!gate.allowed) {
+      el.style.display = 'block';
+      el.style.background = 'rgba(180,60,60,.18)';
+      el.style.border = '1px solid rgba(220,100,100,.45)';
+      el.style.color = '#ffd0d0';
+      el.textContent = gate.messageAr;
+      return;
+    }
+    var cfg = stMarineGenomeState.reviewConfig;
+    if (cfg && cfg.enabled) {
+      el.style.display = 'block';
+      el.style.background = 'rgba(38,194,129,.12)';
+      el.style.border = '1px solid rgba(38,194,129,.35)';
+      el.style.color = '#b8ffd4';
+      el.textContent = 'حفظ مراجعات الجين مفعّل لهذه المحطة.';
+      return;
+    }
+    el.style.display = 'none';
+  }
+
+  function isGenomeSaveUiDisabled() {
+    var ctx = stMarineGenomeState.context || stTraitReviewState.context;
+    return !getGenomeReviewSaveGate(ctx).allowed;
+  }
+
+  function isGenomeBulkSaveAllowed() {
+    var cfg = stMarineGenomeState.reviewConfig;
+    return !!(cfg && cfg.enabled && cfg.allow_bulk_save);
+  }
 
   var GENOME_FILTER_OPTIONS = [
     { id: 'all', label: 'الكل' },
@@ -6992,6 +7076,8 @@
   function renderMarineGenomeTable() {
     var tbody = getEl('stMarineGenomeBody');
     if (!tbody) return;
+    renderMarineGenomeReviewStatusBar();
+    var saveDisabled = isGenomeSaveUiDisabled();
     var all = stMarineGenomeState.matrix || [];
     if (!all.length) {
       tbody.innerHTML = '<tr><td colspan="12" style="padding:10px;color:#9fc1d7">اختر محطة وحدّث التحليل لعرض الجين البحري.</td></tr>';
@@ -7025,7 +7111,8 @@
         '<td style="padding:8px 6px">' + escapeHtml(decisionLabelAr(draft.reviewer_decision || row.suggested_decision)) + '</td>' +
         '<td style="padding:8px 6px;font-size:.72rem;max-width:200px" title="' + escapeHtml(row.review_reason_ar || '') + '">' + escapeHtml(row.review_reason_ar || '—') + '</td>' +
         '<td style="padding:8px 6px"><button type="button" class="small-btn st-genome-review-open" data-trait-key="' + escapeHtml(row.trait_key) + '">مراجعة</button></td>' +
-        '<td style="padding:8px 6px"><button type="button" class="small-btn st-genome-review-save" data-trait-key="' + escapeHtml(row.trait_key) + '">حفظ</button></td>' +
+        '<td style="padding:8px 6px"><button type="button" class="small-btn st-genome-review-save" data-trait-key="' + escapeHtml(row.trait_key) + '"' +
+        (saveDisabled ? ' disabled title="الحفظ غير متاح"' : '') + '>حفظ</button></td>' +
         '</tr>';
     }).join('');
     tbody.querySelectorAll('.st-genome-review-open').forEach(function (btn) {
@@ -7035,6 +7122,11 @@
     });
     tbody.querySelectorAll('.st-genome-review-save').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        if (isGenomeSaveUiDisabled()) {
+          var gate = getGenomeReviewSaveGate(stMarineGenomeState.context || stTraitReviewState.context);
+          setMarineGenomeMsg(gate.messageAr || 'الحفظ غير متاح.', false);
+          return;
+        }
         void saveMarineGenomeReview(btn.getAttribute('data-trait-key'));
       });
     });
@@ -7064,6 +7156,15 @@
     if (!keys.length) {
       setMarineGenomeMsg('لا توجد سمات للحفظ.', false);
       return { saved: 0, failed: 0 };
+    }
+    var gate = getGenomeReviewSaveGate(stMarineGenomeState.context || stTraitReviewState.context);
+    if (!gate.allowed) {
+      setMarineGenomeMsg(gate.messageAr, false);
+      return { saved: 0, failed: keys.length };
+    }
+    if (!isGenomeBulkSaveAllowed()) {
+      setMarineGenomeMsg(GENOME_REVIEW_ERROR_AR.bulk_save_disabled, false);
+      return { saved: 0, failed: keys.length };
     }
     setMarineGenomeMsg('جاري الحفظ (' + keys.length + ')…');
     var saved = 0;
@@ -7115,6 +7216,7 @@
       renderMarineGenomeFilters();
       setMarineGenomeMsg(json.summary && json.summary.summary_ar ? json.summary.summary_ar : 'تم التحميل.', true);
       renderMarineGenomeTable();
+      updateMarineGenomeSaveButtons();
     } catch (err) {
       setMarineGenomeMsg(clientErrorForHttp(err), false);
     }
@@ -7184,6 +7286,11 @@
       if (!silent) setMarineGenomeMsg('يتطلب تسجيل دخول إداري.', false);
       return false;
     }
+    var gate = getGenomeReviewSaveGate(ctx);
+    if (!gate.allowed) {
+      if (!silent) setMarineGenomeMsg(gate.messageAr, false);
+      return false;
+    }
     var draft = stMarineGenomeState.drafts[traitKey];
     if (stMarineGenomeState.activeTraitKey === traitKey) {
       draft = syncMarineGenomeDraftFromModal();
@@ -7218,7 +7325,8 @@
       review_note: draft.review_note || '',
       approved_as_evidence: draft.approved_as_evidence !== false,
       genome_version: 'v1',
-      source: 'marine_knowledge_genome'
+      source: 'marine_knowledge_genome',
+      bulk: !!silent
     };
     try {
       var res = await apiFetch('/api?route=marine-genome-trait-review', {
@@ -7228,7 +7336,8 @@
       });
       var json = await res.json();
       if (!res.ok || !json || !json.ok) {
-        if (!silent) setMarineGenomeMsg('فشل الحفظ: ' + (json && json.error || res.status), false);
+        var errAr = GENOME_REVIEW_ERROR_AR[json && json.error] || (json && json.error);
+        if (!silent) setMarineGenomeMsg('فشل الحفظ: ' + (errAr || res.status), false);
         return false;
       }
       if (!silent) {
@@ -7245,8 +7354,26 @@
 
   function refreshMarineGenomeFromValidation(dto) {
     stMarineGenomeState.context = dto ? resolveTraitReviewContext(dto, getEl('stId') && getEl('stId').value) : null;
+    void loadGenomeReviewConfig().then(function () {
+      renderMarineGenomeReviewStatusBar();
+      updateMarineGenomeSaveButtons();
+    });
     void loadMarineGenomeCategories();
     void loadMarineGenomeMatrix();
+  }
+
+  function updateMarineGenomeSaveButtons() {
+    var disabled = isGenomeSaveUiDisabled();
+    var bulkDisabled = disabled || !isGenomeBulkSaveAllowed();
+    ['stMarineGenomeBulkApprove', 'stMarineGenomeBulkWatch', 'stMarineGenomeBulkSave', 'stMarineGenomeConfirm'].forEach(function (id) {
+      var el = getEl(id);
+      if (!el) return;
+      var isBulk = id !== 'stMarineGenomeConfirm';
+      el.disabled = isBulk ? bulkDisabled : disabled;
+    });
+    document.querySelectorAll('.st-genome-review-save').forEach(function (btn) {
+      btn.disabled = disabled;
+    });
   }
 
   function clearMarineGenomePanel() {
@@ -7267,6 +7394,11 @@
     if (cancel) cancel.addEventListener('click', closeMarineGenomeModal);
     if (confirm) {
       confirm.addEventListener('click', function () {
+        if (isGenomeSaveUiDisabled()) {
+          var gate = getGenomeReviewSaveGate(stMarineGenomeState.context || stTraitReviewState.context);
+          setMarineGenomeMsg(gate.messageAr || 'الحفظ غير متاح.', false);
+          return;
+        }
         syncMarineGenomeDraftFromModal();
         void saveMarineGenomeReview(stMarineGenomeState.activeTraitKey);
       });
@@ -7301,9 +7433,16 @@
         renderMarineGenomeTable();
       });
     }
+    void loadGenomeReviewConfig().then(function () {
+      updateMarineGenomeSaveButtons();
+    });
     var bulkApprove = getEl('stMarineGenomeBulkApprove');
     if (bulkApprove) {
       bulkApprove.addEventListener('click', function () {
+        if (!isGenomeBulkSaveAllowed()) {
+          setMarineGenomeMsg(GENOME_REVIEW_ERROR_AR.bulk_save_disabled, false);
+          return;
+        }
         var targets = (stMarineGenomeState.matrix || []).filter(function (r) { return r.auto_approvable; });
         applyGenomeDraftToRows(targets, function (row) {
           return {
@@ -7335,6 +7474,10 @@
     var bulkSave = getEl('stMarineGenomeBulkSave');
     if (bulkSave) {
       bulkSave.addEventListener('click', function () {
+        if (!isGenomeBulkSaveAllowed()) {
+          setMarineGenomeMsg(GENOME_REVIEW_ERROR_AR.bulk_save_disabled, false);
+          return;
+        }
         var visible = getVisibleGenomeRows();
         var keys = visible.map(function (r) { return r.trait_key; });
         void bulkSaveGenomeReviews(keys, 'حفظ الظاهرة');

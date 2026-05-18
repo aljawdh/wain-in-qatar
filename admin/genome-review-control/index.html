@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>إعدادات حفظ الجين البحري — NAVIDUR</title>
+  <style>
+    :root { --bg:#0a1020; --panel:#121f38; --border:#2a4570; --text:#e8f0ff; --muted:#94a8c8; --accent:#2d6cdf; --ok:#8ef0b0; --danger:#ff9a9a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.55; font-size:15px; }
+    .wrap { max-width:1200px; margin:0 auto; padding:18px 16px 48px; }
+    h1 { font-size:1.3rem; margin:0 0 8px; }
+    .lead { color:var(--muted); margin:0 0 14px; max-width:52em; }
+    .auth-banner { background:#3a1a1a; border:1px solid #7a3030; color:#ffc4c4; padding:12px 16px; border-radius:10px; margin-bottom:14px; }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-top:16px; }
+    .panel h2 { margin:0 0 12px; font-size:1.05rem; color:#b8d4ff; }
+    .status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+    .stat-card { background:#0e1a2f; border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+    .stat-card .k { color:var(--muted); font-size:.78rem; margin-bottom:6px; }
+    .stat-card .v { font-weight:700; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; align-items:end; }
+    label.field-lbl { display:block; font-size:.78rem; color:var(--muted); margin-bottom:6px; }
+    input, select, button { padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:#0e1a2f; color:var(--text); font-size:.92rem; width:100%; }
+    button { cursor:pointer; background:var(--accent); border-color:#3a6ec4; font-weight:600; width:auto; }
+    button.ghost { background:#1a3358; }
+    button.btn-stop { background:#8f2a2a; border-color:#c44; color:#ffe8e8; padding:14px 22px; font-size:1.05rem; font-weight:700; }
+    button.btn-start { background:#1a6b3a; border-color:#3a9a5a; color:#e8fff0; padding:14px 22px; font-size:1.05rem; font-weight:700; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .toggle-row { display:flex; align-items:center; gap:10px; min-height:42px; }
+    .toggle-row label { margin:0; font-size:.9rem; }
+    .status { color:var(--muted); min-height:1.4em; margin:10px 0 4px; }
+    .status.ok { color:var(--ok); } .status.err { color:var(--danger); }
+    .badge { display:inline-block; padding:3px 10px; border-radius:8px; font-size:.78rem; font-weight:600; }
+    .badge.ok { background:#1a4d32; color:#b8ffd4; }
+    .badge.err { background:#4d1a1a; color:#ffc4c4; }
+    .badge.warn { background:#4d3f1a; color:#ffe6a8; }
+    .table-wrap { overflow-x:auto; margin-top:12px; }
+    table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:720px; }
+    th, td { border-bottom:1px solid #22375d; padding:10px 8px; text-align:right; }
+    th { color:var(--muted); font-weight:600; }
+    .hidden { display:none !important; }
+    .notice { font-size:.88rem; color:var(--muted); margin:8px 0 0; max-width:52em; }
+    a { color:#9ec5ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>إعدادات حفظ الجين البحري</h1>
+      <p class="lead">الجين البحري يبقى للمعاينة والتحليل. حفظ المراجعات يتم فقط للمحطات المفعّلة هنا.</p>
+      <p style="margin:0"><a href="/admin.html">← لوحة الإدارة</a></p>
+    </header>
+
+    <div id="authBanner" class="auth-banner hidden">لا يوجد جلسة إدارية. <a href="/admin.html">سجّل الدخول</a></div>
+
+    <div id="mainPanel" class="hidden">
+      <section class="panel">
+        <h2>حالة حفظ مراجعات الجين البحري</h2>
+        <div id="statusGrid" class="status-grid"></div>
+        <p id="statusLine" style="margin:10px 0 0;font-weight:700"></p>
+        <div class="toolbar" style="margin-top:14px">
+          <button type="button" id="toggleBtn" class="btn-stop">—</button>
+        </div>
+        <p class="notice">إيقاف الحفظ لا يحذف المراجعات السابقة. فقط يمنع حفظ مراجعات جديدة.</p>
+        <p id="toggleMsg" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>الإعدادات</h2>
+        <div class="grid">
+          <div class="toggle-row"><input type="checkbox" id="enabledChk"><label for="enabledChk">تفعيل حفظ المراجعات</label></div>
+          <div class="toggle-row"><input type="checkbox" id="referenceOnlyChk" checked><label for="referenceOnlyChk">المحطات المرجعية فقط</label></div>
+          <div class="toggle-row"><input type="checkbox" id="runOnlySelectedChk" checked><label for="runOnlySelectedChk">المحطات المختارة فقط</label></div>
+          <div class="toggle-row"><input type="checkbox" id="allowBulkChk"><label for="allowBulkChk">السماح بالحفظ الجماعي</label></div>
+        </div>
+        <p id="configMeta" class="status"></p>
+        <div class="toolbar">
+          <button type="button" id="saveBtn">حفظ الإعدادات</button>
+          <button type="button" id="reloadBtn" class="ghost">تحديث</button>
+        </div>
+        <p id="saveMsg" class="status"></p>
+      </section>
+
+      <section class="panel">
+        <h2>المحطات المرجعية</h2>
+        <label class="field-lbl" for="stationSearch">بحث سريع</label>
+        <input id="stationSearch" type="search" placeholder="اسم، معرف، دولة، منطقة…" style="max-width:360px;margin-bottom:12px">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>معرف</th><th>اسم</th><th>الدولة</th><th>المنطقة</th><th>آخر مراجعة جين</th><th>اختيار</th><th>استبعاد</th></tr>
+            </thead>
+            <tbody id="stationBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var state = { config: null, stations: [], search: '' };
+
+    function byId(id) { return document.getElementById(id); }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function token() {
+      try { return localStorage.getItem('navidur_admin_token') || ''; } catch (_e) { return ''; }
+    }
+    function headers(json) {
+      var h = { Accept: 'application/json' };
+      var t = token();
+      if (t) h.Authorization = 'Bearer ' + t;
+      if (json) h['Content-Type'] = 'application/json';
+      return h;
+    }
+    async function api(route, opts) {
+      var o = opts || {};
+      var url = '/api?route=' + encodeURIComponent(route);
+      var res = await fetch(url, { method: o.method || 'GET', headers: headers(o.body != null), body: o.body != null ? JSON.stringify(o.body) : undefined });
+      var j = null;
+      try { j = await res.json(); } catch (_e) {}
+      return { status: res.status, json: j };
+    }
+    function formatTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('ar-QA', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'short' }); }
+      catch (_e) { return String(iso); }
+    }
+    function setMsg(el, msg, ok) {
+      if (!el) return;
+      el.textContent = msg || '';
+      el.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : '');
+    }
+    function showAuth(on) {
+      byId('authBanner').classList.toggle('hidden', !on);
+      byId('mainPanel').classList.toggle('hidden', on);
+    }
+    function collectPayload() {
+      var selected = [], excluded = [];
+      document.querySelectorAll('[data-sel]').forEach(function (el) {
+        if (el.checked) selected.push(el.getAttribute('data-sel'));
+      });
+      document.querySelectorAll('[data-exc]').forEach(function (el) {
+        if (el.checked) excluded.push(el.getAttribute('data-exc'));
+      });
+      return {
+        enabled: byId('enabledChk').checked,
+        reference_only: byId('referenceOnlyChk').checked,
+        run_only_selected: byId('runOnlySelectedChk').checked,
+        allow_bulk_save: byId('allowBulkChk').checked,
+        selected_station_ids: selected,
+        exclude_station_ids: excluded
+      };
+    }
+    function applyConfig(cfg) {
+      state.config = cfg;
+      byId('enabledChk').checked = !!cfg.enabled;
+      byId('referenceOnlyChk').checked = cfg.reference_only !== false;
+      byId('runOnlySelectedChk').checked = cfg.run_only_selected !== false;
+      byId('allowBulkChk').checked = !!cfg.allow_bulk_save;
+      byId('configMeta').textContent = 'آخر تحديث: ' + (cfg.updated_at ? formatTime(cfg.updated_at) : '—');
+      renderStatus();
+    }
+    function renderStatus() {
+      var cfg = state.config || {};
+      var enabled = !!cfg.enabled;
+      var selectedN = (cfg.selected_station_ids || []).length;
+      byId('statusGrid').innerHTML =
+        '<div class="stat-card"><div class="k">الحالة</div><div class="v">' + (enabled ? '<span class="badge ok">مفعّل</span>' : '<span class="badge err">متوقف</span>') + '</div></div>' +
+        '<div class="stat-card"><div class="k">محطات مختارة</div><div class="v">' + esc(selectedN) + '</div></div>' +
+        '<div class="stat-card"><div class="k">حفظ جماعي</div><div class="v">' + (cfg.allow_bulk_save ? '<span class="badge ok">مسموح</span>' : '<span class="badge warn">ممنوع</span>') + '</div></div>';
+      byId('statusLine').innerHTML = enabled
+        ? 'حفظ مراجعات الجين <span class="badge ok">مفعّل</span> للمحطات المسموحة.'
+        : 'حفظ مراجعات الجين <span class="badge warn">متوقف</span> — العرض والتحليل يعملان.';
+      var btn = byId('toggleBtn');
+      if (enabled) {
+        btn.textContent = 'إيقاف حفظ مراجعات الجين';
+        btn.className = 'btn-stop';
+      } else {
+        btn.textContent = 'تفعيل حفظ مراجعات الجين';
+        btn.className = 'btn-start';
+      }
+    }
+    function stationMatches(row, q) {
+      if (!q) return true;
+      var hay = [row.station_id, row.name, row.country, row.region].join(' ').toLowerCase();
+      return hay.indexOf(q) >= 0;
+    }
+    function renderStations(rows) {
+      state.stations = rows || [];
+      var selected = {}, excluded = {};
+      (state.config && state.config.selected_station_ids || []).forEach(function (id) { selected[String(id)] = true; });
+      (state.config && state.config.exclude_station_ids || []).forEach(function (id) { excluded[String(id)] = true; });
+      var tbody = byId('stationBody');
+      tbody.innerHTML = '';
+      var n = 0;
+      rows.forEach(function (row) {
+        if (!stationMatches(row, state.search)) return;
+        n += 1;
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + n + '</td>' +
+          '<td>' + esc(row.station_id) + '</td>' +
+          '<td>' + esc(row.name || '—') + '</td>' +
+          '<td>' + esc(row.country || '—') + '</td>' +
+          '<td>' + esc(row.region || '—') + '</td>' +
+          '<td>' + esc(row.latest_genome_review_at ? formatTime(row.latest_genome_review_at) : '—') + '</td>' +
+          '<td><input type="checkbox" data-sel="' + esc(row.station_id) + '"' + (selected[row.station_id] ? ' checked' : '') + '></td>' +
+          '<td><input type="checkbox" data-exc="' + esc(row.station_id) + '"' + (excluded[row.station_id] ? ' checked' : '') + '></td>';
+        tbody.appendChild(tr);
+      });
+    }
+    async function loadAll() {
+      if (!token()) { showAuth(true); return; }
+      showAuth(false);
+      var cfgRes = await api('genome-review-config');
+      if (cfgRes.status === 401) { showAuth(true); return; }
+      if (!cfgRes.json || !cfgRes.json.ok) { setMsg(byId('saveMsg'), 'فشل التحميل', false); return; }
+      applyConfig(cfgRes.json.config);
+      var stRes = await api('genome-review-stations');
+      if (stRes.json && stRes.json.ok) renderStations(stRes.json.stations);
+    }
+    async function saveConfig(msg) {
+      setMsg(byId('saveMsg'), 'جاري الحفظ…');
+      var res = await api('genome-review-config', { method: 'PUT', body: collectPayload() });
+      if (res.status === 401) { showAuth(true); return; }
+      if (!res.json || !res.json.ok) {
+        setMsg(byId('saveMsg'), 'فشل: ' + (res.json && res.json.error || res.status), false);
+        return;
+      }
+      applyConfig(res.json.config);
+      setMsg(byId('saveMsg'), msg || 'تم حفظ الإعدادات.', true);
+      var stRes = await api('genome-review-stations');
+      if (stRes.json && stRes.json.ok) renderStations(stRes.json.stations);
+    }
+    async function toggleEnabled() {
+      var cfg = state.config || {};
+      var goingOff = !!cfg.enabled;
+      if (goingOff) {
+        if (!window.confirm('إيقاف حفظ مراجعات الجين البحري؟ المعاينة تبقى متاحة.')) return;
+        byId('enabledChk').checked = false;
+        await saveConfig('تم إيقاف حفظ مراجعات الجين.');
+      } else {
+        if (!window.confirm('تفعيل حفظ مراجعات الجين للمحطات المختارة حسب الإعدادات الحالية؟')) return;
+        byId('enabledChk').checked = true;
+        await saveConfig('تم تفعيل حفظ مراجعات الجين.');
+      }
+      setMsg(byId('toggleMsg'), '', null);
+    }
+    byId('saveBtn').addEventListener('click', function () { void saveConfig('تم الحفظ.'); });
+    byId('reloadBtn').addEventListener('click', loadAll);
+    byId('toggleBtn').addEventListener('click', toggleEnabled);
+    byId('stationSearch').addEventListener('input', function () {
+      state.search = String(byId('stationSearch').value || '').trim().toLowerCase();
+      renderStations(state.stations);
+    });
+    loadAll();
+  })();
+  </script>
+</body>
+</html>

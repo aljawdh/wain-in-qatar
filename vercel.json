@@ -18,6 +18,7 @@
     { "source": "/admin/monitoring", "destination": "/admin/monitoring/index.html", "permanent": false },
     { "source": "/admin/intelligence", "destination": "/admin/intelligence/index.html", "permanent": false },
     { "source": "/admin/intelligence/cron", "destination": "/admin/intelligence/cron.html", "permanent": false },
+    { "source": "/admin/genome-review-control", "destination": "/admin/genome-review-control/index.html", "permanent": false },
     { "source": "/field", "destination": "/field/index.html", "permanent": false }
   ],
   "rewrites": [

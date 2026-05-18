@@ -4,6 +4,7 @@ var { getAuthUser, ROLE_ORDER } = require('./_lib/auth');
 var { setNoCache, isAllowedOrigin, parseBody, rateLimit, cleanString } = require('./_lib/security');
 var genome = require('./_lib/marine-knowledge-genome');
 var traitReviewService = require('./_lib/trait-review-service');
+var genomeReviewConfig = require('./_lib/genome-review-config');
 
 function isAdminActor(user) {
   if (!user || !ROLE_ORDER[user.role]) return false;
@@ -78,6 +79,16 @@ module.exports = async function handler(req, res) {
         return res.status(405).json({ ok: false, error: 'method_not_allowed' });
       }
       var body = parseBody(req);
+      var config = await genomeReviewConfig.getConfig();
+      var bulk = body.bulk === true || String(body.bulk || '') === '1' || String(body.save_mode || '').toLowerCase() === 'bulk';
+      var guard = genomeReviewConfig.assertSaveAllowed(config, {
+        station_id: body.station_id,
+        reference_station_id: body.reference_station_id,
+        bulk: bulk
+      });
+      if (!guard.ok) {
+        return res.status(403).json({ ok: false, error: guard.error });
+      }
       var payload = genome.dto.reviewPayloadFromGenome(body, (auth.user && (auth.user.username || auth.user.id)) || 'admin');
       var actor = (auth.user && (auth.user.username || auth.user.id)) || 'admin';
       var saved = await traitReviewService.saveReview(payload, actor);
