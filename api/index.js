@@ -25,6 +25,7 @@ const intelligenceCronAdminHandler = require('../serverless_api/intelligence-cro
 const intelligenceTrendsHandler = require('../serverless_api/navidur-intelligence-trends');
 const traitReviewAdminHandler = require('../serverless_api/trait-review-admin');
 const marineGenomeAdminHandler = require('../serverless_api/marine-genome-admin');
+const referenceDurHealthAdminHandler = require('../serverless_api/reference-dur-health-admin');
 
 function normalizeRoute(value) {
   return String(value || '').trim().toLowerCase();
@@ -97,6 +98,14 @@ module.exports = async function handler(req, res) {
     route === 'marine-genome-trait-review'
   ) {
     return marineGenomeAdminHandler(req, res);
+  }
+  if (
+    route === 'reference-dur-health' ||
+    route === 'reference-dur-primary-save' ||
+    route === 'reference-dur-audit-list' ||
+    route === 'reference-dur-rollback'
+  ) {
+    return referenceDurHealthAdminHandler(req, res);
   }
   if (route === 'capture-snapshot' || route === 'snapshot-capture') return snapshotHandler(req, res);
   if (route === 'run-snapshots') return runSnapshotsHandler(req, res);

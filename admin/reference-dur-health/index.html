@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>صحة در المحطات المرجعية — NAVIDUR</title>
+  <style>
+    :root { --bg:#0a1020; --panel:#121f38; --border:#2a4570; --text:#e8f0ff; --muted:#94a8c8; --accent:#2d6cdf; --ok:#8ef0b0; --danger:#ff9a9a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+    .wrap { max-width:1280px; margin:0 auto; padding:16px 14px 40px; }
+    h1 { margin:0 0 6px; font-size:1.25rem; }
+    .lead { color:var(--muted); margin:0 0 14px; line-height:1.5; max-width:62em; }
+    .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+    .btn { border:1px solid var(--border); background:var(--panel); color:var(--text); padding:7px 12px; border-radius:8px; cursor:pointer; font-size:.85rem; }
+    .btn.primary { background:rgba(45,108,223,.35); border-color:#4a7fd4; }
+    .btn.danger { border-color:#a44; color:#ffb3b3; }
+    .msg { min-height:1.2em; margin:8px 0; font-size:.85rem; }
+    .msg.ok { color:var(--ok); } .msg.err { color:var(--danger); }
+    table { width:100%; border-collapse:collapse; font-size:.8rem; background:var(--panel); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    th, td { padding:8px 6px; border-bottom:1px solid rgba(42,69,112,.6); text-align:right; vertical-align:top; }
+    th { color:var(--muted); font-weight:600; background:rgba(0,0,0,.15); }
+    tr:hover td { background:rgba(45,108,223,.08); }
+    .modal { display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.55); align-items:center; justify-content:center; padding:12px; }
+    .modal.open { display:flex; }
+    .modal-box { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px; width:100%; max-width:440px; max-height:90vh; overflow:auto; }
+    label { display:block; font-size:.75rem; color:var(--muted); margin:8px 0 4px; }
+    input, select, textarea { width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:#0d1528; color:var(--text); }
+    textarea { min-height:72px; resize:vertical; }
+    .audit-list { font-size:.78rem; max-height:200px; overflow:auto; background:#0d1528; border-radius:8px; padding:8px; margin-top:8px; }
+    a { color:#9fe8ff; }
+    .warn-banner {
+      margin:0 0 16px;
+      padding:14px 16px;
+      border-radius:10px;
+      border:2px solid #c44;
+      background:rgba(180,40,40,.22);
+      color:#ffe0e0;
+      font-size:1rem;
+      font-weight:700;
+      line-height:1.55;
+      box-shadow:0 0 0 1px rgba(255,120,120,.25), 0 4px 16px rgba(0,0,0,.35);
+    }
+    .warn-banner::before { content:"⚠ "; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>صحة در المحطات المرجعية</h1>
+    <p class="warn-banner" role="alert">تنبيه: الحفظ في هذه الصفحة يغيّر مصدر الدر الأساسي للمحطة المرجعية. استخدمه فقط بعد التحقق، ويتم حفظ نسخة احتياطية وسجل تدقيق تلقائيًا.</p>
+    <p class="lead">تعديل أساسي في <strong>true_final_station_reference</strong> (annual_flat_rows) — مع سجل تدقيق KV ونسخة رجوع. لا يعدّل dur_master.</p>
+    <div class="bar">
+      <button type="button" class="btn primary" id="btnRefresh">تحديث الجدول</button>
+      <a class="btn" href="/admin.html">لوحة الإدارة</a>
+    </div>
+    <p id="msg" class="msg"></p>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>الدولة</th><th>المنطقة</th><th>المحطة</th><th>تاريخ اليوم</th>
+            <th>الدر الحالي</th><th>اليوم</th><th>مضى</th><th>باقي</th><th>التالي</th>
+            <th>آخر تعديل</th><th>الحالة</th><th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="editModal" class="modal">
+    <div class="modal-box">
+      <h3 style="margin:0 0 10px;font-size:1rem" id="modalTitle">تعديل أساسي</h3>
+      <input type="hidden" id="fStationId"/>
+      <label>الدر الحالي</label>
+      <select id="fCurrentDur"></select>
+      <label>اليوم داخل الدر</label>
+      <input id="fDurDay" type="number" min="1" max="400"/>
+      <label>مضى (أيام)</label>
+      <input id="fElapsed" type="number" min="1" max="400"/>
+      <label>باقي (أيام)</label>
+      <input id="fRemaining" type="number" min="0" max="400"/>
+      <label>الدر التالي</label>
+      <select id="fNextDur"></select>
+      <label>سبب التعديل (10 أحرف على الأقل)</label>
+      <textarea id="fReason" placeholder="مثال: تصحيح بعد مراجعة ميدانية للمحطة المرجعية"></textarea>
+      <div class="bar" style="margin-top:12px">
+        <button type="button" class="btn primary" id="btnSavePrimary">حفظ كتعديل أساسي</button>
+        <button type="button" class="btn" id="btnShowAudit">سجل التعديلات</button>
+        <button type="button" class="btn danger" id="btnRollback">تراجع عن آخر تعديل</button>
+        <button type="button" class="btn" id="btnCloseModal">إغلاق</button>
+      </div>
+      <div id="auditBox" class="audit-list" style="display:none"></div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var durNames = [];
+    var rows = [];
+
+    function el(id) { return document.getElementById(id); }
+    function setMsg(text, ok) {
+      var m = el('msg');
+      m.textContent = text || '';
+      m.className = 'msg' + (ok === true ? ' ok' : ok === false ? ' err' : '');
+    }
+    function api(path, opts) {
+      opts = opts || {};
+      return fetch('/api?route=' + path, Object.assign({
+        credentials: 'include',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
+      }, opts)).then(function (r) {
+        return r.json().then(function (j) { return { ok: r.ok, status: r.status, json: j }; });
+      });
+    }
+    function fillDurSelect(sel, value) {
+      sel.innerHTML = '';
+      durNames.forEach(function (n) {
+        var o = document.createElement('option');
+        o.value = n; o.textContent = n;
+        if (value && n === value) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+    function renderTable() {
+      var tb = el('tbody');
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="12">لا توجد محطات مرجعية.</td></tr>';
+        return;
+      }
+      tb.innerHTML = rows.map(function (r) {
+        var last = r.last_audit ? (r.last_audit.changed_at || '') + ' — ' + (r.last_audit.changed_by || '') : '—';
+        return '<tr>' +
+          '<td>' + esc(r.country) + '</td>' +
+          '<td>' + esc(r.region) + '</td>' +
+          '<td>' + esc(r.station_name) + '</td>' +
+          '<td>' + esc(r.as_of_iso) + '</td>' +
+          '<td>' + esc(r.current_dur) + '</td>' +
+          '<td>' + esc(r.dur_day) + '</td>' +
+          '<td>' + esc(r.elapsed_days) + '</td>' +
+          '<td>' + esc(r.remaining_days) + '</td>' +
+          '<td>' + esc(r.next_dur) + '</td>' +
+          '<td style="font-size:.72rem">' + esc(last) + '</td>' +
+          '<td>' + esc(r.status) + '</td>' +
+          '<td><button type="button" class="btn" data-edit="' + escAttr(r.station_id) + '">تعديل</button></td>' +
+          '</tr>';
+      }).join('');
+      tb.querySelectorAll('[data-edit]').forEach(function (btn) {
+        btn.addEventListener('click', function () { openEdit(btn.getAttribute('data-edit')); });
+      });
+    }
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
+
+    function load() {
+      setMsg('جاري التحميل…');
+      api('reference-dur-health', { method: 'GET' }).then(function (res) {
+        if (res.status === 401) { setMsg('يتطلب تسجيل دخول إداري.', false); return; }
+        if (!res.ok || !res.json || !res.json.ok) {
+          setMsg('فشل التحميل: ' + (res.json && res.json.error || res.status), false);
+          return;
+        }
+        durNames = res.json.dur_name_list || [];
+        rows = res.json.rows || [];
+        renderTable();
+        setMsg('تم — ' + rows.length + ' محطة مرجعية.', true);
+      }).catch(function (e) { setMsg(String(e.message || e), false); });
+    }
+
+    function openEdit(stationId) {
+      var row = rows.find(function (r) { return r.station_id === stationId; });
+      if (!row) return;
+      el('fStationId').value = stationId;
+      el('modalTitle').textContent = 'تعديل أساسي — ' + row.station_name;
+      fillDurSelect(el('fCurrentDur'), row.current_dur);
+      fillDurSelect(el('fNextDur'), row.next_dur);
+      el('fDurDay').value = row.dur_day != null ? row.dur_day : '';
+      el('fElapsed').value = row.elapsed_days != null ? row.elapsed_days : (row.dur_day || '');
+      el('fRemaining').value = row.remaining_days != null ? row.remaining_days : '';
+      el('fReason').value = '';
+      el('auditBox').style.display = 'none';
+      el('editModal').classList.add('open');
+    }
+
+    function closeModal() { el('editModal').classList.remove('open'); }
+
+    el('btnRefresh').addEventListener('click', load);
+    el('btnCloseModal').addEventListener('click', closeModal);
+    el('btnSavePrimary').addEventListener('click', function () {
+      if (!confirm('هل أنت متأكد؟ هذا التعديل سيصبح المصدر المعتمد للدر في التحليل.')) return;
+      var payload = {
+        station_id: el('fStationId').value,
+        current_dur: el('fCurrentDur').value,
+        next_dur: el('fNextDur').value,
+        dur_day: Number(el('fDurDay').value),
+        elapsed_days: Number(el('fElapsed').value),
+        remaining_days: Number(el('fRemaining').value),
+        reason: el('fReason').value
+      };
+      setMsg('جاري الحفظ…');
+      api('reference-dur-primary-save', { method: 'POST', body: JSON.stringify(payload) }).then(function (res) {
+        if (!res.ok || !res.json || !res.json.ok) {
+          setMsg('فشل الحفظ: ' + (res.json && res.json.error || res.status), false);
+          return;
+        }
+        setMsg('تم الحفظ الأساسي — audit: ' + (res.json.audit && res.json.audit.id), true);
+        closeModal();
+        load();
+      });
+    });
+    el('btnShowAudit').addEventListener('click', function () {
+      var sid = el('fStationId').value;
+      fetch('/api?route=reference-dur-audit-list&station_id=' + encodeURIComponent(sid), { credentials: 'include' })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, json: j }; }); })
+        .then(function (res) {
+        var box = el('auditBox');
+        box.style.display = 'block';
+        if (!res.ok || !res.json || !res.json.ok) {
+          box.textContent = 'تعذر تحميل السجل.';
+          return;
+        }
+        var audits = res.json.audits || [];
+        box.innerHTML = audits.length ? audits.map(function (a) {
+          return '<div style="margin-bottom:8px;border-bottom:1px solid #2a4570;padding-bottom:6px">' +
+            '<strong>' + esc(a.changed_at) + '</strong> — ' + esc(a.changed_by) + '<br>' +
+            esc(a.reason) + '<br>' +
+            'من: ' + esc(a.previous && a.previous.current_dur) + ' → ' + esc(a.next && a.next.current_dur) +
+            '</div>';
+        }).join('') : 'لا سجلات بعد.';
+      });
+    });
+    el('btnRollback').addEventListener('click', function () {
+      if (!confirm('تراجع عن آخر تعديل لهذه المحطة؟')) return;
+      var sid = el('fStationId').value;
+      api('reference-dur-rollback', {
+        method: 'POST',
+        body: JSON.stringify({ station_id: sid, reason: 'تراجع من لوحة صحة الدر المرجعي' })
+      }).then(function (res) {
+        if (!res.ok || !res.json || !res.json.ok) {
+          setMsg('فشل التراجع: ' + (res.json && res.json.error || res.status), false);
+          return;
+        }
+        setMsg('تم التراجع — ' + (res.json.rolled_back_audit_id || ''), true);
+        closeModal();
+        load();
+      });
+    });
+
+    load();
+  })();
+  </script>
+</body>
+</html>
