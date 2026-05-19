@@ -3,48 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ترقية محطة مرجعية — NAVIDUR</title>
+  <title>ترقية محطة تشغيلية إلى مرجعية مستقلة — NAVIDUR</title>
   <style>
     :root { --bg:#0a1020; --panel:#121f38; --border:#2a4570; --text:#e8f0ff; --muted:#94a8c8; --accent:#2d6cdf; --ok:#8ef0b0; --danger:#ff9a9a; --warn:#ffe6a8; }
     * { box-sizing: border-box; }
     body { margin:0; font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.55; font-size:15px; }
-    .wrap { max-width:1100px; margin:0 auto; padding:18px 16px 48px; }
+    .wrap { max-width:1200px; margin:0 auto; padding:18px 16px 48px; }
     h1 { font-size:1.3rem; margin:0 0 8px; }
-    .lead { color:var(--muted); margin:0 0 14px; max-width:56em; }
+    .lead { color:var(--muted); margin:0 0 14px; max-width:62em; }
     .auth-banner { background:#3a1a1a; border:1px solid #7a3030; color:#ffc4c4; padding:12px 16px; border-radius:10px; margin-bottom:14px; }
     .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-top:16px; }
-    .warn-banner {
-      margin:0 0 16px;
-      padding:14px 16px;
-      border-radius:10px;
-      border:2px solid #c44;
-      background:rgba(180,40,40,.22);
-      color:#ffe0e0;
-      font-size:.95rem;
-      font-weight:600;
-      line-height:1.55;
-    }
+    .warn-banner { margin:0 0 16px; padding:14px 16px; border-radius:10px; border:2px solid #c44; background:rgba(180,40,40,.22); color:#ffe0e0; font-size:.92rem; font-weight:600; line-height:1.55; }
     table { width:100%; border-collapse:collapse; font-size:.85rem; }
     th, td { padding:10px 8px; border-bottom:1px solid rgba(42,69,112,.55); text-align:right; vertical-align:top; }
     th { color:var(--muted); font-weight:600; }
-    .btn { border:1px solid var(--border); background:#1a3358; color:var(--text); padding:8px 14px; border-radius:8px; cursor:pointer; font-size:.88rem; }
+    .btn { border:1px solid var(--border); background:#1a3358; color:var(--text); padding:8px 14px; border-radius:8px; cursor:pointer; font-size:.88rem; text-decoration:none; display:inline-block; }
     .btn.primary { background:rgba(45,108,223,.4); border-color:#4a7fd4; }
     .btn.promote { background:rgba(180,90,20,.35); border-color:#c86; color:#ffe6c8; font-weight:600; }
     .btn:disabled { opacity:.45; cursor:not-allowed; }
     .status { min-height:1.4em; margin:10px 0; color:var(--muted); }
     .status.ok { color:var(--ok); }
     .status.err { color:var(--danger); }
-    a { color:#9fe8ff; }
     .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.75rem; }
-    .badge.ref { background:#4d1a1a; color:#ffb3b3; }
     .badge.op { background:#1a3a4d; color:#b8e4ff; }
+    .badge.warn { background:#4d3f1a; color:#ffe6a8; }
+    .modal { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.6); align-items:center; justify-content:center; padding:12px; }
+    .modal.open { display:flex; }
+    .modal-box { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px; width:100%; max-width:560px; max-height:92vh; overflow:auto; }
+    .modal-box h2 { margin:0 0 12px; font-size:1.05rem; }
+    label { display:block; font-size:.78rem; color:var(--muted); margin:10px 0 4px; }
+    input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:#0e1a2f; color:var(--text); font-size:.9rem; }
+    textarea { min-height:72px; resize:vertical; }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; font-size:.85rem; margin:12px 0; }
+    .info-grid div span { color:var(--muted); display:block; font-size:.72rem; }
+    .modal-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    .hint { font-size:.82rem; color:var(--warn); margin:8px 0 0; line-height:1.45; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>ترقية محطة إلى مرجعية مستقلة</h1>
-    <p class="lead">تحويل محطة تشغيلية مرتبطة بمرجع (مثل كتارا ← أم باب) إلى محطة مرجعية تقرأ الدر والموسم من نفسها، مع نسخة أولية من <code>true_final_station_reference</code> وسجل تدقيق KV.</p>
-    <p class="warn-banner" role="alert">تنبيه: العملية لا تحذف أم باب ولا أي محطة. تُنشئ نسخة احتياطية وتدقيقًا قبل التعديل.</p>
+    <h1>Promote Operational Station to Independent Reference Station</h1>
+    <p class="lead">أداة عامة لتحويل أي محطة تشغيلية إلى محطة مرجعية مستقلة مع إنشاء تقويم <code>annual_flat_rows</code> أولي من مرجع واضح، وسجل تدقيق ونسخة احتياطية.</p>
+    <p class="warn-banner" role="alert">تحذير: سيتم فصل المحطة عن مرجعها الحالي وإنشاء تقويم درور مستقل لها. هذا لا يحذف المرجع الأصلي، لكنه يجعل المحطة مرجعية مستقلة وتحتاج معايرة لاحقًا.</p>
     <div id="authBanner" class="auth-banner" style="display:none">يلزم تسجيل الدخول كمسؤول. <a href="/admin.html">العودة للوحة الإدارة</a></div>
     <div class="panel">
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
@@ -60,12 +60,35 @@
             <th>الاسم</th>
             <th>الدولة</th>
             <th>المرجع الحالي</th>
-            <th>النوع</th>
+            <th>true_final</th>
             <th>إجراء</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <div id="promoteModal" class="modal" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-labelledby="modalTitle">
+      <h2 id="modalTitle">تحويل إلى محطة مرجعية مستقلة</h2>
+      <div class="info-grid" id="modalInfo"></div>
+      <label for="sourceRef">مصدر تقويم الدرور</label>
+      <select id="sourceRef"></select>
+      <label for="calendarMode">طريقة إنشاء التقويم</label>
+      <select id="calendarMode">
+        <option value="copy_from_reference">نسخ من المرجع الحالي (أولي — يحتاج معايرة)</option>
+        <option value="copy_and_shift_by_suhail_anchor">نسخ مع تعديل بداية سهيل حسب الإحداثيات</option>
+        <option value="generate_from_coordinates" disabled>توليد من الإحداثيات (غير متوفر حاليًا)</option>
+      </select>
+      <p class="hint" id="modeHint">النسخ المباشر baseline أولي فقط — يظهر «تقويم أولي منسوخ — يحتاج معايرة» بعد النجاح.</p>
+      <label for="reasonInput">سبب التحويل (إجباري — 10 أحرف على الأقل)</label>
+      <textarea id="reasonInput" placeholder="مثال: فصل محطة ميدانية لتصبح مرجعية مستقلة بعد تركيب المعدات"></textarea>
+      <p class="hint">سيتم فصل هذه المحطة عن مرجعها الحالي وإنشاء تقويم درور مستقل لها. لا يُحذف المرجع الأصلي.</p>
+      <div class="modal-actions">
+        <button type="button" class="btn promote" id="btnConfirmPromote">تحويل إلى محطة مرجعية مستقلة</button>
+        <button type="button" class="btn" id="btnCancelModal">إلغاء</button>
+      </div>
     </div>
   </div>
 
@@ -78,6 +101,14 @@
       var statusEl = document.getElementById('status');
       var tbody = document.getElementById('tbody');
       var stationsById = {};
+      var operationalRows = [];
+      var modal = document.getElementById('promoteModal');
+      var modalInfo = document.getElementById('modalInfo');
+      var sourceRefEl = document.getElementById('sourceRef');
+      var calendarModeEl = document.getElementById('calendarMode');
+      var reasonEl = document.getElementById('reasonInput');
+      var modeHintEl = document.getElementById('modeHint');
+      var activeStation = null;
 
       function esc(s) {
         return String(s == null ? '' : s)
@@ -98,6 +129,68 @@
         return h;
       }
 
+      function refLabel(s) {
+        var refId = (s.reference_station_id || '').trim();
+        if (refId && stationsById[refId]) return stationsById[refId].name + ' (' + refId + ')';
+        if (s.reference_station_name_ar) return s.reference_station_name_ar;
+        return '— غير مربوط —';
+      }
+
+      function listReferenceSources() {
+        return Object.keys(stationsById)
+          .map(function (id) { return stationsById[id]; })
+          .filter(function (s) {
+            return s && (s.is_reference_station === true || s.primary_reference === true);
+          })
+          .sort(function (a, b) { return String(a.name || '').localeCompare(String(b.name || ''), 'ar'); });
+      }
+
+      function updateModeHint() {
+        var mode = calendarModeEl.value;
+        if (mode === 'copy_from_reference') {
+          modeHintEl.textContent = 'تقويم أولي منسوخ من المرجع — يحتاج معايرة لاحقًا.';
+        } else if (mode === 'copy_and_shift_by_suhail_anchor') {
+          modeHintEl.textContent = 'يُنسخ ترتيب الدرور مع إزاحة نوافذ DD-MM حسب فرق بداية سهيل (mode_astronomical_suhail_entry). يحتاج معايرة.';
+        } else {
+          modeHintEl.textContent = 'غير متوفر — لا توجد دالة رسمية لتوليد 28 نافذة من الإحداثيات فقط.';
+        }
+      }
+
+      function openModal(station) {
+        activeStation = station;
+        var linkedId = (station.reference_station_id || '').trim();
+        modalInfo.innerHTML =
+          '<div><span>المحطة</span><strong>' + esc(station.name) + '</strong> <code>' + esc(station.id) + '</code></div>' +
+          '<div><span>المرجع الحالي</span>' + esc(refLabel(station)) + '</div>' +
+          '<div><span>الإحداثيات</span>' + esc(station.lat) + ', ' + esc(station.lon) + '</div>' +
+          '<div><span>الدولة / المنطقة</span>' + esc(station.country || '—') + ' / ' + esc(station.region || '—') + '</div>';
+
+        var sources = listReferenceSources();
+        var html = '';
+        if (linkedId && stationsById[linkedId]) {
+          html += '<option value="' + esc(linkedId) + '">المرجع الحالي: ' + esc(stationsById[linkedId].name) + '</option>';
+        }
+        sources.forEach(function (s) {
+          if (linkedId && s.id === linkedId) return;
+          html += '<option value="' + esc(s.id) + '">' + esc(s.name) + ' (' + esc(s.id) + ')</option>';
+        });
+        if (!html) html = '<option value="">— اختر مرجعًا يدويًا —</option>';
+        sourceRefEl.innerHTML = html;
+        if (linkedId && stationsById[linkedId]) sourceRefEl.value = linkedId;
+
+        reasonEl.value = '';
+        calendarModeEl.value = 'copy_from_reference';
+        updateModeHint();
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeModal() {
+        modal.classList.remove('open');
+        modal.setAttribute('aria-hidden', 'true');
+        activeStation = null;
+      }
+
       async function loadStations() {
         if (!token) {
           authBanner.style.display = 'block';
@@ -116,57 +209,85 @@
         var list = (data && data.stations) || [];
         stationsById = {};
         list.forEach(function (s) { if (s && s.id) stationsById[s.id] = s; });
-        var rows = list.filter(function (s) {
+        operationalRows = list.filter(function (s) {
           return s && s.is_reference_station !== true;
         });
-        if (!rows.length) {
-          tbody.innerHTML = '<tr><td colspan="6">لا توجد محطات تشغيلية للترقية.</td></tr>';
+        if (!operationalRows.length) {
+          tbody.innerHTML = '<tr><td colspan="6">لا توجد محطات تشغيلية.</td></tr>';
           setStatus('تم التحميل.', 'ok');
           return;
         }
-        tbody.innerHTML = rows.map(function (s) {
-          var refId = (s.reference_station_id || '').trim();
-          var ref = refId && stationsById[refId] ? stationsById[refId].name : (s.reference_station_name_ar || refId || '—');
-          return '<tr data-id="' + esc(s.id) + '">' +
+        tbody.innerHTML = operationalRows.map(function (s) {
+          var hasRef = !!(s.reference_station_id || s.reference_station_name_ar || s.dur_reference_station);
+          return '<tr>' +
             '<td><code>' + esc(s.id) + '</code></td>' +
             '<td><strong>' + esc(s.name) + '</strong></td>' +
             '<td>' + esc(s.country || '—') + '</td>' +
-            '<td>' + esc(ref) + (refId ? ' <span style="color:#7a9">(' + esc(refId) + ')</span>' : '') + '</td>' +
-            '<td><span class="badge op">تشغيلية</span></td>' +
-            '<td><button type="button" class="btn promote" data-promote="' + esc(s.id) + '" data-name="' + esc(s.name) + '">تحويل إلى محطة مرجعية</button></td>' +
+            '<td>' + esc(refLabel(s)) + '</td>' +
+            '<td>' + (hasRef ? '<span class="badge op">مرتبط</span>' : '<span class="badge warn">يحتاج مصدر</span>') + '</td>' +
+            '<td><button type="button" class="btn promote" data-open="' + esc(s.id) + '">تحويل إلى محطة مرجعية</button></td>' +
             '</tr>';
         }).join('');
-        setStatus('عرض ' + rows.length + ' محطة غير مرجعية.', 'ok');
+        setStatus('عرض ' + operationalRows.length + ' محطة تشغيلية.', 'ok');
       }
 
-      async function promoteStation(stationId, stationName) {
-        var msg = 'سيتم تحويل هذه المحطة إلى محطة مرجعية مستقلة وفصلها عن المحطة المرجعية الحالية. سيتم إنشاء نسخة أولية من الدرور من المرجع الحالي مع سجل تدقيق.\n\nالمحطة: ' + stationName + ' (' + stationId + ')\n\nهل أنت متأكد؟';
-        if (!window.confirm(msg)) return;
-        var reason = window.prompt('سبب الترقية (اختياري):', 'تحويل محطة ' + stationName + ' إلى محطة مرجعية مستقلة');
-        if (reason === null) return;
+      async function confirmPromote() {
+        if (!activeStation) return;
+        var reason = String(reasonEl.value || '').trim();
+        if (reason.length < 10) {
+          window.alert('سبب التحويل مطلوب (10 أحرف على الأقل).');
+          return;
+        }
+        var warn = 'سيتم فصل هذه المحطة عن مرجعها الحالي وإنشاء تقويم درور مستقل لها. سيتم إنشاء نسخة أولية من الدرور من المرجع المحدد مع سجل تدقيق.\n\nالمحطة: ' +
+          activeStation.name + ' (' + activeStation.id + ')\n\nهل أنت متأكد؟';
+        if (!window.confirm(warn)) return;
+
+        var payload = {
+          station_id: activeStation.id,
+          source_reference_station_id: sourceRefEl.value || undefined,
+          calendar_generation_mode: calendarModeEl.value,
+          reason: reason
+        };
+
         setStatus('جاري الترقية…');
+        closeModal();
         var res = await fetch('/api?route=promote-reference-station', {
           method: 'POST',
           headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()),
           credentials: 'include',
-          body: JSON.stringify({ station_id: stationId, reason: reason || '' })
+          body: JSON.stringify(payload)
         });
         var body = await res.json().catch(function () { return {}; });
         if (!res.ok) {
           setStatus((body && body.error) || 'فشل الترقية (' + res.status + ')', 'err');
           return;
         }
-        setStatus('تمت الترقية بنجاح. مفتاح النسخة: ' + (body.backup_key || '—') + ' | تدقيق: ' + (body.audit && body.audit.id ? body.audit.id : '—'), 'ok');
+        var note = body.calibration_notice || '';
+        setStatus(
+          'تمت الترقية. ' + note + ' | صفوف: ' + (body.annual_flat_rows_created || 0) +
+            ' | وضع: ' + (body.calendar_generation_mode || '') +
+            (body.shift_days != null ? ' | إزاحة: ' + body.shift_days + ' يوم' : ''),
+          'ok'
+        );
         await loadStations();
       }
 
       tbody.addEventListener('click', function (ev) {
-        var btn = ev.target.closest('[data-promote]');
+        var btn = ev.target.closest('[data-open]');
         if (!btn) return;
-        promoteStation(btn.getAttribute('data-promote'), btn.getAttribute('data-name') || '');
+        var id = btn.getAttribute('data-open');
+        if (!id || !stationsById[id]) return;
+        openModal(stationsById[id]);
       });
 
       document.getElementById('btnRefresh').addEventListener('click', loadStations);
+      document.getElementById('btnCancelModal').addEventListener('click', closeModal);
+      document.getElementById('btnConfirmPromote').addEventListener('click', confirmPromote);
+      calendarModeEl.addEventListener('change', updateModeHint);
+      modal.addEventListener('click', function (ev) {
+        if (ev.target === modal) closeModal();
+      });
+
       loadStations();
     })();
   </script>

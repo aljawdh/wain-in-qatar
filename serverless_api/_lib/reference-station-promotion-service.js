@@ -4,36 +4,9 @@ var { readJsonFile, writeJsonFile, nowIso } = require('./data-store');
 var { cleanString } = require('./security');
 var { normalizeStationInput } = require('./stations');
 var promotionStore = require('./reference-station-promotion-store');
-var tfLookup = require('../../shared/true-final-station-reference-lookup');
+var calendar = require('./reference-station-promotion-calendar');
 
-function stationNameAr(station) {
-  return cleanString(station && (station.name_ar || station.name), 120);
-}
-
-function stationNameMatches(rowName, wantName) {
-  var wantExact = tfLookup.nfcString ? tfLookup.nfcString(wantName) : String(wantName || '').trim();
-  var wantNorm = tfLookup.normalizeArabicName(wantName);
-  var rowExact = tfLookup.nfcString ? tfLookup.nfcString(rowName) : String(rowName || '').trim();
-  if (rowExact === wantExact) return true;
-  if (wantNorm && tfLookup.normalizeArabicName(rowName) === wantNorm) return true;
-  return false;
-}
-
-function hasTrueFinalStationEntry(doc, nameAr) {
-  var list = Array.isArray(doc && doc.stations) ? doc.stations : [];
-  for (var i = 0; i < list.length; i += 1) {
-    if (stationNameMatches(list[i] && list[i].station_name_ar, nameAr)) return true;
-  }
-  return false;
-}
-
-function hasAnnualFlatRows(doc, nameAr) {
-  var annual = Array.isArray(doc && doc.annual_flat_rows) ? doc.annual_flat_rows : [];
-  for (var i = 0; i < annual.length; i += 1) {
-    if (stationNameMatches(annual[i] && annual[i].station_name_ar, nameAr)) return true;
-  }
-  return false;
-}
+var MODES = calendar.CALENDAR_MODES;
 
 function findStationById(list, id) {
   var safe = cleanString(id, 80);
@@ -44,7 +17,7 @@ function findStationById(list, id) {
   return null;
 }
 
-function resolveCopySourceStation(station, stationsList) {
+function resolveLinkedReference(station, stationsList) {
   var refId = cleanString(station.reference_station_id, 80);
   if (refId) {
     var linked = findStationById(stationsList, refId);
@@ -52,7 +25,7 @@ function resolveCopySourceStation(station, stationsList) {
       return {
         station: linked,
         station_id: linked.id,
-        station_name: stationNameAr(linked),
+        station_name: calendar.stationNameAr(linked),
         via: 'reference_station_id'
       };
     }
@@ -64,7 +37,7 @@ function resolveCopySourceStation(station, stationsList) {
       return {
         station: byDurId,
         station_id: byDurId.id,
-        station_name: stationNameAr(byDurId),
+        station_name: calendar.stationNameAr(byDurId),
         via: 'dur_reference_station'
       };
     }
@@ -76,53 +49,148 @@ function resolveCopySourceStation(station, stationsList) {
   return null;
 }
 
-function copyTrueFinalStationEntry(doc, sourceNameAr, targetStation) {
-  var list = Array.isArray(doc.stations) ? doc.stations : [];
-  var targetName = stationNameAr(targetStation);
-  var src = null;
-  for (var i = 0; i < list.length; i += 1) {
-    if (stationNameMatches(list[i] && list[i].station_name_ar, sourceNameAr)) {
-      src = list[i];
-      break;
+function resolveSourceReference(station, stationsList, explicitSourceId, trueFinalDoc) {
+  if (explicitSourceId) {
+    var explicit = findStationById(stationsList, explicitSourceId);
+    if (!explicit) {
+      return { ok: false, error: 'invalid_source_reference', hint: 'source_reference_station_id not found' };
     }
+    var explicitCheck = calendar.isValidCalendarSourceStation(explicit, trueFinalDoc);
+    if (!explicitCheck.ok) return { ok: false, error: explicitCheck.error, hint: explicitCheck.hint };
+    return {
+      ok: true,
+      station: explicit,
+      station_id: explicit.id,
+      station_name: calendar.stationNameAr(explicit),
+      via: 'explicit_source_reference_station_id'
+    };
   }
-  if (!src) return { copied: false, reason: 'source_station_entry_missing' };
-  var entry = Object.assign({}, src, {
-    station_name_ar: targetName,
-    lat: targetStation.lat != null ? targetStation.lat : src.lat,
-    lon: targetStation.lon != null ? targetStation.lon : src.lon,
-    region: cleanString(targetStation.region, 80) || src.region || 'الخليج'
-  });
-  list.push(entry);
-  doc.stations = list;
-  return { copied: true, entry: entry };
+
+  var linked = resolveLinkedReference(station, stationsList);
+  if (!linked || !linked.station_name) {
+    return { ok: false, error: 'source_reference_required', hint: 'Provide source_reference_station_id' };
+  }
+
+  if (linked.station) {
+    var linkedCheck = calendar.isValidCalendarSourceStation(linked.station, trueFinalDoc);
+    if (!linkedCheck.ok) {
+      return { ok: false, error: linkedCheck.error, hint: linkedCheck.hint };
+    }
+    return {
+      ok: true,
+      station: linked.station,
+      station_id: linked.station_id,
+      station_name: linked.station_name,
+      via: linked.via
+    };
+  }
+
+  if (calendar.countAnnualRows(trueFinalDoc, linked.station_name) < 1) {
+    return { ok: false, error: 'source_missing_annual_flat_rows' };
+  }
+  return {
+    ok: true,
+    station: null,
+    station_id: linked.station_id || '',
+    station_name: linked.station_name,
+    via: linked.via
+  };
 }
 
-function copyAnnualFlatRows(doc, sourceNameAr, targetStation, copiedFromId) {
-  var annual = Array.isArray(doc.annual_flat_rows) ? doc.annual_flat_rows : [];
-  var targetName = stationNameAr(targetStation);
-  var added = 0;
-  for (var i = 0; i < annual.length; i += 1) {
-    var row = annual[i];
-    if (!row || !stationNameMatches(row.station_name_ar, sourceNameAr)) continue;
-    var clone = Object.assign({}, row, {
-      station_name_ar: targetName,
-      copied_from_reference_station_id: copiedFromId || '',
-      calibration_status: 'initial_copied_reference'
-    });
-    annual.push(clone);
-    added += 1;
+function buildCalendar(doc, targetStation, sourceStation, sourceName, mode, trueFinalDoc) {
+  var shiftMeta = {
+    shift_days: null,
+    source_suhail_date: null,
+    target_suhail_date: null,
+    anchor_method: null
+  };
+
+  if (mode === MODES.generate_from_coordinates) {
+    return { ok: false, error: 'coordinate_generation_not_available' };
   }
-  doc.annual_flat_rows = annual;
-  return added;
+
+  if (mode === MODES.copy_and_shift_by_suhail_anchor) {
+    var sourceSuhail = calendar.resolveSuhailMdFromTrueFinal(trueFinalDoc, sourceName);
+    if (!sourceSuhail.md) {
+      sourceSuhail = calendar.resolveSuhailMdFromCoordinates(
+        sourceStation && sourceStation.lat,
+        sourceStation && sourceStation.lon
+      );
+    }
+    var targetSuhail = calendar.resolveSuhailMdFromCoordinates(targetStation.lat, targetStation.lon);
+    if (!sourceSuhail.md || !targetSuhail.md) {
+      return {
+        ok: false,
+        error: 'suhail_anchor_unresolved',
+        source: sourceSuhail,
+        target: targetSuhail
+      };
+    }
+    var shift = calendar.computeSuhailShift(sourceSuhail.md, targetSuhail.md);
+    if (!shift.ok) return { ok: false, error: shift.error, shift: shift };
+    shiftMeta.shift_days = shift.shift_days;
+    shiftMeta.source_suhail_date = shift.source_suhail_date;
+    shiftMeta.target_suhail_date = shift.target_suhail_date;
+    shiftMeta.anchor_method = 'mode_astronomical_suhail_entry';
+  }
+
+  var meta = {
+    copied_from_reference_station_id: (sourceStation && sourceStation.id) || '',
+    calendar_generation_mode: mode,
+    calibration_status:
+      mode === MODES.copy_from_reference ? 'initial_copied_reference' : 'initial_shifted_reference',
+    shift_days: shiftMeta.shift_days,
+    source_suhail_date: shiftMeta.source_suhail_date,
+    target_suhail_date: shiftMeta.target_suhail_date,
+    anchor_method: shiftMeta.anchor_method
+  };
+
+  var annualRowsCreated = calendar.copyAnnualFlatRows(doc, {
+    source_name_ar: sourceName,
+    target_station: targetStation,
+    calendar_generation_mode: mode,
+    shift_days: shiftMeta.shift_days || 0,
+    metadata: meta
+  });
+
+  if (annualRowsCreated < 1) {
+    return { ok: false, error: 'annual_flat_rows_copy_failed', annual_rows_created: 0 };
+  }
+
+  var stationEntry = calendar.upsertTrueFinalStationEntry(doc, targetStation, sourceStation || { name: sourceName }, {
+    reference_calendar_status: calendar.calendarStatusForMode(mode),
+    copied_from_reference_station_id: meta.copied_from_reference_station_id,
+    calendar_generation_mode: mode,
+    shift_days: shiftMeta.shift_days,
+    source_suhail_date: shiftMeta.source_suhail_date,
+    target_suhail_date: shiftMeta.target_suhail_date,
+    anchor_method: shiftMeta.anchor_method
+  });
+
+  return {
+    ok: true,
+    annual_rows_created: annualRowsCreated,
+    station_entry: stationEntry,
+    shift_days: shiftMeta.shift_days,
+    source_suhail_date: shiftMeta.source_suhail_date,
+    target_suhail_date: shiftMeta.target_suhail_date,
+    anchor_method: shiftMeta.anchor_method
+  };
 }
 
 async function promoteReferenceStation(input) {
   var stationId = cleanString(input && input.station_id, 80);
-  var reason = cleanString(input && input.reason, 800) || '';
+  var reason = cleanString(input && input.reason, 800);
   var actor = cleanString(input && input.actor, 80) || 'admin';
-  if (!stationId) {
-    return { ok: false, error: 'station_id_required' };
+  var mode = cleanString(input && input.calendar_generation_mode, 60) || MODES.copy_from_reference;
+  var explicitSourceId = cleanString(input && input.source_reference_station_id, 80);
+
+  if (!stationId) return { ok: false, error: 'station_id_required' };
+  if (!reason || reason.length < 10) {
+    return { ok: false, error: 'reason_required', hint: 'reason must be at least 10 characters' };
+  }
+  if (!MODES[mode]) {
+    return { ok: false, error: 'invalid_calendar_generation_mode' };
   }
 
   var stations = await readJsonFile('stations', []);
@@ -130,78 +198,57 @@ async function promoteReferenceStation(input) {
   var idx = list.findIndex(function (s) {
     return s && String(s.id) === stationId;
   });
-  if (idx < 0) {
-    return { ok: false, error: 'station_not_found', station_id: stationId };
-  }
+  if (idx < 0) return { ok: false, error: 'station_not_found', station_id: stationId };
 
   var station = list[idx];
   if (station.is_reference_station === true) {
     return { ok: false, error: 'already_reference_station', station_id: stationId };
   }
 
-  var targetName = stationNameAr(station);
+  var targetName = calendar.stationNameAr(station);
   var prevRefId = cleanString(station.reference_station_id, 80) || null;
   var prevRefRow = prevRefId ? findStationById(list, prevRefId) : null;
-  var prevRefName = prevRefRow ? stationNameAr(prevRefRow) : cleanString(station.reference_station_name_ar, 120) || '';
-
-  var copySource = resolveCopySourceStation(station, list);
-  if (!copySource || !copySource.station_name) {
-    return {
-      ok: false,
-      error: 'reference_source_unresolved',
-      station_id: stationId,
-      hint: 'Set reference_station_id or reference_station_name_ar before promotion'
-    };
-  }
+  var prevRefName = prevRefRow
+    ? calendar.stationNameAr(prevRefRow)
+    : cleanString(station.reference_station_name_ar, 120) || '';
 
   var trueFinalBefore = await readJsonFile('true_final_station_reference', {
     version: 0,
     stations: [],
     annual_flat_rows: []
   });
-  var stationsBefore = JSON.parse(JSON.stringify(list));
+  var trueFinalDoc = JSON.parse(JSON.stringify(trueFinalBefore));
 
+  var sourceResolved = resolveSourceReference(station, list, explicitSourceId, trueFinalDoc);
+  if (!sourceResolved.ok) return sourceResolved;
+
+  var sourceStation = sourceResolved.station;
+  var sourceName = sourceResolved.station_name;
+  if (!sourceStation) {
+    sourceStation = {
+      id: sourceResolved.station_id || explicitSourceId || prevRefId || '',
+      name: sourceName,
+      name_ar: sourceName
+    };
+  }
+
+  var stationsBefore = JSON.parse(JSON.stringify(list));
   var backup = await promotionStore.saveBackupSnapshot({
     stations: stationsBefore,
     true_final_station_reference: JSON.parse(JSON.stringify(trueFinalBefore))
   });
 
-  var trueFinalDoc = JSON.parse(JSON.stringify(trueFinalBefore));
-  var hadStationEntry = hasTrueFinalStationEntry(trueFinalDoc, targetName);
-  var hadAnnual = hasAnnualFlatRows(trueFinalDoc, targetName);
-
-  var trueFinalAction = 'unchanged';
-  var annualRowsCopied = 0;
-
-  if (!hadStationEntry) {
-    var stationCopy = copyTrueFinalStationEntry(
-      trueFinalDoc,
-      copySource.station_name,
-      station
-    );
-    if (stationCopy.copied) {
-      trueFinalAction = 'copied_from_existing_reference';
-    } else {
-      trueFinalAction = 'station_entry_copy_failed';
-    }
-  } else {
-    trueFinalAction = 'station_entry_already_present';
-  }
-
-  if (!hadAnnual) {
-    annualRowsCopied = copyAnnualFlatRows(
-      trueFinalDoc,
-      copySource.station_name,
-      station,
-      copySource.station_id || prevRefId || ''
-    );
-    if (annualRowsCopied > 0 && trueFinalAction.indexOf('copy') < 0) {
-      trueFinalAction = 'copied_annual_flat_from_reference';
-    }
+  calendar.removeTargetCalendar(trueFinalDoc, targetName);
+  var built = buildCalendar(trueFinalDoc, station, sourceStation, sourceName, mode, trueFinalBefore);
+  if (!built.ok) {
+    return Object.assign({ ok: false, station_id: stationId }, built);
   }
 
   trueFinalDoc._reference_promotion_updated_at = nowIso();
   trueFinalDoc._reference_promotion_station_id = stationId;
+
+  var promotedAt = nowIso();
+  var calendarStatus = calendar.calendarStatusForMode(mode);
 
   var nextStation = normalizeStationInput(
     Object.assign({}, station, {
@@ -218,6 +265,12 @@ async function promoteReferenceStation(input) {
     }),
     station
   );
+
+  nextStation.reference_promotion_status = 'promoted_independent_reference';
+  nextStation.reference_promotion_at = promotedAt;
+  nextStation.reference_calendar_status = calendarStatus;
+  nextStation.requires_calibration = true;
+  nextStation.reference_station_name = calendar.stationNameAr(station);
 
   list[idx] = nextStation;
   await writeJsonFile('stations', list);
@@ -236,16 +289,18 @@ async function promoteReferenceStation(input) {
       reference_station_id: null,
       reference_station_name: targetName
     },
-    true_final_action: trueFinalAction,
-    copied_from_reference_station_id: copySource.station_id || prevRefId || '',
-    copied_from_reference_station_name: copySource.station_name,
-    annual_flat_rows_copied: annualRowsCopied,
-    had_true_final_station_entry: hadStationEntry,
-    had_annual_flat_rows: hadAnnual,
+    calendar_generation_mode: mode,
+    source_reference_station_id: sourceResolved.station_id || explicitSourceId || prevRefId || '',
+    source_reference_station_name: sourceName,
+    annual_flat_rows_created: built.annual_rows_created,
+    shift_days: built.shift_days,
+    source_suhail_date: built.source_suhail_date,
+    target_suhail_date: built.target_suhail_date,
+    requires_calibration: true,
     reason: reason,
     changed_by: actor,
-    changed_at: nowIso(),
-    source: 'promote_reference_station_panel',
+    changed_at: promotedAt,
+    source: 'promote_operational_station_to_reference',
     backup_key: backup.key
   };
 
@@ -258,16 +313,23 @@ async function promoteReferenceStation(input) {
     station: nextStation,
     audit: savedAudit,
     backup_key: backup.key,
-    true_final_action: trueFinalAction,
-    annual_flat_rows_copied: annualRowsCopied,
-    copied_from_reference_station_id: copySource.station_id || prevRefId || '',
-    copied_from_reference_station_name: copySource.station_name
+    calendar_generation_mode: mode,
+    reference_calendar_status: calendarStatus,
+    annual_flat_rows_created: built.annual_rows_created,
+    shift_days: built.shift_days,
+    source_suhail_date: built.source_suhail_date,
+    target_suhail_date: built.target_suhail_date,
+    copied_from_reference_station_id: sourceResolved.station_id || explicitSourceId || prevRefId || '',
+    copied_from_reference_station_name: sourceName,
+    requires_calibration: true,
+    calibration_notice:
+      mode === MODES.copy_from_reference
+        ? 'تقويم أولي منسوخ — يحتاج معايرة'
+        : 'تقويم مزاح بسهيل — يحتاج معايرة'
   };
 }
 
 module.exports = {
   promoteReferenceStation: promoteReferenceStation,
-  stationNameAr: stationNameAr,
-  hasAnnualFlatRows: hasAnnualFlatRows,
-  hasTrueFinalStationEntry: hasTrueFinalStationEntry
+  CALENDAR_MODES: MODES
 };

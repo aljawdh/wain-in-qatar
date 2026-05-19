@@ -46,6 +46,8 @@ module.exports = async function handler(req, res) {
     var body = parseBody(req) || {};
     var result = await service.promoteReferenceStation({
       station_id: body.station_id,
+      source_reference_station_id: body.source_reference_station_id,
+      calendar_generation_mode: body.calendar_generation_mode,
       reason: body.reason,
       actor: actorLabel(auth.user)
     });
