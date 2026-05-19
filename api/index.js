@@ -27,6 +27,7 @@ const traitReviewAdminHandler = require('../serverless_api/trait-review-admin');
 const marineGenomeAdminHandler = require('../serverless_api/marine-genome-admin');
 const referenceDurHealthAdminHandler = require('../serverless_api/reference-dur-health-admin');
 const genomeReviewConfigAdminHandler = require('../serverless_api/genome-review-config-admin');
+const promoteReferenceStationHandler = require('../serverless_api/promote-reference-station-admin');
 
 function normalizeRoute(value) {
   return String(value || '').trim().toLowerCase();
@@ -126,6 +127,9 @@ module.exports = async function handler(req, res) {
   }
   if (route === 'genome-review-config' || route === 'genome-review-stations') {
     return genomeReviewConfigAdminHandler(req, res);
+  }
+  if (route === 'promote-reference-station') {
+    return promoteReferenceStationHandler(req, res);
   }
   if (
     route === 'reference-dur-health' ||

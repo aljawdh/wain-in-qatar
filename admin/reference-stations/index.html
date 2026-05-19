@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ترقية محطة مرجعية — NAVIDUR</title>
+  <style>
+    :root { --bg:#0a1020; --panel:#121f38; --border:#2a4570; --text:#e8f0ff; --muted:#94a8c8; --accent:#2d6cdf; --ok:#8ef0b0; --danger:#ff9a9a; --warn:#ffe6a8; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Segoe UI",Tahoma,Arial,sans-serif; background:var(--bg); color:var(--text); line-height:1.55; font-size:15px; }
+    .wrap { max-width:1100px; margin:0 auto; padding:18px 16px 48px; }
+    h1 { font-size:1.3rem; margin:0 0 8px; }
+    .lead { color:var(--muted); margin:0 0 14px; max-width:56em; }
+    .auth-banner { background:#3a1a1a; border:1px solid #7a3030; color:#ffc4c4; padding:12px 16px; border-radius:10px; margin-bottom:14px; }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-top:16px; }
+    .warn-banner {
+      margin:0 0 16px;
+      padding:14px 16px;
+      border-radius:10px;
+      border:2px solid #c44;
+      background:rgba(180,40,40,.22);
+      color:#ffe0e0;
+      font-size:.95rem;
+      font-weight:600;
+      line-height:1.55;
+    }
+    table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    th, td { padding:10px 8px; border-bottom:1px solid rgba(42,69,112,.55); text-align:right; vertical-align:top; }
+    th { color:var(--muted); font-weight:600; }
+    .btn { border:1px solid var(--border); background:#1a3358; color:var(--text); padding:8px 14px; border-radius:8px; cursor:pointer; font-size:.88rem; }
+    .btn.primary { background:rgba(45,108,223,.4); border-color:#4a7fd4; }
+    .btn.promote { background:rgba(180,90,20,.35); border-color:#c86; color:#ffe6c8; font-weight:600; }
+    .btn:disabled { opacity:.45; cursor:not-allowed; }
+    .status { min-height:1.4em; margin:10px 0; color:var(--muted); }
+    .status.ok { color:var(--ok); }
+    .status.err { color:var(--danger); }
+    a { color:#9fe8ff; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.75rem; }
+    .badge.ref { background:#4d1a1a; color:#ffb3b3; }
+    .badge.op { background:#1a3a4d; color:#b8e4ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ترقية محطة إلى مرجعية مستقلة</h1>
+    <p class="lead">تحويل محطة تشغيلية مرتبطة بمرجع (مثل كتارا ← أم باب) إلى محطة مرجعية تقرأ الدر والموسم من نفسها، مع نسخة أولية من <code>true_final_station_reference</code> وسجل تدقيق KV.</p>
+    <p class="warn-banner" role="alert">تنبيه: العملية لا تحذف أم باب ولا أي محطة. تُنشئ نسخة احتياطية وتدقيقًا قبل التعديل.</p>
+    <div id="authBanner" class="auth-banner" style="display:none">يلزم تسجيل الدخول كمسؤول. <a href="/admin.html">العودة للوحة الإدارة</a></div>
+    <div class="panel">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+        <button type="button" class="btn primary" id="btnRefresh">تحديث القائمة</button>
+        <a class="btn" href="/admin.html">لوحة الإدارة</a>
+        <a class="btn" href="/admin/reference-dur-health/index.html">صحة در المراجع</a>
+      </div>
+      <p id="status" class="status"></p>
+      <table>
+        <thead>
+          <tr>
+            <th>المعرف</th>
+            <th>الاسم</th>
+            <th>الدولة</th>
+            <th>المرجع الحالي</th>
+            <th>النوع</th>
+            <th>إجراء</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var token = '';
+      try { token = localStorage.getItem('navidur_admin_token') || ''; } catch (_e) { token = ''; }
+
+      var authBanner = document.getElementById('authBanner');
+      var statusEl = document.getElementById('status');
+      var tbody = document.getElementById('tbody');
+      var stationsById = {};
+
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function setStatus(msg, kind) {
+        statusEl.textContent = msg || '';
+        statusEl.className = 'status' + (kind ? ' ' + kind : '');
+      }
+
+      function apiHeaders() {
+        var h = { Accept: 'application/json' };
+        if (token) h.Authorization = 'Bearer ' + token;
+        return h;
+      }
+
+      async function loadStations() {
+        if (!token) {
+          authBanner.style.display = 'block';
+          tbody.innerHTML = '';
+          return;
+        }
+        authBanner.style.display = 'none';
+        setStatus('جاري التحميل…');
+        var res = await fetch('/api?route=admin&path=stations', { headers: apiHeaders(), credentials: 'include' });
+        if (res.status === 401) {
+          authBanner.style.display = 'block';
+          setStatus('يلزم تسجيل الدخول.', 'err');
+          return;
+        }
+        var data = await res.json();
+        var list = (data && data.stations) || [];
+        stationsById = {};
+        list.forEach(function (s) { if (s && s.id) stationsById[s.id] = s; });
+        var rows = list.filter(function (s) {
+          return s && s.is_reference_station !== true;
+        });
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="6">لا توجد محطات تشغيلية للترقية.</td></tr>';
+          setStatus('تم التحميل.', 'ok');
+          return;
+        }
+        tbody.innerHTML = rows.map(function (s) {
+          var refId = (s.reference_station_id || '').trim();
+          var ref = refId && stationsById[refId] ? stationsById[refId].name : (s.reference_station_name_ar || refId || '—');
+          return '<tr data-id="' + esc(s.id) + '">' +
+            '<td><code>' + esc(s.id) + '</code></td>' +
+            '<td><strong>' + esc(s.name) + '</strong></td>' +
+            '<td>' + esc(s.country || '—') + '</td>' +
+            '<td>' + esc(ref) + (refId ? ' <span style="color:#7a9">(' + esc(refId) + ')</span>' : '') + '</td>' +
+            '<td><span class="badge op">تشغيلية</span></td>' +
+            '<td><button type="button" class="btn promote" data-promote="' + esc(s.id) + '" data-name="' + esc(s.name) + '">تحويل إلى محطة مرجعية</button></td>' +
+            '</tr>';
+        }).join('');
+        setStatus('عرض ' + rows.length + ' محطة غير مرجعية.', 'ok');
+      }
+
+      async function promoteStation(stationId, stationName) {
+        var msg = 'سيتم تحويل هذه المحطة إلى محطة مرجعية مستقلة وفصلها عن المحطة المرجعية الحالية. سيتم إنشاء نسخة أولية من الدرور من المرجع الحالي مع سجل تدقيق.\n\nالمحطة: ' + stationName + ' (' + stationId + ')\n\nهل أنت متأكد؟';
+        if (!window.confirm(msg)) return;
+        var reason = window.prompt('سبب الترقية (اختياري):', 'تحويل محطة ' + stationName + ' إلى محطة مرجعية مستقلة');
+        if (reason === null) return;
+        setStatus('جاري الترقية…');
+        var res = await fetch('/api?route=promote-reference-station', {
+          method: 'POST',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, apiHeaders()),
+          credentials: 'include',
+          body: JSON.stringify({ station_id: stationId, reason: reason || '' })
+        });
+        var body = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+          setStatus((body && body.error) || 'فشل الترقية (' + res.status + ')', 'err');
+          return;
+        }
+        setStatus('تمت الترقية بنجاح. مفتاح النسخة: ' + (body.backup_key || '—') + ' | تدقيق: ' + (body.audit && body.audit.id ? body.audit.id : '—'), 'ok');
+        await loadStations();
+      }
+
+      tbody.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-promote]');
+        if (!btn) return;
+        promoteStation(btn.getAttribute('data-promote'), btn.getAttribute('data-name') || '');
+      });
+
+      document.getElementById('btnRefresh').addEventListener('click', loadStations);
+      loadStations();
+    })();
+  </script>
+</body>
+</html>
