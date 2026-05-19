@@ -2103,7 +2103,8 @@ module.exports = async function handler(req, res) {
         review_status: cleanString(q.review_status, 20) || null,
         date_from: cleanString(q.date_from, 30) || null,
         date_to: cleanString(q.date_to, 30) || null,
-        success: cleanString(q.success, 10) || null
+        success: cleanString(q.success, 10) || null,
+        activity_type: cleanString(q.activity_type, 40) || null
       };
       const sessions = built.sessions.filter(function (s) { return fieldInsight.sessionMatchesFilter(s, filter); });
       return res.status(200).json({ ok: true, total: sessions.length, sessions: sessions });

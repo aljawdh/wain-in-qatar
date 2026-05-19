@@ -12,6 +12,16 @@ function normalizeString(v) {
   return String(v == null ? '' : v).trim();
 }
 
+/** Legacy logs without activity_type count as fishing catch decisions. */
+function sessionActivityType(sessionOrLog) {
+  var at = normalizeString(sessionOrLog && sessionOrLog.activity_type).toLowerCase();
+  return at || 'fishing';
+}
+
+function isFishingCatchSession(sessionOrLog) {
+  return sessionActivityType(sessionOrLog) === 'fishing';
+}
+
 function waterStateFromPredicted(s) {
   var t = normalizeString(s);
   if (t === 'حمل') return 'حمل';
@@ -91,12 +101,24 @@ function enrichSessionFromLog(log, stationMap, reviewMap) {
     selected_fish: selectedFish || null,
     caught_fish: caughtFishList,
     actual_species: normalizedActual,
-    catch_success: !!log.catch_success,
+    activity_type: sessionActivityType(log),
+    validation_scope: normalizeString(log.validation_scope) || null,
+    field_result: log.field_result != null ? normalizeString(log.field_result) : null,
+    catch_success_applicable: isFishingCatchSession(log),
+    catch_success: isFishingCatchSession(log)
+      ? (log.catch_success === true || log.catch_success === 'true')
+      : null,
     user_note: log.user_note || null,
     water_observation: log.water_observation || null,
     review_status: rev.review_status || 'pending',
     review_notes: rev.notes || null,
     photo_url: rev.photo_url || null,
+    site_environment: log.site_environment && typeof log.site_environment === 'object'
+      ? log.site_environment
+      : null,
+    activity_observation: log.activity_observation && typeof log.activity_observation === 'object'
+      ? log.activity_observation
+      : null,
     operator_id: log.operator_id
   };
 }
@@ -145,13 +167,20 @@ function sessionMatchesFilter(session, filter) {
     var t2 = (session.analysis_timestamp || session.created_at || '');
     if (t2 > filter.date_to) return false;
   }
-  if (filter.success === 'ok' && !session.catch_success) return false;
-  if (filter.success === 'fail' && session.catch_success) return false;
+  if (filter.success === 'ok') {
+    if (!isFishingCatchSession(session) || !session.catch_success) return false;
+  }
+  if (filter.success === 'fail') {
+    if (!isFishingCatchSession(session) || session.catch_success) return false;
+  }
+  if (filter.activity_type) {
+    if (sessionActivityType(session) !== normalizeString(filter.activity_type).toLowerCase()) return false;
+  }
   return true;
 }
 
 function buildSummary(sessions) {
-  var list = toArray(sessions);
+  var list = toArray(sessions).filter(isFishingCatchSession);
   var total = list.length;
   var ok = list.filter(function (s) { return s.catch_success; }).length;
   var fail = total - ok;
@@ -211,7 +240,7 @@ function groupKey(fish, stationName, dur, water, tide) {
  * Each pattern: fish + context bucket.
  */
 function buildPatterns(sessions) {
-  var list = toArray(sessions);
+  var list = toArray(sessions).filter(isFishingCatchSession);
   var groups = {};
   list.forEach(function (s) {
     var ctxDur = s.dur_name || '';
@@ -381,9 +410,13 @@ module.exports = {
     return { sessions: s, summary: buildSummary(forAccuracy) };
   },
   buildPatternsFromSessions: function (sessions) {
-    var eligible = toArray(sessions).filter(function (x) { return !x || !x.excluded_from_accuracy; });
+    var eligible = toArray(sessions).filter(function (x) {
+      return x && !x.excluded_from_accuracy && isFishingCatchSession(x);
+    });
     return buildPatterns(eligible);
   },
+  isFishingCatchSession: isFishingCatchSession,
+  sessionActivityType: sessionActivityType,
   sessionMatchesFilter: sessionMatchesFilter,
   patternToSuggestedRecord: patternToSuggestedRecord,
   computeDecisionStrength: computeDecisionStrength,

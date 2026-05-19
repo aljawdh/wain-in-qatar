@@ -39,11 +39,19 @@ async function handleLogCatch(req, res) {
     const analysisTimestampRaw = cleanString(body.analysis_timestamp || body.recorded_at_local || '', 60);
     if (!analysisTimestampRaw) return res.status(400).json({ error: 'analysis_timestamp_required' });
 
-    const catchSuccessRaw = body.catch_success;
-    if (catchSuccessRaw === undefined || catchSuccessRaw === null) {
-      return res.status(400).json({ error: 'catch_success_required' });
+    const activityTypeRaw = isFieldApp
+      ? (cleanString(body.activity_type || '', 40).toLowerCase() || 'fishing')
+      : 'fishing';
+    const isFieldNonFishing = isFieldApp && activityTypeRaw !== 'fishing';
+
+    let catchSuccess = null;
+    if (!isFieldNonFishing) {
+      const catchSuccessRaw = body.catch_success;
+      if (catchSuccessRaw === undefined || catchSuccessRaw === null) {
+        return res.status(400).json({ error: 'catch_success_required' });
+      }
+      catchSuccess = catchSuccessRaw === true || catchSuccessRaw === 'true';
     }
-    const catchSuccess = catchSuccessRaw === true || catchSuccessRaw === 'true';
 
     // ── Optional field validation ──────────────────────────────────────────
     const catchQuantityRaw = toNumber(body.catch_quantity);
@@ -93,8 +101,14 @@ async function handleLogCatch(req, res) {
     // For field_app: include trip_id + session_id so field records can't falsely
     // collide with public records, and multiple field users won't cross-dedup.
     const snapshotIdForDedup = cleanString(body.prediction_snapshot_id || '', 80) || '';
+    const validationScope = isFieldApp ? (cleanString(body.validation_scope || '', 40) || null) : null;
+    const fieldResult = isFieldNonFishing
+      ? (cleanString(body.field_result || '', 30) || 'not_applicable')
+      : null;
     const dedupParts = isFieldApp
-      ? [tripId || '', sessionId || '', stationId, analysisTimestampRaw.slice(0, 16), catchSuccess ? '1' : '0']
+      ? (isFieldNonFishing
+        ? [tripId || '', sessionId || '', stationId, analysisTimestampRaw.slice(0, 16), activityTypeRaw, validationScope || 'na']
+        : [tripId || '', sessionId || '', stationId, analysisTimestampRaw.slice(0, 16), catchSuccess ? '1' : '0'])
       : [snapshotIdForDedup, stationId, analysisTimestampRaw.slice(0, 16), catchSuccess ? '1' : '0', actualSpecies.slice().sort().join('|')];
     const dedupFingerprint = dedupParts.join(':');
     const isDuplicate = await checkAndSetDedup(dedupFingerprint, 120);
@@ -130,6 +144,15 @@ async function handleLogCatch(req, res) {
       compute_source: cleanString(body.compute_source || '', 20) || 'local',
       // Outcome
       catch_success: catchSuccess,
+      activity_type: isFieldApp ? activityTypeRaw : null,
+      validation_scope: validationScope,
+      field_result: fieldResult,
+      site_environment: isFieldApp && body.site_environment && typeof body.site_environment === 'object'
+        ? body.site_environment
+        : null,
+      activity_observation: isFieldApp && body.activity_observation && typeof body.activity_observation === 'object'
+        ? body.activity_observation
+        : null,
       actual_species: actualSpecies,
       catch_quantity: catchQuantityRaw,
       fishing_method: fishingMethod,

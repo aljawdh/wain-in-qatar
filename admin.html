@@ -42,6 +42,19 @@ body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:radial-gradient(c
 .admin-section[data-section="settings"]{border-right:4px solid rgba(255,165,165,.5)}
 .admin-section[data-section="astro-dur"]{border-right:4px solid rgba(147,197,253,.55)}
 .admin-section[data-section="field-review"]{border-right:4px solid rgba(180,255,200,.55)}
+    .fr-act-badge,.fr-scope-badge{display:inline-block;font-size:.65rem;padding:2px 8px;border-radius:6px;font-weight:800;line-height:1.4;white-space:nowrap}
+    .fr-act-badge.act-fishing{background:rgba(95,221,151,.15);color:#9ef0c4;border:1px solid rgba(95,221,151,.35)}
+    .fr-act-badge.act-observation{background:rgba(39,190,255,.12);color:#9ed8ff;border:1px solid rgba(39,190,255,.32)}
+    .fr-act-badge.act-swimming,.fr-act-badge.act-diving{background:rgba(255,213,127,.12);color:#ffe7aa;border:1px solid rgba(255,213,127,.32)}
+    .fr-act-badge.act-station_check{background:rgba(180,140,255,.12);color:#e0d0ff;border:1px solid rgba(180,140,255,.32)}
+    .fr-act-badge.act-documentation{background:rgba(255,160,200,.12);color:#ffd0e8;border:1px solid rgba(255,160,200,.28)}
+    .fr-act-badge.act-general{background:rgba(180,200,220,.12);color:#d0e4f4;border:1px solid rgba(180,200,220,.28)}
+    .fr-scope-badge{background:rgba(120,160,200,.1);color:#b8d4e8;border:1px solid rgba(120,160,200,.25)}
+    .fr-cat-card{border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;background:rgba(0,0,0,.15)}
+    .fr-cat-card h6{margin:0 0 8px;font-size:.88rem;color:#c8e8ff}
+    .fr-cat-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+    .fr-cat-stats .as-card{padding:8px 10px}
+    .fr-json-block{margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.2);font-size:.72rem;line-height:1.55;word-break:break-word;white-space:pre-wrap;direction:ltr;text-align:left}
 .admin-section[data-section="station-health"]{border-right:4px solid rgba(255,200,120,.5)}
 .admin-section[data-section="weather-audit"]{border-right:4px solid rgba(120,200,255,.5)}
 .admin-section[data-section="water-land"]{border-right:4px solid rgba(100,180,240,.55)}
@@ -1272,21 +1285,32 @@ hr.sep{border:none;border-top:1px solid rgba(255,255,255,.08);margin:12px 0}
                 <select id="fieldReviewFilterWater"><option value="">—</option><option value="حمل">حمل</option><option value="فساد">فساد</option></select></div>
               <div class="admin-field"><label for="fieldReviewFilterTide">المد</label>
                 <select id="fieldReviewFilterTide"><option value="">—</option><option value="سقي">سقي</option><option value="ثبر">ثبر</option><option value="ثابت">ثابت</option></select></div>
+              <div class="admin-field"><label for="fieldReviewFilterActivity">نوع الرحلة</label>
+                <select id="fieldReviewFilterActivity">
+                  <option value="">— الكل —</option>
+                  <option value="fishing">صيد</option>
+                  <option value="observation">مراقبة بحرية</option>
+                  <option value="swimming">سباحة</option>
+                  <option value="diving">غوص</option>
+                  <option value="station_check">فحص محطة</option>
+                  <option value="documentation">تصوير</option>
+                  <option value="general">عام</option>
+                </select></div>
               <div class="admin-field"><label for="fieldReviewFilterFish">سمكة</label><input type="text" id="fieldReviewFilterFish" placeholder="جزء من الاسم"></div>
-              <div class="admin-field"><label for="fieldReviewFilterSuccess">نجاح الجلسة</label>
+              <div class="admin-field"><label for="fieldReviewFilterSuccess">نجاح الصيد</label>
                 <select id="fieldReviewFilterSuccess"><option value="">—</option><option value="ok">ناجح</option><option value="fail">غير ناجح</option></select></div>
               <div class="admin-field"><label for="fieldReviewFilterReview">حالة المراجعة</label>
                 <select id="fieldReviewFilterReview"><option value="">—</option><option value="pending">معلّق</option><option value="approved">معتمد</option><option value="rejected">مرفوض</option></select></div>
               <div class="admin-field"><label>&nbsp;</label><button type="button" class="settings-btn secondary" id="fieldReviewApplyFiltersBtn">تطبيق التصفية</button></div>
             </div>
-            <div class="admin-stat" id="fieldReviewSummaryRow" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px"></div>
-            <h5 style="margin:10px 0 6px;font-size:.9rem">دقة المطابقة</h5>
-            <div id="fieldReviewAccuracy" class="section-subtitle" style="margin-bottom:12px"></div>
+            <h5 style="margin:0 0 8px;font-size:.9rem">ملخصات حسب نوع النشاط</h5>
+            <div id="fieldReviewCategorySummaries" style="display:grid;gap:12px;margin-bottom:14px"></div>
+            <p class="section-subtitle" style="margin:0 0 10px;font-size:.78rem">معدل نجاح الصيد ودقة المطابقة تخص سجلات الصيد فقط (بما فيها السجلات القديمة بدون activity_type). الأنماط المقترحة تُستمد من الصيد فقط.</p>
             <h5 style="margin:10px 0 6px;font-size:.9rem">جلسات الميدان</h5>
             <div class="table-wrap" style="max-height:360px;margin-bottom:16px">
               <table class="admin-table" id="fieldReviewSessionsTable">
-                <thead><tr><th>المحطة</th><th>الوقت</th><th>الدر</th><th>الماء/المد</th><th>موصى بها / فعلي</th><th>المراجعة</th><th>إجراءات</th></tr></thead>
-                <tbody id="fieldReviewSessionsBody"><tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr></tbody>
+                <thead><tr><th>نوع الرحلة</th><th>نطاق التحقق</th><th>المحطة</th><th>الوقت</th><th>الدر</th><th>الماء/المد</th><th>موصى بها / فعلي</th><th>المراجعة</th><th>إجراءات</th></tr></thead>
+                <tbody id="fieldReviewSessionsBody"><tr><td colspan="9" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr></tbody>
               </table>
             </div>
             <h5 style="margin:10px 0 6px;font-size:.9rem">أنماط مقترحة (قوة القرار)</h5>

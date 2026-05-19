@@ -756,6 +756,41 @@
       font-size: 11px;
       font-weight: 700;
     }
+    .activity-type-row {
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .activity-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      background: rgba(39,190,255,0.14);
+      border: 1px solid rgba(39,190,255,0.35);
+      color: var(--accent);
+      margin-inline-start: 6px;
+    }
+    .recent-records {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+    .recent-records-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .recent-record-item {
+      font-size: 12px;
+      color: var(--txt);
+      padding: 6px 0;
+      border-bottom: 1px dashed rgba(255,255,255,0.06);
+      line-height: 1.6;
+    }
+    .recent-record-item:last-child { border-bottom: none; }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -963,6 +998,18 @@
 
     <!-- ─ Card 2: Trip ─ -->
     <div class="phase-card inactive" id="tripCard">
+      <div class="activity-type-row">
+        <div class="field-label">نوع الرحلة</div>
+        <select id="tripActivityType" class="select-field" onchange="onTripActivityTypeChange()">
+          <option value="fishing">صيد</option>
+          <option value="observation">مراقبة بحرية</option>
+          <option value="swimming">سباحة</option>
+          <option value="diving">غوص</option>
+          <option value="station_check">فحص محطة</option>
+          <option value="documentation">تصوير / توثيق</option>
+          <option value="general">ملاحظة عامة</option>
+        </select>
+      </div>
       <div id="tripInactive">
         <div class="phase-header">
           <div class="phase-title inactive">▶️ الرحلة</div>
@@ -1005,9 +1052,10 @@
       </div>
     </div>
 
-    <!-- ─ Card 4: Catch Form ─ -->
+    <!-- ─ Card 4: Field Record ─ -->
     <div class="catch-card" id="catchCard">
-      <div class="card-title">💾 تسجيل صيدة</div>
+      
+      <div class="card-title" id="recordCardTitle">💾 تسجيل ميداني</div>
 
       <div id="predBanner" style="display:none;margin-bottom:10px;padding:8px 12px;border-radius:10px;font-size:12px;font-weight:700;background:rgba(39,190,255,0.07);border:1px solid rgba(39,190,255,0.18);color:var(--muted)">
         <span id="predBannerText"></span>
@@ -1017,6 +1065,38 @@
         ⚠️ السجل سيُحفظ بدون رحلة أو جلسة نشطة
       </div>
 
+      <div id="siteEnvironmentCommon" class="catch-fields" style="margin-bottom:10px">
+        <div>
+          <div class="field-label">نوع قاع البحر</div>
+          <select id="seabedType" class="select-field">
+            <option value="">اختر...</option>
+            <option value="sand">رملي</option>
+            <option value="mud">طيني</option>
+            <option value="rock">صخري</option>
+            <option value="coral">شعاب / مرجان</option>
+            <option value="seagrass">أعشاب بحرية</option>
+            <option value="sand_rock">خليط رملي صخري</option>
+            <option value="mud_sand">خليط طيني رملي</option>
+            <option value="silt">سبخة / طمي</option>
+            <option value="unknown">غير معروف</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">حالة وضوح القاع</div>
+          <select id="seabedVisibility" class="select-field">
+            <option value="">اختر...</option>
+            <option value="clear">واضح</option>
+            <option value="partial">واضح جزئيًا</option>
+            <option value="turbid">محجوب بالعكارة</option>
+            <option value="vegetation">مغطى بأعشاب</option>
+            <option value="sediment">مغطى برواسب</option>
+            <option value="not_visible">غير مرئي</option>
+            <option value="unknown">غير معروف</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="activityFormFishing">
       <div class="catch-result-btns">
         <button class="btn-catch-yes" id="btnCatchYes" onclick="setCatchResult(true)">
           ✅ صاد
@@ -1026,7 +1106,6 @@
         </button>
       </div>
 
-      <!-- Species section (only when caught) -->
       <div id="speciesSection" class="catch-fields" style="display:none;margin-bottom:10px">
         <div>
           <div class="field-label">أنواع السمك</div>
@@ -1048,8 +1127,7 @@
         </div>
       </div>
 
-      <!-- Always-visible fields -->
-      <div class="catch-fields">
+      <div class="catch-fields" id="fishingExtraFields">
         <div>
           <div class="field-label">نوع الموقع</div>
           <select id="locationType" class="select-field">
@@ -1092,11 +1170,253 @@
                  placeholder="اختياري..." maxlength="120" />
         </div>
       </div>
+      </div>
+
+      <div id="activityFormObservation" class="catch-fields" style="display:none">
+        <div>
+          <div class="field-label">صفاء الماء</div>
+          <select id="obsWaterClarity" class="select-field">
+            <option value="">اختر...</option>
+            <option value="clear">صافي</option>
+            <option value="medium">متوسط</option>
+            <option value="turbid">عكر</option>
+            <option value="very_turbid">شديد العكارة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">لون الماء</div>
+          <select id="obsWaterColor" class="select-field">
+            <option value="">اختر...</option>
+            <option value="blue">أزرق</option>
+            <option value="green">أخضر</option>
+            <option value="blue_green">أزرق مخضر</option>
+            <option value="brown">بني</option>
+            <option value="foamy">رغوي</option>
+            <option value="abnormal">غير طبيعي</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">حالة السطح</div>
+          <select id="obsSurfaceState" class="select-field">
+            <option value="">اختر...</option>
+            <option value="calm">هادئ</option>
+            <option value="light_ripple">تموج خفيف</option>
+            <option value="rough">مضطرب</option>
+            <option value="foam">رغوة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">اتجاه التيار المرئي</div>
+          <select id="obsCurrentDirection" class="select-field">
+            <option value="">اختر...</option>
+            <option value="north">شمال</option>
+            <option value="south">جنوب</option>
+            <option value="east">شرق</option>
+            <option value="west">غرب</option>
+            <option value="unclear">غير واضح</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">عوالق أو طحالب</div>
+          <select id="obsPlankton" class="select-field">
+            <option value="">اختر...</option>
+            <option value="no">لا</option>
+            <option value="yes">نعم</option>
+          </select>
+        </div>
+        <div>
+          
+          
+          <div class="field-label">ملاحظة</div>
+          <input id="obsNote" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+      </div>
+
+      <div id="activityFormSwimming" class="catch-fields" style="display:none">
+        <div>
+          <div class="field-label">مناسب للسباحة</div>
+          <select id="swimSuitable" class="select-field">
+            <option value="">اختر...</option>
+            <option value="yes">نعم</option>
+            <option value="no">لا</option>
+            <option value="caution">بحذر</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">قوة التيار</div>
+          <select id="swimCurrentStrength" class="select-field">
+            <option value="">اختر...</option>
+            <option value="weak">ضعيف</option>
+            <option value="medium">متوسط</option>
+            <option value="strong">قوي</option>
+            <option value="unclear">غير واضح</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">الرؤية</div>
+          <select id="swimVisibility" class="select-field">
+            <option value="">اختر...</option>
+            <option value="clear">واضحة</option>
+            <option value="medium">متوسطة</option>
+            <option value="poor">ضعيفة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">مخاطر ظاهرة</div>
+          <select id="swimHazards" class="select-field">
+            <option value="">اختر...</option>
+            <option value="none">لا</option>
+            <option value="jellyfish">قناديل</option>
+            <option value="rocks">صخور</option>
+            <option value="strong_current">تيار قوي</option>
+            <option value="boats">قوارب</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">ملاحظة سلامة</div>
+          <input id="swimNote" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+      </div>
+
+      <div id="activityFormDiving" class="catch-fields" style="display:none">
+        <div>
+          <div class="field-label">الرؤية تحت الماء</div>
+          <select id="diveVisibility" class="select-field">
+            <option value="">اختر...</option>
+            <option value="excellent">ممتازة</option>
+            <option value="good">جيدة</option>
+            <option value="medium">متوسطة</option>
+            <option value="poor">ضعيفة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">تقدير الرؤية بالمتر (اختياري)</div>
+          <input id="diveVisibilityMeters" type="number" class="input-field" min="0" max="100" step="0.1" inputmode="decimal" placeholder="مثال: 5" />
+        </div>
+        <div>
+          <div class="field-label">التيار تحت السطح</div>
+          <select id="diveUndercurrent" class="select-field">
+            <option value="">اختر...</option>
+            <option value="weak">ضعيف</option>
+            <option value="medium">متوسط</option>
+            <option value="strong">قوي</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">الحياة البحرية المرصودة</div>
+          <input id="diveMarineLife" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+        <div>
+          <div class="field-label">ملاحظة</div>
+          <input id="diveNote" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+      </div>
+
+      <div id="activityFormStationCheck" class="catch-fields" style="display:none">
+        
+        <div>
+          <div class="field-label">حالة الحساسات</div>
+          <select id="stnSensors" class="select-field">
+            <option value="">اختر...</option>
+            <option value="ok">سليمة</option>
+            <option value="needs_check">تحتاج فحص</option>
+            <option value="faulty">متعطلة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">حالة الكاميرا</div>
+          <select id="stnCamera" class="select-field">
+            <option value="">اختر...</option>
+            <option value="ok">سليمة</option>
+            <option value="needs_check">تحتاج فحص</option>
+            <option value="faulty">متعطلة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">حالة اللوح الشمسي</div>
+          <select id="stnSolar" class="select-field">
+            <option value="">اختر...</option>
+            <option value="clean">نظيف</option>
+            <option value="dirty">متسخ</option>
+            <option value="needs_adjustment">يحتاج تعديل</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">حالة جسم المحطة</div>
+          <select id="stnBody" class="select-field">
+            <option value="">اختر...</option>
+            <option value="good">جيد</option>
+            <option value="corrosion">تآكل</option>
+            <option value="salt">أملاح</option>
+            <option value="damage">ضرر</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">هل حساس الماء في مكانه؟</div>
+          <select id="stnWaterSensor" class="select-field">
+            <option value="">اختر...</option>
+            <option value="yes">نعم</option>
+            <option value="no">لا</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">ملاحظة صيانة</div>
+          <input id="stnNote" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+      </div>
+
+      <div id="activityFormDocumentation" class="catch-fields" style="display:none">
+        <div>
+          <div class="field-label">نوع التوثيق</div>
+          <select id="docType" class="select-field">
+            <option value="">اختر...</option>
+            <option value="sea_photo">صورة بحر</option>
+            <option value="water_state">حالة ماء</option>
+            <option value="waves">أمواج</option>
+            <option value="current">تيار</option>
+            <option value="marine_life">حياة بحرية</option>
+            <option value="station">محطة</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">جودة الرؤية</div>
+          <select id="docVisibility" class="select-field">
+            <option value="">اختر...</option>
+            <option value="clear">واضحة</option>
+            <option value="medium">متوسطة</option>
+            <option value="poor">ضعيفة</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">ملاحظة</div>
+          <input id="docNote" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+      </div>
+
+      <div id="activityFormGeneral" class="catch-fields" style="display:none">
+        <div>
+          <div class="field-label">نوع الملاحظة</div>
+          <select id="genObsType" class="select-field">
+            <option value="">اختر...</option>
+            <option value="environmental">بيئية</option>
+            <option value="safety">سلامة</option>
+            <option value="equipment">معدات</option>
+            <option value="location">موقع</option>
+            <option value="other">أخرى</option>
+          </select>
+        </div>
+        <div>
+          <div class="field-label">ملاحظة</div>
+          <input id="genNote" type="text" class="input-field" maxlength="120" placeholder="اختياري..." />
+        </div>
+      </div>
 
       <div id="catchStatus"></div>
       <button class="btn-save" onclick="saveCatch()">💾 حفظ السجل</button>
+      <div id="recentRecordsList" class="recent-records"></div>
     </div>
-
   </div><!-- /main-content -->
 </div><!-- /appScreen -->
 
@@ -3059,6 +3379,230 @@ function confirmGpsStation() {
 }
 
 // ══════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════
+// FIELD ACTIVITY TYPES
+// ══════════════════════════════════════════════════════════
+const ACTIVITY_TYPE_META = {
+  fishing: { label: 'صيد', badge: 'صيد', recordTitle: '💾 تسجيل صيدة' },
+  observation: { label: 'مراقبة بحرية', badge: 'مراقبة', recordTitle: '💾 تسجيل مراقبة بحرية' },
+  swimming: { label: 'سباحة', badge: 'سباحة', recordTitle: '💾 تسجيل سباحة' },
+  diving: { label: 'غوص', badge: 'غوص', recordTitle: '💾 تسجيل غوص' },
+  station_check: { label: 'فحص محطة', badge: 'فحص محطة', recordTitle: '💾 فحص محطة' },
+  documentation: { label: 'تصوير / توثيق', badge: 'توثيق', recordTitle: '💾 تسجيل توثيق' },
+  general: { label: 'ملاحظة عامة', badge: 'عام', recordTitle: '💾 ملاحظة ميدانية' }
+};
+
+const ACTIVITY_FORM_IDS = {
+  fishing: 'activityFormFishing',
+  observation: 'activityFormObservation',
+  swimming: 'activityFormSwimming',
+  diving: 'activityFormDiving',
+  station_check: 'activityFormStationCheck',
+  documentation: 'activityFormDocumentation',
+  general: 'activityFormGeneral'
+};
+
+function normalizeActivityType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ACTIVITY_TYPE_META[key] ? key : 'fishing';
+}
+
+function getCurrentActivityType() {
+  if (appState.activeTrip && appState.activeTrip.activity_type) {
+    return normalizeActivityType(appState.activeTrip.activity_type);
+  }
+  const sel = document.getElementById('tripActivityType');
+  if (sel && sel.value) return normalizeActivityType(sel.value);
+  return 'fishing';
+}
+
+function getValidationScope(activityType) {
+  const t = normalizeActivityType(activityType);
+  if (t === 'fishing') return 'fishing_decision';
+  if (t === 'observation') return 'environmental_observation';
+  if (t === 'swimming' || t === 'diving') return 'safety_observation';
+  if (t === 'station_check') return 'station_health';
+  if (t === 'documentation') return 'documentation';
+  return 'general_note';
+}
+
+function activityTypeBadgeHtml(type) {
+  const meta = ACTIVITY_TYPE_META[normalizeActivityType(type)];
+  return '<span class="activity-badge">' + meta.badge + '</span>';
+}
+
+function val(id) {
+  const el = document.getElementById(id);
+  return el ? String(el.value || '').trim() : '';
+}
+
+function collectSiteEnvironment(activityType) {
+  const env = {};
+  const seabed = val('seabedType');
+  const seabedVis = val('seabedVisibility');
+  if (seabed) env.seabed_type = seabed;
+  if (seabedVis) env.seabed_visibility = seabedVis;
+  if (activityType === 'observation') {
+    if (val('obsWaterClarity')) env.water_clarity = val('obsWaterClarity');
+    if (val('obsWaterColor')) env.water_color = val('obsWaterColor');
+    if (val('obsSurfaceState')) env.surface_state = val('obsSurfaceState');
+  }
+  return Object.keys(env).length ? env : null;
+}
+
+function collectActivityObservation(activityType) {
+  const obs = {};
+  if (activityType === 'observation') {
+    if (val('obsCurrentDirection')) obs.current_direction = val('obsCurrentDirection');
+    if (val('obsPlankton')) obs.plankton_algae = val('obsPlankton');
+    if (val('obsNote')) obs.note = val('obsNote');
+  } else if (activityType === 'swimming') {
+    if (val('swimSuitable')) obs.suitable = val('swimSuitable');
+    if (val('swimCurrentStrength')) obs.current_strength = val('swimCurrentStrength');
+    if (val('swimVisibility')) obs.visibility = val('swimVisibility');
+    if (val('swimHazards')) obs.hazards = val('swimHazards');
+    if (val('swimNote')) obs.note = val('swimNote');
+  } else if (activityType === 'diving') {
+    if (val('diveVisibility')) obs.underwater_visibility = val('diveVisibility');
+    const meters = val('diveVisibilityMeters');
+    if (meters) obs.visibility_meters = Number(meters);
+    if (val('diveUndercurrent')) obs.undercurrent = val('diveUndercurrent');
+    if (val('diveMarineLife')) obs.marine_life = val('diveMarineLife');
+    if (val('diveNote')) obs.note = val('diveNote');
+  } else if (activityType === 'station_check') {
+    if (val('stnSensors')) obs.sensors_status = val('stnSensors');
+    if (val('stnCamera')) obs.camera_status = val('stnCamera');
+    if (val('stnSolar')) obs.solar_status = val('stnSolar');
+    if (val('stnBody')) obs.station_body_status = val('stnBody');
+    if (val('stnWaterSensor')) obs.water_sensor_in_place = val('stnWaterSensor');
+    if (val('stnNote')) obs.note = val('stnNote');
+  } else if (activityType === 'documentation') {
+    if (val('docType')) obs.documentation_type = val('docType');
+    if (val('docVisibility')) obs.visibility_quality = val('docVisibility');
+    if (val('docNote')) obs.note = val('docNote');
+  } else if (activityType === 'general') {
+    if (val('genObsType')) obs.observation_type = val('genObsType');
+    if (val('genNote')) obs.note = val('genNote');
+  }
+  return Object.keys(obs).length ? obs : null;
+}
+
+function getActivityNote(activityType) {
+  if (activityType === 'fishing') return val('userNote');
+  if (activityType === 'observation') return val('obsNote');
+  if (activityType === 'swimming') return val('swimNote');
+  if (activityType === 'diving') return val('diveNote');
+  if (activityType === 'station_check') return val('stnNote');
+  if (activityType === 'documentation') return val('docNote');
+  if (activityType === 'general') return val('genNote');
+  return '';
+}
+
+function hasActivityObservationInput(activityType) {
+  const obs = collectActivityObservation(activityType);
+  if (!obs) return false;
+  return Object.keys(obs).some(function (k) {
+    const v = obs[k];
+    return v != null && v !== '' && !(typeof v === 'number' && !Number.isFinite(v));
+  });
+}
+
+function validateFieldRecord(activityType) {
+  const statusEl = document.getElementById('catchStatus');
+  if (activityType === 'fishing') {
+    if (appState.catchResult === null) {
+      if (statusEl) statusEl.textContent = '⚠️ اختر صاد أو ما صاد';
+      return false;
+    }
+    if (appState.catchResult === true && !appState.selectedFish) {
+      if (statusEl) statusEl.textContent = '⚠️ اختر سمكة أولاً';
+      return false;
+    }
+    const note = val('userNote');
+    if (!appState.selectedFish && !note) {
+      if (statusEl) statusEl.textContent = '⚠️ عند عدم اختيار السمكة أضف ملاحظة عامة';
+      return false;
+    }
+    return true;
+  }
+  const note = getActivityNote(activityType);
+  if (!note && !hasActivityObservationInput(activityType)) {
+    if (statusEl) statusEl.textContent = '⚠️ أضف حقلًا واحدًا على الأقل أو ملاحظة';
+    return false;
+  }
+  return true;
+}
+
+function renderActivityRecordForm() {
+  const activityType = getCurrentActivityType();
+  const meta = ACTIVITY_TYPE_META[activityType];
+  const titleEl = document.getElementById('recordCardTitle');
+  if (titleEl) titleEl.textContent = meta.recordTitle;
+  Object.keys(ACTIVITY_FORM_IDS).forEach(function (key) {
+    const el = document.getElementById(ACTIVITY_FORM_IDS[key]);
+    if (el) el.style.display = key === activityType ? '' : 'none';
+  });
+  const fishForm = document.getElementById('activityFormFishing');
+  if (fishForm) fishForm.style.display = activityType === 'fishing' ? '' : 'none';
+}
+
+async function onTripActivityTypeChange() {
+  const activityType = getCurrentActivityType();
+  renderActivityRecordForm();
+  if (appState.activeTrip) {
+    appState.activeTrip.activity_type = activityType;
+    await FieldDB.saveTrip(appState.activeTrip);
+  }
+  if (appState.activeSession) {
+    appState.activeSession.activity_type = activityType;
+    await FieldDB.saveSession(appState.activeSession);
+  }
+  renderTripPanel();
+}
+
+async function renderRecentRecordsList() {
+  const el = document.getElementById('recentRecordsList');
+  if (!el) return;
+  let pending = [];
+  try { pending = await FieldDB.getPending(); } catch (_) { pending = []; }
+  const unsynced = pending.filter(function (r) { return r && !r.synced_at; });
+  const recent = unsynced.slice(-5).reverse();
+  if (!recent.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = '<div class="recent-records-title">آخر السجلات المحلية</div>' +
+    recent.map(function (r) {
+      const type = normalizeActivityType(r.activity_type);
+      const meta = ACTIVITY_TYPE_META[type];
+      const station = r.station_name || r.station_id || '—';
+      const time = r.recorded_at_local ? formatTime(r.recorded_at_local) : '—';
+      return '<div class="recent-record-item">' + activityTypeBadgeHtml(type) +
+        ' <strong>' + meta.label + '</strong> · ' + station + ' · ' + time + '</div>';
+    }).join('');
+}
+
+function syncTripActivityTypeSelect() {
+  const sel = document.getElementById('tripActivityType');
+  if (!sel) return;
+  const t = getCurrentActivityType();
+  if (sel.value !== t) sel.value = t;
+}
+
+function resetActivityFormFields() {
+  ['seabedType', 'seabedVisibility', 'obsWaterClarity', 'obsWaterColor', 'obsSurfaceState',
+    'obsCurrentDirection', 'obsPlankton', 'obsNote', 'swimSuitable', 'swimCurrentStrength',
+    'swimVisibility', 'swimHazards', 'swimNote', 'diveVisibility', 'diveVisibilityMeters',
+    'diveUndercurrent', 'diveMarineLife', 'diveNote', 'stnSensors', 'stnCamera', 'stnSolar',
+    'stnBody', 'stnWaterSensor', 'stnNote', 'docType', 'docVisibility', 'docNote',
+    'genObsType', 'genNote'
+  ].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
 // TRIP MANAGEMENT
 // ══════════════════════════════════════════════════════════
 async function startTrip() {
@@ -3083,12 +3627,15 @@ async function startTrip() {
     trip_end_time: null,
     trip_target: target || null,
     trip_note: note || null,
+    activity_type: getCurrentActivityType(),
     created_at: nowIso(),
     source: 'field_app'
   };
 
   await FieldDB.saveTrip(trip);
   appState.activeTrip = trip;
+  syncTripActivityTypeSelect();
+  renderActivityRecordForm();
   renderTripPanel();
   renderSessionPanel();
   showToast('▶️ رحلة بدأت', 'ok');
@@ -3137,12 +3684,14 @@ async function startSession() {
     water_observation: null,
     fishing_method: null,
     user_note: null,
+    activity_type: getCurrentActivityType(),
     created_at: nowIso(),
     source: 'field_app'
   };
 
   await FieldDB.saveSession(session);
   appState.activeSession = session;
+  renderActivityRecordForm();
   renderSessionPanel();
   renderCatchWarning();
   showToast('🎣 جلسة بدأت', 'ok');
@@ -3414,11 +3963,7 @@ function renderCatchWarning() {
 }
 
 async function saveCatch() {
-  if (appState.catchResult === null) {
-    document.getElementById('catchStatus').textContent = '⚠️ اختر صاد أو ما صاد';
-    return;
-  }
-
+  const activityType = getCurrentActivityType();
   const station = appState.currentStation;
   if (!station) {
     document.getElementById('catchStatus').textContent = '⚠️ اختر محطة أولاً';
@@ -3431,32 +3976,18 @@ async function saveCatch() {
     return;
   }
 
+  if (!validateFieldRecord(activityType)) return;
+
   const trip = appState.activeTrip;
   const session = appState.activeSession;
   const now = nowIso();
 
-  const species = appState.selectedFish ? [appState.selectedFish] : [];
-  const qty = parseInt(document.getElementById('catchQty').value, 10);
-  const locType = document.getElementById('locationType').value;
-  const waterObs = document.getElementById('waterObservation').value;
-  const method = document.getElementById('fishingMethod').value;
-  const note = document.getElementById('userNote').value.trim();
-
-  if (appState.catchResult === true && !appState.selectedFish) {
-    document.getElementById('catchStatus').textContent = '⚠️ اختر سمكة أولاً';
-    return;
-  }
-  if (!appState.selectedFish && !note) {
-    document.getElementById('catchStatus').textContent = '⚠️ عند عدم اختيار السمكة أضف ملاحظة عامة';
-    return;
-  }
   if (!currentFieldPrediction || !currentFieldPrediction.dur_name || !currentFieldPrediction.tide_state || !currentFieldPrediction.weather_snapshot) {
     if (appState.isOnline) {
       try { await fetchAnalysis(station); } catch (_) {}
     }
   }
 
-  // Use frozen prediction or null-safe fallback
   const pred = currentFieldPrediction || _makeNullSnapshot(station);
   const localId = uid('loc');
   const weatherSnapshot = pred.weather_snapshot || {
@@ -3466,12 +3997,27 @@ async function saveCatch() {
     wave_height_m: null,
     humidity_pct: null
   };
-  const selectedFishValue = appState.selectedFish || null;
-  const caughtFish = appState.catchResult ? species : [];
+
+  const siteEnvironment = collectSiteEnvironment(activityType);
+  const activityObservation = collectActivityObservation(activityType);
+  const note = getActivityNote(activityType);
+
+  const isFishing = activityType === 'fishing';
+  const species = isFishing && appState.selectedFish ? [appState.selectedFish] : [];
+  const qty = parseInt(document.getElementById('catchQty').value, 10);
+  const locType = isFishing ? val('locationType') : '';
+  const waterObs = isFishing ? val('waterObservation') : '';
+  const method = isFishing ? val('fishingMethod') : '';
+  const selectedFishValue = isFishing ? (appState.selectedFish || null) : null;
+  const caughtFish = isFishing && appState.catchResult ? species : [];
+  const validationScope = getValidationScope(activityType);
 
   const payload = {
     local_id: localId,
-    // Server required fields
+    activity_type: activityType,
+    validation_scope: validationScope,
+    site_environment: siteEnvironment,
+    activity_observation: activityObservation,
     station_id: station.id,
     station_name: station.name || null,
     analysis_timestamp: pred.analysis_timestamp || now,
@@ -3481,30 +4027,25 @@ async function saveCatch() {
     weather_snapshot: weatherSnapshot,
     selected_fish: selectedFishValue,
     caught_fish: caughtFish,
-    catch_success: appState.catchResult,
+    catch_success: isFishing ? appState.catchResult : null,
+    field_result: isFishing ? null : 'not_applicable',
     operator_notes: note || null,
     photo_url: null,
     source: 'field_app',
-    // Identity
     operator_id: user.id,
     operator_username: user.username,
     trip_id: trip ? trip.trip_id : null,
     session_id: session ? session.session_id : null,
-    // Location
     lat: appState.currentLat != null ? appState.currentLat : (pred.lat || null),
     lng: appState.currentLng != null ? appState.currentLng : (pred.lng || null),
-    // Outcome
     actual_species: species,
-    catch_quantity: (appState.catchResult && Number.isFinite(qty) && qty >= 0) ? qty : null,
+    catch_quantity: (isFishing && catchSuccess && Number.isFinite(qty) && qty >= 0) ? qty : null,
     fishing_method: method || null,
-    // Field extras
     location_type: locType || null,
     water_observation: waterObs || null,
     user_note: note || null,
-    // Timestamps
     recorded_at_local: now,
     synced_at: null,
-    // Predictions — from frozen field analysis snapshot (real NAVIDUR pipeline)
     prediction_snapshot_id: pred.prediction_snapshot_id || null,
     water_state_predicted: pred.water_state_predicted || null,
     tidal_coefficient_predicted: pred.tidal_coefficient_predicted != null ? pred.tidal_coefficient_predicted : null,
@@ -3515,24 +4056,21 @@ async function saveCatch() {
   };
   console.debug('NAVIDUR_FIELD_SESSION_PAYLOAD', payload);
 
-  // Save to IndexedDB first (offline-safe)
   await FieldDB.addPending(payload);
   appState.pendingCount = (await FieldDB.getPending()).length;
   renderStatusBar();
 
-  // Reset form
   resetCatchForm();
   document.getElementById('catchStatus').textContent = '';
   showToast('💾 تم الحفظ محلياً', 'ok');
 
-  // Refresh prediction panel for next entry (time may have moved)
   if (appState.currentStation && appState.isOnline) {
     fetchAnalysis(appState.currentStation).catch(() => { renderPredictionPanel(); });
   } else {
     renderPredictionPanel();
   }
 
-  // Try to sync immediately
+  await renderRecentRecordsList();
   syncPending();
 }
 
@@ -3548,7 +4086,8 @@ function resetCatchForm() {
   document.getElementById('waterObservation').value = '';
   document.getElementById('fishingMethod').value = '';
   document.getElementById('userNote').value = '';
-  // reset species chips
+  resetActivityFormFields();
+  renderActivityRecordForm();
   document.querySelectorAll('.species-chip').forEach(c => c.classList.remove('selected'));
   var fishSel = document.getElementById('caughtFishSelect');
   if (fishSel) fishSel.value = '';
@@ -3638,9 +4177,11 @@ function renderTripPanel() {
     const station = (STATIONS || []).find(s => s.id === trip.station_id);
     const metaEl = document.getElementById('tripMeta');
     if (metaEl) metaEl.innerHTML =
-      `<span>⏱ بدأت: ${formatTime(trip.trip_start_time)}</span> · ` +
+      activityTypeBadgeHtml(trip.activity_type) +
+      ` <span>⏱ بدأت: ${formatTime(trip.trip_start_time)}</span> · ` +
       `<span>📍 ${station ? station.name : trip.station_id}</span>` +
       (trip.trip_target ? ` · <span>🎯 ${trip.trip_target}</span>` : '');
+    syncTripActivityTypeSelect();
   } else {
     card.className = 'phase-card inactive';
     inactiveEl.style.display = '';
@@ -3649,6 +4190,7 @@ function renderTripPanel() {
     const tnote = document.getElementById('tripNote');
     if (tgt) tgt.value = '';
     if (tnote) tnote.value = '';
+    syncTripActivityTypeSelect();
   }
 }
 
@@ -3702,6 +4244,7 @@ async function initApp() {
   try { renderAddStationPermissionState(); } catch(e) { console.warn('[field] addStationPermission:', e); }
   try { buildSpeciesGrid(); } catch(e) { console.warn('[field] buildSpeciesGrid:', e); }
   try { renderCatchWarning(); } catch(e) { console.warn('[field] renderCatchWarning:', e); }
+  try { renderActivityRecordForm(); } catch(e) { console.warn('[field] renderActivityRecordForm:', e); }
 
   const addCountryEl = document.getElementById('addCountry');
   const addSeaEl = document.getElementById('addSea');
@@ -3779,6 +4322,14 @@ async function initApp() {
         if (sel) sel.value = st.id;
       }
     }
+    if (appState.activeTrip) {
+      appState.activeTrip.activity_type = normalizeActivityType(appState.activeTrip.activity_type);
+    }
+    if (appState.activeSession) {
+      appState.activeSession.activity_type = normalizeActivityType(
+        appState.activeSession.activity_type || (appState.activeTrip && appState.activeTrip.activity_type)
+      );
+    }
   } catch(e) {
     console.warn('State restore error:', e);
   }
@@ -3817,10 +4368,13 @@ async function initApp() {
     appState.pendingCount = pending.length;
   } catch(_) {}
 
+  try { syncTripActivityTypeSelect(); } catch(e) { console.warn('[field] syncTripActivityType:', e); }
+  try { renderActivityRecordForm(); } catch(e) { console.warn('[field] renderActivityRecordForm:', e); }
   try { renderTripPanel(); } catch(e) { console.warn('[field] renderTripPanel:', e); }
   try { renderSessionPanel(); } catch(e) { console.warn('[field] renderSessionPanel:', e); }
   try { renderStatusBar(); } catch(e) { console.warn('[field] renderStatusBar:', e); }
   try { renderCatchWarning(); } catch(e) { console.warn('[field] renderCatchWarning:', e); }
+  try { await renderRecentRecordsList(); } catch(e) { console.warn('[field] renderRecentRecordsList:', e); }
   try { renderPredictionPanel(); } catch(e) { console.warn('[field] renderPredictionPanel:', e); }
 
   // Start label age tick (updates "before X min" text)

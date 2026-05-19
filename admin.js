@@ -9588,6 +9588,115 @@
     }
   }
 
+  function fieldReviewSessionActivityType(s) {
+    var at = String(s && s.activity_type != null ? s.activity_type : '').trim().toLowerCase();
+    return at || 'fishing';
+  }
+
+  function isFieldReviewFishingSession(s) {
+    return fieldReviewSessionActivityType(s) === 'fishing';
+  }
+
+  function fieldReviewActivityLabel(at) {
+    var t = String(at || '').trim().toLowerCase() || 'fishing';
+    if (t === 'fishing') return 'صيد';
+    if (t === 'observation') return 'مراقبة بحرية';
+    if (t === 'swimming') return 'سباحة';
+    if (t === 'diving') return 'غوص';
+    if (t === 'station_check') return 'فحص محطة';
+    if (t === 'documentation') return 'تصوير';
+    if (t === 'general') return 'عام';
+    return t;
+  }
+
+  function fieldReviewScopeLabel(scope) {
+    var s = String(scope || '').trim().toLowerCase();
+    if (!s) return '—';
+    if (s === 'fishing_decision') return 'قرار الصيد';
+    if (s === 'environmental_observation') return 'رصد بيئي';
+    if (s === 'safety_observation') return 'سلامة';
+    if (s === 'station_health') return 'صحة محطة';
+    if (s === 'documentation') return 'توثيق';
+    if (s === 'general_note') return 'عام';
+    return s;
+  }
+
+  function fieldReviewActivityBadgeHtml(s) {
+    var t = fieldReviewSessionActivityType(s);
+    var cls = 'fr-act-badge act-' + t.replace(/[^a-z0-9_]/g, '_');
+    return '<span class="' + cls + '">' + escapeHtml(fieldReviewActivityLabel(t)) + '</span>';
+  }
+
+  function fieldReviewScopeBadgeHtml(s) {
+    var label = fieldReviewScopeLabel(s && s.validation_scope);
+    if (label === '—') return '<span class="fr-scope-badge">—</span>';
+    return '<span class="fr-scope-badge">' + escapeHtml(label) + '</span>';
+  }
+
+  function fieldReviewJsonBlock(obj) {
+    if (!obj || typeof obj !== 'object') return '<span style="color:#8ea4ba">—</span>';
+    try {
+      return '<pre class="fr-json-block">' + escapeHtml(JSON.stringify(obj, null, 2)) + '</pre>';
+    } catch (e) {
+      return '<span style="color:#8ea4ba">—</span>';
+    }
+  }
+
+  function buildFieldReviewFishingAccuracy(list) {
+    var fishing = (list || []).filter(isFieldReviewFishingSession);
+    var recommendedAndCaught = 0;
+    var recommendedNot = 0;
+    var notRecommendedBut = 0;
+    fishing.forEach(function (s) {
+      var pred = Array.isArray(s.species_predicted) ? s.species_predicted : [];
+      var act = Array.isArray(s.actual_species) ? s.actual_species : [];
+      var hit = act.some(function (a) { return pred.indexOf(a) >= 0; });
+      if (hit) recommendedAndCaught += 1;
+      else if (pred.length) recommendedNot += 1;
+      var surprise = act.some(function (a) { return pred.indexOf(a) < 0; });
+      if (surprise) notRecommendedBut += 1;
+    });
+    return { recommended_and_caught: recommendedAndCaught, recommended_not_caught: recommendedNot, not_recommended_but_caught: notRecommendedBut };
+  }
+
+  function buildFieldReviewCategorySummariesHtml(sessions) {
+    var all = Array.isArray(sessions) ? sessions : [];
+    var fishing = all.filter(isFieldReviewFishingSession);
+    var observation = all.filter(function (s) { return fieldReviewSessionActivityType(s) === 'observation'; });
+    var safety = all.filter(function (s) {
+      var t = fieldReviewSessionActivityType(s);
+      return t === 'swimming' || t === 'diving';
+    });
+    var stationCheck = all.filter(function (s) { return fieldReviewSessionActivityType(s) === 'station_check'; });
+
+    function fishingStats(list) {
+      var total = list.length;
+      var ok = list.filter(function (s) { return s.catch_success; }).length;
+      var rate = total > 0 ? Math.round((ok / total) * 1000) / 10 : 0;
+      return { total: total, ok: ok, fail: total - ok, rate: rate };
+    }
+
+    var fs = fishingStats(fishing);
+    var acc = buildFieldReviewFishingAccuracy(fishing);
+    var filteredNote = all.length !== fishing.length + observation.length + safety.length + stationCheck.length
+      ? ' <span style="color:#8ea4ba">(+ أنواع أخرى: تصوير، عام، …)</span>'
+      : '';
+
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">' +
+      '<div class="fr-cat-card"><h6>ملخص الصيد</h6>' +
+      '<div style="font-size:.82rem;line-height:1.6">السجلات: <strong>' + fs.total + '</strong><br>' +
+      'معدل النجاح: <strong>' + (fs.total ? fs.rate + '%' : '—') + '</strong> (' + fs.ok + ' ناجح / ' + fs.fail + ' فاشل)<br>' +
+      'دقة المطابقة: موصى وصاد <strong>' + acc.recommended_and_caught + '</strong> — موصى لم يُصطد <strong>' + acc.recommended_not_caught + '</strong> — غير موصى وصاد <strong>' + acc.not_recommended_but_caught + '</strong></div></div>' +
+      '<div class="fr-cat-card"><h6>ملخص الرصد البيئي</h6>' +
+      '<div style="font-size:.82rem">سجلات المراقبة البحرية: <strong>' + observation.length + '</strong></div></div>' +
+      '<div class="fr-cat-card"><h6>ملخص السلامة</h6>' +
+      '<div style="font-size:.82rem">سباحة + غوص: <strong>' + safety.length + '</strong></div></div>' +
+      '<div class="fr-cat-card"><h6>ملخص فحص المحطة</h6>' +
+      '<div style="font-size:.82rem">سجلات فحص المحطة: <strong>' + stationCheck.length + '</strong></div></div>' +
+      '</div>' +
+      '<p class="section-subtitle" style="margin:8px 0 0;font-size:.74rem">بعد التصفية: <strong>' + all.length + '</strong> سجل معروض.' + filteredNote + '</p>';
+  }
+
   function fieldReviewStationNameById(sid) {
     if (!sid) return '—';
     var s = stationsCache.find(function (x) {
@@ -9612,6 +9721,8 @@
     if (review && review.value) params.set('review_status', review.value);
     var succ = getEl('fieldReviewFilterSuccess');
     if (succ && succ.value) params.set('success', succ.value);
+    var act = getEl('fieldReviewFilterActivity');
+    if (act && act.value) params.set('activity_type', act.value);
     var df = getEl('fieldReviewDateFrom');
     if (df && df.value) params.set('date_from', df.value + 'T00:00:00.000Z');
     var dt = getEl('fieldReviewDateTo');
@@ -9646,10 +9757,6 @@
     if (statusEl) statusEl.textContent = 'جاري تحميل تحليل الميدان...';
     try {
       populateFieldReviewStationSelect();
-      var sumRes = await apiFetch('/api?route=admin&path=field-review-summary', { method: 'GET' });
-      var sumData = await sumRes.json();
-      if (!sumData || !sumData.ok) throw new Error((sumData && sumData.error) || 'summary_failed');
-
       var sessRes = await apiFetch(buildFieldReviewSessionsUrl(), { method: 'GET' });
       var sessData = await sessRes.json();
       if (!sessData || !sessData.ok) throw new Error((sessData && sessData.error) || 'sessions_failed');
@@ -9668,41 +9775,14 @@
       var adjData = await adjRes.json();
       var adjustments = (adjData && adjData.ok && Array.isArray(adjData.adjustments)) ? adjData.adjustments : [];
 
-      var sum = sumData.summary || {};
-      var row = getEl('fieldReviewSummaryRow');
-      if (row) {
-        var topFish = (sum.top_caught_fish && sum.top_caught_fish[0]) ? (sum.top_caught_fish[0].key + ' (' + sum.top_caught_fish[0].count + ')') : '—';
-        var topSt = (sum.most_active_stations && sum.most_active_stations[0])
-          ? (fieldReviewStationNameById(sum.most_active_stations[0].key) + ' (' + sum.most_active_stations[0].count + ')')
-          : '—';
-        var topDur = (sum.most_validated_dur && sum.most_validated_dur[0]) ? (sum.most_validated_dur[0].key + ' (' + sum.most_validated_dur[0].count + ')') : '—';
-        var topW = (sum.most_validated_water && sum.most_validated_water[0]) ? (sum.most_validated_water[0].key + ' (' + sum.most_validated_water[0].count + ')') : '—';
-        row.innerHTML =
-          '<div class="as-card"><div class="as-val">' + (sum.total_sessions != null ? sum.total_sessions : '0') + '</div><div class="as-lbl">إجمالي الجلسات</div></div>' +
-          '<div class="as-card"><div class="as-val">' + (sum.success_rate != null ? sum.success_rate + '%' : '—') + '</div><div class="as-lbl">معدل النجاح</div></div>' +
-          '<div class="as-card"><div class="as-val">' + (sum.failed_sessions != null ? sum.failed_sessions : '0') + '</div><div class="as-lbl">جلسات فاشلة</div></div>' +
-          '<div class="as-card"><div class="as-val" style="font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topFish) + '">' + escapeHtml(topFish) + '</div><div class="as-lbl">أشهر سمكة</div></div>' +
-          '<div class="as-card"><div class="as-val" style="font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topSt) + '">' + escapeHtml(topSt) + '</div><div class="as-lbl">أنشط محطة</div></div>' +
-          '<div class="as-card"><div class="as-val" style="font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topDur) + '">' + escapeHtml(topDur) + '</div><div class="as-lbl">أكثر در تحققاً</div></div>' +
-          '<div class="as-card"><div class="as-val" style="font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(topW) + '">' + escapeHtml(topW) + '</div><div class="as-lbl">حالة ماء (تحقق)</div></div>' +
-          '<div class="as-card"><div class="as-val">' + String((sessData.total != null ? sessData.total : (sessData.sessions || []).length)) + '</div><div class="as-lbl">بعد التصفية</div></div>';
-        row.style.gridTemplateColumns = 'repeat(4, minmax(0,1fr))';
-      }
-
-      var accEl = getEl('fieldReviewAccuracy');
-      if (accEl) {
-        var a = sum.accuracy || {};
-        accEl.innerHTML = 'مُوصى به وتم صيده: <strong>' + (a.recommended_and_caught != null ? a.recommended_and_caught : 0) + '</strong> — ' +
-          'مُوصى به ولم يُصطد: <strong>' + (a.recommended_not_caught != null ? a.recommended_not_caught : 0) + '</strong> — ' +
-          'غير مُوصى به وتم صيده: <strong>' + (a.not_recommended_but_caught != null ? a.not_recommended_but_caught : 0) + '</strong>';
-      }
-
       var sessions = Array.isArray(sessData.sessions) ? sessData.sessions : [];
+      var catEl = getEl('fieldReviewCategorySummaries');
+      if (catEl) catEl.innerHTML = buildFieldReviewCategorySummariesHtml(sessions);
       var sessBody = getEl('fieldReviewSessionsBody');
       if (sessBody) {
         sessBody.innerHTML = '';
         if (!sessions.length) {
-          sessBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr>';
+          sessBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#8ea4ba">لا توجد جلسات ميدانية حالياً</td></tr>';
         } else {
           sessions.forEach(function (s) {
             var tr = document.createElement('tr');
@@ -9719,7 +9799,13 @@
               : '';
             var btnAcc = ex ? 'إعادة التضمين' : 'استبعاد من الدقة';
             var wantEx = ex ? '0' : '1';
-            tr.innerHTML = '<td>' + escapeHtml(s.station_name || '—') + '</td>' +
+            var fishingRow = isFieldReviewFishingSession(s);
+            var accBtn = fishingRow
+              ? ('<button type="button" class="small-btn fr-acc-toggle" data-catch-ex="' + escapeHtml(s.catch_id || '') + '" data-want-exclude="' + wantEx + '">' + btnAcc + '</button>')
+              : '';
+            tr.innerHTML = '<td>' + fieldReviewActivityBadgeHtml(s) + '</td>' +
+              '<td>' + fieldReviewScopeBadgeHtml(s) + '</td>' +
+              '<td>' + escapeHtml(s.station_name || '—') + '</td>' +
               '<td style="font-size:.78rem">' + escapeHtml(String(t)) + '</td>' +
               '<td style="font-size:.8rem">' + escapeHtml(s.dur_name || '—') + '</td>' +
               '<td style="font-size:.78rem">' + escapeHtml((s.water_state || '—') + ' / ' + (s.tide_state || '—')) + '</td>' +
@@ -9727,7 +9813,7 @@
               '<td style="font-size:.78rem">' + escapeHtml(fieldReviewStatusLabel(s.review_status)) + '</td>' +
               '<td style="min-width:220px;vertical-align:top"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end">' +
               badge +
-              '<button type="button" class="small-btn fr-acc-toggle" data-catch-ex="' + escapeHtml(s.catch_id || '') + '" data-want-exclude="' + wantEx + '">' + btnAcc + '</button>' +
+              accBtn +
               '<button type="button" class="small-btn" data-field-detail="' + escapeHtml(s.catch_id || '') + '">تفاصيل</button></div></td>';
             sessBody.appendChild(tr);
           });
@@ -9897,7 +9983,11 @@
       '<div><strong>الاختيار:</strong> ' + escapeHtml(s.selected_fish || '—') + '</div>' +
       '<div style="margin-top:8px"><strong>الموصى بها:</strong> ' + escapeHtml((s.species_predicted || []).join('، ') || '—') + '</div>' +
       '<div><strong>الصاد فعلياً:</strong> ' + escapeHtml(actualList.join('، ') || '—') + '</div>' +
-      '<div><strong>نجاح:</strong> ' + (s.catch_success ? 'نعم' : 'لا') + '</div>' +
+      '<div><strong>نوع الرحلة:</strong> ' + escapeHtml(fieldReviewActivityLabel(fieldReviewSessionActivityType(s))) + ' <span style="opacity:.7">(' + escapeHtml(fieldReviewSessionActivityType(s)) + ')</span></div>' +
+      '<div><strong>نطاق التحقق:</strong> ' + escapeHtml(fieldReviewScopeLabel(s.validation_scope)) + '</div>' +
+      '<div><strong>نجاح الصيد:</strong> ' + (s.catch_success_applicable === false ? 'غير مطبّق' : (s.catch_success ? 'نعم' : 'لا')) + '</div>' +
+      '<div style="margin-top:10px"><strong>بيئة الموقع (site_environment):</strong>' + fieldReviewJsonBlock(s.site_environment) + '</div>' +
+      '<div style="margin-top:8px"><strong>ملاحظة النشاط (activity_observation):</strong>' + fieldReviewJsonBlock(s.activity_observation) + '</div>' +
       '<div style="margin-top:8px"><strong>ملاحظات المشغل:</strong> ' + escapeHtml(s.user_note || s.water_observation || '—') + '</div>' +
       (s.review_notes ? ('<div><strong>ملاحظات مراجعة:</strong> ' + escapeHtml(s.review_notes) + '</div>') : '') +
       photo;
