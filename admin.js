@@ -9635,13 +9635,98 @@
     return '<span class="fr-scope-badge">' + escapeHtml(label) + '</span>';
   }
 
-  function fieldReviewJsonBlock(obj) {
-    if (!obj || typeof obj !== 'object') return '<span style="color:#8ea4ba">—</span>';
-    try {
-      return '<pre class="fr-json-block">' + escapeHtml(JSON.stringify(obj, null, 2)) + '</pre>';
-    } catch (e) {
-      return '<span style="color:#8ea4ba">—</span>';
-    }
+  var FIELD_REVIEW_VALUE_MAP = {
+    mud_sand: 'طيني رملي', sand_rock: 'خليط رملي صخري', sand: 'رملي', mud: 'طيني', rock: 'صخري',
+    coral: 'شعاب / مرجان', seagrass: 'أعشاب بحرية', silt: 'سبخة / طمي', unknown: 'غير معروف',
+    clear: 'واضح', partial: 'واضح جزئياً', turbid: 'عكر', vegetation: 'مغطى بأعشاب',
+    sediment: 'مغطى برواسب', not_visible: 'غير واضح',
+    medium: 'متوسط', very_turbid: 'شديد العكارة', blue: 'أزرق', green: 'أخضر',
+    blue_green: 'أزرق مخضر', brown: 'بني', foamy: 'رغوي', abnormal: 'غير طبيعي',
+    calm: 'هادئ', light_ripple: 'تموج خفيف', rough: 'مضطرب', foam: 'رغوة',
+    north: 'شمال', south: 'جنوب', east: 'شرق', west: 'غرب', unclear: 'غير واضح',
+    yes: 'نعم', no: 'لا', caution: 'بحذر', weak: 'ضعيف', strong: 'قوي',
+    excellent: 'ممتازة', good: 'جيدة', poor: 'ضعيفة',
+    environmental: 'بيئي', safety: 'سلامة', documentation: 'توثيق', general: 'عام',
+    none: 'لا يوجد', jellyfish: 'قناديل', rocks: 'صخور', strong_current: 'تيار قوي',
+    boats: 'قوارب', other: 'أخرى', ok: 'سليم', needs_check: 'تحتاج فحص', faulty: 'متعطلة',
+    in_place: 'في مكانه', missing: 'غير موجود'
+  };
+
+  var FIELD_REVIEW_FIELD_LABELS = {
+    seabed_type: 'نوع القاع', seabed_visibility: 'وضوح القاع',
+    water_clarity: 'صفاء الماء', water_color: 'لون الماء', surface_state: 'سطح البحر',
+    observation_type: 'نوع الرصد', current_direction: 'اتجاه التيار',
+    plankton_algae: 'عوالق أو طحالب', visibility: 'الرؤية', note: 'ملاحظة',
+    suitable: 'مناسب للسباحة', current_strength: 'قوة التيار', hazards: 'مخاطر ظاهرة',
+    underwater_visibility: 'الرؤية تحت الماء', visibility_meters: 'الرؤية (م)',
+    undercurrent: 'التيار تحت السطح', marine_life: 'الحياة البحرية المرصودة',
+    sensors_status: 'حالة الحساسات', camera_status: 'حالة الكاميرا',
+    solar_status: 'حالة الطاقة الشمسية', station_body_status: 'حالة جسم المحطة',
+    water_sensor_in_place: 'حساس الماء', documentation_type: 'نوع التوثيق',
+    visibility_quality: 'جودة الرؤية'
+  };
+
+  function fieldReviewTranslateValue(v) {
+    if (v == null || v === '') return '';
+    if (typeof v === 'boolean') return v ? 'نعم' : 'لا';
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+    var s = String(v).trim();
+    if (!s) return '';
+    var key = s.toLowerCase().replace(/\s+/g, '_');
+    if (FIELD_REVIEW_VALUE_MAP[key]) return FIELD_REVIEW_VALUE_MAP[key];
+    if (FIELD_REVIEW_VALUE_MAP[s]) return FIELD_REVIEW_VALUE_MAP[s];
+    if (/^[\u0600-\u06FF\s\d.,:؛؟!%-]+$/.test(s)) return s;
+    return s.replace(/_/g, ' ');
+  }
+
+  function fieldReviewObjectHasData(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    return Object.keys(obj).some(function (k) {
+      var v = obj[k];
+      if (v == null || v === '') return false;
+      if (typeof v === 'number' && !Number.isFinite(v)) return false;
+      return true;
+    });
+  }
+
+  function fieldReviewEmptyDataHtml() {
+    return '<p class="fr-detail-empty">لا توجد بيانات إضافية</p>';
+  }
+
+  function fieldReviewDetailLinesHtml(obj, preferredOrder) {
+    if (!fieldReviewObjectHasData(obj)) return fieldReviewEmptyDataHtml();
+    var keys = preferredOrder && preferredOrder.length
+      ? preferredOrder.filter(function (k) { return obj[k] != null && obj[k] !== ''; })
+      : Object.keys(obj);
+    var extra = Object.keys(obj).filter(function (k) { return keys.indexOf(k) < 0; });
+    keys = keys.concat(extra);
+    var lines = [];
+    keys.forEach(function (k) {
+      var v = obj[k];
+      if (v == null || v === '') return;
+      if (typeof v === 'number' && !Number.isFinite(v)) return;
+      var label = FIELD_REVIEW_FIELD_LABELS[k] || k.replace(/_/g, ' ');
+      lines.push('<div><strong>' + escapeHtml(label) + ':</strong> ' + escapeHtml(fieldReviewTranslateValue(v)) + '</div>');
+    });
+    return lines.length
+      ? '<div class="fr-detail-block">' + lines.join('') + '</div>'
+      : fieldReviewEmptyDataHtml();
+  }
+
+  function fieldReviewSiteEnvironmentHtml(env) {
+    return fieldReviewDetailLinesHtml(env, [
+      'seabed_type', 'seabed_visibility', 'water_clarity', 'water_color', 'surface_state'
+    ]);
+  }
+
+  function fieldReviewActivityObservationHtml(obs) {
+    return fieldReviewDetailLinesHtml(obs, [
+      'observation_type', 'current_direction', 'plankton_algae', 'visibility',
+      'water_clarity', 'suitable', 'current_strength', 'hazards',
+      'underwater_visibility', 'visibility_meters', 'undercurrent', 'marine_life',
+      'sensors_status', 'camera_status', 'solar_status', 'station_body_status',
+      'water_sensor_in_place', 'documentation_type', 'visibility_quality', 'note'
+    ]);
   }
 
   function buildFieldReviewFishingAccuracy(list) {
@@ -9976,15 +10061,13 @@
     var d = getEl('fieldSessionDetailContent');
     var m = getEl('fieldSessionDetailModal');
     if (!d || !m) return;
+    var isFishing = isFieldReviewFishingSession(s);
     var ws = (s && s.weather_snapshot && typeof s.weather_snapshot === 'object') ? s.weather_snapshot : null;
     var temp = ws && ws.temp_c != null ? ws.temp_c : s.temperature;
     var wind = ws && ws.wind_speed_kmh != null ? ws.wind_speed_kmh : s.wind_speed;
     var windDir = ws && ws.wind_direction_deg != null ? ws.wind_direction_deg : s.wind_direction;
     var wave = ws && ws.wave_height_m != null ? ws.wave_height_m : null;
     var hum = ws && ws.humidity_pct != null ? ws.humidity_pct : null;
-    var actualList = Array.isArray(s.actual_species) && s.actual_species.length
-      ? s.actual_species
-      : (Array.isArray(s.caught_fish) && s.caught_fish.length ? s.caught_fish : (s.selected_fish ? [s.selected_fish] : []));
     var snap = 'حرارة: ' + (temp != null ? temp : '—') +
       ' | ريح: ' + (wind != null ? wind : '—') +
       ' | اتجاه: ' + (windDir != null ? windDir : '—') +
@@ -9993,23 +10076,34 @@
     var photo = s.photo_url
       ? ('<div style="margin-top:8px"><img src="' + escapeHtml(s.photo_url) + '" alt="" style="max-width:100%;max-height:200px;border-radius:8px"></div>')
       : '<div style="color:#8ea4ba;font-size:.8rem">لا صورة</div>';
+    var operatorNote = String(s.user_note || s.operator_notes || s.water_observation || '').trim();
+    var operatorNoteHtml = operatorNote
+      ? ('<div style="margin-top:8px"><strong>ملاحظات المشغل:</strong> ' + escapeHtml(operatorNote) + '</div>')
+      : '';
+    var actualCaught = Array.isArray(s.actual_species) && s.actual_species.length
+      ? s.actual_species
+      : (Array.isArray(s.caught_fish) && s.caught_fish.length ? s.caught_fish : (s.selected_fish ? [s.selected_fish] : []));
+    var fishingHtml = isFishing
+      ? ('<div style="margin-top:10px"><strong>قرار الصيد</strong></div>' +
+        '<div><strong>الاختيار:</strong> ' + escapeHtml(s.selected_fish || '—') + '</div>' +
+        '<div style="margin-top:4px"><strong>الموصى بها:</strong> ' + escapeHtml((s.species_predicted || []).join('، ') || '—') + '</div>' +
+        '<div><strong>الصاد فعلياً:</strong> ' + escapeHtml(actualCaught.join('، ') || '—') + '</div>' +
+        '<div><strong>نجاح الصيد:</strong> ' + (s.catch_success ? 'نعم' : 'لا') + '</div>')
+      : ('<div class="fr-detail-notice">هذه الجلسة ليست مخصصة لتقييم قرار الصيد.</div>');
     d.innerHTML =
       '<div><strong>المحطة:</strong> ' + escapeHtml(s.station_name || '—') + '</div>' +
       '<div><strong>الوقت / التحليل:</strong> ' + escapeHtml(String(s.analysis_timestamp || s.created_at || '—')) + '</div>' +
       '<div><strong>الدر:</strong> ' + escapeHtml(s.dur_name || '—') + '</div>' +
       '<div><strong>حالة الماء:</strong> ' + escapeHtml(s.water_state || '—') + '</div>' +
       '<div><strong>حالة المد:</strong> ' + escapeHtml(s.tide_state || '—') + '</div>' +
-      '<div><strong>لقطة طقس (من السجل):</strong> ' + escapeHtml(snap) + '</div>' +
-      '<div><strong>الاختيار:</strong> ' + escapeHtml(s.selected_fish || '—') + '</div>' +
-      '<div style="margin-top:8px"><strong>الموصى بها:</strong> ' + escapeHtml((s.species_predicted || []).join('، ') || '—') + '</div>' +
-      '<div><strong>الصاد فعلياً:</strong> ' + escapeHtml(actualList.join('، ') || '—') + '</div>' +
-      '<div><strong>نوع الرحلة:</strong> ' + escapeHtml(fieldReviewActivityLabel(fieldReviewSessionActivityType(s))) + ' <span style="opacity:.7">(' + escapeHtml(fieldReviewSessionActivityType(s)) + ')</span></div>' +
+      '<div><strong>لقطة طقس:</strong> ' + escapeHtml(snap) + '</div>' +
+      '<div style="margin-top:8px"><strong>نوع الرحلة:</strong> ' + escapeHtml(fieldReviewActivityLabel(fieldReviewSessionActivityType(s))) + '</div>' +
       '<div><strong>نطاق التحقق:</strong> ' + escapeHtml(fieldReviewScopeLabel(s.validation_scope)) + '</div>' +
-      '<div><strong>نجاح الصيد:</strong> ' + (s.catch_success_applicable === false ? 'غير مطبّق' : (s.catch_success ? 'نعم' : 'لا')) + '</div>' +
-      '<div style="margin-top:10px"><strong>بيئة الموقع (site_environment):</strong>' + fieldReviewJsonBlock(s.site_environment) + '</div>' +
-      '<div style="margin-top:8px"><strong>ملاحظة النشاط (activity_observation):</strong>' + fieldReviewJsonBlock(s.activity_observation) + '</div>' +
-      '<div style="margin-top:8px"><strong>ملاحظات المشغل:</strong> ' + escapeHtml(s.user_note || s.water_observation || '—') + '</div>' +
-      (s.review_notes ? ('<div><strong>ملاحظات مراجعة:</strong> ' + escapeHtml(s.review_notes) + '</div>') : '') +
+      fishingHtml +
+      '<div style="margin-top:10px"><strong>بيئة الموقع</strong>' + fieldReviewSiteEnvironmentHtml(s.site_environment) + '</div>' +
+      '<div style="margin-top:8px"><strong>ملاحظة النشاط</strong>' + fieldReviewActivityObservationHtml(s.activity_observation) + '</div>' +
+      operatorNoteHtml +
+      (s.review_notes ? ('<div style="margin-top:8px"><strong>ملاحظات مراجعة:</strong> ' + escapeHtml(s.review_notes) + '</div>') : '') +
       photo;
     var rs = getEl('fieldSessionReviewStatus');
     if (rs) rs.value = s.review_status && ['pending', 'approved', 'rejected'].indexOf(s.review_status) >= 0 ? s.review_status : 'pending';
