@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const auth = require('./_lib/auth');
 
 function getStoreSecret() {
   return String(process.env.NAVIDUR_STORE_SECRET || process.env.NAVIDUR_JWT_SECRET || 'navidur-dev-secret');
@@ -61,62 +62,44 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
 
     if (body && body.action === 'bootstrap_field_accounts') {
-      const users = [
-        {
-          id: 'usr_super_001',
-          username: 'Mohamed_Admin',
-          hashed_password: hashPassword('SuperAdmin2026!'),
-          role: 'super_admin',
+      if (!auth.isFieldAccountsEnabled()) {
+        return res.status(403).json({
+          ok: false,
+          error: 'field_accounts_disabled',
+          hint: 'Set NAVIDUR_ALLOW_FIELD_ACCOUNTS=true and NAVIDUR_FIELD_ACCOUNTS_JSON'
+        });
+      }
+      const fieldDefs = auth.getFieldAccounts();
+      if (!fieldDefs.length) {
+        return res.status(400).json({
+          ok: false,
+          error: 'field_accounts_not_configured',
+          hint: 'NAVIDUR_FIELD_ACCOUNTS_JSON is missing or invalid'
+        });
+      }
+      const now = new Date().toISOString();
+      const users = fieldDefs.map(function (def) {
+        return {
+          id: def.id,
+          username: def.username,
+          hashed_password: hashPassword(def.password),
+          role: def.role,
           active_status: true,
           assigned_stations: [],
-          created_at: '2026-04-06T00:00:00.000Z',
+          created_at: now,
           last_login: null,
           trust_score: null
-        },
-        {
-          id: 'usr_field_admin_001',
-          username: 'field_admin',
-          hashed_password: hashPassword('FieldAdmin2026!'),
-          role: 'admin',
-          active_status: true,
-          assigned_stations: [],
-          created_at: '2026-04-07T00:00:00.000Z',
-          last_login: null,
-          trust_score: null
-        },
-        {
-          id: 'usr_field_member_a',
-          username: 'field_member_a',
-          hashed_password: hashPassword('FieldTestA2026!'),
-          role: 'member',
-          active_status: true,
-          assigned_stations: [],
-          created_at: '2026-04-07T00:00:00.000Z',
-          last_login: null,
-          trust_score: null
-        },
-        {
-          id: 'usr_field_member_b',
-          username: 'field_member_b',
-          hashed_password: hashPassword('FieldTestB2026!'),
-          role: 'member',
-          active_status: true,
-          assigned_stations: [],
-          created_at: '2026-04-07T00:00:00.000Z',
-          last_login: null,
-          trust_score: null
-        }
-      ];
+        };
+      });
       store.navidur_store_users = users;
+      const tokens = {};
+      users.forEach(function (u) {
+        tokens[u.username] = createToken(u);
+      });
       return res.status(200).json({
         ok: true,
-        seeded_users: users.map((u) => ({ id: u.id, username: u.username, role: u.role })),
-        tokens: {
-          Mohamed_Admin: createToken(users[0]),
-          field_admin: createToken(users[1]),
-          field_member_a: createToken(users[2]),
-          field_member_b: createToken(users[3])
-        }
+        seeded_users: users.map(function (u) { return { id: u.id, username: u.username, role: u.role }; }),
+        tokens: tokens
       });
     }
 

@@ -40,6 +40,8 @@ function normalizeAdminPath(value) {
     .filter(Boolean);
 }
 
+// TODO NAVIDUR_SECURITY_PHASE2: unify CORS handling through _lib/security.js before public scale.
+
 function applyCorsHeaders(res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -57,6 +59,24 @@ module.exports = async function handler(req, res) {
   }
 
   const route = normalizeRoute(req.query.route || req.query.resource || req.query._route);
+
+  if (route === 'health') {
+    if (req.method !== 'GET') {
+      res.setHeader('Allow', 'GET');
+      return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+    }
+    var isProd = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+    return res.status(200).json({
+      ok: true,
+      service: 'navidur',
+      version: 'phase1',
+      time: new Date().toISOString(),
+      environment: isProd ? 'production' : 'development',
+      checks: {
+        api: 'ok'
+      }
+    });
+  }
 
   if (route === 'login') return loginHandler(req, res);
   if (route === 'logout') return logoutHandler(req, res);

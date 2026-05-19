@@ -29,17 +29,56 @@ function getAuthSalt() {
   return salt;
 }
 
-// Field test accounts are DISABLED by default.
-// Set NAVIDUR_ALLOW_FIELD_ACCOUNTS=true in Vercel env to enable them for controlled deployments.
-const FIELD_TEST_ACCOUNTS = [
-  { id: 'usr_super_001', username: 'Mohamed_Admin', password: 'SuperAdmin2026!', role: 'super_admin' },
-  { id: 'usr_field_admin_001', username: 'field_admin', password: 'FieldAdmin2026!', role: 'admin' },
-  { id: 'usr_field_member_a', username: 'field_member_a', password: 'FieldTestA2026!', role: 'member' },
-  { id: 'usr_field_member_b', username: 'field_member_b', password: 'FieldTestB2026!', role: 'member' }
-];
+// Field accounts: disabled by default. Enable with NAVIDUR_ALLOW_FIELD_ACCOUNTS=true
+// and supply NAVIDUR_FIELD_ACCOUNTS_JSON (array of { id, username, password, role }).
+// Passwords must not appear in source code — env only.
+
+var _fieldAccountsCache = null;
+var _fieldAccountsCacheKey = null;
 
 function isFieldAccountsEnabled() {
   return process.env.NAVIDUR_ALLOW_FIELD_ACCOUNTS === 'true';
+}
+
+function normalizeFieldRole(role) {
+  const safe = cleanString(role, 30);
+  if (safe === 'super_admin' || safe === 'admin' || safe === 'member' || safe === 'viewer') return safe;
+  return 'member';
+}
+
+function loadFieldAccountsFromEnv() {
+  if (!isFieldAccountsEnabled()) return [];
+  const raw = String(process.env.NAVIDUR_FIELD_ACCOUNTS_JSON || '').trim();
+  if (!raw) return [];
+  const cacheKey = raw.length + ':' + raw.slice(0, 32);
+  if (_fieldAccountsCache && _fieldAccountsCacheKey === cacheKey) {
+    return _fieldAccountsCache;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (_err) {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out = [];
+  for (let i = 0; i < parsed.length && out.length < 50; i += 1) {
+    const row = parsed[i];
+    if (!row || typeof row !== 'object') continue;
+    const id = cleanString(row.id, 80);
+    const username = cleanString(row.username, 60);
+    const password = cleanString(row.password, 200);
+    const role = normalizeFieldRole(row.role);
+    if (!id || !username || !password) continue;
+    out.push({ id, username, password, role });
+  }
+  _fieldAccountsCache = out;
+  _fieldAccountsCacheKey = cacheKey;
+  return out;
+}
+
+function getFieldAccounts() {
+  return loadFieldAccountsFromEnv();
 }
 
 function stripHiddenWhitespace(value) {
@@ -57,13 +96,13 @@ function normalizeLoginPassword(value) {
 function getFieldAccountByUsername(username) {
   if (!isFieldAccountsEnabled()) return null;
   const safe = normalizeLoginIdentifier(username);
-  return FIELD_TEST_ACCOUNTS.find((a) => a.username.toLowerCase() === safe) || null;
+  return getFieldAccounts().find((a) => a.username.toLowerCase() === safe) || null;
 }
 
 function getFieldAccountById(userId) {
   if (!isFieldAccountsEnabled()) return null;
   const safe = cleanString(userId, 80);
-  return FIELD_TEST_ACCOUNTS.find((a) => a.id === safe) || null;
+  return getFieldAccounts().find((a) => a.id === safe) || null;
 }
 
 function normalizePermissions(input) {
@@ -301,5 +340,8 @@ module.exports = {
   clearAuthCookie,
   login,
   createUser,
-  normalizeRole
+  normalizeRole,
+  isFieldAccountsEnabled,
+  getFieldAccounts,
+  normalizeFieldRole
 };

@@ -20,6 +20,7 @@
   var refreshInFlight = false;
   var settingsInFlight = false;
   var latestSettings = null;
+  // TODO NAVIDUR_SECURITY_PHASE2: migrate admin token from localStorage to HttpOnly cookie-only session.
   var authToken = localStorage.getItem('navidur_admin_token') || '';
   var me = null;
   try {

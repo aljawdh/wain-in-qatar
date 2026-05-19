@@ -1,5 +1,7 @@
 'use strict';
 
+// TODO NAVIDUR_SECURITY_PHASE2: unify CORS handling through _lib/security.js before public scale (see api/index.js applyCorsHeaders, fishing-engine isAllowedOrigin).
+
 const ORIGIN_ALLOWLIST = ['https://navidur.app', 'https://www.navidur.app'];
 const PREVIEW_SUFFIXES = ['.vercel.app'];
 

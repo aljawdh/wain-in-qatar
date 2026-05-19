@@ -2,6 +2,8 @@
 
 const { rateLimitKv } = require('./_lib/data-store');
 
+// TODO NAVIDUR_SECURITY_PHASE2: unify CORS handling through _lib/security.js before public scale.
+
 const ALLOWED_ORIGINS = [
   'https://navidur.app',
   'https://www.navidur.app'

@@ -48,3 +48,11 @@ app.*.map.json
 flutter_sdk/
 .vercel
 .env*.local
+
+# NAVIDUR Phase 1 — prevent accidental check-in of backups and local caches
+*.bak
+*.bak-*
+*.backup
+*.tmp
+data/live_weather_cache.json
+scripts/_run*.json
