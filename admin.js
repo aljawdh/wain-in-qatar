@@ -47,6 +47,8 @@
   var fieldReviewPatternsById = {};
   var fieldReviewPendingPattern = null;
   var fieldReviewSelectedSession = null;
+  /** Last sessions array from field-review-sessions (single source for table + summaries). */
+  var fieldReviewSessionsCache = [];
   var _loadedDururProfileSnapshot = null;
   var _currentDururProfileSource = null;
   var currentAnalyzedStationId = null; // currently viewed station in analytics panel
@@ -455,7 +457,7 @@
             if (frs) frs.textContent = 'تتطلب صلاحية إدارية لعرض تحليل الميدان.';
             var frBody = getEl('fieldReviewSessionsBody');
             if (frBody) {
-              frBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#8ea4ba">لا توجد بيانات حالياً</td></tr>';
+              frBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#8ea4ba">لا توجد بيانات حالياً</td></tr>';
             }
           }
           break;
@@ -9661,7 +9663,9 @@
 
   function buildFieldReviewCategorySummariesHtml(sessions) {
     var all = Array.isArray(sessions) ? sessions : [];
+    var total_field_sessions = all.length;
     var fishing = all.filter(isFieldReviewFishingSession);
+    var fishing_validation_sessions = fishing.length;
     var observation = all.filter(function (s) { return fieldReviewSessionActivityType(s) === 'observation'; });
     var safety = all.filter(function (s) {
       var t = fieldReviewSessionActivityType(s);
@@ -9682,9 +9686,18 @@
       ? ' <span style="color:#8ea4ba">(+ أنواع أخرى: تصوير، عام، …)</span>'
       : '';
 
-    return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">' +
-      '<div class="fr-cat-card"><h6>ملخص الصيد</h6>' +
-      '<div style="font-size:.82rem;line-height:1.6">السجلات: <strong>' + fs.total + '</strong><br>' +
+    return '<div class="fr-overview-row">' +
+      '<div class="fr-cat-card fr-cat-card--highlight"><h6>إجمالي الجلسات الميدانية</h6>' +
+      '<div class="fr-big-stat" data-metric="total_field_sessions">' + total_field_sessions + '</div>' +
+      '<p class="fr-card-hint">يشمل جميع أنواع الرحلات الميدانية.</p></div>' +
+      '<div class="fr-cat-card fr-cat-card--highlight"><h6>جلسات الصيد المؤهلة للتحليل</h6>' +
+      '<div class="fr-card-subtitle">Fishing Validation Sessions</div>' +
+      '<div class="fr-big-stat" data-metric="fishing_validation_sessions">' + fishing_validation_sessions + '</div>' +
+      '<p class="fr-card-hint">يشمل جلسات الصيد فقط، ولا يشمل المراقبة أو السباحة أو الغوص.</p></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:4px">' +
+      '<div class="fr-cat-card"><h6>تحليل الصيد (نجاح + دقة)</h6>' +
+      '<div style="font-size:.82rem;line-height:1.6">' +
       'معدل النجاح: <strong>' + (fs.total ? fs.rate + '%' : '—') + '</strong> (' + fs.ok + ' ناجح / ' + fs.fail + ' فاشل)<br>' +
       'دقة المطابقة: موصى وصاد <strong>' + acc.recommended_and_caught + '</strong> — موصى لم يُصطد <strong>' + acc.recommended_not_caught + '</strong> — غير موصى وصاد <strong>' + acc.not_recommended_but_caught + '</strong></div></div>' +
       '<div class="fr-cat-card"><h6>ملخص الرصد البيئي</h6>' +
@@ -9694,8 +9707,9 @@
       '<div class="fr-cat-card"><h6>ملخص فحص المحطة</h6>' +
       '<div style="font-size:.82rem">سجلات فحص المحطة: <strong>' + stationCheck.length + '</strong></div></div>' +
       '</div>' +
-      '<p class="section-subtitle" style="margin:8px 0 0;font-size:.74rem">بعد التصفية: <strong>' + all.length + '</strong> سجل معروض.' + filteredNote + '</p>';
+      '<p class="section-subtitle" style="margin:8px 0 0;font-size:.74rem">الجدول والبطاقات أعلاه من نفس القائمة: <strong>' + total_field_sessions + '</strong> سجل معروض.' + filteredNote + '</p>';
   }
+
 
   function fieldReviewStationNameById(sid) {
     if (!sid) return '—';
@@ -9776,6 +9790,7 @@
       var adjustments = (adjData && adjData.ok && Array.isArray(adjData.adjustments)) ? adjData.adjustments : [];
 
       var sessions = Array.isArray(sessData.sessions) ? sessData.sessions : [];
+      fieldReviewSessionsCache = sessions;
       var catEl = getEl('fieldReviewCategorySummaries');
       if (catEl) catEl.innerHTML = buildFieldReviewCategorySummariesHtml(sessions);
       var sessBody = getEl('fieldReviewSessionsBody');
@@ -9792,17 +9807,21 @@
               ? s.actual_species
               : (Array.isArray(s.caught_fish) && s.caught_fish.length ? s.caught_fish : (s.selected_fish ? [s.selected_fish] : []));
             var act = actualList.join('، ') || '—';
-            var ex = !!(s && s.excluded_from_accuracy);
+            var fishingRow = isFieldReviewFishingSession(s);
+            var ex = fishingRow && !!(s && s.excluded_from_accuracy);
             tr.style.opacity = ex ? '0.55' : '1';
             var badge = ex
               ? '<span class="fr-acc-badge" style="display:inline-block;font-size:.65rem;padding:2px 8px;border-radius:6px;background:rgba(255,180,100,.2);color:#ffe7aa;border:1px solid rgba(255,200,120,.28);">مستبعد</span>'
               : '';
             var btnAcc = ex ? 'إعادة التضمين' : 'استبعاد من الدقة';
             var wantEx = ex ? '0' : '1';
-            var fishingRow = isFieldReviewFishingSession(s);
+            var detailBtn = '<button type="button" class="small-btn" data-field-detail="' + escapeHtml(s.catch_id || '') + '">تفاصيل</button>';
             var accBtn = fishingRow
               ? ('<button type="button" class="small-btn fr-acc-toggle" data-catch-ex="' + escapeHtml(s.catch_id || '') + '" data-want-exclude="' + wantEx + '">' + btnAcc + '</button>')
               : '';
+            var nonFishNote = fishingRow
+              ? ''
+              : '<span class="fr-non-fishing-note">جلسة غير مخصصة لتعلم الصيد</span>';
             tr.innerHTML = '<td>' + fieldReviewActivityBadgeHtml(s) + '</td>' +
               '<td>' + fieldReviewScopeBadgeHtml(s) + '</td>' +
               '<td>' + escapeHtml(s.station_name || '—') + '</td>' +
@@ -9812,15 +9831,16 @@
               '<td style="font-size:.72rem;max-width:200px;word-break:break-word">موصى: ' + escapeHtml(pred) + '<br>فعلي: ' + escapeHtml(act) + '</td>' +
               '<td style="font-size:.78rem">' + escapeHtml(fieldReviewStatusLabel(s.review_status)) + '</td>' +
               '<td style="min-width:220px;vertical-align:top"><div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;justify-content:flex-end">' +
+              nonFishNote +
               badge +
               accBtn +
-              '<button type="button" class="small-btn" data-field-detail="' + escapeHtml(s.catch_id || '') + '">تفاصيل</button></div></td>';
+              detailBtn + '</div></td>';
             sessBody.appendChild(tr);
           });
           sessBody.querySelectorAll('button[data-field-detail]').forEach(function (btn) {
             btn.addEventListener('click', function () {
               var id = btn.getAttribute('data-field-detail');
-              var s = sessions.find(function (x) { return x && x.catch_id === id; });
+              var s = fieldReviewSessionsCache.find(function (x) { return x && x.catch_id === id; });
               if (s) openFieldSessionDetail(s);
             });
           });
