@@ -25,6 +25,56 @@ function normalizeString(v) {
   return String(v == null ? '' : v).trim();
 }
 
+function normalizeCountry(v) {
+  var c = normalizeString(v);
+  if (c === 'عمان') return 'عُمان';
+  if (c === 'الامارات' || c === 'الإمارات العربية المتحدة') return 'الإمارات';
+  return c;
+}
+
+function isPelagicClassification(row) {
+  return /سطحي|مهاجر|إسقم|تون|لخم|تونة/i.test(normalizeString(row && row.classification_ar));
+}
+
+/**
+ * Derive scoring preferences from Gulf DB row + safe defaults (Phase A SSOT).
+ * Optional JSON fields: preferred_temp_min/max, preferred_wave_max, preferred_current_max,
+ * dur_preference[], visibility_preference, activity_months[] (1-12).
+ */
+function buildScoringProfile(row) {
+  var r = row || {};
+  var pelagic = isPelagicClassification(r);
+  var tempMin = r.preferred_temp_min != null ? Number(r.preferred_temp_min) : (pelagic ? 24 : 20);
+  var tempMax = r.preferred_temp_max != null ? Number(r.preferred_temp_max) : (pelagic ? 32 : 33);
+  if (!Number.isFinite(tempMin)) tempMin = pelagic ? 24 : 20;
+  if (!Number.isFinite(tempMax)) tempMax = pelagic ? 32 : 33;
+  var waveMax = r.preferred_wave_max != null ? Number(r.preferred_wave_max) : (pelagic ? 1.65 : 1.35);
+  if (!Number.isFinite(waveMax)) waveMax = pelagic ? 1.65 : 1.35;
+  var curMax = r.preferred_current_max != null ? Number(r.preferred_current_max) : (pelagic ? 1.25 : 0.85);
+  if (!Number.isFinite(curMax)) curMax = pelagic ? 1.25 : 0.85;
+  var curMin = r.preferred_current_min != null ? Number(r.preferred_current_min) : 0.2;
+  if (!Number.isFinite(curMin)) curMin = 0.2;
+  var months = toArray(r.activity_months).map(function (m) {
+    return Number(m);
+  }).filter(function (m) {
+    return Number.isFinite(m) && m >= 1 && m <= 12;
+  });
+  return {
+    preferred_temp_min: tempMin,
+    preferred_temp_max: tempMax,
+    preferred_wave_max: waveMax,
+    preferred_current_min: curMin,
+    preferred_current_max: curMax,
+    preferred_depth_m: r.depth_m && typeof r.depth_m === 'object' ? r.depth_m : { min: null, max: null, label: '' },
+    water_state_pref: normalizeString(r.water_state_pref),
+    habitat_tags: toArray(r.habitat_tags).map(normalizeString).filter(Boolean),
+    countries: toArray(r.countries).map(normalizeCountry).filter(Boolean),
+    activity_months: months.length ? months : null,
+    dur_preference: toArray(r.dur_preference).map(normalizeString).filter(Boolean),
+    visibility_preference: normalizeString(r.visibility_preference) || 'medium'
+  };
+}
+
 /** Ecological / bathymetry tags (Arabic) used for filtering. */
 var ECO_TAGS = ['ساحلي', 'غزير', 'شعاب', 'رملي', 'طيني', 'مياه مفتوحة'];
 
@@ -64,6 +114,7 @@ function unifySpeciesRow(row) {
     base.behavior = { activity: ['نهاري', 'ليلي'], aggression: 'متوسط', movement: 'متحرك', feeding_type: 'مختلط' };
     base.preferred_tide_phase = ['سقي', 'ثبر'];
   }
+  base.scoring = buildScoringProfile(row);
   return base;
 }
 
@@ -101,7 +152,7 @@ function getUnifiedSpeciesList(doc) {
  * @returns {object[]}
  */
 function filterByCountry(list, country) {
-  var c = normalizeString(country);
+  var c = normalizeCountry(country);
   if (!c) {
     return list.slice();
   }
@@ -133,6 +184,8 @@ module.exports = {
   ECO_TAGS: ECO_TAGS,
   GULF_GENERIC_LABEL: GULF_GENERIC_LABEL,
   unifySpeciesRow: unifySpeciesRow,
+  buildScoringProfile: buildScoringProfile,
+  normalizeCountry: normalizeCountry,
   loadGulfFishDatabaseFromDisk: loadGulfFishDatabaseFromDisk,
   getUnifiedSpeciesList: getUnifiedSpeciesList,
   filterByCountry: filterByCountry,

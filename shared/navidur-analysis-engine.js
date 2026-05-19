@@ -971,7 +971,7 @@
         activePhase: activePhase,
         analysisDateTime: analysisDateTime,
         options: {
-          minScore: 45,
+          minScore: 60,
           maxItems: 8,
           learning: {
             settings: referenceData.learning_settings,
