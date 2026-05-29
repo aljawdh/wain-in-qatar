@@ -51,7 +51,10 @@ scripts/tests/
   README.md                 ← this file
   baselines/                ← golden snapshot philosophy (see baselines/README.md)
   scenarios/                ← placeholder scenario JSON (no runner yet)
-  results/                  ← future captured outputs and diffs
+  golden/                   ← approved baseline captures (empty until ops capture)
+  candidates/               ← candidate run outputs (working copies)
+  diffs/                    ← review artifacts (expected vs actual)
+  results/                  ← legacy/alternate output area (see results/README.md)
   fixtures/                 ← TODO: shared environment fixtures
   unit/                     ← TODO: fish engine, database loader
   integration/              ← TODO: analysis route, public DTO shape

@@ -90,6 +90,12 @@ Client → /api?route=fishing-engine (or compute-decision)
 | `runtime-safety-rules.md` | Change discipline |
 | `production-checklist.md` | Post-deploy checklist |
 | `regression-verification.md` | Pre-deploy regression workflow |
+| `staging-environment.md` | Staging vs production |
+| `safe-rollout-workflow.md` | End-to-end safe release |
+| `compare-mode-design.md` | Compare-mode architecture |
+| `staging-rollout-strategy.md` | Staging deployment order |
+| `data-protection-strategy.md` | Public/private data policy |
+| `marine-intelligence-roadmap.md` | Future capabilities (not implemented) |
 
 ---
 
