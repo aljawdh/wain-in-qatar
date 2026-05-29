@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "scenario_id": "oman-coastal",
+    "status": "placeholder",
+    "description": "Oman coastal station — country filter / regional behavior (placeholder only)",
+    "baseline_tag_target": "stable-phase-a-data",
+    "TODO": "Select representative Oman coastal station_id from stations reference"
+  },
+  "request": {
+    "route": "analysis",
+    "method": "POST",
+    "body": {
+      "station_id": "TODO_STATION_ID",
+      "analysis_date": "TODO_ISO_DATE"
+    }
+  },
+  "station_reference": {
+    "name_ar": "TODO",
+    "country": "عُمان",
+    "zone_hint": "coastal",
+    "notes": "Validates gulf_fish_database country filter includes Oman"
+  },
+  "tide_context": {
+    "expected_state": "TODO",
+    "notes_ar": "TODO"
+  },
+  "weather_context": {
+    "profile": "moderate_coastal",
+    "temp_c": null,
+    "wave_height_m": null,
+    "wind_speed_kmh": null,
+    "current_speed_ms": null,
+    "notes": "TODO: fixture values TBD"
+  },
+  "expected_stability_notes": {
+    "api_http_status": 200,
+    "public_summary_present": true,
+    "fish_recommendations": {
+      "TODO": "Species pool should reflect Oman eligibility — verify after golden capture"
+    },
+    "confidence_score": {
+      "TODO": "Baseline TBD"
+    }
+  }
+}

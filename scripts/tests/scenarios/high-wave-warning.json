@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "scenario_id": "high-wave-warning",
+    "status": "placeholder",
+    "description": "Elevated wave/wind — decision caution path (placeholder only)",
+    "baseline_tag_target": "stable-phase-a",
+    "TODO": "Use fixed environment fixture; do not claim live marine API behavior here"
+  },
+  "request": {
+    "route": "analysis",
+    "method": "POST",
+    "body": {
+      "station_id": "TODO_STATION_ID",
+      "analysis_date": "TODO_ISO_DATE"
+    }
+  },
+  "station_reference": {
+    "name_ar": "TODO",
+    "country": "TODO",
+    "zone_hint": "coastal",
+    "notes": "TODO: pick station known to surface wave/wind in decision breakdown"
+  },
+  "tide_context": {
+    "expected_state": "TODO",
+    "notes": "TODO: tide secondary to wave stress in this scenario"
+  },
+  "weather_context": {
+    "profile": "elevated_sea_state",
+    "temp_c": null,
+    "wave_height_m": "TODO_HIGH",
+    "wind_speed_kmh": "TODO_HIGH",
+    "current_speed_ms": null,
+    "notes": "TODO: define HIGH thresholds from ops (not engine constants in this file)"
+  },
+  "expected_stability_notes": {
+    "api_http_status": 200,
+    "decision": {
+      "TODO": "May show reduced suitability — document label patterns after golden capture"
+    },
+    "public_summary_present": true,
+    "fish_recommendations": {
+      "TODO": "May be shorter list or lower scores — establish baseline before enforcing bounds"
+    },
+    "confidence_score": {
+      "TODO": "May differ from calm scenarios — separate baseline, not compared directly"
+    }
+  }
+}

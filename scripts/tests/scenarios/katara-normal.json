@@ -1,0 +1,51 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "scenario_id": "katara-normal",
+    "status": "placeholder",
+    "description": "Coastal reef — typical LOAD / calm conditions (placeholder only)",
+    "baseline_tag_target": "stable-phase-a-data",
+    "TODO": "Validate station_id and environment against operator-approved P0 station list"
+  },
+  "request": {
+    "route": "analysis",
+    "method": "POST",
+    "body": {
+      "station_id": "TODO_STATION_ID",
+      "analysis_date": "TODO_ISO_DATE",
+      "TODO": "Add optional fields only if production API documents them"
+    }
+  },
+  "station_reference": {
+    "name_ar": "TODO",
+    "country": "قطر",
+    "zone_hint": "شعاب / coastal reef",
+    "notes": "Replace TODO_STATION_ID with approved P0 coastal station (e.g. Katara when documented in ops)"
+  },
+  "tide_context": {
+    "expected_state": "LOAD",
+    "notes_ar": "TODO: حمل — verify mapping to API tide block",
+    "TODO": "fixture_tide_state_override for offline runs"
+  },
+  "weather_context": {
+    "profile": "calm_coastal",
+    "temp_c": null,
+    "wave_height_m": null,
+    "wind_speed_kmh": null,
+    "current_speed_ms": null,
+    "notes": "TODO: use fixed fixture values for deterministic local runs; live values for authorized smoke only"
+  },
+  "expected_stability_notes": {
+    "api_http_status": 200,
+    "public_summary_present": true,
+    "fish_recommendations": {
+      "min_count": "TODO",
+      "max_count": "TODO",
+      "must_not_include_fields": ["display_rank_score"],
+      "TODO": "Document species name patterns after first golden capture — do not hardcode unverified lists"
+    },
+    "confidence_score": {
+      "TODO": "Define acceptable drift band after baseline capture (e.g. ±N points)"
+    }
+  }
+}

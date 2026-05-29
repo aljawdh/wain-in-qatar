@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "scenario_id": "katara-fasad",
+    "status": "placeholder",
+    "description": "Same coastal station — FASAD tide context (placeholder only)",
+    "baseline_tag_target": "stable-phase-a-data",
+    "TODO": "Confirm FASAD label matches production tide.state values"
+  },
+  "request": {
+    "route": "analysis",
+    "method": "POST",
+    "body": {
+      "station_id": "TODO_STATION_ID",
+      "analysis_date": "TODO_ISO_DATE"
+    }
+  },
+  "station_reference": {
+    "name_ar": "TODO",
+    "country": "قطر",
+    "zone_hint": "شعاب / coastal reef",
+    "notes": "Same station as katara-normal; differs by tide context only"
+  },
+  "tide_context": {
+    "expected_state": "FASAD",
+    "notes_ar": "TODO: فساد",
+    "TODO": "fixture_tide_state_override"
+  },
+  "weather_context": {
+    "profile": "calm_coastal",
+    "temp_c": null,
+    "wave_height_m": null,
+    "wind_speed_kmh": null,
+    "current_speed_ms": null,
+    "notes": "TODO: align with katara-normal weather fixture except tide"
+  },
+  "expected_stability_notes": {
+    "api_http_status": 200,
+    "public_summary_present": true,
+    "fish_recommendations": {
+      "TODO": "Expect possible species set shift vs LOAD — capture golden separately, do not assume"
+    },
+    "confidence_score": {
+      "TODO": "Define drift tolerance after baseline"
+    }
+  }
+}

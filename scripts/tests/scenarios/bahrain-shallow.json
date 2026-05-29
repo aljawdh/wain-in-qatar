@@ -1,0 +1,46 @@
+{
+  "_meta": {
+    "schema_version": 1,
+    "scenario_id": "bahrain-shallow",
+    "status": "placeholder",
+    "description": "Bahrain shallow coastal — regional contrast (placeholder only)",
+    "baseline_tag_target": "stable-phase-a-data",
+    "TODO": "Select representative Bahrain shallow station_id"
+  },
+  "request": {
+    "route": "analysis",
+    "method": "POST",
+    "body": {
+      "station_id": "TODO_STATION_ID",
+      "analysis_date": "TODO_ISO_DATE"
+    }
+  },
+  "station_reference": {
+    "name_ar": "TODO",
+    "country": "البحرين",
+    "zone_hint": "shallow / ساحلي",
+    "notes": "Regional contrast to Qatar coastal scenarios"
+  },
+  "tide_context": {
+    "expected_state": "TODO",
+    "notes_ar": "TODO"
+  },
+  "weather_context": {
+    "profile": "calm_shallow",
+    "temp_c": null,
+    "wave_height_m": null,
+    "wind_speed_kmh": null,
+    "current_speed_ms": null,
+    "notes": "TODO: shallow depth context in station metadata when available"
+  },
+  "expected_stability_notes": {
+    "api_http_status": 200,
+    "public_summary_present": true,
+    "fish_recommendations": {
+      "TODO": "Golden snapshot TBD — compare across deploys for Bahrain only"
+    },
+    "confidence_score": {
+      "TODO": "Drift band TBD"
+    }
+  }
+}
