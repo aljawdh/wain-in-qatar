@@ -3,23 +3,36 @@
 // TODO NAVIDUR_SECURITY_PHASE2: unify CORS handling through _lib/security.js before public scale (see api/index.js applyCorsHeaders, fishing-engine isAllowedOrigin).
 
 const ORIGIN_ALLOWLIST = ['https://navidur.app', 'https://www.navidur.app'];
-const PREVIEW_SUFFIXES = ['.vercel.app'];
+
+function parseHttpUrl(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password
+      ? url
+      : null;
+  } catch (_err) {
+    return null;
+  }
+}
 
 function isAllowedOrigin(req) {
-  const origin = String(req.headers.origin || '');
-  const referer = String(req.headers.referer || '');
-  const host = String(req.headers.host || '');
+  const headers = req && req.headers ? req.headers : {};
+  const origin = parseHttpUrl(String(headers.origin || ''));
+  const referer = parseHttpUrl(String(headers.referer || ''));
+  const host = String(headers.host || '').toLowerCase();
+  const originHeader = String(headers.origin || '');
+  const refererHeader = String(headers.referer || '');
+  const hasOriginHeaders = !!(originHeader || refererHeader);
+  const requestUrl = originHeader ? origin : referer;
 
-  const sameHostFromOrigin = host && origin.startsWith('https://' + host);
-  const sameHostFromReferer = host && referer.startsWith('https://' + host);
-  const previewOriginAllowed = PREVIEW_SUFFIXES.some((suffix) => origin.includes(suffix));
-  const previewRefererAllowed = PREVIEW_SUFFIXES.some((suffix) => referer.includes(suffix));
-  const okOrigin = ORIGIN_ALLOWLIST.some((d) => origin.startsWith(d));
-  const okReferer = ORIGIN_ALLOWLIST.some((d) => referer.startsWith(d));
-  const localhost = origin.startsWith('http://localhost') || referer.startsWith('http://localhost');
-  const missingHeadersButKnownHost = !origin && !referer && !!host;
+  if (!hasOriginHeaders) return !!host;
+  if (!requestUrl) return false;
 
-  return okOrigin || okReferer || localhost || sameHostFromOrigin || sameHostFromReferer || previewOriginAllowed || previewRefererAllowed || missingHeadersButKnownHost;
+  const trustedProductionOrigin = requestUrl.protocol === 'https:' && ORIGIN_ALLOWLIST.includes(requestUrl.origin);
+  const trustedLocalOrigin = requestUrl.protocol === 'http:' && (requestUrl.hostname === 'localhost' || requestUrl.hostname === '127.0.0.1');
+  const sameHostOrigin = !!host && requestUrl.protocol === 'https:' && requestUrl.host.toLowerCase() === host;
+  return trustedProductionOrigin || trustedLocalOrigin || sameHostOrigin;
 }
 
 function parseBody(req) {

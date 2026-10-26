@@ -4014,6 +4014,7 @@ async function saveCatch() {
 
   const payload = {
     local_id: localId,
+    owner_id: user.id,
     activity_type: activityType,
     validation_scope: validationScope,
     site_environment: siteEnvironment,
@@ -4101,24 +4102,35 @@ let _syncInFlight = false;
 async function syncPending() {
   if (_syncInFlight || !appState.isOnline) return;
   _syncInFlight = true;
+  const session = {
+    userId: Auth.user && Auth.user.id,
+    token: Auth.token
+  };
+  const isSessionCurrent = () => !!session.userId && !!session.token
+    && Auth.user && Auth.user.id === session.userId
+    && Auth.token === session.token;
 
   try {
+    if (!isSessionCurrent()) return;
     const pending = await FieldDB.getPending();
     if (!pending.length) return;
 
     let synced = 0;
     for (const record of pending) {
+      if (!isSessionCurrent()) break;
+      if (record.owner_id !== session.userId) continue;
       // Build server payload (exclude local_id)
-      const { local_id, ...serverPayload } = record;
+      const { local_id, owner_id, ...serverPayload } = record;
       try {
         const resp = await fetch('/api?route=log-catch', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + Auth.token
+            'Authorization': 'Bearer ' + session.token
           },
           body: JSON.stringify(serverPayload)
         });
+        if (!isSessionCurrent()) break;
         if (resp.status === 401) {
           Auth.clear();
           showAuthScreen();
@@ -4132,6 +4144,7 @@ async function syncPending() {
         }
         if (resp.status === 200) {
           const result = await resp.json();
+          if (!isSessionCurrent()) break;
           if (!result || result.ok !== true || !result.id) continue;
           await FieldDB.markSynced(local_id, nowIso());
           synced++;

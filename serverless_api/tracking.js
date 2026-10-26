@@ -4,7 +4,7 @@ const {
   readJsonFile, writeJsonFile, createId, nowIso,
   appendCatchLog, getCatchLogs, rateLimitKv, checkAndSetDedup, checkStorageHealth
 } = require('./_lib/data-store');
-const { requireRole } = require('./_lib/auth');
+const { requireRole, hasBearerToken } = require('./_lib/auth');
 const { isAllowedOrigin, parseBody, cleanString, toNumber, setNoCache, rateLimit } = require('./_lib/security');
 
 // ─── Catch log handlers (routes: /api/log-catch, /api/catch-data, /api/system-storage-health) ───
@@ -15,6 +15,13 @@ async function handleLogCatch(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'method_not_allowed' });
+  }
+
+  const headers = req.headers || {};
+  const hasSessionCookie = /(?:^|; )navidur_token=/.test(String(headers.cookie || ''));
+  const hasOriginOrReferer = !!(String(headers.origin || '').trim() || String(headers.referer || '').trim());
+  if (!hasBearerToken(req) && hasSessionCookie && !hasOriginOrReferer) {
+    return res.status(403).json({ error: 'forbidden_domain' });
   }
 
   let actor;

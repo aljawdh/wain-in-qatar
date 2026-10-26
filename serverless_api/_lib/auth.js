@@ -157,6 +157,11 @@ function getTokenFromReq(req) {
   return m ? decodeURIComponent(m[1]) : '';
 }
 
+function hasBearerToken(req) {
+  return String(req && req.headers && req.headers.authorization || '').startsWith('Bearer ')
+    && !!String(req.headers.authorization).slice(7).trim();
+}
+
 async function getAuthUser(req) {
   const token = getTokenFromReq(req);
   const payload = verifyToken(token);
@@ -333,6 +338,7 @@ async function createUser(input, actor) {
 module.exports = {
   ROLE_ORDER,
   hashPassword,
+  hasBearerToken,
   getAuthUser,
   canUserAddStations,
   requireRole,
