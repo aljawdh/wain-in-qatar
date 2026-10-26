@@ -4119,8 +4119,20 @@ async function syncPending() {
           },
           body: JSON.stringify(serverPayload)
         });
-        // 200 = success, 409 = duplicate (already synced once) — both mark as done
-        if (resp.ok || resp.status === 409) {
+        if (resp.status === 401) {
+          Auth.clear();
+          showAuthScreen();
+          const authError = document.getElementById('authError');
+          if (authError) authError.textContent = 'انتهت صلاحية الجلسة. سجّل الدخول مجدداً لمزامنة السجلات المحفوظة.';
+          break;
+        }
+        if (resp.status === 403) {
+          showToast('⚠️ تعذرت مزامنة السجل. سيبقى محفوظاً للمحاولة لاحقاً.', 'warn');
+          break;
+        }
+        if (resp.status === 200) {
+          const result = await resp.json();
+          if (!result || result.ok !== true || !result.id) continue;
           await FieldDB.markSynced(local_id, nowIso());
           synced++;
         }

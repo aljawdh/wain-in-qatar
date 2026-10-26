@@ -4,6 +4,7 @@ const {
   readJsonFile, writeJsonFile, createId, nowIso,
   appendCatchLog, getCatchLogs, rateLimitKv, checkAndSetDedup, checkStorageHealth
 } = require('./_lib/data-store');
+const { requireRole } = require('./_lib/auth');
 const { isAllowedOrigin, parseBody, cleanString, toNumber, setNoCache, rateLimit } = require('./_lib/security');
 
 // ─── Catch log handlers (routes: /api/log-catch, /api/catch-data, /api/system-storage-health) ───
@@ -16,6 +17,14 @@ async function handleLogCatch(req, res) {
     return res.status(405).json({ error: 'method_not_allowed' });
   }
 
+  let actor;
+  try {
+    actor = await requireRole('member')(req, res);
+  } catch (err) {
+    return res.status(500).json({ error: 'log_catch_failed', detail: String(err.message || err) });
+  }
+  if (!actor) return;
+
   // ── Rate limiting: KV-backed (cross-instance), in-memory as last-resort fallback ──
   const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || 'unknown').split(',')[0].trim() || 'unknown';
   const kvAllowed = await rateLimitKv('log_catch', ip, 20, 60);
@@ -26,9 +35,9 @@ async function handleLogCatch(req, res) {
   try {
     const body = parseBody(req);
 
-    // ── Source detection ──────────────────────────────────────────────────
-    const sourceRaw = cleanString(body.source || 'public_ui', 20);
-    const isFieldApp = sourceRaw === 'field_app';
+    // This authenticated endpoint records field reports; source is server-assigned.
+    const sourceRaw = 'field_app';
+    const isFieldApp = true;
 
     // ── Required field validation ──────────────────────────────────────────
     const stationId = cleanString(body.station_id || '', 100);
@@ -69,8 +78,8 @@ async function handleLogCatch(req, res) {
     const fishingMethod = cleanString(body.fishing_method || '', 60) || null;
 
     // ── Field app extra fields ─────────────────────────────────────────────
-    const operatorId       = isFieldApp ? (cleanString(body.operator_id || '', 80) || null) : null;
-    const operatorUsername = isFieldApp ? (cleanString(body.operator_username || '', 60) || null) : null;
+    const operatorId       = actor.id;
+    const operatorUsername = actor.username;
     const tripId           = isFieldApp ? (cleanString(body.trip_id || '', 80) || null) : null;
     const sessionId        = isFieldApp ? (cleanString(body.session_id || '', 80) || null) : null;
     const locationType     = isFieldApp ? (cleanString(body.location_type || '', 30) || null) : null;
@@ -208,6 +217,9 @@ async function handleCatchData(req, res) {
   if (!kvAllowed || !rateLimit(req, 'catch_data', 60, 60 * 1000)) {
     return res.status(429).json({ error: 'rate_limited' });
   }
+
+  const actor = await requireRole('admin')(req, res);
+  if (!actor) return;
 
   try {
     const stationId = req.query && req.query.station_id
