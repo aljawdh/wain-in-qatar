@@ -6,6 +6,7 @@ const {
   createId,
   nowIso
 } = require('./_lib/data-store');
+const { requireRole } = require('./_lib/auth');
 const { isAllowedOrigin, parseBody, setNoCache, cleanString, rateLimit } = require('./_lib/security');
 const publicNavidurDto = require('./_lib/navidur-public-dto');
 const traitLongTerm = require('./_lib/navidur-trait-long-term');
@@ -127,6 +128,9 @@ async function handler(req, res) {
   }
 
   try {
+    var actor = await requireRole('admin')(req, res);
+    if (!actor) return;
+
     var body = parseBody(req);
     var result = await captureSnapshotInternal(body);
     return res.status(200).json({

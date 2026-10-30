@@ -1,5 +1,6 @@
 'use strict';
 
+const { timingSafeEqual } = require('crypto');
 const { appendSnapshotRunLog, createId, nowIso } = require('./_lib/data-store');
 const { isAllowedOrigin, parseBody, setNoCache, cleanString, rateLimit } = require('./_lib/security');
 const { loadReferenceData } = require('./_lib/navidur-analysis-runtime');
@@ -108,11 +109,28 @@ async function runSnapshotsInternal(options) {
 module.exports = async function handler(req, res) {
   setNoCache(res);
 
-  if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'forbidden_domain' });
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'method_not_allowed' });
   }
+
+  var cronSecret = process.env.CRON_SECRET;
+  if (typeof cronSecret !== 'string' || cronSecret.length === 0) {
+    return res.status(503).json({ error: 'cron_secret_not_configured' });
+  }
+  var expectedAuthorization = Buffer.from('Bearer ' + cronSecret, 'utf8');
+  var authorization = req.headers && req.headers.authorization;
+  var providedAuthorization = typeof authorization === 'string'
+    ? Buffer.from(authorization, 'utf8')
+    : Buffer.alloc(0);
+  if (
+    providedAuthorization.length !== expectedAuthorization.length
+    || !timingSafeEqual(providedAuthorization, expectedAuthorization)
+  ) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  if (!isAllowedOrigin(req)) return res.status(403).json({ error: 'forbidden_domain' });
   if (!rateLimit(req, 'run_snapshots', 10, 60 * 1000)) {
     return res.status(429).json({ error: 'rate_limited' });
   }
