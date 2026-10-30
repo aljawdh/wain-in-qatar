@@ -133,7 +133,7 @@ async function getTideData(opts) {
   var start = dateStr + 'T00:00:00+00:00';
   var end = dateStr + 'T23:59:59+00:00';
 
-  var url = 'https://api.stormglass.io/v2/tide/extremes'
+  var url = 'https://api.stormglass.io/v2/tide/extremes/point'
     + '?lat=' + encodeURIComponent(String(lat))
     + '&lng=' + encodeURIComponent(String(lon))
     + '&start=' + encodeURIComponent(start)
