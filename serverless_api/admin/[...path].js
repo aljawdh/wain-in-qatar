@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs/promises');
-const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshots, getDurValidationLogs, getSnapshotRunLogs, getKv, kvStoreKey, getCatchLogs } = require('../_lib/data-store');
+const { readJsonFile, writeJsonFile, createId, nowIso, getStationSnapshotsPage, getStationSnapshotById, getDurValidationLogsPage, getDurValidationLogById, getSeasonalValidationHistoryPage, appendSeasonalValidationRecord, getSnapshotRunLogs, getKv, kvStoreKey, getCatchLogs } = require('../_lib/data-store');
 const fieldInsight = require('../../shared/navidur-learning-insight-engine.js');
 const { resolveAutoReferenceInheritance } = require('../_lib/reference-station-inheritance');
 const { requireRole, createUser, hashPassword } = require('../_lib/auth');
@@ -135,6 +135,12 @@ function nfcStringAr(value) {
   } catch (_e) {
     return t;
   }
+}
+
+function isValidDateOnlyAdmin(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false;
+  const parsed = new Date(value + 'T00:00:00.000Z');
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function isValidDdMmTrueFinal(s) {
@@ -904,8 +910,12 @@ async function adminBuildMonitoringAnalysisPack(stationId, date, sourceHint) {
     windDirection: n(liveInputs.wind_direction_deg),
     airTemperature: n(liveInputs.temp_c),
     waveHeight: n(liveInputs.wave_height_m),
+    waveDirection: n(liveInputs.wave_direction_deg),
     currentSpeed: n(liveInputs.current_speed_ms),
+    currentDirection: n(liveInputs.current_direction_deg != null ? liveInputs.current_direction_deg : liveInputs.ocean_current_direction_deg),
+    humidity: n(weatherPack.weather_meta && weatherPack.weather_meta.humidity_pct),
     waterTemperature: n(liveInputs.temp_c),
+    tideHeight: n(liveInputs.tide && liveInputs.tide.height_m),
     tideState: dto && dto.tide ? dto.tide.state || null : null
   };
   const agreement = computeAgreement(openMeteoValues, sgValues);
@@ -1873,18 +1883,73 @@ module.exports = async function handler(req, res) {
       res.setHeader('Allow', 'GET');
       return res.status(405).json({ error: 'method_not_allowed' });
     }
-    const stationId = cleanString(req.query && req.query.station_id, 80);
-    const durId = cleanString(req.query && req.query.dur_id, 80);
+    const query = req.query || {};
+    const stationId = cleanString(query.station_id, 80);
+    const durId = cleanString(query.dur_id, 80);
+    const startDate = cleanString(query.start_date, 10);
+    const endDate = cleanString(query.end_date, 10);
+    const monthText = cleanString(query.month, 2);
+    const yearText = cleanString(query.year, 4);
+    const month = monthText ? Number(monthText) : null;
+    const year = yearText ? Number(yearText) : null;
+    const since = cleanString(query.since, 40);
+    const until = cleanString(query.until, 40);
+    const allowedStatuses = [
+      'matched', 'confirmed_mismatch', 'partial', 'insufficient_evidence',
+      'conflicting_evidence', 'stale_data', 'not_applicable'
+    ];
+    const allowedCategories = ['all', 'meteorological', 'marine', 'tides', 'currents'];
+    const status = cleanString(query.status, 40);
+    const category = cleanString(query.category, 30);
+    if ((startDate && !isValidDateOnlyAdmin(startDate)) ||
+        (endDate && !isValidDateOnlyAdmin(endDate)) ||
+        (startDate && endDate && startDate > endDate) ||
+        (monthText && (!/^\d{1,2}$/.test(monthText) || month < 1 || month > 12)) ||
+        (yearText && (!/^\d{4}$/.test(yearText) || year < 1)) ||
+        (since && !Number.isFinite(Date.parse(since))) ||
+        (until && !Number.isFinite(Date.parse(until))) ||
+        (since && until && Date.parse(since) > Date.parse(until)) ||
+        (category && allowedCategories.indexOf(category) < 0) ||
+        (status && allowedStatuses.indexOf(status) < 0)) {
+      return res.status(400).json({ error: 'snapshot_filter_invalid' });
+    }
     const limit = id
       ? 500
-      : (Number(req.query && req.query.limit) > 0 ? Math.min(Number(req.query.limit), 500) : 100);
-    const items = await getStationSnapshots({ stationId: stationId, durId: durId, limit: limit });
+      : (Number(query.limit) > 0 ? Math.min(Number(query.limit), 500) : 100);
+    const cursor = cleanString(query.cursor, 120);
+    const offset = Number(query.offset) > 0 && Number.isSafeInteger(Math.floor(Number(query.offset)))
+      ? Math.floor(Number(query.offset))
+      : 0;
     if (id) {
-      const item = items.find(function (entry) { return String(entry.snapshot_id || entry.id || '') === String(id); });
+      const item = await getStationSnapshotById(id);
       if (!item) return res.status(404).json({ error: 'snapshot_not_found' });
       return res.status(200).json({ ok: true, item: item });
     }
-    return res.status(200).json({ ok: true, total: items.length, items: items });
+    const page = await getStationSnapshotsPage({
+      stationId: stationId,
+      durId: durId,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+      month: month,
+      year: year,
+      since: since,
+      until: until,
+      region: cleanString(query.region, 100),
+      trait: cleanString(query.trait, 160),
+      category: category,
+      offset: offset,
+      limit: limit,
+      cursor: cursor
+    });
+    const items = page.items;
+    return res.status(200).json({
+      ok: true,
+      total: items.length,
+      has_more: page.has_more,
+      next_cursor: page.next_cursor,
+      items: items
+    });
   }
 
   if (root === 'dur-validation-logs') {
@@ -1898,13 +1963,24 @@ module.exports = async function handler(req, res) {
     const limit = id
       ? 500
       : (Number(req.query && req.query.limit) > 0 ? Math.min(Number(req.query.limit), 500) : 100);
-    const items = await getDurValidationLogs({ stationId: stationId, durId: durId, status: status, limit: limit });
+    const offset = Number(req.query && req.query.offset) > 0 && Number.isSafeInteger(Math.floor(Number(req.query.offset)))
+      ? Math.floor(Number(req.query.offset))
+      : 0;
     if (id) {
-      const item = items.find(function (entry) { return String(entry.validation_id || entry.id || '') === String(id); });
+      const item = await getDurValidationLogById(id);
       if (!item) return res.status(404).json({ error: 'validation_not_found' });
       return res.status(200).json({ ok: true, item: item });
     }
-    return res.status(200).json({ ok: true, total: items.length, items: items });
+    const page = await getDurValidationLogsPage({
+      stationId: stationId,
+      durId: durId,
+      status: status,
+      offset: offset,
+      cursor: cleanString(req.query && req.query.cursor, 120),
+      limit: limit
+    });
+    const items = page.items;
+    return res.status(200).json({ ok: true, total: items.length, has_more: page.has_more, next_cursor: page.next_cursor, items: items });
   }
 
   if (root === 'snapshot-run-logs') {
@@ -2283,30 +2359,61 @@ module.exports = async function handler(req, res) {
       const fwDoc = await readJsonFile('durur_trait_framework', { version: 1, traits: [] });
       const durId = pack.dto && pack.dto.dur ? String(pack.dto.dur.period_id || '') : '';
       const traits = dururTraitMatching.frameworkTraitsForDurId(fwDoc, durId);
-      const histDoc = await readJsonFile('navidur_seasonal_validation_history', { version: 1, entries: [] });
-      const entries = Array.isArray(histDoc.entries) ? histDoc.entries : [];
       const region = cleanString(pack.station.region, 80) || '';
-      const filtered = dururTraitMatching.filterHistoryForComparison(entries, durId, String(pack.station.id), region, date);
-      const years = [2026, 2027, 2028];
+      const historyOffsetText = cleanString(q.history_offset, 12);
+      const historyLimitText = cleanString(q.history_limit, 4);
+      const historyCursor = cleanString(q.history_cursor, 160);
+      const historyOffset = historyOffsetText && /^\d+$/.test(historyOffsetText) ? Number(historyOffsetText) : 0;
+      const historyLimit = historyLimitText && /^\d+$/.test(historyLimitText) ? Number(historyLimitText) : 100;
+      if ((historyOffsetText && !/^\d+$/.test(historyOffsetText)) ||
+          (historyLimitText && !/^\d+$/.test(historyLimitText)) ||
+          !Number.isSafeInteger(historyOffset) || historyLimit < 1 || historyLimit > 500) {
+        return res.status(400).json({ error: 'seasonal_history_pagination_invalid' });
+      }
+      const monthDay = date.slice(5, 10);
+      const historyPage = await getSeasonalValidationHistoryPage({
+        stationId: String(pack.station.id),
+        durId: durId,
+        region: region,
+        monthDay: monthDay,
+        status: cleanString(q.status, 40),
+        offset: historyOffset,
+        limit: historyLimit,
+        cursor: historyCursor
+      });
+      const filtered = historyPage.items;
+      const years = historyPage.years;
+      const stationDurYears = years;
+      const firstHistoryYear = stationDurYears.length ? Math.min.apply(null, stationDurYears) : null;
+      const historyCoverage = [];
+      if (firstHistoryYear != null) {
+        for (let historyYear = firstHistoryYear; historyYear <= new Date().getUTCFullYear(); historyYear += 1) {
+          historyCoverage.push({
+            year: historyYear,
+            has_matching_date: years.indexOf(historyYear) >= 0
+          });
+        }
+      }
       const byYear = {};
-      let totalAcrossYears = 0;
       for (let yi = 0; yi < years.length; yi += 1) {
         const y = years[yi];
         const arr = filtered.filter(function (e) {
           return e && Number(e.year) === y;
         });
         byYear[String(y)] = arr;
-        totalAcrossYears += arr.length;
       }
       const yNow = new Date().getUTCFullYear();
       const yearLog = filtered.filter(function (e) {
         return e && Number(e.year) === yNow;
       }).slice(0, 50);
+      const yearComparisonStatus = dururTraitMatching.getYearComparisonCompleteness(historyPage);
       const matchPreview = dururTraitMatching.matchDururTraitsWithMonitoringData({
         dto: pack.dto,
         openMeteoValues: pack.openMeteoValues,
         frameworkTraits: traits,
-        station: pack.station
+        station: pack.station,
+        sourceAgreement: pack.agreement,
+        measurementKind: pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.measurement_kind
       });
       const confidencePreview = dururTraitMatching.computeSeasonalValidationConfidence({
         weather_meta: pack.weatherPack.weather_meta || {},
@@ -2335,22 +2442,46 @@ module.exports = async function handler(req, res) {
         dur_name_ar: cleanString(pack.dto && pack.dto.dur && pack.dto.dur.period_name, 120),
         dur_snapshot: pack.dto && pack.dto.dur ? pack.dto.dur : null,
         framework_traits: traits,
+        observation_evidence: {
+          values: Object.assign({}, pack.openMeteoValues),
+          provider: cleanString(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.forecast_source, 100) || 'unknown',
+          measurement_kind: cleanString(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.measurement_kind, 40) || 'unspecified',
+          observation_time: cleanString(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.as_of, 80) || null,
+          retrieved_at: nowIso(),
+          cached: !!(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.from_cache),
+          defaulted: !!(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.from_defaults)
+        },
         seasonal_match_preview: {
           trait_match_score: matchPreview.trait_match_score,
           matched_traits: matchPreview.matched_traits,
           partial_traits: matchPreview.partial_traits,
           failed_traits: matchPreview.failed_traits,
           unknown_traits: matchPreview.unknown_traits,
+          unsupported_traits: matchPreview.unsupported_traits,
+          insufficient_traits: matchPreview.insufficient_traits,
+          conflicting_traits: matchPreview.conflicting_traits,
+          evaluable_trait_count: matchPreview.evaluable_trait_count,
+          denominator: matchPreview.denominator,
+          total_trait_count: matchPreview.total_trait_count,
+          coverage: matchPreview.coverage,
           anomalies: matchPreview.anomalies,
           summary_ar: matchPreview.summary_ar
         },
         confidence_preview: confidencePreview,
         year_comparison: byYear,
+        history_coverage: historyCoverage,
         current_year_log: yearLog,
         regional_trait_context: regionalNotes,
-        history_count_for_window: filtered.length,
+        history_count_for_window: historyPage.total,
+        history_page_count: filtered.length,
+        history_total_for_window: historyPage.total,
+        history_has_more: historyPage.has_more,
+        history_next_offset: historyPage.next_offset,
+        history_next_cursor: historyPage.next_cursor,
+        year_comparison_complete: yearComparisonStatus.year_comparison_complete,
+        year_comparison_status: yearComparisonStatus.year_comparison_status,
         insufficient_years_message:
-          totalAcrossYears < 2 ? 'لا توجد بيانات تاريخية كافية بعد.' : null
+          historyPage.total < 2 ? 'لا توجد بيانات تاريخية كافية بعد.' : null
       });
     } catch (err) {
       const code = err && err.code;
@@ -2383,7 +2514,9 @@ module.exports = async function handler(req, res) {
         dto: pack.dto,
         openMeteoValues: pack.openMeteoValues,
         frameworkTraits: traits,
-        station: pack.station
+        station: pack.station,
+        sourceAgreement: pack.agreement,
+        measurementKind: pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.measurement_kind
       });
       const confidence = dururTraitMatching.computeSeasonalValidationConfidence({
         weather_meta: pack.weatherPack.weather_meta || {},
@@ -2394,6 +2527,19 @@ module.exports = async function handler(req, res) {
       });
       const year = new Date(String(date) + 'T12:00:00Z').getUTCFullYear();
       const region = cleanString(pack.station.region, 80) || '';
+      const observedValues = pack.openMeteoValues || {};
+      const availableValueCount = Object.keys(observedValues).filter(function (key) {
+        return typeof observedValues[key] === 'number' && Number.isFinite(observedValues[key]);
+      }).length;
+      const verificationStatus = match.evaluable_trait_count === 0
+        ? (match.conflicting_traits.length
+          ? 'conflicting_evidence'
+          : (match.unsupported_traits.length === match.total_trait_count ? 'not_applicable' : 'insufficient_evidence'))
+        : (match.failed_traits.length === 0
+          ? (match.evaluable_trait_count === match.total_trait_count ? 'matched' : 'partial')
+          : (match.matched_traits.length === 0 && match.evaluable_trait_count === match.total_trait_count
+            ? 'confirmed_mismatch'
+            : 'partial'));
       const record = {
         year: year,
         date: date,
@@ -2403,25 +2549,73 @@ module.exports = async function handler(req, res) {
         dur_id: durId || null,
         dur_name_ar: cleanString(pack.dto && pack.dto.dur && pack.dto.dur.period_name, 120),
         source_used: 'open_meteo',
+        execution_status: 'completed',
+        data_availability_status: availableValueCount ? 'available' : 'unavailable',
+        available_value_count: availableValueCount,
+        verification_status: verificationStatus,
         trait_match_score: match.trait_match_score,
+        evaluable_trait_count: match.evaluable_trait_count,
+        denominator: match.denominator,
+        total_trait_count: match.total_trait_count,
+        coverage: match.coverage,
         matched_traits: match.matched_traits,
         partial_traits: match.partial_traits,
         failed_traits: match.failed_traits,
         unknown_traits: match.unknown_traits,
+        unsupported_traits: match.unsupported_traits,
+        insufficient_traits: match.insufficient_traits,
+        conflicting_traits: match.conflicting_traits,
         anomalies: match.anomalies,
         confidence: confidence,
-        created_at: nowIso()
+        created_at: nowIso(),
+        verification_rule_version: 'expected-range-v1',
+        expected_traits: traits.map(function (trait) {
+          return {
+            id: trait.id,
+            name: trait.trait_name,
+            category: trait.trait_category || '',
+            description_ar: trait.description_ar || '',
+            expected_range: trait.expected_range || null
+          };
+        }),
+        observation_evidence: {
+          values: Object.assign({}, pack.openMeteoValues),
+          provider: cleanString(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.forecast_source, 100) || 'unknown',
+          measurement_kind: cleanString(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.measurement_kind, 40) || 'unspecified',
+          observation_time: cleanString(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.as_of, 80) || null,
+          retrieved_at: nowIso(),
+          cached: !!(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.from_cache),
+          defaulted: !!(pack.weatherPack.weather_meta && pack.weatherPack.weather_meta.from_defaults)
+        }
       };
-      await dururTraitMatching.appendSeasonalHistory(readJsonFile, writeJsonFile, record);
-      const fwUpdated = dururTraitMatching.updateFrameworkAfterRun(
-        JSON.parse(JSON.stringify(fwDoc)),
-        match,
-        pack.station,
-        year,
-        date,
-        region
-      );
-      await writeJsonFile('durur_trait_framework', fwUpdated);
+      const historySave = await dururTraitMatching.appendSeasonalHistory(readJsonFile, writeJsonFile, record, {
+        getSeasonalValidationHistoryPage: getSeasonalValidationHistoryPage,
+        appendSeasonalValidationRecord: appendSeasonalValidationRecord
+      });
+      let persistenceStatus = historySave.duplicate
+        ? 'duplicate_existing'
+        : historySave.record.revision_number > 1
+          ? 'historical_correction_saved_learning_not_recomputed'
+          : 'historical_evidence_saved';
+      if (!historySave.duplicate && historySave.record.revision_number === 1 && match.evaluable_trait_count > 0) {
+        const fwUpdated = dururTraitMatching.updateFrameworkAfterRun(
+          JSON.parse(JSON.stringify(fwDoc)),
+          match,
+          pack.station,
+          year,
+          date,
+          region
+        );
+        try {
+          await writeJsonFile('durur_trait_framework', fwUpdated);
+          persistenceStatus = 'complete';
+        } catch (_frameworkWriteError) {
+          return res.status(500).json({
+            error: 'seasonal_validation_partial_persistence',
+            persistence_status: persistenceStatus
+          });
+        }
+      }
       await writeAudit('monitoring_seasonal_validation', actor, {
         station_id: String(pack.station.id),
         date: date,
@@ -2430,13 +2624,25 @@ module.exports = async function handler(req, res) {
       });
       return res.status(200).json({
         ok: true,
-        saved: true,
-        history_record: record,
+        saved: !historySave.duplicate,
+        duplicate: historySave.duplicate,
+        execution_status: 'completed',
+        data_availability_status: record.data_availability_status,
+        verification_status: record.verification_status,
+        persistence_status: persistenceStatus,
+        history_record: historySave.record,
         trait_match_score: match.trait_match_score,
+        evaluable_trait_count: match.evaluable_trait_count,
+        denominator: match.denominator,
+        total_trait_count: match.total_trait_count,
+        coverage: match.coverage,
         matched_traits: match.matched_traits,
         partial_traits: match.partial_traits,
         failed_traits: match.failed_traits,
         unknown_traits: match.unknown_traits,
+        unsupported_traits: match.unsupported_traits,
+        insufficient_traits: match.insufficient_traits,
+        conflicting_traits: match.conflicting_traits,
         anomalies: match.anomalies,
         summary_ar: match.summary_ar,
         confidence: confidence,
@@ -2468,6 +2674,7 @@ module.exports = async function handler(req, res) {
       const pack = await adminBuildMonitoringAnalysisPack(stationId, date, source);
       const station = pack.station;
       const dto = pack.dto;
+      const weatherPack = pack.weatherPack || {};
       const openMeteoValues = pack.openMeteoValues;
       const sgValues = pack.sgValues;
       const agreement = pack.agreement;
@@ -2502,6 +2709,14 @@ module.exports = async function handler(req, res) {
         date: date,
         dur_name_ar: cleanString(dto && dto.dur && dto.dur.period_name, 120),
         open_meteo_values: openMeteoValues,
+        observation_metadata: {
+          provider: cleanString(weatherPack.weather_meta && weatherPack.weather_meta.forecast_source, 100) || 'unknown',
+          measurement_kind: cleanString(weatherPack.weather_meta && weatherPack.weather_meta.measurement_kind, 40) || 'unspecified',
+          observation_time: cleanString(weatherPack.weather_meta && weatherPack.weather_meta.as_of, 80) || null,
+          retrieved_at: nowIso(),
+          cached: !!(weatherPack.weather_meta && weatherPack.weather_meta.from_cache),
+          defaulted: !!(weatherPack.weather_meta && weatherPack.weather_meta.from_defaults)
+        },
         stormglass_values: sgValues,
         navidur_decision: {
           advice_text: cleanString(dto && dto.fishing && dto.fishing.recommendation_text, 400),
@@ -2539,6 +2754,7 @@ module.exports = async function handler(req, res) {
         dur: dto && dto.dur ? dto.dur : null,
         navidur_decision: snapshot.navidur_decision,
         open_meteo_values: openMeteoValues,
+        observation_metadata: snapshot.observation_metadata,
         stormglass_values: sgValues,
         tide_values: {
           navidur_tide: dto && dto.tide ? dto.tide : null,
@@ -2626,8 +2842,8 @@ function computeAgreement(openVals, sgVals) {
     if (pass) ok += 1;
     pairs.push({ key: key, open: a, stormglass: b, delta: n(Math.abs(a - b).toFixed(3)), pass: pass });
   });
-  if (!used) return { score: 0, pairs: [] };
-  return { score: Math.round((ok / used) * 100), pairs: pairs };
+  if (!used) return { score: null, pairs: [], evaluable_pairs: 0 };
+  return { score: Math.round((ok / used) * 100), pairs: pairs, evaluable_pairs: used };
 }
 
 function computeTraitMatchScore(dto) {

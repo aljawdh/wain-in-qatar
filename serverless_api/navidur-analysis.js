@@ -341,14 +341,21 @@ module.exports = async function handler(req, res) {
         });
       }
     } catch (_tideFinalDbg) { /* ignore */ }
-    try {
-      var valLayer = navidurSnapshotValidation.buildValidationResult(dto, fieldValidation, null);
-      dto.validation = valLayer.validation;
-      dto.comparison_mode = valLayer.comparison_mode;
-    } catch (_valLayer) {
-      dto.validation = { mode: 'reference', reason: null, observed_traits: [] };
-      dto.comparison_mode = 'reference';
-    }
+    var valLayer = navidurSnapshotValidation.buildValidationResult(dto, fieldValidation, null);
+    dto.validation = valLayer.validation;
+    dto.comparison_mode = valLayer.comparison_mode;
+    dto.verification_result = {
+      status: valLayer.validation_status,
+      score: valLayer.validation_score,
+      matched_traits: valLayer.matched_traits,
+      confirmed_mismatches: valLayer.failed_traits,
+      insufficient_traits: valLayer.insufficient_traits,
+      unsupported_traits: valLayer.unsupported_traits,
+      evaluable_trait_count: valLayer.evaluable_trait_count,
+      denominator: valLayer.evaluable_trait_count,
+      total_expected_traits: valLayer.total_expected_traits,
+      coverage: valLayer.coverage
+    };
     try {
       dto.internal_trait_signals = publicNavidurDto.buildInternalTraitSignalsFromDto(dto);
     } catch (_sig) {
@@ -357,34 +364,67 @@ module.exports = async function handler(req, res) {
 
     logNavidurTraitsValidation(dto, station, { analysis_date: resolvedDate.analysis_date });
 
-    try {
-      var validationRec = navidurSnapshotValidation.buildValidationLogRecord({
-        validation_id: createId('validation'),
-        timestamp: nowIso(),
-        station: station,
-        dto: dto,
-        field_validation: fieldValidation,
-        notes: null,
-        depth_mode: cleanString(body.depth_mode, 20) || 'coastal'
-      });
-      if (validationRec) {
+    var validationPersistenceStatus = 'pending';
+    var traitLearningStatus = 'not_applicable';
+    var validationRec = navidurSnapshotValidation.buildValidationLogRecord({
+      validation_id: createId('validation'),
+      timestamp: nowIso(),
+      station: station,
+      dto: dto,
+      field_validation: fieldValidation,
+      notes: null,
+      depth_mode: cleanString(body.depth_mode, 20) || 'coastal'
+    });
+    if (!validationRec) {
+      validationPersistenceStatus = 'not_applicable';
+    } else {
+      try {
         await appendDurValidationLog(validationRec);
-        if (validationRec.comparison_mode !== 'no_reference') {
-          try {
-            await traitLongTerm.bumpTraitCyclesFromValidationRecord(validationRec, {
-              reference_bucket_id: validationRec.station_id,
-              dur_name_ar: validationRec.dur_name,
-              phase_id: validationRec.phase_id || '',
-              depth_mode: validationRec.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
-              evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
-              environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
-              analysis_date: dto.analysis_date || resolvedDate.analysis_date || null,
-              reference_station_name_ar: validationRec.reference_station_name_ar || null
-            });
-          } catch (_bumpErr) { /* ignore */ }
-        }
+        validationPersistenceStatus = 'saved';
+      } catch (validationLogError) {
+        validationPersistenceStatus = 'failed';
+        console.error('NAVIDUR_ANALYSIS_VALIDATION_PERSISTENCE_FAILED', {
+          validation_id: validationRec.validation_id,
+          error: String(validationLogError && validationLogError.message ? validationLogError.message : validationLogError)
+        });
       }
-    } catch (_valLogErr) { /* never fail analysis on validation append */ }
+      var evidenceMeta = traitLongTerm.resolveEvidenceMeta(body, fieldValidation);
+      if (
+        validationPersistenceStatus === 'saved' &&
+        validationRec.comparison_mode !== 'no_reference' &&
+        validationRec.evaluable_trait_count > 0 &&
+        validationRec.validation_score != null &&
+        dto.environment &&
+        dto.environment.measurement_kind === 'observation' &&
+        evidenceMeta.source !== 'forecast'
+      ) {
+        try {
+          await traitLongTerm.bumpTraitCyclesFromValidationRecord(validationRec, {
+            reference_bucket_id: validationRec.station_id,
+            dur_name_ar: validationRec.dur_name,
+            phase_id: validationRec.phase_id || '',
+            depth_mode: validationRec.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
+            evidence_meta: evidenceMeta,
+            environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
+            analysis_date: dto.analysis_date || resolvedDate.analysis_date || null,
+            reference_station_name_ar: validationRec.reference_station_name_ar || null
+          });
+          traitLearningStatus = 'updated';
+        } catch (learningError) {
+          traitLearningStatus = 'failed';
+          console.error('NAVIDUR_ANALYSIS_LEARNING_UPDATE_FAILED', {
+            validation_id: validationRec.validation_id,
+            error: String(learningError && learningError.message ? learningError.message : learningError)
+          });
+        }
+      } else if (validationRec.comparison_mode !== 'no_reference') {
+        traitLearningStatus = validationPersistenceStatus === 'saved'
+          ? 'skipped_unverified_evidence'
+          : 'skipped_validation_not_persisted';
+      }
+    }
+    dto.validation_persistence_status = validationPersistenceStatus;
+    dto.trait_learning_status = traitLearningStatus;
 
     dto.confidence = dto.fishing && dto.fishing.confidence_score != null ? dto.fishing.confidence_score : null;
     dto.analysis_date = resolvedDate.analysis_date;

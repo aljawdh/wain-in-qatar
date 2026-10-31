@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 /**
  * Seasonal / monitoring-only trait matching for admin Marine Monitoring Center.
  * Does not participate in public fishing recommendations or analyzeLiveStation outputs.
@@ -142,19 +143,13 @@ function classifyTraitVersusObserved(trait, observed, open) {
   const rm = rangeMatch(trait, open);
   if (rm === true) return 'matched';
   if (rm === false) return 'failed';
-
-  if (!hasNumericObservation(open)) return 'unknown';
-
-  for (let i = 0; i < observed.length; i += 1) {
-    const o = nfc(observed[i]);
-    if (!o) continue;
-    if (o === name) return 'matched';
-    if (o.indexOf(name) >= 0 || name.indexOf(o) >= 0) return 'matched';
-  }
-  for (let j = 0; j < observed.length; j += 1) {
-    if (sharedTokenOverlap(name, observed[j]) >= 1) return 'partial';
-  }
-  return 'failed';
+  const range = trait && trait.expected_range && typeof trait.expected_range === 'object'
+    ? trait.expected_range
+    : null;
+  if (!range || !Object.keys(range).some(function (key) {
+    return /_(?:min|max)$/.test(key);
+  })) return 'unsupported';
+  return 'insufficient_evidence';
 }
 
 /**
@@ -170,31 +165,76 @@ function matchDururTraitsWithMonitoringData(ctx) {
   const partial_traits = [];
   const failed_traits = [];
   const unknown_traits = [];
+  const unsupported_traits = [];
+  const insufficient_traits = [];
+  const conflicting_traits = [];
   const anomalies = [];
+  const agreementPairs = ctx && ctx.sourceAgreement && Array.isArray(ctx.sourceAgreement.pairs)
+    ? ctx.sourceAgreement.pairs
+    : [];
+  const rangeFieldToAgreementField = {
+    wind_speed_kmh: 'windSpeed',
+    wave_height_m: 'waveHeight',
+    current_speed_ms: 'currentSpeed',
+    temp_c: 'waterTemperature'
+  };
 
   for (let i = 0; i < traits.length; i += 1) {
     const t = traits[i];
-    const status = classifyTraitVersusObserved(t, observed, open);
+    const range = t && t.expected_range && typeof t.expected_range === 'object' ? t.expected_range : {};
+    const conflict = Object.keys(range).some(function (key) {
+      if (!/_(?:min|max)$/.test(key)) return false;
+      const field = key.replace(/_(?:min|max)$/, '');
+      const pairKey = rangeFieldToAgreementField[field];
+      return !!pairKey && agreementPairs.some(function (pair) {
+        return pair && pair.key === pairKey && pair.pass === false;
+      });
+    });
+    const status = conflict
+      ? 'conflicting_evidence'
+      : (ctx && ctx.measurementKind !== 'observation' &&
+        Object.keys(range).some(function (key) { return /_(?:min|max)$/.test(key); }))
+        ? 'insufficient_evidence'
+      : classifyTraitVersusObserved(t, observed, open);
     const row = {
       trait_id: t.id,
       trait_name: t.trait_name,
       trait_category: t.trait_category || '',
-      status: status
+      status: status,
+      expected_range: Object.keys(range).length ? range : null
     };
     if (status === 'matched') matched_traits.push(row);
     else if (status === 'partial') partial_traits.push(row);
     else if (status === 'failed') failed_traits.push(row);
-    else unknown_traits.push(row);
+    else {
+      unknown_traits.push(row);
+      if (status === 'unsupported') unsupported_traits.push(row);
+      else if (status === 'conflicting_evidence') conflicting_traits.push(row);
+      else insufficient_traits.push(row);
+    }
   }
 
-  const scored = matched_traits.length + 0.5 * partial_traits.length;
-  const denom = traits.length || 1;
-  const trait_match_score = Math.round(Math.min(100, (scored / denom) * 100));
+  const evaluable_trait_count = matched_traits.length + failed_traits.length;
+  const trait_match_score = evaluable_trait_count
+    ? Math.round((matched_traits.length / evaluable_trait_count) * 100)
+    : null;
 
-  if (traits.length && !hasNumericObservation(open)) {
+  if (insufficient_traits.length || (traits.length && !hasNumericObservation(open))) {
     anomalies.push({ type: 'incomplete_observation', message_ar: 'بيانات الرصد الرقمية غير كافية لمقارنة كاملة.' });
   }
-  if (failed_traits.length > matched_traits.length && matched_traits.length === 0) {
+  if (unsupported_traits.length) {
+    anomalies.push({
+      type: 'unsupported_trait_rules',
+      message_ar: 'توجد سمات تراثية بلا قواعد تحقق كمية معتمدة؛ لم تدخل في النتيجة.'
+    });
+  }
+  if (conflicting_traits.length) {
+    anomalies.push({
+      type: 'conflicting_evidence',
+      message_ar: 'توجد قراءات متعارضة بين المصادر؛ لم تدخل السمات المتأثرة في النتيجة.'
+    });
+  }
+  if (evaluable_trait_count && failed_traits.length > matched_traits.length && matched_traits.length === 0) {
     anomalies.push({
       type: 'trait_divergence',
       message_ar: 'معظم سمات الدر لا تطابق الرصد الحالي — راجع الفرضيات أو جودة الرصد.'
@@ -202,24 +242,32 @@ function matchDururTraitsWithMonitoringData(ctx) {
   }
 
   const summary_ar =
-    'تطابق تقريبي ' +
-    trait_match_score +
-    '%: ' +
+    (trait_match_score == null ? 'لا يمكن حساب نسبة التحقق' : 'نسبة السمات القابلة للتقييم ' + trait_match_score + '%') +
+    ': ' +
     matched_traits.length +
     ' مطابقة، ' +
-    partial_traits.length +
-    ' جزئية، ' +
     failed_traits.length +
-    ' غير مطابقة، ' +
-    unknown_traits.length +
-    ' غير محددة.';
+    ' عدم تطابق مؤكد، ' +
+    insufficient_traits.length +
+    ' بأدلة غير كافية، ' +
+    unsupported_traits.length +
+    ' بلا قاعدة تحقق، ' +
+    conflicting_traits.length +
+    ' بأدلة متعارضة.';
 
   return {
     trait_match_score: trait_match_score,
+    evaluable_trait_count: evaluable_trait_count,
+    denominator: evaluable_trait_count,
+    total_trait_count: traits.length,
+    coverage: traits.length ? Number((evaluable_trait_count / traits.length).toFixed(4)) : 0,
     matched_traits: matched_traits,
     partial_traits: partial_traits,
     failed_traits: failed_traits,
     unknown_traits: unknown_traits,
+    unsupported_traits: unsupported_traits,
+    insufficient_traits: insufficient_traits,
+    conflicting_traits: conflicting_traits,
     anomalies: anomalies,
     summary_ar: summary_ar,
     _observed_traits_debug: observed
@@ -228,8 +276,10 @@ function matchDururTraitsWithMonitoringData(ctx) {
 
 function computeSeasonalValidationConfidence(params) {
   const wm = params && params.weather_meta && typeof params.weather_meta === 'object' ? params.weather_meta : {};
-  const matchScore = Number(params && params.trait_match_score);
-  const agreement = Number(params && params.source_agreement_score);
+  const rawMatchScore = params && params.trait_match_score;
+  const matchScore = rawMatchScore == null ? NaN : Number(rawMatchScore);
+  const rawAgreement = params && params.source_agreement_score;
+  const agreement = rawAgreement == null ? NaN : Number(rawAgreement);
   const open = params && params.openMeteoValues ? params.openMeteoValues : {};
 
   let source_confidence = 55;
@@ -244,9 +294,9 @@ function computeSeasonalValidationConfidence(params) {
   const matched = Array.isArray(val.matched_traits) ? val.matched_traits.length : 0;
   const failed = Array.isArray(val.failed_traits) ? val.failed_traits.length : 0;
   const tot = matched + failed;
-  const dur_confidence = tot > 0 ? Math.round((matched / tot) * 100) : 50;
+  const dur_confidence = tot > 0 ? Math.round((matched / tot) * 100) : null;
 
-  const trait_confidence = Number.isFinite(matchScore) ? Math.max(0, Math.min(100, matchScore)) : 0;
+  const trait_confidence = Number.isFinite(matchScore) ? Math.max(0, Math.min(100, matchScore)) : null;
 
   const env = openMeteoToEnvironment(open);
   let filled = 0;
@@ -256,9 +306,11 @@ function computeSeasonalValidationConfidence(params) {
   if (env.temp_c != null) filled += 1;
   const environmental_confidence = Math.round((filled / 4) * 100);
 
-  const validation_confidence = Math.round(
-    Math.min(100, trait_confidence * 0.5 + (Number.isFinite(agreement) ? agreement * 0.5 : source_confidence * 0.5))
-  );
+  const validation_confidence = trait_confidence == null
+    ? null
+    : Math.round(
+      Math.min(100, trait_confidence * 0.5 + (Number.isFinite(agreement) ? agreement * 0.5 : source_confidence * 0.5))
+    );
 
   return {
     source_confidence: source_confidence,
@@ -396,14 +448,8 @@ function updateFrameworkAfterRun(doc, matchResult, station, year, dateStr, regio
   (matchResult.matched_traits || []).forEach(function (r) {
     bumpTrait(byId[r.trait_id], 'matched');
   });
-  (matchResult.partial_traits || []).forEach(function (r) {
-    bumpTrait(byId[r.trait_id], 'partial');
-  });
   (matchResult.failed_traits || []).forEach(function (r) {
     bumpTrait(byId[r.trait_id], 'failed');
-  });
-  (matchResult.unknown_traits || []).forEach(function (r) {
-    bumpTrait(byId[r.trait_id], 'unknown');
   });
 
   doc.traits = traits;
@@ -411,14 +457,70 @@ function updateFrameworkAfterRun(doc, matchResult, station, year, dateStr, regio
   return doc;
 }
 
-async function appendSeasonalHistory(readJsonFile, writeJsonFile, record) {
+async function appendSeasonalHistory(readJsonFile, writeJsonFile, record, historyStore) {
   const doc = await readJsonFile('navidur_seasonal_validation_history', { version: 1, entries: [] });
   const entries = Array.isArray(doc.entries) ? doc.entries : [];
-  entries.unshift(record);
+  const next = Object.assign({}, record || {});
+  const key = [next.station_id, next.dur_id, next.date, next.verification_rule_version || 'legacy'].join('|');
+  const evidence = {
+    observation_evidence: next.observation_evidence ? {
+      values: next.observation_evidence.values || {},
+      provider: next.observation_evidence.provider || 'unknown',
+      measurement_kind: next.observation_evidence.measurement_kind || 'unknown',
+      observation_time: next.observation_evidence.observation_time || null,
+      cached: next.observation_evidence.cached === true,
+      defaulted: next.observation_evidence.defaulted === true
+    } : null,
+    expected_traits: next.expected_traits || [],
+    matched_traits: next.matched_traits || [],
+    partial_traits: next.partial_traits || [],
+    failed_traits: next.failed_traits || [],
+    unsupported_traits: next.unsupported_traits || [],
+    insufficient_traits: next.insufficient_traits || [],
+    conflicting_traits: next.conflicting_traits || []
+  };
+  const signature = crypto.createHash('sha256').update(JSON.stringify(evidence)).digest('hex');
+  let latestPrior = null;
+  let maxRevision = 0;
+  let duplicateRecord = null;
+  function inspectPrior(entry) {
+    if (!entry || [entry.station_id, entry.dur_id, entry.date, entry.verification_rule_version || 'legacy'].join('|') !== key) return;
+    const revision = Number(entry.revision_number) || 1;
+    if (revision > maxRevision) {
+      maxRevision = revision;
+      latestPrior = entry;
+    }
+    if (entry.evidence_signature === signature) duplicateRecord = entry;
+  }
+  entries.forEach(inspectPrior);
+  if (historyStore && typeof historyStore.getSeasonalValidationHistoryPage === 'function') {
+    await historyStore.getSeasonalValidationHistoryPage({
+      stationId: next.station_id,
+      durId: next.dur_id,
+      date: next.date,
+      ruleVersion: next.verification_rule_version || 'legacy',
+      includeLegacy: false,
+      onRecord: inspectPrior,
+      limit: 1
+    });
+  }
+  if (duplicateRecord) return { doc: doc, duplicate: true, record: duplicateRecord };
+
+  next.validation_id = next.validation_id || 'seasonal_' + crypto.randomBytes(12).toString('hex');
+  next.evidence_signature = signature;
+  next.revision_number = maxRevision + 1;
+  if (latestPrior) {
+    next.supersedes_validation_id = latestPrior.validation_id || null;
+  }
+  if (historyStore && typeof historyStore.appendSeasonalValidationRecord === 'function') {
+    await historyStore.appendSeasonalValidationRecord(next);
+    return { doc: doc, duplicate: false, record: next };
+  }
+  entries.unshift(next);
   doc.entries = entries.slice(0, 2500);
   doc.version = 1;
   await writeJsonFile('navidur_seasonal_validation_history', doc);
-  return doc;
+  return { doc: doc, duplicate: false, record: next };
 }
 
 function filterHistoryForComparison(entries, durId, stationId, region, dateStr) {
@@ -436,6 +538,18 @@ function filterHistoryForComparison(entries, durId, stationId, region, dateStr) 
   });
 }
 
+function getYearComparisonCompleteness(historyPage) {
+  const complete = !(historyPage && (
+    historyPage.has_more ||
+    historyPage.is_partial ||
+    historyPage.offset > 0
+  ));
+  return {
+    year_comparison_complete: complete,
+    year_comparison_status: complete ? 'complete' : 'partial'
+  };
+}
+
 module.exports = {
   matchDururTraitsWithMonitoringData: matchDururTraitsWithMonitoringData,
   computeSeasonalValidationConfidence: computeSeasonalValidationConfidence,
@@ -445,5 +559,6 @@ module.exports = {
   updateFrameworkAfterRun: updateFrameworkAfterRun,
   appendSeasonalHistory: appendSeasonalHistory,
   filterHistoryForComparison: filterHistoryForComparison,
+  getYearComparisonCompleteness: getYearComparisonCompleteness,
   observedTraitStrings: observedTraitStrings
 };

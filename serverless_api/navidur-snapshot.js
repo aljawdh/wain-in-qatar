@@ -58,14 +58,9 @@ async function captureSnapshotInternal(body, options) {
     tide_debug: weatherPack.tide_debug && typeof weatherPack.tide_debug === 'object' ? weatherPack.tide_debug : null,
     field_validation: fieldValidation
   });
-  try {
-    var valLayerSnap = buildValidationResult(dto, fieldValidation, null);
-    dto.validation = valLayerSnap.validation;
-    dto.comparison_mode = valLayerSnap.comparison_mode;
-  } catch (_vls) {
-    dto.validation = { mode: 'reference', reason: null, observed_traits: [] };
-    dto.comparison_mode = 'reference';
-  }
+  var valLayerSnap = buildValidationResult(dto, fieldValidation, null);
+  dto.validation = valLayerSnap.validation;
+  dto.comparison_mode = valLayerSnap.comparison_mode;
   try {
     dto.internal_trait_signals = publicNavidurDto.buildInternalTraitSignalsFromDto(dto);
   } catch (_its) {
@@ -90,27 +85,60 @@ async function captureSnapshotInternal(body, options) {
   });
 
   await appendStationSnapshot(snapshot);
+  var validationPersistenceStatus = validation ? 'pending' : 'not_applicable';
+  var learningStatus = 'not_applicable';
   if (validation) {
-    await appendDurValidationLog(validation);
+    try {
+      await appendDurValidationLog(validation);
+      validationPersistenceStatus = 'saved';
+    } catch (validationLogError) {
+      console.error('NAVIDUR_SNAPSHOT_VALIDATION_PERSISTENCE_FAILED', {
+        validation_id: validation.validation_id,
+        error: String(validationLogError && validationLogError.message ? validationLogError.message : validationLogError)
+      });
+      var partialPersistenceError = new Error('snapshot_saved_validation_log_failed');
+      partialPersistenceError.code = 'snapshot_partial_persistence';
+      throw partialPersistenceError;
+    }
     if (validation.comparison_mode !== 'no_reference') {
-      try {
-        await traitLongTerm.bumpTraitCyclesFromValidationRecord(validation, {
-          reference_bucket_id: validation.station_id,
-          dur_name_ar: validation.dur_name,
-          phase_id: validation.phase_id || '',
-          depth_mode: validation.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
-          evidence_meta: traitLongTerm.resolveEvidenceMeta(body, fieldValidation),
-          environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
-          analysis_date: dto.analysis_date || null,
-          reference_station_name_ar: validation.reference_station_name_ar || null
-        });
-      } catch (_bumpSnap) { /* ignore */ }
+      var evidenceMeta = traitLongTerm.resolveEvidenceMeta(body, fieldValidation);
+      if (
+        validation.evaluable_trait_count > 0 &&
+        validation.validation_score != null &&
+        dto.environment &&
+        dto.environment.measurement_kind === 'observation' &&
+        evidenceMeta.source !== 'forecast'
+      ) {
+        try {
+          await traitLongTerm.bumpTraitCyclesFromValidationRecord(validation, {
+            reference_bucket_id: validation.station_id,
+            dur_name_ar: validation.dur_name,
+            phase_id: validation.phase_id || '',
+            depth_mode: validation.depth_mode || cleanString(body.depth_mode, 20) || 'coastal',
+            evidence_meta: evidenceMeta,
+            environment: dto.environment && typeof dto.environment === 'object' ? dto.environment : null,
+            analysis_date: dto.analysis_date || null,
+            reference_station_name_ar: validation.reference_station_name_ar || null
+          });
+          learningStatus = 'updated';
+        } catch (learningError) {
+          learningStatus = 'failed';
+          console.error('NAVIDUR_SNAPSHOT_LEARNING_UPDATE_FAILED', {
+            validation_id: validation.validation_id,
+            error: String(learningError && learningError.message ? learningError.message : learningError)
+          });
+        }
+      } else {
+        learningStatus = 'skipped_unverified_evidence';
+      }
     }
   }
 
   return {
     snapshot: snapshot,
     validation: validation,
+    validation_persistence_status: validationPersistenceStatus,
+    learning_status: learningStatus,
     dto: publicNavidurDto.sanitizePublicNavidurDto(dto)
   };
 }
@@ -137,9 +165,17 @@ async function handler(req, res) {
       ok: true,
       snapshot: result.snapshot,
       validation: result.validation,
+      validation_persistence_status: result.validation_persistence_status,
+      learning_status: result.learning_status,
       dto: result.dto
     });
   } catch (error) {
+    if (error && error.code === 'snapshot_partial_persistence') {
+      return res.status(500).json({
+        error: 'snapshot_partial_persistence',
+        persistence_status: 'snapshot_saved_validation_log_failed'
+      });
+    }
     return res.status(500).json({
       error: 'snapshot_capture_failed',
       detail: String(error && error.message ? error.message : error)

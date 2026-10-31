@@ -17,7 +17,6 @@
   }
 
   var SUPPORTED_VALIDATION_TRAITS = [
-    'جو حار وجاف',
     'جو بارد',
     'اعتدال الجو',
     'بحر مضطرب',
@@ -35,6 +34,25 @@
     'حمل',
     'فساد'
   ];
+
+  var VALIDATION_RULE_FIELDS = {
+    'جو بارد': ['temp_c'],
+    'اعتدال الجو': ['temp_c'],
+    'بحر مضطرب': ['wave_height_m'],
+    'نشاط الموج': ['wave_height_m'],
+    'بحر هادئ': ['wave_height_m'],
+    'تيار قوي': ['current_speed_ms'],
+    'نشاط التيارات': ['current_speed_ms'],
+    'تيار خفيف': ['current_speed_ms'],
+    'رياح قوية': ['wind_speed_kmh'],
+    'رياح متوسطة': ['wind_speed_kmh'],
+    'رياح خفيفة': ['wind_speed_kmh'],
+    'جو متقلب': ['wind_speed_kmh', 'wave_height_m'],
+    'جو متقلب وغير مستقر': ['wind_speed_kmh', 'wave_height_m'],
+    'عواصف قوية': ['wind_speed_kmh', 'wave_height_m'],
+    'حمل': ['tide_state'],
+    'فساد': ['tide_state']
+  };
 
   function toArray(value) {
     return Array.isArray(value) ? value : [];
@@ -178,6 +196,7 @@
       temp_c: toNumber(environment.temp_c),
       wind_speed_kmh: toNumber(environment.wind_speed_kmh),
       wind_direction_deg: toNumber(environment.wind_direction_deg),
+      humidity_pct: toNumber(environment.humidity_pct),
       derived_traits: uniqueStrings(deriveObservedTraitsFromDto({
         environment: {
           temp_c: environment.temp_c,
@@ -197,7 +216,9 @@
     var tide = dto && dto.tide ? dto.tide : {};
     return {
       wave_height_m: toNumber(environment.wave_height_m),
+      wave_direction_deg: toNumber(environment.wave_direction_deg),
       current_speed_ms: toNumber(tide.current_speed_ms),
+      current_direction_deg: toNumber(tide.current_direction_deg != null ? tide.current_direction_deg : environment.current_direction_deg),
       derived_traits: uniqueStrings(deriveObservedTraitsFromDto({
         environment: {
           wave_height_m: environment.wave_height_m
@@ -213,10 +234,12 @@
 
   function summarizeObservedTide(dto) {
     var tide = dto && dto.tide ? dto.tide : {};
+    var environmentTide = dto && dto.environment && dto.environment.tide ? dto.environment.tide : {};
     var stateAr = mapTideStateToArabic(tide.state);
     return {
       state: normalizeString(tide.state),
       state_ar: stateAr === 'غير معروف' ? '' : stateAr,
+      height_m: toNumber(environmentTide.height_m),
       current_speed_ms: toNumber(tide.current_speed_ms),
       derived_traits: stateAr === 'غير معروف' ? [] : [stateAr]
     };
@@ -238,9 +261,17 @@
   function buildValidationResult(dto, fieldValidation, notes) {
     var expected = collectExpectedTraits(dto);
     var observed = deriveObservedTraitsFromDto(dto);
-    var expectedCount = expected.comparable.length;
+    var environment = dto && dto.environment ? dto.environment : {};
+    var tide = dto && dto.tide ? dto.tide : {};
+    var values = {
+      temp_c: toNumber(environment.temp_c),
+      wind_speed_kmh: toNumber(environment.wind_speed_kmh),
+      wave_height_m: toNumber(environment.wave_height_m),
+      current_speed_ms: toNumber(tide.current_speed_ms),
+      tide_state: normalizeString(tide.state)
+    };
 
-    if (!expectedCount) {
+    if (!expected.all.length) {
       try {
         if (typeof console !== 'undefined' && console.debug) {
           console.debug('NAVIDUR_VALIDATION_MODE', {
@@ -264,6 +295,12 @@
           observed_traits: observed.slice()
         },
         expected_traits: [],
+        unsupported_traits: [],
+        insufficient_traits: [],
+        evaluable_traits: [],
+        evaluable_trait_count: 0,
+        total_expected_traits: 0,
+        coverage: 0,
         observed_traits: observed,
         matched_traits: [],
         failed_traits: [],
@@ -277,26 +314,58 @@
       };
     }
 
-    var matched = expected.comparable.filter(function (trait) {
-      return observed.indexOf(trait) >= 0;
-    });
-    var failed = expected.comparable.filter(function (trait) {
-      return matched.indexOf(trait) < 0;
+    var evaluable = [];
+    var matched = [];
+    var failed = [];
+    var insufficient = [];
+    var unsupported = expected.unsupported.slice();
+    expected.comparable.forEach(function (trait) {
+      var fields = VALIDATION_RULE_FIELDS[trait];
+      if (!fields) {
+        unsupported.push(trait);
+        return;
+      }
+      if (normalizeString(environment.measurement_kind) !== 'observation') {
+        insufficient.push(trait);
+        return;
+      }
+      var present = fields.filter(function (field) { return values[field] != null; });
+      var isOrRule = trait === 'جو متقلب' || trait === 'جو متقلب وغير مستقر' || trait === 'عواصف قوية';
+      var isMatch = observed.indexOf(trait) >= 0;
+      if (isOrRule && isMatch) {
+        evaluable.push(trait);
+        matched.push(trait);
+        return;
+      }
+      if (isOrRule ? present.length !== fields.length : present.length !== fields.length) {
+        insufficient.push(trait);
+        return;
+      }
+      evaluable.push(trait);
+      if (isMatch) matched.push(trait);
+      else failed.push(trait);
     });
     var extra = observed.filter(function (trait) {
-      return expected.comparable.indexOf(trait) < 0;
+      return expected.all.indexOf(trait) < 0;
     });
-    var matchedCount = matched.length;
-    var coverage = expectedCount ? (matchedCount / expectedCount) : 0;
-    var penalty = extra.length ? (extra.length / Math.max(1, observed.length)) * 20 : 0;
-    var score = expectedCount ? clamp(Math.round((coverage * 100) - penalty), 0, 100) : 0;
-    var status = 'needs_review';
-    if (matchedCount === expectedCount && extra.length === 0) status = 'matched';
-    else if (matchedCount === 0) status = 'failed';
-    else status = 'partial';
+    var evaluableCount = evaluable.length;
+    var coverage = expected.all.length ? evaluableCount / expected.all.length : 0;
+    var score = evaluableCount ? Math.round((matched.length / evaluableCount) * 100) : null;
+    var status = !evaluableCount
+      ? 'insufficient_evidence'
+      : (insufficient.length > 0 || unsupported.length > 0)
+        ? 'partial'
+        : (matched.length === evaluableCount)
+        ? 'matched'
+        : matched.length > 0
+          ? 'partial'
+          : failed.length > 0
+            ? 'failed'
+            : 'insufficient_evidence';
 
     var noteParts = [];
-    if (expected.unsupported.length) noteParts.push('unsupported_reference_traits: ' + expected.unsupported.join(', '));
+    if (unsupported.length) noteParts.push('unsupported_reference_traits: ' + uniqueStrings(unsupported).join(', '));
+    if (insufficient.length) noteParts.push('insufficient_evidence_traits: ' + insufficient.join(', '));
     if (fieldValidation && Array.isArray(fieldValidation.observed_traits) && fieldValidation.observed_traits.length) {
       noteParts.push('field_observed_traits: ' + uniqueStrings(fieldValidation.observed_traits).join(', '));
     }
@@ -310,6 +379,12 @@
         observed_traits: observed.slice()
       },
       expected_traits: expected.comparable,
+      evaluable_traits: evaluable,
+      evaluable_trait_count: evaluableCount,
+      total_expected_traits: expected.all.length,
+      coverage: coverage,
+      unsupported_traits: uniqueStrings(unsupported),
+      insufficient_traits: insufficient,
       observed_traits: observed,
       matched_traits: matched,
       failed_traits: failed,
@@ -327,10 +402,18 @@
     var dto = input && input.dto ? input.dto : {};
     var station = input && input.station ? input.station : {};
     var observedTraits = deriveObservedTraitsFromDto(dto);
+    var validation = buildValidationResult(dto, null, null);
+    var verificationStatus = validation.validation_status === 'failed'
+      ? 'confirmed_mismatch'
+      : validation.validation_status === 'no_reference'
+        ? 'not_applicable'
+        : validation.validation_status;
     return {
       snapshot_id: normalizeString(input && input.snapshot_id),
       station_id: normalizeString(station.id || input && input.station_id),
       station_name: normalizeString(station.name || input && input.station_name),
+      region_id: normalizeString(station.region_id || station.region),
+      region: normalizeString(station.region),
       timestamp: normalizeString(input && input.timestamp),
       analysis_date: normalizeString(dto.analysis_timestamp || '').slice(0, 10),
       dur_id: normalizeString(dto && dto.dur && dto.dur.period_id),
@@ -342,6 +425,27 @@
       observed_marine: summarizeObservedMarine(dto),
       observed_tide: summarizeObservedTide(dto),
       observed_traits: observedTraits,
+      expected_traits: validation.expected_traits,
+      matched_traits: validation.matched_traits,
+      failed_traits: validation.failed_traits,
+      insufficient_traits: validation.insufficient_traits,
+      unsupported_traits: validation.unsupported_traits,
+      evaluable_traits: validation.evaluable_traits,
+      evaluable_trait_count: validation.evaluable_trait_count,
+      total_expected_traits: validation.total_expected_traits,
+      validation_score: validation.validation_score,
+      validation_status: validation.validation_status,
+      verification_status: verificationStatus,
+      validation_notes: validation.notes,
+      evidence_metadata: {
+        provider: normalizeString(dto && dto.environment && dto.environment.forecast_source),
+        retrieved_at: normalizeString(input && input.timestamp),
+        observation_time: normalizeString(dto && dto.environment && dto.environment.as_of),
+        measurement_kind: normalizeString(dto && dto.environment && dto.environment.measurement_kind) || 'unspecified',
+        from_cache: !!(dto && dto.environment && dto.environment.live_weather_from_cache),
+        from_defaults: !!(dto && dto.environment && dto.environment.from_weather_defaults),
+        marine_data_unavailable: !!(dto && dto.environment && dto.environment.no_marine_data_for_date)
+      },
       load_fasad_state: mapTideStateToArabic(dto && dto.tide && dto.tide.state),
       live_analysis_outputs: {
         tide_state: normalizeString(dto && dto.tide && dto.tide.state),
@@ -393,6 +497,12 @@
       comparison_mode: comparison.comparison_mode || 'reference',
       validation: comparison.validation && typeof comparison.validation === 'object' ? comparison.validation : null,
       expected_traits: comparison.expected_traits,
+      evaluable_traits: comparison.evaluable_traits,
+      evaluable_trait_count: comparison.evaluable_trait_count,
+      total_expected_traits: comparison.total_expected_traits,
+      coverage: comparison.coverage,
+      unsupported_traits: comparison.unsupported_traits,
+      insufficient_traits: comparison.insufficient_traits,
       observed_traits: comparison.observed_traits,
       matched_traits: comparison.matched_traits,
       failed_traits: comparison.failed_traits,

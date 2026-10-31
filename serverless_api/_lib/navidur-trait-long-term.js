@@ -311,12 +311,27 @@ function yearCycleCountForSupervisor(row) {
  * @param {object} ctx — { reference_bucket_id, dur_name_ar, phase_id, depth_mode, evidence_meta, environment, analysis_date, reference_station_name_ar }
  */
 async function bumpTraitCyclesFromValidationRecord(record, ctx) {
+  var environment = ctx && ctx.environment && typeof ctx.environment === 'object' ? ctx.environment : null;
+  var evidenceMeta = ctx && ctx.evidence_meta ? ctx.evidence_meta : null;
+  if (
+    !record ||
+    record.comparison_mode === 'no_reference' ||
+    !(Number(record.evaluable_trait_count) > 0) ||
+    record.validation_score == null ||
+    !environment ||
+    environment.measurement_kind !== 'observation' ||
+    !evidenceMeta ||
+    (evidenceMeta.source !== 'field' && evidenceMeta.source !== 'buoy')
+  ) {
+    return null;
+  }
+
   var refId = normalizeString(ctx && ctx.reference_bucket_id);
   var durAr = normalizeString(ctx && ctx.dur_name_ar);
   var phaseId = normalizeString(ctx && ctx.phase_id);
   var depth = normalizeString(ctx && ctx.depth_mode) || 'coastal';
   if (!refId || !durAr) return null;
-  var meta = ctx.evidence_meta || { source: 'forecast', weight: WEIGHT_FORECAST };
+  var meta = evidenceMeta;
   var scopeKey = traitCalib.buildTraitCalibrationScopeKey({
     reference_station_id: refId,
     dur_name_ar: durAr,
@@ -345,6 +360,7 @@ async function bumpTraitCyclesFromValidationRecord(record, ctx) {
   var matched = toArray(record && record.matched_traits);
   var failed = toArray(record && record.failed_traits);
   var extra = toArray(record && record.extra_traits);
+  if (!matched.length && !failed.length && !extra.length) return null;
 
   var refNameAr = normalizeString(ctx && ctx.reference_station_name_ar) || normalizeString(record && record.reference_station_name_ar);
 

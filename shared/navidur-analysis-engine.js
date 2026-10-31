@@ -1177,9 +1177,13 @@
       var li = options.live_inputs && typeof options.live_inputs === 'object' ? options.live_inputs : {};
       return {
         temp_c: liveEnvironment.temp_c,
+        sea_surface_temp_c: liveEnvironment.temp_c,
         wind_speed_kmh: liveEnvironment.wind_speed_kmh,
         wind_direction_deg: liveEnvironment.wind_direction_deg,
         wave_height_m: liveEnvironment.wave_height_m,
+        wave_direction_deg: toNumber(li.wave_direction_deg),
+        current_speed_ms: liveEnvironment.current_speed_ms,
+        current_direction_deg: toNumber(li.current_direction_deg != null ? li.current_direction_deg : li.ocean_current_direction_deg),
         live_weather_from_cache: !!weatherMeta.from_cache,
         from_weather_defaults: !!weatherMeta.from_defaults,
         no_marine_data_for_date: !!weatherMeta.no_marine_data_for_date,

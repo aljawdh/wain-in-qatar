@@ -116,7 +116,7 @@ module.exports = async function handler(req, res) {
 
   var cronSecret = process.env.CRON_SECRET;
   if (typeof cronSecret !== 'string' || cronSecret.length === 0) {
-    return res.status(503).json({ error: 'cron_secret_not_configured' });
+    return res.status(401).json({ error: 'unauthorized' });
   }
   var expectedAuthorization = Buffer.from('Bearer ' + cronSecret, 'utf8');
   var authorization = req.headers && req.headers.authorization;
