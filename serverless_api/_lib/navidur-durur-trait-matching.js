@@ -8,10 +8,17 @@ const crypto = require('crypto');
 
 const { deriveWaterTraits } = require('./navidur-analysis-runtime');
 let deriveObservedTraitsFromDto;
+let buildValidationResult;
+let getValidationRuleFields;
 try {
-  deriveObservedTraitsFromDto = require('../../shared/navidur-snapshot-validation').deriveObservedTraitsFromDto;
+  const validation = require('../../shared/navidur-snapshot-validation');
+  deriveObservedTraitsFromDto = validation.deriveObservedTraitsFromDto;
+  buildValidationResult = validation.buildValidationResult;
+  getValidationRuleFields = validation.getValidationRuleFields;
 } catch (_e) {
   deriveObservedTraitsFromDto = null;
+  buildValidationResult = null;
+  getValidationRuleFields = null;
 }
 
 function nfc(s) {
@@ -152,6 +159,39 @@ function classifyTraitVersusObserved(trait, observed, open) {
   return 'insufficient_evidence';
 }
 
+function evaluateHeritageRule(trait, open, dto, measurementKind) {
+  if (typeof buildValidationResult !== 'function' || typeof getValidationRuleFields !== 'function') return null;
+  const name = nfc(trait && trait.trait_name);
+  const fields = getValidationRuleFields(name);
+  if (!fields.length) return null;
+  const env = openMeteoToEnvironment(open);
+  const sourceTide = dto && dto.tide && typeof dto.tide === 'object' ? dto.tide : {};
+  const result = buildValidationResult({
+    dur: {
+      reference: { general_traits: [], weather_traits: [name], marine_traits: [] },
+      active_phase_reference: null
+    },
+    environment: {
+      temp_c: env.temp_c,
+      wind_speed_kmh: env.wind_speed_kmh,
+      wave_height_m: env.wave_height_m,
+      measurement_kind: measurementKind
+    },
+    tide: {
+      current_speed_ms: sourceTide.current_speed_ms != null ? sourceTide.current_speed_ms : env.current_speed_ms,
+      state: sourceTide.state || null
+    }
+  }, null, null);
+  const status = result.matched_traits.indexOf(name) >= 0
+    ? 'matched'
+    : result.failed_traits.indexOf(name) >= 0
+      ? 'failed'
+      : result.insufficient_traits.indexOf(name) >= 0
+        ? 'insufficient_evidence'
+        : 'unsupported';
+  return { fields: fields, status: status };
+}
+
 /**
  * Independent seasonal trait matcher (monitoring / admin only).
  */
@@ -176,13 +216,30 @@ function matchDururTraitsWithMonitoringData(ctx) {
     wind_speed_kmh: 'windSpeed',
     wave_height_m: 'waveHeight',
     current_speed_ms: 'currentSpeed',
-    temp_c: 'waterTemperature'
+    temp_c: 'waterTemperature',
+    tide_state: 'tideState'
   };
 
   for (let i = 0; i < traits.length; i += 1) {
     const t = traits[i];
     const range = t && t.expected_range && typeof t.expected_range === 'object' ? t.expected_range : {};
-    const conflict = Object.keys(range).some(function (key) {
+    const hasRangeRule = Object.keys(range).some(function (key) {
+      return /_(?:min|max)$/.test(key);
+    });
+    const heritageRule = hasRangeRule ? null : evaluateHeritageRule(t, open, dto, ctx && ctx.measurementKind);
+    const ruleFields = hasRangeRule
+      ? Array.from(new Set(Object.keys(range).filter(function (key) {
+        return /_(?:min|max)$/.test(key);
+      }).map(function (key) { return key.replace(/_(?:min|max)$/, ''); })))
+      : (heritageRule ? heritageRule.fields : []);
+    const env = openMeteoToEnvironment(open);
+    const tideState = dto && dto.tide ? dto.tide.state : null;
+    const conflict = ruleFields.some(function (field) {
+      const pairKey = rangeFieldToAgreementField[field];
+      return !!pairKey && agreementPairs.some(function (pair) {
+        return pair && pair.key === pairKey && pair.pass === false;
+      });
+    }) || Object.keys(range).some(function (key) {
       if (!/_(?:min|max)$/.test(key)) return false;
       const field = key.replace(/_(?:min|max)$/, '');
       const pairKey = rangeFieldToAgreementField[field];
@@ -192,16 +249,38 @@ function matchDururTraitsWithMonitoringData(ctx) {
     });
     const status = conflict
       ? 'conflicting_evidence'
-      : (ctx && ctx.measurementKind !== 'observation' &&
-        Object.keys(range).some(function (key) { return /_(?:min|max)$/.test(key); }))
+      : hasRangeRule && ctx && ctx.measurementKind !== 'observation'
         ? 'insufficient_evidence'
-      : classifyTraitVersusObserved(t, observed, open);
+        : hasRangeRule
+          ? classifyTraitVersusObserved(t, observed, open)
+          : heritageRule
+            ? heritageRule.status
+            : 'unsupported';
+    const missingRuleFields = ruleFields.filter(function (field) {
+      if (field === 'tide_state') return !tideState;
+      return env[field] == null || !Number.isFinite(env[field]);
+    });
+    const diagnostic = status === 'conflicting_evidence'
+      ? 'تعارضت قراءات المصادر في القياس المرتبط بهذه القاعدة؛ لم تُحسب النتيجة.'
+      : status === 'unsupported'
+        ? 'لا توجد قاعدة تحقق معتمدة لهذا الوصف التراثي؛ لم يُصنف كتطابق أو عدم تطابق.'
+        : status === 'insufficient_evidence' && ctx && ctx.measurementKind !== 'observation'
+          ? 'البيانات الحالية ليست رصدًا ميدانيًا مؤكدًا؛ لا تُستخدم لتأكيد التطابق أو عدمه.'
+          : status === 'insufficient_evidence'
+            ? missingRuleFields.length
+              ? 'الرصد لا يتضمن القياسات المطلوبة لهذه القاعدة.'
+              : 'تعذر التقييم لعدم اكتمال دليل القاعدة.'
+            : status === 'matched'
+              ? 'انطبقت القراءة على قاعدة التحقق المرجعية.'
+              : 'اكتملت القياسات ولم تنطبق قاعدة التحقق المرجعية.';
     const row = {
       trait_id: t.id,
       trait_name: t.trait_name,
       trait_category: t.trait_category || '',
       status: status,
-      expected_range: Object.keys(range).length ? range : null
+      expected_range: Object.keys(range).length ? range : null,
+      validation_rule_fields: ruleFields,
+      diagnostic_ar: diagnostic
     };
     if (status === 'matched') matched_traits.push(row);
     else if (status === 'partial') partial_traits.push(row);

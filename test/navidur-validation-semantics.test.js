@@ -53,6 +53,18 @@ test('missing observations are insufficient evidence and never a confirmed misma
   assert.deepEqual(result.insufficient_traits, ['جو بارد']);
 });
 
+test('explicit null measurements remain missing instead of becoming numeric zero', function () {
+  const result = validation.buildValidationResult(
+    dtoFor(['جو بارد'], { temp_c: null, measurement_kind: 'observation' }),
+    null,
+    null
+  );
+  assert.equal(result.validation_status, 'insufficient_evidence');
+  assert.equal(result.validation_score, null);
+  assert.deepEqual(result.failed_traits, []);
+  assert.deepEqual(result.insufficient_traits, ['جو بارد']);
+});
+
 test('model or provider values without explicit observation provenance are not scored', function () {
   const result = validation.buildValidationResult(
     dtoFor(['جو بارد'], { temp_c: 12 }),
@@ -107,7 +119,7 @@ test('heritage traits without an explicit verification rule are reported unsuppo
 test('seasonal matcher does not use text overlap or score unsupported traits', function () {
   const result = matching.matchDururTraitsWithMonitoringData({
     frameworkTraits: [
-      { id: 'unsupported', trait_name: 'رياح قوية', expected_range: {} }
+      { id: 'unsupported', trait_name: 'رياح متقلبة', expected_range: {} }
     ],
     openMeteoValues: { windSpeed: 80 },
     measurementKind: 'observation'
@@ -116,6 +128,63 @@ test('seasonal matcher does not use text overlap or score unsupported traits', f
   assert.equal(result.denominator, 0);
   assert.equal(result.unsupported_traits.length, 1);
   assert.equal(result.failed_traits.length, 0);
+});
+
+test('seasonal matcher reuses existing explicit heritage validation rules only', function () {
+  const trait = { id: 'cold', trait_name: 'جو بارد', expected_range: {} };
+  const matched = matching.matchDururTraitsWithMonitoringData({
+    frameworkTraits: [trait],
+    openMeteoValues: { airTemperature: 12 },
+    measurementKind: 'observation'
+  });
+  assert.equal(matched.trait_match_score, 100);
+  assert.equal(matched.matched_traits[0].validation_rule_fields[0], 'temp_c');
+
+  const mismatch = matching.matchDururTraitsWithMonitoringData({
+    frameworkTraits: [trait],
+    openMeteoValues: { airTemperature: 25 },
+    measurementKind: 'observation'
+  });
+  assert.equal(mismatch.trait_match_score, 0);
+  assert.equal(mismatch.failed_traits.length, 1);
+
+  const unsupported = matching.matchDururTraitsWithMonitoringData({
+    frameworkTraits: [{ id: 'medium-current', trait_name: 'تيارات متوسطة', expected_range: {} }],
+    openMeteoValues: { currentSpeed: 0.6 },
+    measurementKind: 'observation'
+  });
+  assert.equal(unsupported.trait_match_score, null);
+  assert.equal(unsupported.unsupported_traits.length, 1);
+});
+
+test('heritage validation rules distinguish non-observations, missing measurements, and source conflicts', function () {
+  const trait = { id: 'moderate-wind', trait_name: 'رياح متوسطة', expected_range: {} };
+  const forecast = matching.matchDururTraitsWithMonitoringData({
+    frameworkTraits: [trait],
+    openMeteoValues: { windSpeed: 22 },
+    measurementKind: 'forecast'
+  });
+  assert.equal(forecast.insufficient_traits.length, 1);
+  assert.equal(forecast.failed_traits.length, 0);
+  assert.match(forecast.insufficient_traits[0].diagnostic_ar, /ليست رصدًا ميدانيًا/);
+
+  const missing = matching.matchDururTraitsWithMonitoringData({
+    frameworkTraits: [trait],
+    openMeteoValues: {},
+    measurementKind: 'observation'
+  });
+  assert.equal(missing.insufficient_traits.length, 1);
+  assert.equal(missing.failed_traits.length, 0);
+
+  const conflict = matching.matchDururTraitsWithMonitoringData({
+    frameworkTraits: [trait],
+    openMeteoValues: { windSpeed: 22 },
+    measurementKind: 'observation',
+    sourceAgreement: { pairs: [{ key: 'windSpeed', pass: false }] }
+  });
+  assert.equal(conflict.conflicting_traits.length, 1);
+  assert.equal(conflict.failed_traits.length, 0);
+  assert.equal(conflict.trait_match_score, null);
 });
 
 test('year comparisons are marked partial for cursor, offset, or additional pages', function () {

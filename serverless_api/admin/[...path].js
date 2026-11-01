@@ -2403,9 +2403,12 @@ module.exports = async function handler(req, res) {
         byYear[String(y)] = arr;
       }
       const yNow = new Date().getUTCFullYear();
-      const yearLog = filtered.filter(function (e) {
+      const currentYearRecords = filtered.filter(function (e) {
         return e && Number(e.year) === yNow;
-      }).slice(0, 50);
+      });
+      const yearLog = currentYearRecords.slice(0, 50);
+      const currentYearLogIsPartial = currentYearRecords.length > yearLog.length ||
+        historyPage.has_more || historyPage.is_partial;
       const yearComparisonStatus = dururTraitMatching.getYearComparisonCompleteness(historyPage);
       const matchPreview = dururTraitMatching.matchDururTraitsWithMonitoringData({
         dto: pack.dto,
@@ -2478,6 +2481,7 @@ module.exports = async function handler(req, res) {
         history_has_more: historyPage.has_more,
         history_next_offset: historyPage.next_offset,
         history_next_cursor: historyPage.next_cursor,
+        current_year_log_is_partial: currentYearLogIsPartial,
         year_comparison_complete: yearComparisonStatus.year_comparison_complete,
         year_comparison_status: yearComparisonStatus.year_comparison_status,
         insufficient_years_message:

@@ -59,6 +59,7 @@
   }
 
   function toNumber(value) {
+    if (value == null || value === '') return null;
     var n = Number(value);
     return Number.isFinite(n) ? n : null;
   }
@@ -398,6 +399,11 @@
     };
   }
 
+  function getValidationRuleFields(trait) {
+    var fields = VALIDATION_RULE_FIELDS[normalizeString(trait)];
+    return fields ? fields.slice() : [];
+  }
+
   function buildSnapshotRecord(input) {
     var dto = input && input.dto ? input.dto : {};
     var station = input && input.station ? input.station : {};
@@ -516,6 +522,7 @@
 
   return {
     deriveObservedTraitsFromDto: deriveObservedTraitsFromDto,
+    getValidationRuleFields: getValidationRuleFields,
     buildExpectedReferenceSummary: buildExpectedReferenceSummary,
     buildValidationResult: buildValidationResult,
     buildSnapshotRecord: buildSnapshotRecord,

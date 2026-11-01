@@ -331,8 +331,21 @@
       currentDirection: 'اتجاه التيار',
       waterTemperature: 'حرارة الماء',
       tideHeight: 'ارتفاع المد',
-      seaLevel: 'مستوى البحر'
+      seaLevel: 'مستوى البحر',
+      temp_c: 'درجة الحرارة',
+      wind_speed_kmh: 'سرعة الرياح',
+      wind_direction_deg: 'اتجاه الرياح',
+      humidity_pct: 'الرطوبة',
+      wave_height_m: 'ارتفاع الموج',
+      wave_direction_deg: 'اتجاه الموج',
+      current_speed_ms: 'سرعة التيار',
+      current_direction_deg: 'اتجاه التيار',
+      tide_state: 'حالة المد'
     };
+
+    function metricLabel(key) {
+      return METRIC_LABELS[key] || 'قياس إضافي';
+    }
 
     var CATEGORY_AR = { general: 'عام', weather: 'طقس', marine: 'بحري', fish: 'أسماك' };
 
@@ -901,7 +914,7 @@
         : '<tr><th>المؤشر</th><th>نافيدور / الرصد الحالي</th></tr>';
       byId('cmpHead').innerHTML = head;
       byId('cmpBody').innerHTML = keys.map(function (k) {
-        var lab = METRIC_LABELS[k] || k;
+        var lab = metricLabel(k);
         var o = om[k];
         var g = STORMGLASS_MONITORING_ENABLED && s.stormglass_values ? s.stormglass_values[k] : null;
         var u = k === 'windSpeed' ? 'كم/س' : (k === 'waveHeight' || k === 'currentSpeed' ? 'م/ث' : (k === 'seaLevel' ? 'م' : '°م'));
@@ -982,7 +995,7 @@
       ];
       var values = observationEvidence && observationEvidence.values || {};
       var valueText = Object.keys(values).map(function (key) {
-        return key + ': ' + (values[key] == null ? '—' : values[key]);
+        return metricLabel(key) + ': ' + (values[key] == null ? '—' : values[key]);
       }).join('، ');
       return traits.map(function (t) {
         var name = String(t.trait_name || '—');
@@ -991,27 +1004,40 @@
         var rate = t.match_rate != null ? t.match_rate + '%' : '—';
         var ev = t.evidence_count != null ? String(t.evidence_count) : '0';
         var resultStatus = 'unknown';
+        var resultRow = null;
         groups.some(function (group) {
           var row = (preview && preview[group[0]] || []).find(function (entry) {
             return entry && String(entry.trait_id) === String(t.id);
           });
           if (!row) return false;
           resultStatus = group[1];
+          resultRow = row;
           return true;
         });
         var hasRule = t.expected_range && Object.keys(t.expected_range).some(function (key) {
           return /_(?:min|max)$/.test(key);
         });
-        var rule = hasRule ? JSON.stringify(t.expected_range) : 'لا توجد قاعدة تحقق معتمدة لهذه السمة.';
-        var explanation = resultStatus === 'matched'
-          ? 'انطبقت القراءة على النطاق المحفوظ.'
+        var ruleFields = resultRow && Array.isArray(resultRow.validation_rule_fields) ? resultRow.validation_rule_fields : [];
+        var rule = hasRule
+          ? Object.keys(t.expected_range).map(function (key) {
+            var field = key.replace(/_(?:min|max)$/, '');
+            var boundary = /_min$/.test(key) ? 'الحد الأدنى' : /_max$/.test(key) ? 'الحد الأعلى' : '';
+            return metricLabel(field) + (boundary ? ' (' + boundary + ')' : '') + ': ' + t.expected_range[key];
+          }).join('، ')
+          : ruleFields.length
+            ? 'قاعدة محرك التحقق المرجعي للقياسات: ' + ruleFields.map(function (field) {
+              return metricLabel(field);
+            }).join('، ')
+            : 'لا توجد قاعدة تحقق معتمدة لهذه السمة.';
+        var explanation = (resultRow && resultRow.diagnostic_ar) || (resultStatus === 'matched'
+          ? 'انطبقت القراءة على قاعدة التحقق المرجعية.'
           : resultStatus === 'failed'
-            ? 'اكتملت القياسات المطلوبة وخرجت عن النطاق المحفوظ.'
+            ? 'اكتملت القياسات المطلوبة ولم تنطبق قاعدة التحقق المرجعية.'
             : resultStatus === 'conflicting_evidence'
               ? 'اختلفت المصادر؛ لم يُحسم التعارض.'
               : resultStatus === 'insufficient_evidence'
-                ? 'القياسات المطلوبة غير مكتملة.'
-                : 'لم تُقيّم السمة لعدم وجود قاعدة تحقق صريحة.';
+                ? 'القياسات المطلوبة غير مكتملة أو ليست رصدًا ميدانيًا.'
+                : 'لم تُقيّم السمة لعدم وجود قاعدة تحقق صريحة.');
         return '<details class="trait-card"><summary><strong>' + name + '</strong> — ' + PILL_STATUS_AR[resultStatus] + '</summary>' +
           '<p><strong>التصنيف:</strong> ' + cat + ' — <strong>تعريف المرجع:</strong> ' + (t.description_ar || 'غير متاح') + '</p>' +
           '<p><strong>حالة الإطار المحفوظة:</strong> ' + st + ' — <strong>الشواهد التاريخية:</strong> ' + ev + ' — <strong>المعدل التاريخي:</strong> ' + rate + '</p>' +
@@ -1146,9 +1172,11 @@
       var prevAvg = prevSt ? prevSt.avg : null;
 
       var matchHtml = '';
-      matchHtml += '<div class="card"><div class="k">نسبة اليوم</div><div class="v">' + (prev.trait_match_score != null ? prev.trait_match_score + '%' : '—') + '</div></div>';
-      matchHtml += '<div class="card"><div class="k">آخر متوسط محفوظ</div><div class="v">' + (lastSaved && lastSaved.trait_match_score != null ? lastSaved.trait_match_score + '%' : '—') + '</div></div>';
-      matchHtml += '<div class="card"><div class="k">متوسط السنة الحالية</div><div class="v">' + (avgYear ? avgYear.avg + '%' : '—') + '</div></div>';
+      matchHtml += '<div class="card"><div class="k">نسبة اليوم</div><div class="v">' + (prev.trait_match_score != null ? prev.trait_match_score + '%' : 'لا توجد درجة محسوبة') + '</div></div>';
+      matchHtml += '<div class="card"><div class="k">آخر نتيجة محفوظة</div><div class="v">' +
+        (lastSaved ? (lastSaved.trait_match_score != null ? lastSaved.trait_match_score + '%' : 'لا توجد درجة قابلة للحساب') : 'لا يوجد سجل محفوظ') + '</div></div>';
+      matchHtml += '<div class="card"><div class="k">متوسط السنة الحالية (لليوم والشهر المحددين)</div><div class="v">' +
+        (avgYear ? avgYear.avg + '%' + (b.current_year_log_is_partial ? ' — جزئي' : '') : 'لا توجد درجات قابلة للحساب') + '</div></div>';
       if (prevAvg != null) {
         matchHtml += '<div class="card"><div class="k">تطابق السنوات السابقة</div><div class="v">' + prevAvg + '%</div></div>';
       } else {
@@ -1196,7 +1224,8 @@
       ];
       byId('confidenceGrid').innerHTML = keys.map(function (kv) {
         var val = conf[kv[0]];
-        return '<div class="conf-item"><div class="k">' + kv[1] + '</div><div class="v" style="font-size:1.1rem">' + (val != null ? val : '—') + '</div></div>';
+        var emptyValue = kv[0] === 'dur_confidence' ? 'لا توجد مقارنة قابلة للحساب' : 'غير محسوبة';
+        return '<div class="conf-item"><div class="k">' + kv[1] + '</div><div class="v" style="font-size:1.1rem">' + (val != null ? val : emptyValue) + '</div></div>';
       }).join('');
 
       var regLines = buildRegionalNarrative(b, prev, stName);
